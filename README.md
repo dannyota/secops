@@ -30,22 +30,30 @@ go install danny.vn/secops/cmd/secopsctl@latest
 go build -o secopsctl ./cmd/secopsctl
 ```
 
-Requires Go ≥ 1.22. A single static binary — no runtime, no SDK install.
+Requires Go ≥ 1.26. A single static binary — no runtime, no SDK install.
 
 ### Authentication
 
-`secopsctl` keeps the two SecOps auth surfaces **split**, and resolves
-credentials lazily (so `--help`, `info`, and config never touch the network):
+Two surfaces, two credentials. `secopsctl` resolves them lazily, so `--help`,
+`info`, and config never touch the network.
 
-- **OAuth / ADC — for the Chronicle SIEM API.** Resolution order:
-  `SECOPS_ACCESS_TOKEN` (static bearer) → `GOOGLE_APPLICATION_CREDENTIALS`
-  (service-account JSON) → Application Default Credentials:
-  ```bash
-  gcloud auth application-default login   # once per machine, cloud-platform scope
-  ```
-- **API key / SOAR AppKey — for features that don't need ADC** (SOAR, webhooks):
-  `SECOPS_API_KEY` / `SECOPS_SOAR_APP_KEY`. Keep keys in your environment or a
-  secret store — never in the repo.
+**SIEM** (`pull` / `push` / `query` / `doctor`) — **Google ADC, no key to fetch:**
+```bash
+gcloud auth application-default login    # once; cloud-platform scope
+```
+The OAuth token is minted in-process from ADC (no `gcloud` shell-out, nothing
+written to disk). If you can't use `gcloud`, override with
+`GOOGLE_APPLICATION_CREDENTIALS` (a service-account key JSON) or
+`SECOPS_ACCESS_TOKEN` (a static bearer).
+
+**SOAR** (`soar …`) — **an AppKey, no ADC.** Generate it once in the Chronicle
+**SOAR UI → Settings → Advanced → API Keys → Add** (long-lived, admin-scoped),
+then:
+```bash
+export SECOPS_SOAR_APP_KEY=<key-from-the-soar-ui>
+```
+Keep keys in your environment or a secret store — **never in the repo**. (The
+Chronicle SIEM API uses no API key — it's OAuth/ADC only.)
 
 ## Quickstart
 
@@ -53,9 +61,10 @@ credentials lazily (so `--help`, `info`, and config never touch the network):
 # 1. Create your instance config from the template (placeholders only).
 cp config/instance.example.yaml config/instance.yaml
 # edit: project_id, project_number, region, customer_id
+#       (+ soar_url if you'll use `soar`)
 
-# 2. Verify identifiers (no API call).
-secopsctl info
+# 2. Verify config + live connectivity (read-only smoke test).
+secopsctl doctor
 
 # 3. Pull some live state (read-only; overwrites local files).
 secopsctl pull rules
@@ -63,11 +72,15 @@ secopsctl pull reference_lists
 
 # 4. Look around with an ad-hoc UDM query.
 secopsctl query udm 'metadata.event_type = "USER_LOGIN"' --hours 24 --json
+
+# 5. (SOAR) snapshot connectors — needs soar_url + SECOPS_SOAR_APP_KEY.
+secopsctl soar pull connectors
 ```
 
 `config/instance.yaml` is git-ignored, so your tenant identifiers never get
 committed. Discovery order: `--config` flag → `$SECOPSCTL_CONFIG` →
-`./config/instance.yaml` → `~/.config/secopsctl/instance.yaml`.
+`./config/instance.yaml` → `~/.secopsctl/instance.yaml` →
+`~/.config/secopsctl/instance.yaml`.
 
 ## Command surface
 
