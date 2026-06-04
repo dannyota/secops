@@ -14,7 +14,9 @@ linters:
     - errorlint # correct errors.Is/As and %w usage
     - gocritic # opinionated correctness/style diagnostics
     - gosec # security analysis (the point of "keep our project safe")
+    - intrange # use `for i := range n` (Go 1.22+) instead of counter loops
     - misspell # spelling in comments/strings
+    - modernize # gopls modernizers: min/max, maps.Copy, slices.*, omitzero, …
     - prealloc # pre-size slices where it clearly helps
     - revive # broad style/correctness rules (golint successor)
     - unconvert # remove redundant type conversions

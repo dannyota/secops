@@ -134,8 +134,8 @@ func PushRulesCreate(ctx context.Context, c *chronicle.Client, rulesDir string, 
 		// match block) cannot run LIVE, so the API auto-downgrades and the first
 		// deploy often returns enabled=false. Verify and re-issue at HOURLY.
 		dep, derr := c.UpdateRuleDeployment(ctx, ruleID, chronicle.RuleDeploymentUpdate{
-			Enabled:      boolPtr(defaultEnabled),
-			Alerting:     boolPtr(defaultAlerting),
+			Enabled:      new(defaultEnabled),
+			Alerting:     new(defaultAlerting),
 			RunFrequency: defaultRunFrequency,
 		})
 		if derr != nil {
@@ -147,8 +147,8 @@ func PushRulesCreate(ctx context.Context, c *chronicle.Client, rulesDir string, 
 				effective = "HOURLY"
 			}
 			if redep, rderr := c.UpdateRuleDeployment(ctx, ruleID, chronicle.RuleDeploymentUpdate{
-				Enabled:      boolPtr(true),
-				Alerting:     boolPtr(defaultAlerting),
+				Enabled:      new(true),
+				Alerting:     new(defaultAlerting),
 				RunFrequency: effective,
 			}); rderr != nil {
 				fmt.Fprintf(w, "  WARN %s: re-deploy at %s failed: %v\n", stem, effective, rderr)
@@ -287,7 +287,7 @@ func PushRulesDisable(ctx context.Context, c *chronicle.Client, rulesDir string,
 			continue
 		}
 		dep, derr := c.UpdateRuleDeployment(ctx, ruleID, chronicle.RuleDeploymentUpdate{
-			Enabled: boolPtr(false),
+			Enabled: new(false),
 		})
 		if derr != nil {
 			failed++
@@ -359,6 +359,3 @@ func truncate(s string, n int) string {
 	}
 	return string(r[:n])
 }
-
-// boolPtr returns a pointer to b, for the optional *bool deployment fields.
-func boolPtr(b bool) *bool { return &b }
