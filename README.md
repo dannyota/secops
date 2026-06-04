@@ -47,24 +47,23 @@ written to disk). If you can't use `gcloud`, override with
 `SECOPS_ACCESS_TOKEN` (a static bearer).
 
 **SOAR** (`soar …`) — **an AppKey, no ADC.** Generate it once in the Chronicle
-**SOAR UI → Settings → Advanced → API Keys → Add** (long-lived, admin-scoped),
-then store it in your user config (hidden prompt, written `0600`):
-```bash
-secopsctl config set-soar-key      # writes SECOPS_SOAR_APP_KEY to ~/.secopsctl/.env
-```
-secopsctl auto-loads `~/.secopsctl/.env` (and `./.env`) on startup, so the key is
-picked up by every command — no manual `export`. You can still set
-`SECOPS_SOAR_APP_KEY` in the environment instead; an exported value always wins.
-Keep keys in your environment or `~/.secopsctl/.env` — **never in the repo**. (The
-Chronicle SIEM API uses no API key — it's OAuth/ADC only.)
+**SOAR UI → Settings → Advanced → API Keys → Add** (long-lived, admin-scoped).
+`secopsctl config` prompts for it (hidden) and stores it in your config file
+(`~/.secopsctl/instance.yaml`, written `0600`). You can also override it at run
+time with `SECOPS_SOAR_APP_KEY` — an exported env var always wins over the file.
+The config file is git-ignored, so the key is **never committed**. (The Chronicle
+SIEM API uses no API key — it's OAuth/ADC only.)
+
+> **Note:** v1 stores the AppKey in plaintext in the `0600`, git-ignored config
+> file. Encrypting it at rest bound to the OS user is on the roadmap.
 
 ## Quickstart
 
 ```bash
-# 1. Create your instance config from the template (placeholders only).
-cp config/instance.example.yaml config/instance.yaml
-# edit: project_id, project_number, region, customer_id
-#       (+ soar_url if you'll use `soar`)
+# 1. Set up your instance config (prompts for each value; writes
+#    ~/.secopsctl/instance.yaml, 0600). `secopsctl init` is an alias.
+secopsctl config
+#    (or edit a file by hand: cp config/instance.example.yaml config/instance.yaml)
 
 # 2. Verify config + live connectivity (read-only smoke test).
 secopsctl doctor
@@ -76,14 +75,15 @@ secopsctl pull reference_lists
 # 4. Look around with an ad-hoc UDM query.
 secopsctl query udm 'metadata.event_type = "USER_LOGIN"' --hours 24 --json
 
-# 5. (SOAR) snapshot connectors — needs soar_url + SECOPS_SOAR_APP_KEY.
+# 5. (SOAR) snapshot connectors — needs soar_url + the SOAR AppKey.
 secopsctl soar pull connectors
 ```
 
-`config/instance.yaml` is git-ignored, so your tenant identifiers never get
-committed. Discovery order: `--config` flag → `$SECOPSCTL_CONFIG` →
-`./config/instance.yaml` → `~/.secopsctl/instance.yaml` →
-`~/.config/secopsctl/instance.yaml`.
+The config file is git-ignored, so your tenant identifiers (and the SOAR AppKey,
+if stored there) never get committed. Resolution, highest priority first
+(secopsctl does **not** read `.env`): real `SECOPS_*` env vars → the file at
+`--config` / `$SECOPSCTL_CONFIG` → `~/.secopsctl/instance.yaml` →
+`./config/instance.yaml` → `~/.config/secopsctl/instance.yaml`.
 
 ## Command surface
 
@@ -93,8 +93,8 @@ secopsctl [--config PATH] [--json] <command> ...
 
 | Command | What it does |
 |---|---|
-| `info` | Print the configured instance (sanity-check identifiers). |
-| `config set-soar-key` / `config path` | Store the SOAR AppKey in `~/.secopsctl/.env` (hidden prompt, `0600`); show user-config paths. |
+| `info` | Print the configured instance (sanity-check identifiers; AppKey redacted). |
+| `config` (alias `init`) | Set up the config in `~/.secopsctl/instance.yaml`: prompts for each value (AppKey hidden), or takes flags / `--non-interactive`. |
 | `pull <target> [--filter EXPR] [--out DIR]` | Read-only pull of live state into local files. Targets: `rules`, `reference_lists`, `data_tables`, `dashboards`, `curated`, `curated_rules`, `feeds`, `parsers`, `all`. `--filter` applies to `curated_rules`. |
 | `push <target> [--dry-run \| --yes]` | **Mutating, live deploy.** `rules-create` (create rules from `*.yaral` with no companion YAML), `rules-disable` (disable locally-tracked enabled rules). Defaults to `--dry-run`. |
 | `query udm <filter> [--hours N] [--from TS] [--to TS] [--limit N] [--json]` | Ad-hoc UDM event search. |

@@ -1,14 +1,18 @@
 # secopsctl instance configuration (TEMPLATE).
 #
-# Copy this file to config/instance.yaml and fill in your tenant's real values.
-# config/instance.yaml is git-ignored so your tenant identifiers never get
-# committed. All values below are PLACEHOLDERS.
+# The easiest way to create this file is `secopsctl config` (or `secopsctl init`),
+# which prompts for each value and writes ~/.secopsctl/instance.yaml (0600). This
+# template is for editing by hand instead. All values below are PLACEHOLDERS.
 #
-# Config search order (first match wins):
-#   1. --config CLI flag
-#   2. $SECOPSCTL_CONFIG
-#   3. ./config/instance.yaml
-#   4. ~/.config/secopsctl/instance.yaml
+# The config file is git-ignored, so your tenant identifiers — and the SOAR
+# AppKey, if you store it here — never get committed.
+#
+# Resolution, highest priority first (secopsctl does NOT read .env):
+#   1. real environment variables (SECOPS_PROJECT_ID, SECOPS_REGION,
+#      SECOPS_CUSTOMER_ID, SECOPS_SOAR_URL, SECOPS_SOAR_APP_KEY, ...)
+#   2. the file at --config / $SECOPSCTL_CONFIG
+#   3. ~/.secopsctl/instance.yaml (default), then ./config/instance.yaml,
+#      then ~/.config/secopsctl/instance.yaml
 
 # --- Required keys ---------------------------------------------------------
 
@@ -34,9 +38,13 @@ customer_id: 00000000-0000-0000-0000-000000000000
 # Chronicle web UI host. Used for building human-facing links.
 ui_url: https://your-tenant.backstory.chronicle.security
 
-# SOAR (Siemplify) host for `secopsctl soar ...`. The AppKey itself comes from
-# $SECOPS_SOAR_APP_KEY (never committed); only the host lives here.
+# SOAR (Siemplify) host for `secopsctl soar ...`.
 # soar_url: https://your-tenant.siemplify-soar.com
+
+# SOAR AppKey for `secopsctl soar ...`. Stored in plaintext here (v1); the file
+# is git-ignored and never committed. Prefer `secopsctl config` (hidden prompt)
+# over editing by hand, or override at run time with $SECOPS_SOAR_APP_KEY.
+# soar_app_key: PLACEHOLDER-SOAR-APPKEY
 
 # Your organisation's primary domain (used by some examples/queries).
 domain: example.com

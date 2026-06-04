@@ -28,13 +28,17 @@ func soarSettings(inst *config.Instance) soar.Settings {
 	}
 }
 
-// soarAppKey resolves the SOAR AppKey from the environment (no ADC).
-func soarAppKey() (string, error) {
-	key := auth.FromEnv("SECOPS_SOAR_APP_KEY", "SECOPS_API_KEY")
-	if key == "" {
-		return "", fmt.Errorf("SOAR AppKey not set; export SECOPS_SOAR_APP_KEY (or SECOPS_API_KEY)")
+// soarAppKey resolves the SOAR AppKey (no ADC) from the resolved config — which
+// already reflects the SECOPS_SOAR_APP_KEY env override — falling back to the
+// legacy SECOPS_API_KEY env var.
+func soarAppKey(inst *config.Instance) (string, error) {
+	if inst.SOARAppKey != "" {
+		return inst.SOARAppKey, nil
 	}
-	return key, nil
+	if key := auth.FromEnv("SECOPS_API_KEY"); key != "" {
+		return key, nil
+	}
+	return "", fmt.Errorf("SOAR AppKey not set; run `secopsctl config` or export SECOPS_SOAR_APP_KEY")
 }
 
 func newSOARSettings() (soar.Settings, string, error) {
@@ -46,7 +50,7 @@ func newSOARSettings() (soar.Settings, string, error) {
 	if s.BaseURL == "" {
 		return soar.Settings{}, "", fmt.Errorf("soar_url is not set in the instance config (the tenant SOAR host)")
 	}
-	key, err := soarAppKey()
+	key, err := soarAppKey(inst)
 	if err != nil {
 		return soar.Settings{}, "", err
 	}

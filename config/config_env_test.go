@@ -1,0 +1,112 @@
+package config
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+// TestEnvOverridesFile verifies a SECOPS_* env var wins over the file value,
+// while unset fields keep the file value.
+func TestEnvOverridesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "instance.yaml")
+	body := "project_id: from-file\nproject_number: \"111111111111\"\nregion: us\ncustomer_id: cust-file\nsoar_app_key: key-file\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("SECOPS_PROJECT_ID", "from-env")
+	t.Setenv("SECOPS_SOAR_APP_KEY", "key-env")
+
+	inst, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if inst.ProjectID != "from-env" {
+		t.Errorf("ProjectID = %q, want env value", inst.ProjectID)
+	}
+	if inst.SOARAppKey != "key-env" {
+		t.Errorf("SOARAppKey = %q, want env value", inst.SOARAppKey)
+	}
+	if inst.CustomerID != "cust-file" {
+		t.Errorf("CustomerID = %q, want file value (no env set)", inst.CustomerID)
+	}
+	if string(inst.ProjectNumber) != "111111111111" {
+		t.Errorf("ProjectNumber = %q, want file value", inst.ProjectNumber)
+	}
+}
+
+// TestLoadEnvOnlyNoFile verifies a fully env-provided config loads with no file.
+func TestLoadEnvOnlyNoFile(t *testing.T) {
+	empty := t.TempDir()
+	t.Setenv("SECOPSCTL_HOME", empty)
+	t.Setenv("HOME", empty)          // isolate ~/.config/secopsctl discovery
+	t.Setenv("SECOPSCTL_CONFIG", "") // no explicit file
+	t.Chdir(empty)                   // no ./config/instance.yaml here
+
+	t.Setenv("SECOPS_PROJECT_ID", "p")
+	t.Setenv("SECOPS_PROJECT_NUMBER", "000000000000")
+	t.Setenv("SECOPS_REGION", "eu")
+	t.Setenv("SECOPS_CUSTOMER_ID", "c")
+
+	inst, err := Load("")
+	if err != nil {
+		t.Fatalf("env-only Load should succeed: %v", err)
+	}
+	if inst.ProjectID != "p" || inst.Region != "eu" || inst.CustomerID != "c" ||
+		string(inst.ProjectNumber) != "000000000000" {
+		t.Errorf("env-only config not applied: %+v", inst)
+	}
+}
+
+// TestSaveRoundTrip verifies Save writes a 0600 file that reads back identically,
+// preserving leading zeros and the AppKey.
+func TestSaveRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.yaml")
+
+	in := &Instance{
+		ProjectID:  "proj",
+		Region:     "us",
+		CustomerID: "00000000-0000-0000-0000-000000000000",
+		SOARURL:    "https://example.siemplify-soar.com",
+		SOARAppKey: "secret-key",
+	}
+	in.SetProjectNumber("000000000000")
+
+	if _, err := Save(in, path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if info, err := os.Stat(path); err != nil {
+		t.Fatal(err)
+	} else if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("file mode = %o, want 600", perm)
+	}
+
+	out, err := readFile(path)
+	if err != nil {
+		t.Fatalf("readFile: %v", err)
+	}
+	if out.ProjectID != in.ProjectID || out.Region != in.Region ||
+		out.CustomerID != in.CustomerID || out.SOARURL != in.SOARURL ||
+		out.SOARAppKey != in.SOARAppKey ||
+		string(out.ProjectNumber) != "000000000000" {
+		t.Errorf("round-trip mismatch:\n in=%+v\nout=%+v", in, out)
+	}
+}
+
+// TestAsMapRedactsAppKey verifies the AppKey value is never returned by AsMap.
+func TestAsMapRedactsAppKey(t *testing.T) {
+	i := &Instance{ProjectID: "p", Region: "us", CustomerID: "c", SOARAppKey: "super-secret"}
+	i.SetProjectNumber("1")
+	m := i.AsMap()
+	if m["soar_app_key"] != "(set)" {
+		t.Errorf("soar_app_key marker = %q, want (set)", m["soar_app_key"])
+	}
+	for k, v := range m {
+		if v == "super-secret" {
+			t.Errorf("AsMap leaked the AppKey under %q", k)
+		}
+	}
+}

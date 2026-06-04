@@ -43,7 +43,7 @@ func Execute() int {
 }
 
 func init() {
-	cobra.OnInitialize(loadDotEnv, initViper)
+	cobra.OnInitialize(initViper)
 	pf := rootCmd.PersistentFlags()
 	pf.StringVar(&cfgFile, "config", "",
 		"path to the instance config YAML (overrides $SECOPSCTL_CONFIG and discovery)")

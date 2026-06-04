@@ -106,6 +106,13 @@ Kept generic and tenant-neutral. **Full design:
 - **Connectors & cron jobs**: connector/job instance configs pulled/patched via the
   v1alpha SOAR surface; scheduled runners (case hygiene) — generic scaffolding here,
   kept tenant-neutral.
+- **Config secret-at-rest (planned)** — `secopsctl config` writes
+  `~/.secopsctl/instance.yaml` (`0600`, git-ignored). v1 stores the SOAR AppKey in
+  **plaintext**. v2: encrypt the AppKey at rest bound to the current OS user —
+  Windows DPAPI, macOS Keychain, Linux libsecret/Secret Service — decrypted
+  in-process at run time. Needs per-OS implementation **and cross-platform tests
+  (Linux, Windows, macOS)** before it ships; until then plaintext + `0600` is the
+  documented behavior. The mintable OAuth token stays out of the file entirely.
 
 ---
 
