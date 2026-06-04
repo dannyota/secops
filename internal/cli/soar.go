@@ -21,11 +21,26 @@ import (
 func soarSettings(inst *config.Instance) soar.Settings {
 	cs := inst.Settings()
 	return soar.Settings{
-		BaseURL:       inst.SOARURL,
+		BaseURL:       normalizeSOARURL(inst.SOARURL),
 		ProjectNumber: cs.ProjectNumber,
 		Region:        cs.Region,
 		CustomerID:    cs.CustomerID,
+		ForceIPv4:     inst.ForceIPv4,
 	}
+}
+
+// normalizeSOARURL tolerates a bare host in soar_url: SOAR is always HTTPS, so a
+// value with no scheme gets "https://" prepended. A trailing slash is trimmed so
+// the transport doesn't build "//"-joined paths.
+func normalizeSOARURL(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	if !strings.Contains(s, "://") {
+		s = "https://" + s
+	}
+	return strings.TrimRight(s, "/")
 }
 
 // soarAppKey resolves the SOAR AppKey (no ADC) from the resolved config — which

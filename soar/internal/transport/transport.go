@@ -41,6 +41,7 @@ type Settings struct {
 	ProjectNumber string // GCP project number (v1alpha resource path)
 	Region        string // e.g. "us"
 	CustomerID    string // Chronicle instance UUID
+	ForceIPv4     bool   // pin the dialer to IPv4 (also via SECOPS_FORCE_IPV4)
 }
 
 // Error is a non-2xx response from the SOAR API.
@@ -72,15 +73,19 @@ type Transport struct {
 // default.
 func New(s Settings, creds auth.Credentials, httpClient *http.Client) *Transport {
 	if httpClient == nil {
+		ht := &http.Transport{
+			Proxy:               http.ProxyFromEnvironment,
+			ForceAttemptHTTP2:   true,
+			MaxIdleConns:        100,
+			IdleConnTimeout:     90 * time.Second,
+			TLSHandshakeTimeout: 10 * time.Second,
+		}
+		if dc := auth.IPv4DialContext(s.ForceIPv4); dc != nil {
+			ht.DialContext = dc
+		}
 		httpClient = &http.Client{
-			Timeout: 5 * time.Minute,
-			Transport: auth.RoundTripper(creds, &http.Transport{
-				Proxy:               http.ProxyFromEnvironment,
-				ForceAttemptHTTP2:   true,
-				MaxIdleConns:        100,
-				IdleConnTimeout:     90 * time.Second,
-				TLSHandshakeTimeout: 10 * time.Second,
-			}),
+			Timeout:   5 * time.Minute,
+			Transport: auth.RoundTripper(creds, ht),
 		}
 	}
 	return &Transport{

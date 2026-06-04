@@ -39,6 +39,7 @@ type Instance struct {
 	SOARAppKey    string  `yaml:"soar_app_key,omitempty"` // SOAR AppKey (plaintext, v1); never committed (file is git-ignored)
 	BaseURL       string  `yaml:"base_url,omitempty"`     // derived from region when empty
 	UIURL         string  `yaml:"ui_url,omitempty"`
+	ForceIPv4     bool    `yaml:"force_ipv4,omitempty"` // pin the dialer to IPv4 (corporate-VPN fix; also via SECOPS_FORCE_IPV4)
 }
 
 // flexStr is a string that also accepts a YAML scalar written as a bare number,
@@ -241,6 +242,7 @@ func (i *Instance) Settings() chronicle.Settings {
 		Region:        i.Region,
 		CustomerID:    i.CustomerID,
 		BaseURL:       i.BaseURL,
+		ForceIPv4:     i.ForceIPv4,
 	}
 }
 
@@ -262,6 +264,9 @@ func (i *Instance) AsMap() map[string]string {
 	}
 	if i.SOARAppKey != "" {
 		m["soar_app_key"] = "(set)"
+	}
+	if i.ForceIPv4 {
+		m["force_ipv4"] = "true"
 	}
 	return m
 }

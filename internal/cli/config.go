@@ -21,6 +21,7 @@ func init() {
 		fCustomerID     string
 		fSOARURL        string
 		fSOARAppKey     string
+		fForceIPv4      bool
 		fNonInteractive bool
 	)
 
@@ -55,6 +56,9 @@ func init() {
 			applyStringFlag(f, "customer-id", fCustomerID, &cur.CustomerID)
 			applyStringFlag(f, "soar-url", fSOARURL, &cur.SOARURL)
 			applyStringFlag(f, "soar-app-key", fSOARAppKey, &cur.SOARAppKey)
+			if f.Changed("force-ipv4") {
+				cur.ForceIPv4 = fForceIPv4
+			}
 
 			if !fNonInteractive && term.IsTerminal(int(os.Stdin.Fd())) {
 				saved, err := runConfigForm(cur)
@@ -70,6 +74,10 @@ func init() {
 				// our list); the form path enforces membership.
 				fmt.Fprintf(os.Stderr, "  (warn) region %q is not in the known list\n", cur.Region)
 			}
+
+			// Store the SOAR URL canonically (add https:// if the user typed a
+			// bare host, trim a trailing slash).
+			cur.SOARURL = normalizeSOARURL(cur.SOARURL)
 
 			if missing := requiredMissing(cur); len(missing) > 0 {
 				return fmt.Errorf("missing required value(s): %s", strings.Join(missing, ", "))
@@ -94,6 +102,7 @@ func init() {
 	f.StringVar(&fCustomerID, "customer-id", "", "SecOps customer ID (GUID)")
 	f.StringVar(&fSOARURL, "soar-url", "", "SOAR host URL (optional)")
 	f.StringVar(&fSOARAppKey, "soar-app-key", "", "SOAR AppKey (optional; avoid on shared shells — prefer the prompt)")
+	f.BoolVar(&fForceIPv4, "force-ipv4", false, "pin the network dialer to IPv4 (corporate-VPN / broken-IPv6 fix)")
 	f.BoolVar(&fNonInteractive, "non-interactive", false, "do not show the form; write flags + current values")
 
 	rootCmd.AddCommand(cmd)
@@ -122,6 +131,9 @@ func runConfigForm(cur *config.Instance) (bool, error) {
 				Value(&cur.SOARURL),
 			huh.NewInput().Title("SOAR AppKey").Description("optional; hidden").
 				EchoMode(huh.EchoModePassword).Value(&cur.SOARAppKey),
+			huh.NewConfirm().Title("Force IPv4?").
+				Description("pin the dialer to IPv4 (corporate-VPN / broken-IPv6 fix)").
+				Value(&cur.ForceIPv4),
 			huh.NewConfirm().Title("Save this config?").
 				Affirmative("Save").Negative("Cancel").Value(&save),
 		),

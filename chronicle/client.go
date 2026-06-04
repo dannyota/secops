@@ -28,6 +28,7 @@ type Settings struct {
 	Region        string // e.g. "us", "europe", "asia-southeast1"
 	CustomerID    string // Chronicle instance UUID
 	BaseURL       string // optional; defaults from Region + DefaultAPIVersion
+	ForceIPv4     bool   // pin the dialer to IPv4 (also via SECOPS_FORCE_IPV4)
 }
 
 // Client is a Chronicle SIEM API client. It is safe for concurrent use.
@@ -69,7 +70,7 @@ func NewClient(s Settings, creds auth.Credentials, opts ...Option) (*Client, err
 		IdleConnTimeout:     90 * time.Second,
 		TLSHandshakeTimeout: 10 * time.Second,
 	}
-	if dc := ipv4DialContext(); dc != nil {
+	if dc := auth.IPv4DialContext(s.ForceIPv4); dc != nil {
 		transport.DialContext = dc
 	}
 	c.http = &http.Client{
