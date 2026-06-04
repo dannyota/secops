@@ -86,16 +86,25 @@ helper for very large lists.
 
 ## Wave 3 — features the wrapper does NOT cover
 
-Kept generic and tenant-neutral.
+Kept generic and tenant-neutral. **Full design:
+[`docs/SOAR-DESIGN.md`](SOAR-DESIGN.md)** — read it before implementing.
 
-- **SOAR — two surfaces** (`soar/`): the legacy Siemplify REST API and the newer
-  v1alpha SOAR API. Both authenticate with a **long-lived AppKey** (see
-  `auth.SOARAppKey`) on a **separate host** — no ADC. Gotchas to encode:
-  - Playbook save **rotates the UUID** — re-resolve by display name, never cache.
-  - SOAR integer case ID ≠ SIEM case UUID — map via lookup.
-  - Case hygiene as detection-as-code on cron.
-- **Connectors & cron jobs**: connector configs (Chronicle alerts, SCC findings)
-  and scheduled runners (case hygiene, ingest health) — generic scaffolding here,
+- **SOAR (`soar/`)** — one host, one AppKey, **no ADC**, split into three tiers so
+  legacy is a clean delete when modern APIs land (the governing principle —
+  *quarantine legacy, never mix it with the durable modern code*):
+  - ✅ **Modern** v1alpha native (the keeper): integrations · connectors · jobs ·
+    alertGroupingRules · moduleSettings · cases.
+  - 🟠 **Bridge** `soar/legacy/playbooks.go` — `legacyPlaybooks:legacy*`; remove
+    when native v1alpha playbook CRUD ships. Gotchas: UUID rotates on save (re-resolve
+    by name), int→str coercion, name charset, whole-body replace.
+  - 🗑 **Legacy** `soar/legacy/` — Siemplify external API (`/api/external/v1`):
+    cases-queue bulk-close, comment/tag/priority, playbook export/import; remove
+    when v1alpha bulk-case + playbook endpoints ship.
+  - `modern → soar/internal/transport ← legacy` (modern never imports legacy).
+- **Legacy SIEM** `chronicle/legacy.go` (ADC) — `legacyFindRawLogs`,
+  `legacyBatchGetCases` (SOAR integer-id ⇄ SIEM uuid map); quarantined file.
+- **Connectors & cron jobs**: connector/job instance configs pulled/patched via the
+  v1alpha SOAR surface; scheduled runners (case hygiene) — generic scaffolding here,
   kept tenant-neutral.
 
 ---
