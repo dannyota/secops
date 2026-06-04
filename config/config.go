@@ -28,6 +28,7 @@ type Instance struct {
 	CustomerID    string  `yaml:"customer_id"`
 	BaseURL       string  `yaml:"base_url,omitempty"`
 	UIURL         string  `yaml:"ui_url,omitempty"`
+	SOARURL       string  `yaml:"soar_url,omitempty"` // SOAR host, e.g. https://<tenant>.siemplify-soar.com
 }
 
 // flexStr is a string that also accepts a YAML scalar written as a bare number,
@@ -132,6 +133,9 @@ func (i *Instance) AsMap() map[string]string {
 	}
 	if i.UIURL != "" {
 		m["ui_url"] = i.UIURL
+	}
+	if i.SOARURL != "" {
+		m["soar_url"] = i.SOARURL
 	}
 	return m
 }
