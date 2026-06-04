@@ -17,11 +17,12 @@ import (
 )
 
 // soarSettings maps the loaded instance config to SOAR settings (the tenant SOAR
-// host plus the v1alpha path components).
+// host plus the v1alpha path components). soar_url is stored already-canonical
+// (see normalizeSOARURL at save time), so it is used as-is here.
 func soarSettings(inst *config.Instance) soar.Settings {
 	cs := inst.Settings()
 	return soar.Settings{
-		BaseURL:       normalizeSOARURL(inst.SOARURL),
+		BaseURL:       inst.SOARURL,
 		ProjectNumber: cs.ProjectNumber,
 		Region:        cs.Region,
 		CustomerID:    cs.CustomerID,
@@ -31,7 +32,8 @@ func soarSettings(inst *config.Instance) soar.Settings {
 
 // normalizeSOARURL tolerates a bare host in soar_url: SOAR is always HTTPS, so a
 // value with no scheme gets "https://" prepended. A trailing slash is trimmed so
-// the transport doesn't build "//"-joined paths.
+// the transport doesn't build "//"-joined paths. Applied once, when `config`
+// saves the file — not at run time.
 func normalizeSOARURL(raw string) string {
 	s := strings.TrimSpace(raw)
 	if s == "" {
