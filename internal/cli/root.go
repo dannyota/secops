@@ -60,8 +60,9 @@ func loadInstance() (*config.Instance, error) {
 	return config.Load(cfgFile)
 }
 
-// newChronicleClient builds a Chronicle SIEM client from the resolved config,
-// using OAuth/ADC credentials (resolved lazily on first request).
+// newChronicleClient builds a Chronicle SIEM client from the resolved config.
+// Credentials are OAuth/ADC, minted in-process by the Google auth library and
+// resolved lazily on the first request.
 func newChronicleClient() (*chronicle.Client, error) {
 	inst, err := loadInstance()
 	if err != nil {

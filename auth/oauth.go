@@ -33,7 +33,9 @@ type oauthCreds struct {
 }
 
 // OAuth returns OAuth2/ADC credentials for the given scopes (defaults to
-// CloudPlatformScope). Resolution is deferred to the first request.
+// CloudPlatformScope). The access token is minted in-process by the Google auth
+// library (FindDefaultCredentials) and auto-refreshed — no `gcloud` shell-out and
+// no token persisted to disk. Resolution is deferred to the first request.
 func OAuth(scopes ...string) Credentials {
 	if len(scopes) == 0 {
 		scopes = []string{CloudPlatformScope}

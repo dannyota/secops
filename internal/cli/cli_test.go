@@ -32,7 +32,7 @@ func TestUDMSummarySnakeCase(t *testing.T) {
 // TestCommandsRegistered verifies each subcommand self-registered via its init()
 // so the CLI tree is wired without touching the network or credentials.
 func TestCommandsRegistered(t *testing.T) {
-	want := []string{"info", "pull", "push", "query"}
+	want := []string{"info", "pull", "push", "query", "soar", "doctor"}
 	have := map[string]bool{}
 	for _, c := range rootCmd.Commands() {
 		have[c.Name()] = true

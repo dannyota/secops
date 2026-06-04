@@ -73,3 +73,18 @@ func TestSettingsMapping(t *testing.T) {
 		t.Errorf("Settings() mismatch: %+v vs %+v", s, inst)
 	}
 }
+
+func TestSearchPathsIncludeUserDir(t *testing.T) {
+	t.Setenv("SECOPSCTL_HOME", "/tmp/sc-cfg")
+	paths := SearchPaths("")
+	want := filepath.Join("/tmp/sc-cfg", "instance.yaml")
+	found := false
+	for _, p := range paths {
+		if p == want {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("~/.secopsctl config path %q not in search paths: %v", want, paths)
+	}
+}

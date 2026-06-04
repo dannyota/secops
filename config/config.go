@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"danny.vn/secops/chronicle"
+	"danny.vn/secops/internal/userdir"
 )
 
 // Instance is one Chronicle/SecOps instance configuration.
@@ -53,6 +54,7 @@ func SearchPaths(explicit string) []string {
 	if cwd, err := os.Getwd(); err == nil {
 		paths = append(paths, filepath.Join(cwd, "config", "instance.yaml"))
 	}
+	paths = append(paths, userdir.InstanceConfigPath()) // ~/.secopsctl/instance.yaml
 	if home, err := os.UserHomeDir(); err == nil {
 		paths = append(paths, filepath.Join(home, ".config", "secopsctl", "instance.yaml"))
 	}
