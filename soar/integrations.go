@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"danny.vn/secops/soar/internal/transport"
 )
@@ -44,13 +45,19 @@ func (i *Integration) UnmarshalJSON(data []byte) error {
 }
 
 // ConnectorDef is a connector definition within an integration (an ingestion
-// source template, not a configured instance).
+// source template, not a configured instance). ID is the numeric definition id
+// used in the connector's resource path (e.g. ".../connectors/48").
 type ConnectorDef struct {
 	Name        string          `json:"name"`
+	ID          string          `json:"id"`
 	Identifier  string          `json:"identifier"`
 	DisplayName string          `json:"displayName"`
 	Raw         json.RawMessage `json:"-"`
 }
+
+// PathID returns the segment that addresses this connector in a resource path:
+// the numeric ID when present, else the last segment of Name, else Identifier.
+func (c *ConnectorDef) PathID() string { return pathID(c.ID, c.Name, c.Identifier) }
 
 // UnmarshalJSON decodes the typed fields and keeps the full object in Raw.
 func (c *ConnectorDef) UnmarshalJSON(data []byte) error {
@@ -65,11 +72,32 @@ func (c *ConnectorDef) UnmarshalJSON(data []byte) error {
 }
 
 // JobDef is a job definition within an integration (a scheduled-task template).
+// ID is the numeric definition id used in the job's resource path.
 type JobDef struct {
 	Name        string          `json:"name"`
+	ID          string          `json:"id"`
 	Identifier  string          `json:"identifier"`
 	DisplayName string          `json:"displayName"`
 	Raw         json.RawMessage `json:"-"`
+}
+
+// PathID returns the segment that addresses this job in a resource path.
+func (j *JobDef) PathID() string { return pathID(j.ID, j.Name, j.Identifier) }
+
+// pathID picks the resource-path segment from the available identifiers: a
+// numeric id when present, else the last "/"-segment of the resource name, else
+// the identifier. SOAR connector/job definitions are addressed by a numeric id.
+func pathID(id, name, identifier string) string {
+	if id != "" {
+		return id
+	}
+	if name != "" {
+		if i := strings.LastIndex(name, "/"); i >= 0 {
+			return name[i+1:]
+		}
+		return name
+	}
+	return identifier
 }
 
 // UnmarshalJSON decodes the typed fields and keeps the full object in Raw.

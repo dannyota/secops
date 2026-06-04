@@ -149,11 +149,18 @@ func (c *Client) ListModuleSettingProperties(ctx context.Context, name string) (
 // settings in one call. Set each property's Value as a string. The response
 // shape is module-specific, so it is returned raw.
 func (c *Client) BatchUpdateModuleSettingProperties(ctx context.Context, name string, props []ModuleSettingProperty) (json.RawMessage, error) {
-	// DEVIATION: the API wraps the request in {moduleSettingProperties:[...]};
-	// callers pass a plain slice and we wrap it here.
+	// The batchUpdate RPC takes a list of per-property requests, each wrapping
+	// one property under "moduleSettingsProperty":
+	//   {"requests":[{"moduleSettingsProperty":{"name":...,"value":...}}, ...]}
+	type updateRequest struct {
+		ModuleSettingsProperty ModuleSettingProperty `json:"moduleSettingsProperty"`
+	}
 	body := struct {
-		Properties []ModuleSettingProperty `json:"moduleSettingProperties"`
-	}{Properties: props}
+		Requests []updateRequest `json:"requests"`
+	}{Requests: make([]updateRequest, len(props))}
+	for i, p := range props {
+		body.Requests[i].ModuleSettingsProperty = p
+	}
 	var raw json.RawMessage
 	if err := c.t.V1Alpha(ctx, "POST", "moduleSettings/"+name+"/properties:batchUpdate", body, &raw); err != nil {
 		return nil, err

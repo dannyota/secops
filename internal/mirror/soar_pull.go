@@ -60,7 +60,7 @@ func PullSOARConnectors(ctx context.Context, c *soar.Client, outDir string) (int
 			continue
 		}
 		for _, conn := range conns {
-			instances, ierr := c.ListConnectorInstances(ctx, key, conn.Identifier)
+			instances, ierr := c.ListConnectorInstances(ctx, key, conn.PathID())
 			if ierr != nil {
 				warnf("connector instances for %s/%s: %v", integ.DisplayName, conn.DisplayName, ierr)
 				continue
@@ -124,7 +124,7 @@ func PullSOARJobs(ctx context.Context, c *soar.Client, outDir string) (int, erro
 			continue
 		}
 		for _, job := range jobs {
-			instances, ierr := c.ListJobInstances(ctx, key, job.Identifier)
+			instances, ierr := c.ListJobInstances(ctx, key, job.PathID())
 			if ierr != nil {
 				warnf("job instances for %s/%s: %v", integ.DisplayName, job.DisplayName, ierr)
 				continue
