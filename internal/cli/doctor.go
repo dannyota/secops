@@ -54,7 +54,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 
 	// Auth: acquire a token without sending any request (Apply mints it via the
 	// Google auth library — no gcloud shell-out, no token persisted).
-	creds := auth.OAuth()
+	creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
 	var client *chronicle.Client
 	step("auth (OAuth)", func() (string, error) {
 		probe, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://chronicle.googleapis.com/", nil)

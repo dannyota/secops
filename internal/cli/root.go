@@ -68,7 +68,7 @@ func newChronicleClient() (*chronicle.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return chronicle.NewClient(inst.Settings(), auth.OAuth())
+	return chronicle.NewClient(inst.Settings(), auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4)))
 }
 
 // baseContext is the root context for API calls (placeholder for future

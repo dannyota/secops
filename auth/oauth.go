@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -18,29 +19,52 @@ const CloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
 //
 // Resolution order (evaluated once, lazily, on first use):
 //
-//  1. SECOPS_ACCESS_TOKEN  — a static bearer token (CI / break-glass).
+//  1. SECOPS_ACCESS_TOKEN  — a static bearer token (CI / break-glass); no network.
 //  2. Application Default Credentials — honors GOOGLE_APPLICATION_CREDENTIALS
 //     and `gcloud auth application-default login`, via FindDefaultCredentials.
 //
 // DEVIATION (vs the official Python wrapper): auth is never resolved at
 // construction; nothing here shells out to `gcloud` until a request is signed.
 type oauthCreds struct {
-	scopes []string
+	scopes    []string
+	forceIPv4 bool
 
 	once sync.Once
 	src  oauth2.TokenSource
 	err  error
 }
 
-// OAuth returns OAuth2/ADC credentials for the given scopes (defaults to
-// CloudPlatformScope). The access token is minted in-process by the Google auth
-// library (FindDefaultCredentials) and auto-refreshed — no `gcloud` shell-out and
-// no token persisted to disk. Resolution is deferred to the first request.
-func OAuth(scopes ...string) Credentials {
-	if len(scopes) == 0 {
-		scopes = []string{CloudPlatformScope}
+// OAuthOption configures the OAuth credential provider.
+type OAuthOption func(*oauthCreds)
+
+// WithScopes overrides the OAuth2 scopes (default: CloudPlatformScope).
+func WithScopes(scopes ...string) OAuthOption {
+	return func(c *oauthCreds) {
+		if len(scopes) > 0 {
+			c.scopes = scopes
+		}
 	}
-	return &oauthCreds{scopes: scopes}
+}
+
+// WithForceIPv4 pins the in-process token-minting/refresh HTTP calls to IPv4
+// (also honored via SECOPS_FORCE_IPV4). Needed on corporate VPNs whose IPv6
+// routing to oauth2.googleapis.com is broken — the same workaround the SIEM/SOAR
+// API transports use. No effect on the static-token path (it makes no network
+// call).
+func WithForceIPv4(force bool) OAuthOption {
+	return func(c *oauthCreds) { c.forceIPv4 = force }
+}
+
+// OAuth returns OAuth2/ADC credentials. The access token is minted in-process by
+// the Google auth library (FindDefaultCredentials) and auto-refreshed — no
+// `gcloud` shell-out and no token persisted to disk. Resolution is deferred to
+// the first request.
+func OAuth(opts ...OAuthOption) Credentials {
+	c := &oauthCreds{scopes: []string{CloudPlatformScope}}
+	for _, o := range opts {
+		o(c)
+	}
+	return c
 }
 
 func (c *oauthCreds) resolve() (oauth2.TokenSource, error) {
@@ -49,7 +73,22 @@ func (c *oauthCreds) resolve() (oauth2.TokenSource, error) {
 			c.src = oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok})
 			return
 		}
-		creds, err := google.FindDefaultCredentials(context.Background(), c.scopes...)
+		// Mint/refresh tokens in-process. When IPv4 is forced, hand the oauth2
+		// library an IPv4-pinned HTTP client via the context so the token endpoint
+		// calls honor it too (not just the API transports).
+		ctx := context.Background()
+		if dc := IPv4DialContext(c.forceIPv4); dc != nil {
+			ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{
+				Timeout: 60 * time.Second,
+				Transport: &http.Transport{
+					Proxy:               http.ProxyFromEnvironment,
+					DialContext:         dc,
+					ForceAttemptHTTP2:   true,
+					TLSHandshakeTimeout: 10 * time.Second,
+				},
+			})
+		}
+		creds, err := google.FindDefaultCredentials(ctx, c.scopes...)
 		if err != nil {
 			c.err = fmt.Errorf("resolve Google credentials: %w "+
 				"(set SECOPS_ACCESS_TOKEN, point GOOGLE_APPLICATION_CREDENTIALS at a "+
