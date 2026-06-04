@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -52,6 +53,32 @@ func (f *flexStr) UnmarshalYAML(value *yaml.Node) error {
 
 func (f flexStr) MarshalYAML() (any, error) {
 	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: string(f), Style: yaml.DoubleQuotedStyle}, nil
+}
+
+// KnownRegions are the Google SecOps regions secopsctl recognizes. The region
+// is the hostname prefix of the Chronicle API (`<region>-chronicle.googleapis.com`)
+// and cannot be discovered via the API, so it is validated against this list.
+// Extend it when Google adds a region.
+var KnownRegions = []string{
+	"us",
+	"europe",
+	"europe-west2",  // London
+	"europe-west3",  // Frankfurt
+	"europe-west6",  // Zurich
+	"europe-west9",  // Paris
+	"europe-west12", // Turin
+	"asia-southeast1",
+	"asia-south1",
+	"australia-southeast1",
+	"me-central1",
+	"me-central2",
+	"me-west1",
+	"northamerica-northeast2",
+}
+
+// IsKnownRegion reports whether region (trimmed) is in KnownRegions.
+func IsKnownRegion(region string) bool {
+	return slices.Contains(KnownRegions, strings.TrimSpace(region))
 }
 
 // SearchPaths returns the ordered candidate config locations (file discovery

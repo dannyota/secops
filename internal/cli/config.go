@@ -1,11 +1,11 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
@@ -28,14 +28,14 @@ func init() {
 		Use:     "config",
 		Aliases: []string{"init"},
 		Short:   "Set up the secopsctl config (~/.secopsctl/instance.yaml)",
-		Long: "Create or edit the instance config. Prompts for each value (pre-filled\n" +
-			"with the current one; press Enter to keep it); the SOAR AppKey prompt is\n" +
-			"hidden. Flags set values without prompting; --non-interactive (or piped\n" +
-			"stdin) skips all prompts and writes flags + current values.\n\n" +
+		Long: "Create or edit the instance config in a single-screen form: all fields on\n" +
+			"one screen, ↑/↓ or Tab to move, edit in place, then Save (or Cancel). The\n" +
+			"SOAR AppKey field is hidden. Flags set values directly; --non-interactive\n" +
+			"(or non-terminal stdin) skips the form and writes flags + current values.\n\n" +
 			"Writes ~/.secopsctl/instance.yaml (0600), or the --config path if given.\n" +
 			"The file may hold the SOAR AppKey in plaintext (v1); it is git-ignored and\n" +
-			"never committed. Resolution at run time: real SECOPS_* env vars override\n" +
-			"the file. The mintable OAuth/ADC SIEM token is never stored — `gcloud auth\n" +
+			"never committed. At run time, real SECOPS_* env vars override the file. The\n" +
+			"mintable OAuth/ADC SIEM token is never stored — `gcloud auth\n" +
 			"application-default login` handles SIEM auth.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -56,15 +56,19 @@ func init() {
 			applyStringFlag(f, "soar-url", fSOARURL, &cur.SOARURL)
 			applyStringFlag(f, "soar-app-key", fSOARAppKey, &cur.SOARAppKey)
 
-			interactive := !fNonInteractive && term.IsTerminal(int(os.Stdin.Fd()))
-			if interactive {
-				r := bufio.NewReader(os.Stdin)
-				cur.ProjectID = promptValue(r, "Project ID", cur.ProjectID)
-				cur.SetProjectNumber(promptValue(r, "Project number", cur.ProjectNumberString()))
-				cur.Region = promptValue(r, "Region (e.g. us, eu)", cur.Region)
-				cur.CustomerID = promptValue(r, "Customer ID (GUID)", cur.CustomerID)
-				cur.SOARURL = promptValue(r, "SOAR URL (optional, blank to skip)", cur.SOARURL)
-				cur.SOARAppKey = promptSecret("SOAR AppKey", cur.SOARAppKey)
+			if !fNonInteractive && term.IsTerminal(int(os.Stdin.Fd())) {
+				saved, err := runConfigForm(cur)
+				if err != nil {
+					return err
+				}
+				if !saved {
+					fmt.Println("Cancelled; no changes written.")
+					return nil
+				}
+			} else if cur.Region != "" && !config.IsKnownRegion(cur.Region) {
+				// Non-interactive: warn but don't block (allows a region newer than
+				// our list); the form path enforces membership.
+				fmt.Fprintf(os.Stderr, "  (warn) region %q is not in the known list\n", cur.Region)
 			}
 
 			if missing := requiredMissing(cur); len(missing) > 0 {
@@ -86,16 +90,78 @@ func init() {
 	f := cmd.Flags()
 	f.StringVar(&fProjectID, "project-id", "", "GCP project ID")
 	f.StringVar(&fProjectNumber, "project-number", "", "GCP project number")
-	f.StringVar(&fRegion, "region", "", "SecOps region (e.g. us, eu)")
+	f.StringVar(&fRegion, "region", "", "SecOps region (e.g. us, asia-southeast1)")
 	f.StringVar(&fCustomerID, "customer-id", "", "SecOps customer ID (GUID)")
 	f.StringVar(&fSOARURL, "soar-url", "", "SOAR host URL (optional)")
 	f.StringVar(&fSOARAppKey, "soar-app-key", "", "SOAR AppKey (optional; avoid on shared shells — prefer the prompt)")
-	f.BoolVar(&fNonInteractive, "non-interactive", false, "do not prompt; write flags + current values")
+	f.BoolVar(&fNonInteractive, "non-interactive", false, "do not show the form; write flags + current values")
 
 	rootCmd.AddCommand(cmd)
 }
 
-// requiredMissing lists the required identifiers still empty after flags/prompts.
+// runConfigForm shows the single-screen huh form pre-filled from cur, mutating
+// cur in place. Returns whether the user chose Save.
+func runConfigForm(cur *config.Instance) (bool, error) {
+	projNum := cur.ProjectNumberString()
+	save := true
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("secopsctl config").
+				Description("Edit fields, then Save. Writes ~/.secopsctl/instance.yaml (0600)."),
+			huh.NewInput().Title("Project ID").Value(&cur.ProjectID).
+				Validate(requiredField("project ID")),
+			huh.NewInput().Title("Project number").Value(&projNum).
+				Validate(requiredField("project number")),
+			huh.NewInput().Title("Region").Description("e.g. us, europe, asia-southeast1").
+				Value(&cur.Region).Validate(validRegion),
+			huh.NewInput().Title("Customer ID").Description("Chronicle instance GUID").
+				Value(&cur.CustomerID).Validate(requiredField("customer ID")),
+			huh.NewInput().Title("SOAR URL").Description("optional; for `soar` commands").
+				Value(&cur.SOARURL),
+			huh.NewInput().Title("SOAR AppKey").Description("optional; hidden").
+				EchoMode(huh.EchoModePassword).Value(&cur.SOARAppKey),
+			huh.NewConfirm().Title("Save this config?").
+				Affirmative("Save").Negative("Cancel").Value(&save),
+		),
+	)
+	if err := form.Run(); err != nil {
+		return false, err
+	}
+
+	cur.ProjectID = strings.TrimSpace(cur.ProjectID)
+	cur.SetProjectNumber(strings.TrimSpace(projNum))
+	cur.Region = strings.TrimSpace(cur.Region)
+	cur.CustomerID = strings.TrimSpace(cur.CustomerID)
+	cur.SOARURL = strings.TrimSpace(cur.SOARURL)
+	cur.SOARAppKey = strings.TrimSpace(cur.SOARAppKey)
+	return save, nil
+}
+
+// requiredField returns a huh validator that rejects an empty/blank value.
+func requiredField(name string) func(string) error {
+	return func(s string) error {
+		if strings.TrimSpace(s) == "" {
+			return fmt.Errorf("%s is required", name)
+		}
+		return nil
+	}
+}
+
+// validRegion rejects an empty or unrecognized region (see config.KnownRegions).
+func validRegion(s string) error {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return fmt.Errorf("region is required")
+	}
+	if !config.IsKnownRegion(s) {
+		return fmt.Errorf("unknown region %q (known: %s)", s, strings.Join(config.KnownRegions, ", "))
+	}
+	return nil
+}
+
+// requiredMissing lists the required identifiers still empty after flags/form.
 func requiredMissing(i *config.Instance) []string {
 	var missing []string
 	if i.ProjectID == "" {
@@ -118,40 +184,4 @@ func applyStringFlag(f *pflag.FlagSet, name, val string, dst *string) {
 	if f.Changed(name) {
 		*dst = val
 	}
-}
-
-// promptValue prints "Label [current]: " and returns the typed line, or current
-// when the user presses Enter. Reads from r (a buffered stdin).
-func promptValue(r *bufio.Reader, label, current string) string {
-	if current != "" {
-		fmt.Printf("%s [%s]: ", label, current)
-	} else {
-		fmt.Printf("%s: ", label)
-	}
-	line, _ := r.ReadString('\n')
-	line = strings.TrimRight(line, "\r\n")
-	if strings.TrimSpace(line) == "" {
-		return current
-	}
-	return strings.TrimSpace(line)
-}
-
-// promptSecret reads the AppKey without echoing. It shows whether one is already
-// set and keeps the existing value when the user enters nothing.
-func promptSecret(label, current string) string {
-	state := "unset"
-	if current != "" {
-		state = "set"
-	}
-	fmt.Fprintf(os.Stderr, "%s [%s] (hidden, Enter to keep): ", label, state)
-	b, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr)
-	if err != nil {
-		return current
-	}
-	entered := strings.TrimSpace(string(b))
-	if entered == "" {
-		return current
-	}
-	return entered
 }

@@ -94,7 +94,7 @@ secopsctl [--config PATH] [--json] <command> ...
 | Command | What it does |
 |---|---|
 | `info` | Print the configured instance (sanity-check identifiers; AppKey redacted). |
-| `config` (alias `init`) | Set up the config in `~/.secopsctl/instance.yaml`: prompts for each value (AppKey hidden), or takes flags / `--non-interactive`. |
+| `config` (alias `init`) | Set up the config in `~/.secopsctl/instance.yaml` via a single-screen form (edit all fields, AppKey hidden, Save/Cancel), or takes flags / `--non-interactive`. |
 | `pull <target> [--filter EXPR] [--out DIR]` | Read-only pull of live state into local files. Targets: `rules`, `reference_lists`, `data_tables`, `dashboards`, `curated`, `curated_rules`, `feeds`, `parsers`, `all`. `--filter` applies to `curated_rules`. |
 | `push <target> [--dry-run \| --yes]` | **Mutating, live deploy.** `rules-create` (create rules from `*.yaral` with no companion YAML), `rules-disable` (disable locally-tracked enabled rules). Defaults to `--dry-run`. |
 | `query udm <filter> [--hours N] [--from TS] [--to TS] [--limit N] [--json]` | Ad-hoc UDM event search. |
