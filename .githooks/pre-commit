@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Leak guard for this PUBLIC, tenant-neutral repo.
+#
+# Blocks a commit when the staged changes look like they carry secrets or
+# tenant-specific data — the kind of thing that can ride along when logic is
+# ported from a PRIVATE workspace. Generic patterns live here (safe to publish);
+# put tenant-specific terms (org name, real domains, etc.) in the git-ignored
+# .githooks/denylist.local so they never appear in this public repo.
+#
+# Enable once:  git config core.hooksPath .githooks
+# Override (rare, only when you are SURE it is a false positive):
+#               git commit --no-verify
+set -u
+
+# Added lines of the staged diff, excluding this hook's own tooling directory.
+added="$(git diff --cached --no-color --diff-filter=ACM -U0 -- . ':(exclude).githooks' \
+  | grep '^+' | grep -v '^+++')"
+[ -z "$added" ] && exit 0
+
+# Drop lines that are clearly placeholders so the shipped templates never trip.
+scan="$(printf '%s\n' "$added" \
+  | grep -viE 'your-[a-z0-9-]+|example\.(com|org)|your-tenant|placeholder|0{6,}|00000000-0000-0000-0000-000000000000')"
+
+hits=""
+check() { # <regex> <label> [grep-flags]
+  if printf '%s\n' "$scan" | grep -qE ${3:-} -- "$1"; then hits="${hits}   - $2"$'\n'; fi
+}
+
+# 1) Secrets / credentials.
+check '-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----'                       'private key block'
+check '"type"[[:space:]]*:[[:space:]]*"service_account"|"private_key"[[:space:]]*:' 'service-account JSON'
+check '(gh[opsu]_[A-Za-z0-9]{20,}|ya29\.[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35})' 'API token / access key'
+check 'app[_-]?key[[:space:]]*[:=][[:space:]]*.?[A-Za-z0-9]{16,}'     'SOAR AppKey value' '-i'
+
+# 2) Webhook / collaboration URLs.
+check '(hooks\.slack\.com|webhook\.office\.com|outlook\.office\.com/webhook|discord(app)?\.com/api/webhooks)' 'webhook URL' '-i'
+
+# 3) Tenant identifiers that are NOT the shipped placeholders.
+check 'project_number[[:space:]]*:[[:space:]]*.?[0-9]{6,}'           'non-placeholder project_number'
+check 'projects/[0-9]{6,}/'                                          'numeric project in resource path'
+check 'customer_id[[:space:]]*:[[:space:]]*.?[0-9a-f]{8}-[0-9a-f]{4}' 'non-placeholder customer_id UUID' '-i'
+
+# 4) Tenant denylist (git-ignored, local-only): one term per line.
+dl="$(git rev-parse --show-toplevel)/.githooks/denylist.local"
+if [ -f "$dl" ]; then
+  while IFS= read -r term || [ -n "$term" ]; do
+    case "$term" in '' | \#*) continue ;; esac
+    if printf '%s\n' "$scan" | grep -qiF -- "$term"; then
+      hits="${hits}   - denylisted term: ${term}"$'\n'
+    fi
+  done < "$dl"
+fi
+
+if [ -n "$hits" ]; then
+  {
+    echo "✋ commit blocked by leak guard (.githooks/pre-commit):"
+    printf '%s' "$hits"
+    echo
+    echo "This repo is PUBLIC and tenant-neutral. Remove the sensitive data."
+    echo "If this is a genuine false positive, re-run with: git commit --no-verify"
+  } >&2
+  exit 1
+fi
+exit 0

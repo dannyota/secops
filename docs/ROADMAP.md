@@ -1,0 +1,110 @@
+# secopsctl / Go SDK — Roadmap
+
+`secopsctl` is both a CLI and an importable, unofficial Go SDK for Google SecOps
+(`danny.vn/secops/chronicle`). This roadmap tracks what is built and what is
+planned. The guiding rule: **design cleanly, port the parity slice first, then
+finish the surface** — improving on the official Python wrapper where it is weak
+(see the `// DEVIATION:` markers in code).
+
+## Package map
+
+```
+danny.vn/secops
+├── auth/         split credentials: OAuth/ADC (SIEM) + API key/AppKey (SOAR, key-auth)
+├── chronicle/    the SIEM SDK (pure API, typed structs, no file I/O)
+├── config/       instance config (YAML) load/validate/defaults
+├── internal/
+│   ├── cli/      cobra command tree (secopsctl)
+│   └── mirror/   pull/push file mirroring on top of chronicle
+└── cmd/secopsctl main
+```
+
+Future SecOps products are **sibling packages** so `chronicle` stays focused:
+`danny.vn/secops/soar`, `/sentinelone`, `/notify`.
+
+---
+
+## Wave 1 — parity with the legacy Python tool ✅ (current)
+
+Feature parity with the original `secopstips`:
+
+| Area | SDK (`chronicle/`) | Mirror / CLI |
+|---|---|---|
+| Rules | `rules.go` — List/Get/Validate/Create, deployments | `pull_rules`, `push` (create + disable) |
+| Reference lists | `reflists.go` | `pull_reflists` |
+| Data tables | `datatables.go` | `pull_datatables` (CSV) |
+| Dashboards | `dashboards.go` | `pull_dashboards` (export CUSTOM) |
+| Curated | `curated.go` | `pull_curated` + `pull_curated_rules` |
+| Feeds | `feeds.go` | `pull_feeds` (secret redaction) |
+| Parsers | `parsers.go` | `pull_parsers` (active CBN) |
+| UDM search | `search.go` | `query udm` |
+
+CLI: `info`, `pull <target>`, `push <target>` (dry-run-guarded), `query udm`.
+
+### Deviations from the official wrapper (intentional)
+- **Explicit project form** per endpoint instead of 404-then-retry trial/error.
+- **Typed structs** instead of `map[string]any` + `.get()` chains.
+- **Typed `*APIError`** (status + body) surfaced, not swallowed by broad `except`.
+- **One generic paginator** (`paginate`) instead of per-method token loops.
+- **Split, lazy auth** — many features need no ADC.
+- Rule companion `.yaml` stores a **typed deployment subset** for deterministic
+  round-trips (legacy stored the raw API dict).
+
+---
+
+## Wave 2 — finish the `secops-wrapper` (v0.44.x) surface
+
+Each item becomes a `chronicle/*.go` file (names reserved in `doc.go`) plus, where
+it makes sense, a CLI verb. Read the matching `third_party/secops-wrapper/src/secops/chronicle/*.py`
+when implementing.
+
+- **Rule writes & lifecycle** (`rules.go`/`rule_exclusion.go`/`rule_retrohunt.go`):
+  UpdateRule (etag), DeleteRule, enable/alerting toggles, retrohunts
+  (create/get/list), rule exclusions (+ deployment, activity), list detections,
+  list errors, search rule alerts.
+- **Entities & IoCs** (`entity.go`): SummarizeEntity (IP/domain/hash/user),
+  ListIoCs (Mandiant prioritization).
+- **Cases & alerts** (`case.go`, `alert.go`): get/list/patch/merge cases, get/
+  update/bulk-update alerts, bulk case ops (tag/assign/priority/stage/close/reopen).
+  Note: SIEM case ID is a UUID; SOAR uses a separate integer ID (Wave 3).
+- **Investigations** (`investigations.go`).
+- **Reference-list / data-table / feed / parser / dashboard WRITES**: create/
+  update/delete + replace-rows, parser run/copy/activate, parser extensions,
+  dashboard create/import/add-chart/execute-query. Each extends its Wave-1 file.
+- **Ingestion** (`ingest.go`): IngestLog, IngestUDM, ImportEntities.
+- **Forwarders** (`forwarders.go`), **log-processing pipelines** (`log_pipeline.go`).
+- **Data export** (`data_export.go`): create/get/list/cancel, available log types.
+- **Watchlists** (`watchlists.go`).
+- **Analytics & AI**: `stats.go` (get_stats), `nl_search.go` (NL→UDM + search),
+  `gemini.go` (query_gemini, opt-in), `log_types.go` (list/classify/describe).
+
+Cross-cutting to add in Wave 2: per-resource etag round-trip on updates, view
+enums (rule/reference-list/dashboard), and a streaming/`--as-list` pagination
+helper for very large lists.
+
+---
+
+## Wave 3 — features the wrapper does NOT cover
+
+Kept generic and tenant-neutral.
+
+- **SOAR — two surfaces** (`soar/`): the legacy Siemplify REST API and the newer
+  v1alpha SOAR API. Both authenticate with a **long-lived AppKey** (see
+  `auth.SOARAppKey`) on a **separate host** — no ADC. Gotchas to encode:
+  - Playbook save **rotates the UUID** — re-resolve by display name, never cache.
+  - SOAR integer case ID ≠ SIEM case UUID — map via lookup.
+  - Case hygiene as detection-as-code on cron.
+- **Connectors & cron jobs**: connector configs (Chronicle alerts, SCC findings)
+  and scheduled runners (case hygiene, ingest health) — generic scaffolding here,
+  kept tenant-neutral.
+
+---
+
+## Non-goals
+- No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).
+  A pre-commit leak guard (`.githooks/pre-commit`) enforces this; when porting
+  logic from a private source, bring over only generic, sanitized code.
+- No third-party EDR (e.g. SentinelOne) or chat/notification (e.g. Teams)
+  integrations — out of this repo's scope.
+- No silent overwrite of concurrent edits — honor etag, surface conflicts.
+- `push` is never non-interactive-by-default — dry-run first, explicit `--yes`.

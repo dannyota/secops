@@ -1,0 +1,14 @@
+# Failed user logins
+#
+# Surfaces authentication attempts that were blocked or failed. Pair with a
+# group-by on principal.user.userid (in the UI) to spot brute-force / password
+# spray patterns. Widen the window with --hours for slow campaigns.
+#
+# Tenant-neutral: no real users, domains, or IPs. To focus on a single
+# account add:  AND principal.user.userid = "someuser"
+#
+# Run with:
+#   secopstips query udm "$(cat examples/queries/login-failure.udm)" --hours 48
+
+metadata.event_type = "USER_LOGIN"
+AND security_result.action = "BLOCK"

@@ -1,0 +1,12 @@
+# Tenant denylist for the leak guard (.githooks/pre-commit).
+#
+# Copy this file to .githooks/denylist.local (which is git-ignored) and add the
+# tenant-specific strings that must NEVER appear in this public repo — one per
+# line, case-insensitive, matched as plain substrings. Lines starting with # are
+# comments. Keep the REAL list out of git: only this .example is tracked.
+#
+# Examples of what to add (use YOUR real values in denylist.local, not here):
+#   yourcompany
+#   acme-corp
+#   internal.example.net
+#   prod-project-name

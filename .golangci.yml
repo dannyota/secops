@@ -1,0 +1,61 @@
+# golangci-lint v2 configuration for secopsctl.
+# Modern, security-aware linter set. Run: golangci-lint run ./...
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  # Start from the curated "standard" set (errcheck, govet, ineffassign,
+  # staticcheck, unused) and add high-value checks on top.
+  default: standard
+  enable:
+    - bodyclose # HTTP response bodies are always closed
+    - errorlint # correct errors.Is/As and %w usage
+    - gocritic # opinionated correctness/style diagnostics
+    - gosec # security analysis (the point of "keep our project safe")
+    - misspell # spelling in comments/strings
+    - prealloc # pre-size slices where it clearly helps
+    - revive # broad style/correctness rules (golint successor)
+    - unconvert # remove redundant type conversions
+    - unparam # unused function parameters/returns
+    - usestdlibvars # use stdlib constants (http.MethodGet, etc.)
+    - whitespace # leading/trailing whitespace in blocks
+
+  settings:
+    errcheck:
+      # Writes to stdout/stderr (the CLI's own output) conventionally ignore
+      # their error; everything else must be handled.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    gosec:
+      excludes:
+        - G107 # variable URL in HTTP request — inherent to an API client
+        - G304 # file path from a variable — inherent to a config/mirror tool
+        - G306 # 0644 perms on written files — pulled snapshots are non-secret
+    revive:
+      rules:
+        - name: exported
+          # Doc comments exist but are intentionally terse and not always in
+          # strict golint "Name ..." form; staticcheck still covers the basics.
+          disabled: true
+
+  exclusions:
+    rules:
+      # Tests favor brevity over exhaustive error checks.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - danny.vn/secops

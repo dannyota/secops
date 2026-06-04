@@ -1,0 +1,217 @@
+package chronicle
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"danny.vn/secops/auth"
+)
+
+// DefaultAPIVersion is the Chronicle API version this SDK targets.
+const DefaultAPIVersion = "v1alpha"
+
+// Settings identifies a single Chronicle (Google SecOps) instance.
+//
+// Both ProjectID and ProjectNumber are kept because Chronicle endpoints are
+// inconsistent about which form they accept in a resource name (see
+// resource.go) — this SDK encodes the required form explicitly per endpoint.
+type Settings struct {
+	ProjectID     string // GCP project ID (string form), e.g. "my-project"
+	ProjectNumber string // GCP project number (numeric, as a string)
+	Region        string // e.g. "us", "europe", "asia-southeast1"
+	CustomerID    string // Chronicle instance UUID
+	BaseURL       string // optional; defaults from Region + DefaultAPIVersion
+}
+
+// Client is a Chronicle SIEM API client. It is safe for concurrent use.
+type Client struct {
+	settings Settings
+	baseURL  string
+	http     *http.Client
+}
+
+// Option customizes a Client.
+type Option func(*Client)
+
+// WithHTTPClient overrides the underlying *http.Client (e.g. for tests).
+// The provided client is responsible for authentication if set this way.
+func WithHTTPClient(h *http.Client) Option { return func(c *Client) { c.http = h } }
+
+// NewClient builds a Chronicle client for the SIEM API.
+//
+// creds should be OAuth credentials (auth.OAuth) — the SIEM API requires an
+// OAuth2 token. Auth is resolved lazily on the first request, so constructing a
+// client never touches the network or gcloud.
+func NewClient(s Settings, creds auth.Credentials, opts ...Option) (*Client, error) {
+	if s.Region == "" {
+		return nil, fmt.Errorf("chronicle: Settings.Region is required")
+	}
+	if s.CustomerID == "" {
+		return nil, fmt.Errorf("chronicle: Settings.CustomerID is required")
+	}
+	base := s.BaseURL
+	if base == "" {
+		base = fmt.Sprintf("https://%s-chronicle.googleapis.com/%s", s.Region, DefaultAPIVersion)
+	}
+	c := &Client{settings: s, baseURL: strings.TrimRight(base, "/")}
+
+	transport := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		ForceAttemptHTTP2:   true,
+		MaxIdleConns:        100,
+		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	if dc := ipv4DialContext(); dc != nil {
+		transport.DialContext = dc
+	}
+	c.http = &http.Client{
+		Timeout:   5 * time.Minute,
+		Transport: auth.RoundTripper(creds, transport),
+	}
+	for _, o := range opts {
+		o(c)
+	}
+	return c, nil
+}
+
+// Settings returns a copy of the instance settings.
+func (c *Client) Settings() Settings { return c.settings }
+
+// --- request plumbing -------------------------------------------------------
+
+// retryStatuses are the HTTP statuses worth retrying with backoff.
+// DEVIATION: explicit and bounded, rather than buried in transport defaults.
+var retryStatuses = map[int]bool{429: true, 500: true, 502: true, 503: true, 504: true}
+
+const maxRetries = 4
+
+type requestSpec struct {
+	query url.Values
+}
+
+type requestOption func(*requestSpec)
+
+// withQuery attaches URL query parameters to a request.
+func withQuery(q url.Values) requestOption {
+	return func(s *requestSpec) { s.query = q }
+}
+
+// do executes method against path (relative to baseURL; leading slash optional),
+// JSON-marshaling body (if non-nil) and JSON-decoding the response into out (if
+// non-nil). Non-2xx responses become *APIError. Transient failures (429/5xx and
+// network errors) are retried with capped exponential backoff.
+func (c *Client) do(ctx context.Context, method, path string, body, out any, opts ...requestOption) error {
+	spec := &requestSpec{}
+	for _, o := range opts {
+		o(spec)
+	}
+
+	full := c.baseURL + "/" + strings.TrimLeft(path, "/")
+	if len(spec.query) > 0 {
+		full += "?" + spec.query.Encode()
+	}
+
+	var bodyBytes []byte
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("chronicle: marshal request body: %w", err)
+		}
+		bodyBytes = b
+	}
+
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(1<<uint(attempt-1)) * 300 * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+
+		var reader io.Reader
+		if bodyBytes != nil {
+			reader = bytes.NewReader(bodyBytes)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, full, reader)
+		if err != nil {
+			return fmt.Errorf("chronicle: build request: %w", err)
+		}
+		req.Header.Set("Accept", "application/json")
+		if bodyBytes != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+
+		resp, err := c.http.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("chronicle: %s %s: %w", method, full, err)
+			continue // transport error: retry
+		}
+
+		data, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			if readErr != nil {
+				return fmt.Errorf("chronicle: read response: %w", readErr)
+			}
+			if out != nil && len(data) > 0 {
+				if err := json.Unmarshal(data, out); err != nil {
+					return fmt.Errorf("chronicle: decode response: %w", err)
+				}
+			}
+			return nil
+		}
+
+		apiErr := &APIError{Method: method, URL: full, Status: resp.StatusCode, Body: string(data)}
+		if retryStatuses[resp.StatusCode] && attempt < maxRetries {
+			lastErr = apiErr
+			continue
+		}
+		return apiErr
+	}
+	return lastErr
+}
+
+// get/post/patch are thin verb wrappers around do.
+func (c *Client) get(ctx context.Context, path string, out any, opts ...requestOption) error {
+	return c.do(ctx, http.MethodGet, path, nil, out, opts...)
+}
+
+func (c *Client) post(ctx context.Context, path string, body, out any, opts ...requestOption) error {
+	return c.do(ctx, http.MethodPost, path, body, out, opts...)
+}
+
+func (c *Client) patch(ctx context.Context, path string, body, out any, opts ...requestOption) error {
+	return c.do(ctx, http.MethodPatch, path, body, out, opts...)
+}
+
+// paginate repeatedly invokes fetch with the current page token until fetch
+// returns an empty next-token or maxPages is reached. fetch receives "" on the
+// first call and returns the nextPageToken from that page.
+//
+// DEVIATION: one generic paginator, vs the wrapper's per-method token loops.
+func paginate(maxPages int, fetch func(pageToken string) (next string, err error)) error {
+	token := ""
+	for range maxPages {
+		next, err := fetch(token)
+		if err != nil {
+			return err
+		}
+		if next == "" {
+			return nil
+		}
+		token = next
+	}
+	return nil
+}

@@ -1,0 +1,41 @@
+# secopstips instance configuration (TEMPLATE).
+#
+# Copy this file to config/instance.yaml and fill in your tenant's real values.
+# config/instance.yaml is git-ignored so your tenant identifiers never get
+# committed. All values below are PLACEHOLDERS.
+#
+# Config search order (first match wins):
+#   1. --config CLI flag
+#   2. $SECOPSTIPS_CONFIG
+#   3. ./config/instance.yaml
+#   4. ~/.config/secopstips/instance.yaml
+
+# --- Required keys ---------------------------------------------------------
+
+# GCP project id that hosts the Chronicle/SecOps instance.
+project_id: your-project-id
+
+# GCP project number (string; some SecOps endpoints require the numeric form).
+project_number: "000000000000"
+
+# SecOps region, e.g. us, europe, asia-southeast1.
+region: us
+
+# Chronicle customer / instance UUID.
+customer_id: 00000000-0000-0000-0000-000000000000
+
+# --- Optional keys ---------------------------------------------------------
+
+# Filled from `region` if omitted:
+#   base_url -> https://<region>-chronicle.googleapis.com/v1alpha
+# Override only if you front the API with a custom endpoint.
+# base_url: https://us-chronicle.googleapis.com/v1alpha
+
+# Chronicle web UI host. Used for building human-facing links.
+ui_url: https://your-tenant.backstory.chronicle.security
+
+# Your organisation's primary domain (used by some examples/queries).
+domain: example.com
+
+# Optional GCP organization id.
+# org_id: "000000000000"

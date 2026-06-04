@@ -1,0 +1,18 @@
+# Administrative / privileged actions
+#
+# Surfaces permission changes, password resets, and account creation - the
+# kind of high-signal admin activity worth reviewing daily. Add a principal
+# filter to attribute the action, or a target filter to scope to one resource.
+#
+# Tenant-neutral: no real users, domains, or IPs. Extend the event_type list
+# to match the admin actions your log sources emit.
+#
+# Run with:
+#   secopstips query udm "$(cat examples/queries/admin-action.udm)" --hours 24 --json
+
+(
+  metadata.event_type = "USER_CHANGE_PERMISSIONS"
+  OR metadata.event_type = "USER_CHANGE_PASSWORD"
+  OR metadata.event_type = "USER_CREATION"
+)
+AND security_result.action = "ALLOW"
