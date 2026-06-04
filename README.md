@@ -48,11 +48,14 @@ written to disk). If you can't use `gcloud`, override with
 
 **SOAR** (`soar …`) — **an AppKey, no ADC.** Generate it once in the Chronicle
 **SOAR UI → Settings → Advanced → API Keys → Add** (long-lived, admin-scoped),
-then:
+then store it in your user config (hidden prompt, written `0600`):
 ```bash
-export SECOPS_SOAR_APP_KEY=<key-from-the-soar-ui>
+secopsctl config set-soar-key      # writes SECOPS_SOAR_APP_KEY to ~/.secopsctl/.env
 ```
-Keep keys in your environment or a secret store — **never in the repo**. (The
+secopsctl auto-loads `~/.secopsctl/.env` (and `./.env`) on startup, so the key is
+picked up by every command — no manual `export`. You can still set
+`SECOPS_SOAR_APP_KEY` in the environment instead; an exported value always wins.
+Keep keys in your environment or `~/.secopsctl/.env` — **never in the repo**. (The
 Chronicle SIEM API uses no API key — it's OAuth/ADC only.)
 
 ## Quickstart
@@ -91,6 +94,7 @@ secopsctl [--config PATH] [--json] <command> ...
 | Command | What it does |
 |---|---|
 | `info` | Print the configured instance (sanity-check identifiers). |
+| `config set-soar-key` / `config path` | Store the SOAR AppKey in `~/.secopsctl/.env` (hidden prompt, `0600`); show user-config paths. |
 | `pull <target> [--filter EXPR] [--out DIR]` | Read-only pull of live state into local files. Targets: `rules`, `reference_lists`, `data_tables`, `dashboards`, `curated`, `curated_rules`, `feeds`, `parsers`, `all`. `--filter` applies to `curated_rules`. |
 | `push <target> [--dry-run \| --yes]` | **Mutating, live deploy.** `rules-create` (create rules from `*.yaral` with no companion YAML), `rules-disable` (disable locally-tracked enabled rules). Defaults to `--dry-run`. |
 | `query udm <filter> [--hours N] [--from TS] [--to TS] [--limit N] [--json]` | Ad-hoc UDM event search. |
