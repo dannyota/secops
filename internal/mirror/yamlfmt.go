@@ -28,6 +28,15 @@ func yamlUnmarshal(data []byte, v any) error {
 	return yaml.Unmarshal(data, v)
 }
 
+// readYAMLFile reads path and decodes its YAML into v.
+func readYAMLFile(path string, v any) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return yamlUnmarshal(data, v)
+}
+
 // writeYAML writes v to path as deterministic YAML.
 func writeYAML(path string, v any) error {
 	b, err := marshalYAML(v)

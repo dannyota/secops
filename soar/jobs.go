@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"danny.vn/secops/soar/internal/transport"
 )
@@ -37,6 +38,41 @@ type JobInstance struct {
 func jobInstancePath(integration, jobID, instanceID string) string {
 	return fmt.Sprintf("integrations/%s/jobs/%s/jobInstances/%s",
 		integration, jobID, instanceID)
+}
+
+// ListJobInstances returns every configured instance of an integration job.
+func (c *Client) ListJobInstances(ctx context.Context, integration, jobID string) ([]JobInstance, error) {
+	base := fmt.Sprintf("integrations/%s/jobs/%s/jobInstances", integration, jobID)
+	var all []JobInstance
+	err := transport.PaginateV1Alpha(50, func(token string) (string, error) {
+		q := url.Values{}
+		if token != "" {
+			q.Set("pageToken", token)
+		}
+		// Accept either the resource-named collection key or the generic "items"
+		// (the v1alpha LIST shape varies); decode each item to preserve Raw.
+		var resp struct {
+			JobInstances  []json.RawMessage `json:"jobInstances"`
+			Items         []json.RawMessage `json:"items"`
+			NextPageToken string            `json:"nextPageToken"`
+		}
+		if err := c.t.V1Alpha(ctx, http.MethodGet, base, nil, &resp, transport.Query(q)); err != nil {
+			return "", err
+		}
+		batch := resp.JobInstances
+		if len(batch) == 0 {
+			batch = resp.Items
+		}
+		for _, item := range batch {
+			ji, derr := decodeJobInstance(item)
+			if derr != nil {
+				return "", derr
+			}
+			all = append(all, *ji)
+		}
+		return resp.NextPageToken, nil
+	})
+	return all, err
 }
 
 // GetJobInstance fetches a single job instance's configuration.

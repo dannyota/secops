@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"danny.vn/secops/soar/internal/transport"
 )
@@ -50,6 +51,37 @@ func (ci *ConnectorInstance) UnmarshalJSON(data []byte) error {
 func connectorInstancePath(integration, connectorID, instanceID string) string {
 	return fmt.Sprintf("integrations/%s/connectors/%s/connectorInstances/%s",
 		integration, connectorID, instanceID)
+}
+
+// ListConnectorInstances returns every configured instance of a connector
+// (Google-style {items,nextPageToken} pagination).
+func (c *Client) ListConnectorInstances(ctx context.Context, integration, connectorID string) ([]ConnectorInstance, error) {
+	base := fmt.Sprintf("integrations/%s/connectors/%s/connectorInstances", integration, connectorID)
+	var all []ConnectorInstance
+	err := transport.PaginateV1Alpha(50, func(token string) (string, error) {
+		q := url.Values{}
+		if token != "" {
+			q.Set("pageToken", token)
+		}
+		// The v1alpha LIST collection key is reported either as the resource name
+		// or the generic "items"; accept both so a staging tenant on either shape
+		// pulls correctly.
+		var resp struct {
+			ConnectorInstances []ConnectorInstance `json:"connectorInstances"`
+			Items              []ConnectorInstance `json:"items"`
+			NextPageToken      string              `json:"nextPageToken"`
+		}
+		if err := c.t.V1Alpha(ctx, "GET", base, nil, &resp, transport.Query(q)); err != nil {
+			return "", err
+		}
+		batch := resp.ConnectorInstances
+		if len(batch) == 0 {
+			batch = resp.Items
+		}
+		all = append(all, batch...)
+		return resp.NextPageToken, nil
+	})
+	return all, err
 }
 
 // GetConnectorInstance reads a connector instance's configuration.

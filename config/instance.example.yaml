@@ -1,4 +1,4 @@
-# secopstips instance configuration (TEMPLATE).
+# secopsctl instance configuration (TEMPLATE).
 #
 # Copy this file to config/instance.yaml and fill in your tenant's real values.
 # config/instance.yaml is git-ignored so your tenant identifiers never get
@@ -6,9 +6,9 @@
 #
 # Config search order (first match wins):
 #   1. --config CLI flag
-#   2. $SECOPSTIPS_CONFIG
+#   2. $SECOPSCTL_CONFIG
 #   3. ./config/instance.yaml
-#   4. ~/.config/secopstips/instance.yaml
+#   4. ~/.config/secopsctl/instance.yaml
 
 # --- Required keys ---------------------------------------------------------
 
@@ -33,6 +33,10 @@ customer_id: 00000000-0000-0000-0000-000000000000
 
 # Chronicle web UI host. Used for building human-facing links.
 ui_url: https://your-tenant.backstory.chronicle.security
+
+# SOAR (Siemplify) host for `secopsctl soar ...`. The AppKey itself comes from
+# $SECOPS_SOAR_APP_KEY (never committed); only the host lives here.
+# soar_url: https://your-tenant.siemplify-soar.com
 
 # Your organisation's primary domain (used by some examples/queries).
 domain: example.com
