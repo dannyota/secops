@@ -102,7 +102,7 @@ func init() {
 			"rules, cases, and playbooks, and guarded mutating `push`. SOAR uses a\n" +
 			"long-lived AppKey ($SECOPS_SOAR_APP_KEY) and the soar_url config host.",
 	}
-	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARLegacyCmd())
+	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARCaseCmd(), newSOARLegacyCmd())
 	rootCmd.AddCommand(soarCmd)
 }
 

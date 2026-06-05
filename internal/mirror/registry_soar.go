@@ -20,6 +20,7 @@ type soarSurfaceDef struct {
 
 var soarSurfaceDefs = []soarSurfaceDef{
 	{"webhooks", webhooksSurface},
+	{"connectors-legacy", connectorsLegacySurface},
 }
 
 // SOARSurfaceNames returns the engine-backed SOAR surface names, sorted.
@@ -61,5 +62,27 @@ func webhooksSurface(lc *legacy.Client) reconcile.Surface {
 		create:    lc.CreateWebhook,
 		update:    lc.UpdateWebhook,
 		del:       lc.DeleteWebhook,
+	})
+}
+
+// connectorsLegacySurface: connector instances as a flat list via the legacy
+// external API (full CUD — complements the modern connectors tier, which is
+// pull+patch only). SaveConnector is a whole-body upsert keyed by "identifier",
+// so a brand-new connector file must carry a client-assigned identifier (clone
+// an existing one and change displayName); update overlays edits onto the live
+// body, preserving server-masked secret params. Delete is by identifier.
+func connectorsLegacySurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name:      "connectors-legacy",
+		dir:       DirSOARConnLegacy,
+		product:   reconcile.ProductSOAR,
+		idField:   "identifier",
+		nameField: "displayName",
+		caps:      reconcile.Capabilities{WholeBodyWrite: true, PruneEligible: true},
+		list:      lc.ListConnectorCards,
+		getOne:    lc.GetConnector,
+		create:    lc.SaveConnector,
+		update:    lc.SaveConnector,
+		del:       lc.DeleteConnector,
 	})
 }
