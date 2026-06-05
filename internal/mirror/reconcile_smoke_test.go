@@ -352,6 +352,125 @@ func TestLiveReconcileReadAllSOAR(t *testing.T) {
 	}
 }
 
+// runReconcileCreateUpdateSmoke drives the engine create -> in-sync -> update ->
+// in-sync cycle for one throwaway record, then runs cleanup (these surfaces have
+// no engine delete, so the caller supplies a raw remove). createBody is the new
+// record (no _server); editField/editValue is a benign string change.
+func runReconcileCreateUpdateSmoke(t *testing.T, ctx context.Context, s reconcile.Surface, label string, createBody map[string]any, editField, editValue string, cleanup func(reconcile.Object) error) {
+	t.Helper()
+	slug := Slugify(label)
+	dir := t.TempDir()
+	path := filepath.Join(dir, slug+".json")
+	if _, err := reconcile.Pull(ctx, s, dir, io.Discard); err != nil {
+		t.Fatalf("baseline pull: %v", err)
+	}
+	raw, _ := json.Marshal(createBody)
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cleaned := false
+	t.Cleanup(func() {
+		if cleaned {
+			return
+		}
+		if o, found := findBySlug(ctx, s, slug); found {
+			if err := cleanup(o); err != nil {
+				t.Logf("cleanup %q: %v", label, err)
+			}
+		}
+	})
+
+	var buf strings.Builder
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+		t.Fatalf("push create: %v\n%s", err, buf.String())
+	}
+	live, found := findBySlug(ctx, s, slug)
+	if !found {
+		t.Fatalf("created %q not found after create. push log:\n%s", label, buf.String())
+	}
+	if id, _ := serverBlock([]byte(readFile(t, path))); id == "" || id != live.ServerID {
+		t.Fatalf("create did not record the server id (file=%q live=%q)", id, live.ServerID)
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-create not in sync: +%d ~%d -%d", len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	// Edit a benign field -> exactly one update reconciles clean.
+	var m map[string]any
+	_ = json.Unmarshal([]byte(readFile(t, path)), &m)
+	m[editField] = editValue
+	b, _ := json.MarshalIndent(m, "", "  ")
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); len(plan.Updates()) != 1 || len(plan.Creates()) != 0 {
+		t.Fatalf("expected exactly one update, got +%d ~%d", len(plan.Creates()), len(plan.Updates()))
+	}
+	buf.Reset()
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+		t.Fatalf("push update: %v\n%s", err, buf.String())
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-update not in sync: +%d ~%d -%d", len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	// Cleanup (raw remove) + verify gone.
+	if err := cleanup(live); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+	cleaned = true
+	if _, still := findBySlug(ctx, s, slug); still {
+		t.Fatalf("%q still present after cleanup", label)
+	}
+}
+
+// TestLiveReconcileNetworkWriteSmoke validates the engine write loop on networks:
+// a throwaway named network on the RFC 5737 test range (192.0.2.0/24) matches no
+// real traffic and is removed afterward. Construct-based (the tenant may have no
+// network to clone). Cleanup uses the array-shaped RemoveNetworkDetailsRecords.
+func TestLiveReconcileNetworkWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, ok := BuildSOARSurface("networks", lc)
+	if !ok {
+		t.Fatal("networks not registered")
+	}
+	env := firstEnvironmentName(ctx, lc)
+	if env == "" {
+		t.Skip("no environment available to scope a throwaway network")
+	}
+	label := smokeLabel("network")
+	body := map[string]any{"name": label, "address": "192.0.2.0/24", "priority": 1, "environments": []any{env}}
+	runReconcileCreateUpdateSmoke(t, ctx, s, label, body, "address", "192.0.2.128/25",
+		func(o reconcile.Object) error {
+			var rec map[string]any
+			_ = json.Unmarshal(o.Raw, &rec)
+			_, err := lc.RemoveNetworkDetailsRecords(ctx, []any{rec})
+			return err
+		})
+}
+
+// TestLiveReconcileVisualFamilyWriteSmoke validates the engine write loop on
+// visual-families — exercising the wrapKey envelope ({visualFamilyDataModel: ...})
+// live. A throwaway custom family with no rules is display-only and inert; cleanup
+// deletes it by id via DeleteFamilyData.
+func TestLiveReconcileVisualFamilyWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, ok := BuildSOARSurface("visual-families", lc)
+	if !ok {
+		t.Fatal("visual-families not registered")
+	}
+	label := smokeLabel("vfamily")
+	body := map[string]any{"family": label, "description": "secopsctl reconcile smoke", "isCustom": true, "rules": []any{}}
+	runReconcileCreateUpdateSmoke(t, ctx, s, label, body, "description", "secopsctl reconcile smoke (edited)",
+		func(o reconcile.Object) error {
+			_, err := lc.DeleteFamilyData(ctx, o.ServerID)
+			return err
+		})
+}
+
 // findAny returns any one live object from a surface (a clone template).
 func findAny(ctx context.Context, s reconcile.Surface) (reconcile.Object, bool) {
 	res, err := s.List(ctx)
