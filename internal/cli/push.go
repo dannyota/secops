@@ -10,26 +10,32 @@ import (
 	"github.com/spf13/cobra"
 
 	"danny.vn/secops/internal/mirror"
+	"danny.vn/secops/internal/mirror/reconcile"
 )
 
 // push flag values (per-invocation; cobra resets them each parse).
 var (
 	pushDryRun   bool   // --dry-run
 	pushYes      bool   // --yes
+	pushPrune    bool   // --prune (engine surfaces only)
 	pushRulesDir string // --rules-dir
 )
 
 func init() {
+	engine := mirror.SIEMSurfaceNames()
+	valid := append([]string{"rules-create", "rules-disable"}, engine...)
+
 	pushCmd := &cobra.Command{
 		Use:   "push <target>",
-		Short: "MUTATING (guarded): create/disable live rules. Dry-run by default",
-		Long: "Push rule changes to the LIVE tenant. Defaults to a dry run; pass\n" +
-			"--yes to actually apply (or confirm interactively).\n\n" +
+		Short: "MUTATING (guarded): create/disable rules, reconcile config. Dry-run by default",
+		Long: "Push changes to the LIVE tenant. Defaults to a dry run; pass --yes to\n" +
+			"actually apply (or confirm interactively).\n\n" +
 			"Targets:\n" +
-			"  rules-create   create live rules from *.yaral with no companion *.yaml\n" +
-			"  rules-disable  disable locally-tracked rules with deployment.enabled=true",
+			"  rules-create     create live rules from *.yaral with no companion *.yaml\n" +
+			"  rules-disable    disable locally-tracked rules with deployment.enabled=true\n" +
+			"  " + strings.Join(engine, ", ") + "   reconcile local files to live (create/update; --prune to delete)",
 		Args:      cobra.ExactArgs(1),
-		ValidArgs: []string{"rules-create", "rules-disable"},
+		ValidArgs: valid,
 		RunE:      runPush,
 	}
 	f := pushCmd.Flags()
@@ -37,6 +43,8 @@ func init() {
 		"preview only; never mutate (this is the default behavior)")
 	f.BoolVar(&pushYes, "yes", false,
 		"skip the interactive confirmation and apply the change for real")
+	f.BoolVar(&pushPrune, "prune", false,
+		"engine surfaces: also delete live objects with no local file (guarded)")
 	f.StringVar(&pushRulesDir, "rules-dir", "",
 		"directory of local rule files (default: <dataRoot>/rules)")
 	// --dry-run and --yes are conceptually opposed; --dry-run always wins (see
@@ -59,9 +67,6 @@ func init() {
 // the mirror layer itself is non-interactive and refuses on assumeYes==false.
 func runPush(cmd *cobra.Command, args []string) error {
 	target := args[0]
-	if target != "rules-create" && target != "rules-disable" {
-		return fmt.Errorf("unknown push target %q (want rules-create or rules-disable)", target)
-	}
 
 	dryRun := pushDryRun || !pushYes
 	assumeYes := pushYes && !pushDryRun
@@ -75,22 +80,34 @@ func runPush(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	rulesDir := pushRulesDir
-	if rulesDir == "" {
-		rulesDir = filepath.Join(mirror.DataRoot(""), mirror.DirRules)
-	}
-
 	client, err := newChronicleClient()
 	if err != nil {
 		return err
 	}
 	ctx := baseContext()
 
+	// Engine-backed SIEM surfaces (reference_lists, …): reconcile local files to
+	// live (create/update; --prune to delete) through the shared reconcile engine.
+	if s, ok := mirror.BuildSIEMSurface(target, client); ok {
+		dir := filepath.Join(mirror.DataRoot(""), s.Dir)
+		_, err = reconcile.Push(ctx, s, dir, reconcile.PushOpts{
+			DryRun: dryRun, AssumeYes: assumeYes, Prune: pushPrune,
+		}, os.Stdout)
+		return err
+	}
+
+	rulesDir := pushRulesDir
+	if rulesDir == "" {
+		rulesDir = filepath.Join(mirror.DataRoot(""), mirror.DirRules)
+	}
 	switch target {
 	case "rules-create":
 		_, err = mirror.PushRulesCreate(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
 	case "rules-disable":
 		_, err = mirror.PushRulesDisable(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
+	default:
+		return fmt.Errorf("unknown push target %q (want one of: %s)",
+			target, strings.Join(append([]string{"rules-create", "rules-disable"}, mirror.SIEMSurfaceNames()...), ", "))
 	}
 	return err
 }
