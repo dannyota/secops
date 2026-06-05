@@ -123,6 +123,13 @@ func (spec jsonSurfaceSpec) buildObject(full json.RawMessage) (reconcile.Object,
 	}
 	name := jsonField(full, spec.nameField)
 	id := jsonField(full, spec.idField)
+	if id == "" && name == "" {
+		// Neither identity field resolved — the surface is misconfigured for this
+		// payload (e.g. a nested/grouped list shape). Fail loudly rather than write
+		// an "_unnamed" file with an empty server id (which collides + re-creates).
+		return reconcile.Object{}, fmt.Errorf(
+			"%s: object has neither %q (id) nor %q (name) at top level", spec.name, spec.idField, spec.nameField)
+	}
 	if name == "" {
 		name = id
 	}

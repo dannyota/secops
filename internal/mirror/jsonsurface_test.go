@@ -202,6 +202,28 @@ func TestJSONSurfaceCreateRefreshesOriginalFile(t *testing.T) {
 	}
 }
 
+// TestJSONSurfaceListIncompleteOnNoIdentity: an object with neither id nor name
+// (e.g. a grouped/nested list shape, like connectors' grouped-by-integration
+// cards) is skipped and marks the listing incomplete, instead of writing an
+// "_unnamed" file. Guards against the misconfigured-surface failure mode.
+func TestJSONSurfaceListIncompleteOnNoIdentity(t *testing.T) {
+	f := newFakeAPI()
+	f.objs["w1"] = map[string]any{"identifier": "w1", "name": "good", "url": "x"}
+	f.objs["bad"] = map[string]any{"group": "g", "items": []any{}} // no identifier/name
+	s := fakeWebhookSurface(f)
+
+	res, err := s.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Incomplete {
+		t.Error("expected Incomplete=true when an object has no identity")
+	}
+	if len(res.Objects) != 1 || res.Objects[0].Slug != Slugify("good") {
+		t.Errorf("the well-formed object should still list, got %d objects", len(res.Objects))
+	}
+}
+
 // TestJSONSurfaceCreateRefusesExistingID: a file that reuses an existing live id
 // (e.g. a careless clone) is refused, never overwriting the live object.
 func TestJSONSurfaceCreateRefusesExistingID(t *testing.T) {
