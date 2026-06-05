@@ -20,6 +20,7 @@ const (
 	DirSOARGrouping   = "grouping"
 	DirSOARCases      = "cases"
 	DirSOARPlaybooks  = "playbooks"
+	DirSOARWebhooks   = "webhooks"
 )
 
 // connectorSnapshot is the diff-friendly YAML written per connector instance.

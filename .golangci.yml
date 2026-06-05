@@ -37,6 +37,7 @@ linters:
         - G107 # variable URL in HTTP request — inherent to an API client
         - G304 # file path from a variable — inherent to a config/mirror tool
         - G306 # 0644 perms on written files — pulled snapshots are non-secret
+        - G703 # taint-based path traversal — same as G304: operator-chosen --out path
     revive:
       rules:
         - name: exported

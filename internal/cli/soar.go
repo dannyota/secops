@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -12,6 +15,7 @@ import (
 	"danny.vn/secops/auth"
 	"danny.vn/secops/config"
 	"danny.vn/secops/internal/mirror"
+	"danny.vn/secops/internal/mirror/reconcile"
 	"danny.vn/secops/soar"
 	"danny.vn/secops/soar/legacy"
 )
@@ -98,18 +102,24 @@ func init() {
 			"rules, cases, and playbooks, and guarded mutating `push`. SOAR uses a\n" +
 			"long-lived AppKey ($SECOPS_SOAR_APP_KEY) and the soar_url config host.",
 	}
-	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd())
+	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARLegacyCmd())
 	rootCmd.AddCommand(soarCmd)
 }
 
 func newSOARPullCmd() *cobra.Command {
 	var out string
+	bespoke := []string{"connectors", "jobs", "grouping", "cases", "playbooks"}
+	engine := mirror.SOARSurfaceNames()
+	valid := append(append(append([]string{}, bespoke...), engine...), "all")
+
 	cmd := &cobra.Command{
-		Use:       "pull <target>",
-		Short:     "Read-only: snapshot SOAR state to local files",
-		Long:      "Targets: connectors, jobs, grouping, cases, playbooks, all.",
+		Use:   "pull <target>",
+		Short: "Read-only: snapshot SOAR state to local files",
+		Long: "Targets: " + strings.Join(valid, ", ") + ".\n" +
+			"Engine surfaces (" + strings.Join(engine, ", ") + ") snapshot one\n" +
+			"redacted, diff-friendly file per object for the pull->diff->push loop.",
 		Args:      cobra.ExactArgs(1),
-		ValidArgs: []string{"connectors", "jobs", "grouping", "cases", "playbooks", "all"},
+		ValidArgs: valid,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := args[0]
 			root := filepath.Join(mirror.DataRoot(out), mirror.DirSOAR)
@@ -131,6 +141,18 @@ func newSOARPullCmd() *cobra.Command {
 				_, err = fn(lc, filepath.Join(root, sub))
 				return err
 			}
+			runEngine := func(name string) error {
+				lc, err := newSOARLegacyClient()
+				if err != nil {
+					return err
+				}
+				s, ok := mirror.BuildSOARSurface(name, lc)
+				if !ok {
+					return fmt.Errorf("unknown engine surface %q", name)
+				}
+				_, err = reconcile.Pull(ctx, s, filepath.Join(root, s.Dir), os.Stdout)
+				return err
+			}
 
 			conn := func(c *soar.Client, d string) (int, error) { return mirror.PullSOARConnectors(ctx, c, d) }
 			jobs := func(c *soar.Client, d string) (int, error) { return mirror.PullSOARJobs(ctx, c, d) }
@@ -138,6 +160,9 @@ func newSOARPullCmd() *cobra.Command {
 			cases := func(lc *legacy.Client, d string) (int, error) { return mirror.PullSOARCases(ctx, lc, d) }
 			plays := func(lc *legacy.Client, d string) (int, error) { return mirror.PullSOARPlaybooks(ctx, lc, d) }
 
+			if slices.Contains(engine, target) {
+				return runEngine(target)
+			}
 			switch target {
 			case "connectors":
 				return runModern(conn, mirror.DirSOARConnectors)
@@ -162,7 +187,15 @@ func newSOARPullCmd() *cobra.Command {
 				if err := runLegacy(cases, mirror.DirSOARCases); err != nil {
 					return err
 				}
-				return runLegacy(plays, mirror.DirSOARPlaybooks)
+				if err := runLegacy(plays, mirror.DirSOARPlaybooks); err != nil {
+					return err
+				}
+				for _, n := range engine {
+					if err := runEngine(n); err != nil {
+						return err
+					}
+				}
+				return nil
 			default:
 				return fmt.Errorf("unknown soar pull target %q", target)
 			}
@@ -187,6 +220,9 @@ func newSOARPushCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "push <target>",
 		Short: "MUTATING (guarded): live SOAR changes. Dry-run by default",
+		Long: "Reconcile local files to live SOAR config. Engine surfaces (" +
+			strings.Join(mirror.SOARSurfaceNames(), ", ") + ") create new files,\n" +
+			"update edited ones, and (only with --prune) delete server-only objects.",
 	}
 	cmd.AddCommand(
 		newSOARBulkCloseCmd(),
@@ -194,6 +230,48 @@ func newSOARPushCmd() *cobra.Command {
 		newSOARPatchCmd("job", "patch a job instance from an edited snapshot YAML"),
 		newSOARPlaybookSaveCmd(),
 	)
+	for _, name := range mirror.SOARSurfaceNames() {
+		cmd.AddCommand(newSOAREnginePushCmd(name))
+	}
+	return cmd
+}
+
+// newSOAREnginePushCmd builds the guarded reconcile push for one engine surface:
+// `soar push <surface> [--dry-run|--yes] [--prune]`.
+func newSOAREnginePushCmd(name string) *cobra.Command {
+	var (
+		dryRun bool
+		yes    bool
+		prune  bool
+		out    string
+	)
+	cmd := &cobra.Command{
+		Use:   name + " [--prune]",
+		Short: "Reconcile local " + name + " files to live (create/update; --prune to delete)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			s, ok := mirror.BuildSOARSurface(name, lc)
+			if !ok {
+				return fmt.Errorf("unknown engine surface %q", name)
+			}
+			dr, ay := soarGuard(name+" reconcile", dryRun, yes)
+			dir := filepath.Join(mirror.DataRoot(out), mirror.DirSOAR, s.Dir)
+			_, err = reconcile.Push(baseContext(), s, dir, reconcile.PushOpts{
+				DryRun: dr, AssumeYes: ay, Prune: prune,
+			}, os.Stdout)
+			return err
+		},
+	}
+	f := cmd.Flags()
+	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	f.BoolVar(&prune, "prune", false, "also delete live objects with no local file (guarded; gated on a complete pull)")
+	f.StringVar(&out, "out", "", "data root directory (default: cwd)")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return cmd
 }
 
@@ -293,6 +371,109 @@ func newSOARPlaybookSaveCmd() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
+}
+
+// newSOARLegacyCmd is the raw escape hatch for external-API operations not yet
+// modeled as engine surfaces — so the full Siemplify surface is reachable as
+// config-as-code (GET/POST-read to pull JSON, a guarded mutating method to push
+// it back) without a typed wrapper per endpoint.
+func newSOARLegacyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "legacy",
+		Short: "Escape hatch: call any Siemplify external-API op (/api/external/v1)",
+	}
+	cmd.AddCommand(newSOARLegacyCallCmd())
+	return cmd
+}
+
+func newSOARLegacyCallCmd() *cobra.Command {
+	var (
+		method string
+		body   string
+		write  bool
+		yes    bool
+		out    string
+	)
+	cmd := &cobra.Command{
+		Use:   "call <op>",
+		Short: "Call an external-API op, e.g. integrations/GetInstalledIntegrations",
+		Long: "op is the path under /api/external/v1 (leading slash optional). GET and\n" +
+			"POST default to read-only; PUT/DELETE or --write mark a mutation, which\n" +
+			"prints the LIVE banner and requires --yes.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			op := args[0]
+			method = strings.ToUpper(strings.TrimSpace(method))
+			if method == "" {
+				method = "GET"
+			}
+
+			var payload any
+			if body != "" {
+				raw, err := os.ReadFile(body)
+				if err != nil {
+					return err
+				}
+				if !json.Valid(raw) {
+					return fmt.Errorf("%s is not valid JSON", body)
+				}
+				payload = json.RawMessage(raw)
+			}
+
+			if write || method == "PUT" || method == "DELETE" {
+				legacyCallBanner(method, op)
+				if !yes {
+					fmt.Fprintln(os.Stdout, "Refusing a mutating call without --yes. Aborted.")
+					return nil
+				}
+			}
+
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			resp, err := lc.Raw(baseContext(), method, op, payload)
+			if err != nil {
+				return err
+			}
+			pretty := indentJSON(resp)
+			if out != "" {
+				if err := os.WriteFile(out, pretty, 0o644); err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stdout, "wrote %d bytes -> %s\n", len(pretty), out)
+				return nil
+			}
+			_, err = os.Stdout.Write(pretty)
+			return err
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&method, "method", "GET", "HTTP method (GET, POST, PUT, DELETE)")
+	f.StringVar(&body, "body", "", "JSON file to send as the request body")
+	f.BoolVar(&write, "write", false, "mark this call as mutating (forces the guard for a POST that writes)")
+	f.BoolVar(&yes, "yes", false, "confirm a mutating call")
+	f.StringVar(&out, "out", "", "write the response to this file instead of stdout")
+	return cmd
+}
+
+// legacyCallBanner warns before a mutating raw external-API call.
+func legacyCallBanner(method, op string) {
+	bar := strings.Repeat("!", 72)
+	fmt.Fprintln(os.Stdout, bar)
+	fmt.Fprintln(os.Stdout, "!! LIVE external-API call to a PRODUCTION SOAR tenant !!")
+	fmt.Fprintf(os.Stdout, "!! %s %s\n", method, op)
+	fmt.Fprintln(os.Stdout, bar)
+}
+
+// indentJSON pretty-prints a raw response for stdout/file output.
+func indentJSON(raw json.RawMessage) []byte {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, raw, "", "  "); err != nil {
+		return append([]byte(nil), raw...)
+	}
+	buf.WriteByte('\n')
+	return buf.Bytes()
 }
 
 // parseIntList parses "1,2,3" into []int.

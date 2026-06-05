@@ -51,3 +51,12 @@ func (c *Client) externalDo(ctx context.Context, method, path string, body any) 
 	}
 	return out, nil
 }
+
+// Raw is the escape hatch for external-API operations not yet modeled by a typed
+// method: it issues method against op (the path under /api/external/v1, leading
+// slash optional) with an optional JSON body and returns the raw response. The
+// CLI's `soar legacy call` uses this so the full surface is reachable as
+// config-as-code without a wrapper per endpoint.
+func (c *Client) Raw(ctx context.Context, method, op string, body any) (RawJSON, error) {
+	return c.externalDo(ctx, method, op, body)
+}
