@@ -41,7 +41,10 @@ type Playbook = json.RawMessage
 // PlaybookCard is a single entry from the playbook menu listing. Raw holds the
 // untouched card object for callers that need fields beyond the typed ones.
 type PlaybookCard struct {
-	ID           string          `json:"id"`
+	// ID is the card's numeric menu id. DEVIATION: the SOAR menu RPC returns this
+	// as a JSON number, so it is typed json.Number to decode it without error; the
+	// uuid used for workflow operations is Identifier.
+	ID           json.Number     `json:"id"`
 	Identifier   string          `json:"identifier"`
 	Name         string          `json:"name"`
 	CategoryName string          `json:"categoryName"`

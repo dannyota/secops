@@ -114,6 +114,38 @@ Kept generic and tenant-neutral. **Full design:
   (Linux, Windows, macOS)** before it ships; until then plaintext + `0600` is the
   documented behavior. The mintable OAuth token stays out of the file entirely.
 
+### Wave 3 build-out — SOAR external API (Siemplify `/api/external/v1`) full surface
+
+**Why the external API (not keyless-over-ADC):** the modern v1alpha SOAR methods on
+`*-chronicle.googleapis.com` (`generateSoarAuthJwt`, `soarDomains.list`,
+`integrations`) require the caller to be a **workforce-identity-federated SOAR
+user**; a plain ADC/OAuth token (even with `roles/chronicle.soarAdmin`) is rejected
+by the SOAR backend (404/500). The official Python `secops` SDK hits the same wall.
+So the **AppKey-authenticated Siemplify external API is the path that works** for
+real tenants — and it is by far the most complete surface.
+
+**Reference spec:** `third_party/siemplify-swagger.json` (fetched from
+`app.siemplify-soar.com/swagger/v1/swagger.json`) — *Chronicle SOAR API*,
+OpenAPI 3.0.1, **448 paths / 484 operations / 27 tags**, global security
+`AppKey` (header), base `/api/external/v1`. This is the authoritative map for what
+to implement. Goal: **support as many users/operations as feasible**, built on the
+existing `soar/legacy` tier + `soar/internal/transport` (External, AppKey).
+
+Priority order (config + automation that fits pull → diff → push; skip UI/runtime
+noise like Homepage, CommandCenter, Agents, Reports, Dashboards):
+1. **Connectors** (9) — CRUD, cards, templates, fetch-sample-data, statistics.
+2. **Jobs** (10) — installed/templates, instances CRUD, run.
+3. **Integrations** (9) — installed integrations, instance config + settings.
+4. **Playbooks** (45) — CRUD, export/import, enable/disable, categories.
+5. **Ontology** (18) — entity mappings/relations (config-as-code).
+6. **Case Management** (135) — automation subset: close, comment, tag, assign, queue.
+7. **Settings** (89) — config subset: environments, networks, blacklists.
+
+**Discipline (Wave-3 testing):** smoke-test live with the AppKey; **read endpoints
+broadly** (safe), **write endpoints minimally** with create → verify → **delete only
+what we created** (the live tenant is production). **Do NOT `git push` until the
+user confirms.**
+
 ---
 
 ## Non-goals
