@@ -202,6 +202,24 @@ func TestJSONSurfaceCreateRefreshesOriginalFile(t *testing.T) {
 	}
 }
 
+// TestDecodeRawListUnwrapsObjectsList: the paged settings reads
+// (GetEnvironments/GetNetworkDetails) wrap records in {metadata, objectsList};
+// decodeRawList must return objectsList, not the metadata object. (Validated
+// live: environments pull picked objectsList correctly.)
+func TestDecodeRawListUnwrapsObjectsList(t *testing.T) {
+	raw := json.RawMessage(`{"metadata":{"requestedPage":0,"totalCount":2},"objectsList":[{"id":1,"name":"a"},{"id":2,"name":"b"}]}`)
+	items, err := decodeRawList(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("want 2 records from objectsList, got %d", len(items))
+	}
+	if jsonField(items[0], "name") != "a" {
+		t.Errorf("first record wrong: %s", items[0])
+	}
+}
+
 // TestJSONSurfaceListIncompleteOnNoIdentity: an object with neither id nor name
 // (e.g. a grouped/nested list shape, like connectors' grouped-by-integration
 // cards) is skipped and marks the listing incomplete, instead of writing an
