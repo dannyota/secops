@@ -3,6 +3,7 @@ package mirror
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 
 	"danny.vn/secops/internal/mirror/reconcile"
@@ -29,6 +30,10 @@ var soarSurfaceDefs = []soarSurfaceDef{
 	{"webhooks", webhooksSurface},
 	{"environments", environmentsSurface},
 	{"networks", networksSurface},
+	{"tracking-lists", trackingListsSurface},
+	{"soc-roles", socRolesSurface},
+	{"idp", idpSurface},
+	{"visual-families", visualFamiliesSurface},
 }
 
 // SOARSurfaceNames returns the engine-backed SOAR surface names, sorted.
@@ -71,6 +76,93 @@ func webhooksSurface(lc *legacy.Client) reconcile.Surface {
 		update:    lc.UpdateWebhook,
 		del:       lc.DeleteWebhook,
 	})
+}
+
+// The surfaces below were spec'd by a swagger-grounded workflow and the method
+// signatures verified by hand. All are ADDITIVE (NoDelete) for now: their deletes
+// take a body selector (not a clean id) or are RBAC/SSO-sensitive, and no path is
+// write-validated against a live tenant yet — pull + diff is the safe value; the
+// guarded write awaits a live smoke. idField "id" is stripped from the diff and
+// carried in _server; the live record's id flows back on update via DeepMerge.
+
+// trackingListsSurface: tracked entities (flat array; id + entityIdentifier).
+func trackingListsSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "tracking-lists", dir: DirSOARTrackingLists,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "entityIdentifier",
+		caps:   reconcile.Capabilities{NoDelete: true},
+		list:   lc.GetTrackingListRecords,
+		create: lc.AddOrUpdateTrackingListRecords,
+		update: lc.AddOrUpdateTrackingListRecords,
+	})
+}
+
+// socRolesSurface: SOC role definitions (RBAC; flat array; id + name). SocRoleGet
+// takes an int id (not the string getOne shape), so list records are used as-is.
+func socRolesSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "soc-roles", dir: DirSOARSocRoles,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "name",
+		caps:   reconcile.Capabilities{NoDelete: true},
+		list:   lc.SocRoleList,
+		create: lc.SocRoleAddOrUpdate,
+		update: lc.SocRoleAddOrUpdate,
+	})
+}
+
+// idpSurface: IdP group→role mappings (SSO; wrapped {metadata, objectsList}; UUID
+// id + idpGroup name). UpdateIdpGroupMapping takes (id, body), so the update is a
+// thin closure that pulls the id back out of the merged body.
+func idpSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "idp", dir: DirSOARIdp,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "idpGroup",
+		caps:   reconcile.Capabilities{NoDelete: true},
+		list:   lc.ListIdpGroupMappings,
+		getOne: lc.GetIdpGroupMapping,
+		create: lc.CreateIdpGroupMapping,
+		update: func(ctx context.Context, body any) (json.RawMessage, error) {
+			return lc.UpdateIdpGroupMapping(ctx, bodyStr(body, "id"), body)
+		},
+	})
+}
+
+// visualFamiliesSurface: ontology visual families (flat array; id + family). The
+// write API expects the record wrapped as {visualFamilyDataModel: record}; the
+// icon blob (imageBase64) is stripped from the diff.
+func visualFamiliesSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "visual-families", dir: DirSOARVisualFams,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "family",
+		extraStrip: []string{"imageBase64"},
+		wrapKey:    "visualFamilyDataModel",
+		caps:       reconcile.Capabilities{NoDelete: true},
+		list:       lc.ListVisualFamilies,
+		create:     lc.AddOrUpdateVisualFamily,
+		update:     lc.AddOrUpdateVisualFamily,
+	})
+}
+
+// bodyStr extracts a string field from a decoded JSON body (used to thread an id
+// from a merged body into an SDK method that takes id as a separate parameter).
+func bodyStr(body any, key string) string {
+	m, ok := body.(map[string]any)
+	if !ok {
+		return ""
+	}
+	switch v := m[key].(type) {
+	case string:
+		return v
+	case float64:
+		return fmt.Sprintf("%.0f", v)
+	case json.Number:
+		return v.String()
+	}
+	return ""
 }
 
 // environmentsSurface: SOAR environments (segregation units) as config-as-code.

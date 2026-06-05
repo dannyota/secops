@@ -202,6 +202,20 @@ func TestJSONSurfaceCreateRefreshesOriginalFile(t *testing.T) {
 	}
 }
 
+// TestJSONSurfaceWrap: the wrapKey option nests the send body under an envelope
+// key (e.g. ontology AddOrUpdateVisualFamily wants {visualFamilyDataModel: record}).
+func TestJSONSurfaceWrap(t *testing.T) {
+	plain := jsonSurfaceSpec{}
+	if got := plain.wrap(map[string]any{"a": 1}); got.(map[string]any)["a"] != 1 {
+		t.Error("no wrapKey: body should pass through unchanged")
+	}
+	wrapped := jsonSurfaceSpec{wrapKey: "env"}.wrap(map[string]any{"a": 1}).(map[string]any)
+	inner, ok := wrapped["env"].(map[string]any)
+	if !ok || inner["a"] != 1 {
+		t.Errorf("wrapKey should nest the body under the key, got %v", wrapped)
+	}
+}
+
 // TestDecodeRawListUnwrapsObjectsList: the paged settings reads
 // (GetEnvironments/GetNetworkDetails) wrap records in {metadata, objectsList};
 // decodeRawList must return objectsList, not the metadata object. (Validated

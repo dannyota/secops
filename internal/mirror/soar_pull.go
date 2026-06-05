@@ -14,15 +14,19 @@ import (
 
 // On-disk subdirectory names for SOAR snapshots (under <root>/soar).
 const (
-	DirSOAR             = "soar"
-	DirSOARConnectors   = "connectors"
-	DirSOARJobs         = "jobs"
-	DirSOARGrouping     = "grouping"
-	DirSOARCases        = "cases"
-	DirSOARPlaybooks    = "playbooks"
-	DirSOARWebhooks     = "webhooks"
-	DirSOAREnvironments = "environments"
-	DirSOARNetworks     = "networks"
+	DirSOAR              = "soar"
+	DirSOARConnectors    = "connectors"
+	DirSOARJobs          = "jobs"
+	DirSOARGrouping      = "grouping"
+	DirSOARCases         = "cases"
+	DirSOARPlaybooks     = "playbooks"
+	DirSOARWebhooks      = "webhooks"
+	DirSOAREnvironments  = "environments"
+	DirSOARNetworks      = "networks"
+	DirSOARTrackingLists = "tracking_lists"
+	DirSOARSocRoles      = "soc_roles"
+	DirSOARIdp           = "idp"
+	DirSOARVisualFams    = "visual_families"
 )
 
 // connectorSnapshot is the diff-friendly YAML written per connector instance.

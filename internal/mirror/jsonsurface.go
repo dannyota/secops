@@ -40,6 +40,7 @@ type jsonSurfaceSpec struct {
 	idField    string   // JSON key of the server identity (e.g. "identifier")
 	nameField  string   // JSON key of the display name (e.g. "name")
 	extraStrip []string // surface-specific volatile keys to drop from the diff
+	wrapKey    string   // if set, create/update wrap the body as {wrapKey: body} (e.g. "visualFamilyDataModel")
 
 	list   rawListFn // required
 	getOne rawGetFn  // optional: full read by id (else the list item is used)
@@ -214,7 +215,7 @@ func (spec jsonSurfaceSpec) createObject(ctx context.Context, local reconcile.Ob
 	if err := json.Unmarshal(local.Canonical, &body); err != nil {
 		return reconcile.Object{}, err
 	}
-	if _, err := spec.create(ctx, body); err != nil {
+	if _, err := spec.create(ctx, spec.wrap(body)); err != nil {
 		return reconcile.Object{}, err
 	}
 	// The create API may not echo a usable id; re-resolve by display name.
@@ -233,7 +234,7 @@ func (spec jsonSurfaceSpec) updateObject(ctx context.Context, local, live reconc
 	if err := json.Unmarshal(merged, &body); err != nil {
 		return reconcile.Object{}, err
 	}
-	if _, err := spec.update(ctx, body); err != nil {
+	if _, err := spec.update(ctx, spec.wrap(body)); err != nil {
 		return reconcile.Object{}, err
 	}
 	full := merged
@@ -248,6 +249,15 @@ func (spec jsonSurfaceSpec) updateObject(ctx context.Context, local, live reconc
 func (spec jsonSurfaceSpec) deleteObject(ctx context.Context, live reconcile.Object) error {
 	_, err := spec.del(ctx, live.ServerID)
 	return err
+}
+
+// wrap nests the send body under wrapKey when the write API expects an envelope
+// (e.g. ontology AddOrUpdateVisualFamily wants {visualFamilyDataModel: record}).
+func (spec jsonSurfaceSpec) wrap(body any) any {
+	if spec.wrapKey == "" {
+		return body
+	}
+	return map[string]any{spec.wrapKey: body}
 }
 
 // idExistsLive reports whether any live object already has the given id.
