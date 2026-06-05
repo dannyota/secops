@@ -322,6 +322,36 @@ func TestLiveReconcileTrackingListWriteSmoke(t *testing.T) {
 	}
 }
 
+// TestLiveReconcileReadAllSOAR pulls every registered SOAR reconcile surface and
+// asserts a clean round-trip (a fresh pull diffs in-sync), validating each
+// surface's list shape, identity extraction, redaction, and canonical stability
+// against the live tenant. Read-only — runs under SECOPS_SOAR_SMOKE=1 (no writes).
+func TestLiveReconcileReadAllSOAR(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	for _, name := range SOARSurfaceNames() {
+		t.Run(name, func(t *testing.T) {
+			s, ok := BuildSOARSurface(name, lc)
+			if !ok {
+				t.Fatalf("%s not registered", name)
+			}
+			dir := t.TempDir()
+			n, err := reconcile.Pull(ctx, s, dir, io.Discard)
+			if err != nil {
+				t.Fatalf("pull: %v", err)
+			}
+			plan, _, err := reconcile.BuildPlan(ctx, s, dir)
+			if err != nil {
+				t.Fatalf("plan: %v", err)
+			}
+			if !plan.Empty() {
+				t.Errorf("fresh pull of %d object(s) not in sync: +%d ~%d -%d",
+					n, len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+			}
+			t.Logf("%s: %d object(s), clean round-trip", name, n)
+		})
+	}
+}
+
 // findAny returns any one live object from a surface (a clone template).
 func findAny(ctx context.Context, s reconcile.Surface) (reconcile.Object, bool) {
 	res, err := s.List(ctx)
