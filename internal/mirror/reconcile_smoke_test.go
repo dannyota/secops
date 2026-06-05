@@ -2,7 +2,9 @@ package mirror
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -124,6 +126,12 @@ func TestLiveReconcileWebhookWriteSmoke(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, slug+".json")
 
+	// Pull the baseline so existing objects have local files; otherwise they would
+	// show as (additive-skipped) delete candidates and the in-sync check would fail.
+	if _, err := reconcile.Pull(ctx, s, dir, io.Discard); err != nil {
+		t.Fatalf("baseline pull: %v", err)
+	}
+
 	// Delete the throwaway on cleanup even if an assertion fails midway.
 	deleted := false
 	t.Cleanup(func() {
@@ -199,4 +207,126 @@ func TestLiveReconcileWebhookWriteSmoke(t *testing.T) {
 	if _, stillThere := findBySlug(ctx, s, slug); stillThere {
 		t.Fatalf("throwaway webhook %q still present after delete", label)
 	}
+}
+
+// TestLiveReconcileTrackingListWriteSmoke validates the engine's create + update
+// success path on a surface where create is permitted: it CLONES an existing
+// tracking-list record (so the body is guaranteed valid), renames the inert
+// entity identifier to a throwaway label, and runs engine create -> in-sync ->
+// update -> in-sync. tracking-lists has no engine delete (its API delete takes a
+// body), so cleanup removes the throwaway via the raw SDK. A dummy tracked entity
+// matches no real events and is removed immediately.
+func TestLiveReconcileTrackingListWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+
+	s, ok := BuildSOARSurface("tracking-lists", lc)
+	if !ok {
+		t.Fatal("tracking-lists is not a registered engine surface")
+	}
+	seed, ok := findAny(ctx, s)
+	if !ok {
+		t.Skip("no existing tracking-list record to clone as a valid template")
+	}
+
+	// Clone the seed's full body, drop server-managed fields, set the throwaway id.
+	var rec map[string]any
+	if err := json.Unmarshal(seed.Raw, &rec); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"id", "creationTimeUnixTimeInMs", "modificationTimeUnixTimeInMs"} {
+		delete(rec, k)
+	}
+	label := smokeLabel("tracking")
+	rec["entityIdentifier"] = label
+	slug := Slugify(label)
+	dir := t.TempDir()
+	path := filepath.Join(dir, slug+".json")
+
+	// Pull the baseline so the existing records have files (else they show as
+	// additive-skipped delete candidates and the in-sync check fails).
+	if _, err := reconcile.Pull(ctx, s, dir, io.Discard); err != nil {
+		t.Fatalf("baseline pull: %v", err)
+	}
+	raw, _ := json.Marshal(rec)
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	removed := false
+	t.Cleanup(func() {
+		if removed {
+			return
+		}
+		if o, found := findBySlug(ctx, s, slug); found {
+			if _, err := lc.RemoveTrackingListRecords(ctx, o.Raw); err != nil {
+				t.Logf("cleanup: could not remove throwaway tracking entity %q: %v", label, err)
+			}
+		}
+	})
+
+	// Create.
+	var buf strings.Builder
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+		t.Fatalf("push create: %v\n%s", err, buf.String())
+	}
+	live, found := findBySlug(ctx, s, slug)
+	if !found {
+		t.Fatalf("created tracking entity %q not found after create. push log:\n%s", label, buf.String())
+	}
+
+	// _server.id recorded back into the operator's file.
+	if id, _ := serverBlock([]byte(readFile(t, path))); id == "" || id != live.ServerID {
+		t.Fatalf("create did not record the server id (file id=%q, live id=%q)", id, live.ServerID)
+	}
+	// Clean round-trip.
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-create plan not in sync: +%d ~%d -%d",
+			len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	// Update: flip a benign field and confirm a single update reconciles clean.
+	cur := readFile(t, path)
+	edited := cur
+	if strings.Contains(cur, `"category"`) {
+		var m map[string]any
+		_ = json.Unmarshal([]byte(cur), &m)
+		m["category"] = "secopsctl-smoke"
+		b, _ := json.MarshalIndent(m, "", "  ")
+		edited = string(b)
+	} else {
+		t.Skip("seed record has no 'category' field to edit; create path validated")
+	}
+	if err := os.WriteFile(path, []byte(edited), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); len(plan.Updates()) != 1 {
+		t.Fatalf("expected one update, got +%d ~%d", len(plan.Creates()), len(plan.Updates()))
+	}
+	buf.Reset()
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+		t.Fatalf("push update: %v\n%s", err, buf.String())
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-update plan not in sync: +%d ~%d -%d",
+			len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	// Cleanup via the raw delete (tracking-lists delete takes a body).
+	if _, err := lc.RemoveTrackingListRecords(ctx, live.Raw); err != nil {
+		t.Fatalf("remove throwaway: %v", err)
+	}
+	removed = true
+	if _, stillThere := findBySlug(ctx, s, slug); stillThere {
+		t.Fatalf("throwaway tracking entity %q still present after remove", label)
+	}
+}
+
+// findAny returns any one live object from a surface (a clone template).
+func findAny(ctx context.Context, s reconcile.Surface) (reconcile.Object, bool) {
+	res, err := s.List(ctx)
+	if err != nil || len(res.Objects) == 0 {
+		return reconcile.Object{}, false
+	}
+	return res.Objects[0], true
 }
