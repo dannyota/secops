@@ -251,9 +251,10 @@ func refreshLocal(s Surface, dir string, it PlanItem, echo Object, w io.Writer) 
 	if echo.ServerID == "" && len(echo.Canonical) == 0 {
 		return // API echoed nothing usable; leave the local file as-is.
 	}
-	if echo.Slug == "" {
-		echo.Slug = it.Slug
-	}
+	// Refresh the operator's EXISTING file (it.Slug), not a slugified copy of the
+	// display name — otherwise a create writes the server id to a different file
+	// and the original re-creates on the next push (duplicate live objects).
+	echo.Slug = it.Slug
 	if err := s.Write(dir, echo); err != nil {
 		fmt.Fprintf(w, "  WARN %s: applied live but local refresh failed: %v\n", it.Slug, err)
 	}

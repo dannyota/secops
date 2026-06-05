@@ -193,6 +193,16 @@ func (spec jsonSurfaceSpec) createObject(ctx context.Context, local reconcile.Ob
 			"refusing to create %q: body still contains a redaction marker (%s); supply the real value first",
 			local.Slug, redactedMarker)
 	}
+	// Guard against an upsert-keyed-by-id surface (e.g. connectors' SaveConnector):
+	// a file that still carries an existing live id is an UPDATE, not a create —
+	// creating it would overwrite that live object. Refuse and tell the operator.
+	if id := jsonField(local.Canonical, spec.idField); id != "" {
+		if exists, err := spec.idExistsLive(ctx, id); err == nil && exists {
+			return reconcile.Object{}, fmt.Errorf(
+				"refusing to create %q: %s %q already exists live — keep its _server block to update it, or assign a new %s",
+				local.Slug, spec.idField, id, spec.idField)
+		}
+	}
 	var body any
 	if err := json.Unmarshal(local.Canonical, &body); err != nil {
 		return reconcile.Object{}, err
@@ -231,6 +241,24 @@ func (spec jsonSurfaceSpec) updateObject(ctx context.Context, local, live reconc
 func (spec jsonSurfaceSpec) deleteObject(ctx context.Context, live reconcile.Object) error {
 	_, err := spec.del(ctx, live.ServerID)
 	return err
+}
+
+// idExistsLive reports whether any live object already has the given id.
+func (spec jsonSurfaceSpec) idExistsLive(ctx context.Context, id string) (bool, error) {
+	raw, err := spec.list(ctx)
+	if err != nil {
+		return false, err
+	}
+	items, err := decodeRawList(raw)
+	if err != nil {
+		return false, err
+	}
+	for _, it := range items {
+		if jsonField(it, spec.idField) == id {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // resolveByName lists and returns the object whose nameField matches name,
