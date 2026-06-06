@@ -5,6 +5,8 @@ title: secopsctl
 description: Operate Google SecOps (Chronicle SIEM + Siemplify SOAR) as code
 # Custom domain serves at the root (secops.danny.vn/), so no path prefix.
 baseurl: ""
+# Clean URLs site-wide: ARCHITECTURE.md -> /ARCHITECTURE/ (no .html anywhere).
+permalink: pretty
 
 defaults:
   - scope:
