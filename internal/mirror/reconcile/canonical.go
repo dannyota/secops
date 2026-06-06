@@ -16,6 +16,7 @@ var timeKeys = map[string]bool{
 	"lastModificationTimeUnixTimeInMs": true,
 	"creationTime":                     true,
 	"modificationTime":                 true,
+	"lastModificationTime":             true,
 	"createTime":                       true,
 	"updateTime":                       true,
 	"revisionCreateTime":               true,

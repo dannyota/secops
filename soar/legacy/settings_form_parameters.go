@@ -8,12 +8,21 @@ package legacy
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strconv"
 )
 
 // SettingXListFormDynamicParameters returns all form dynamic parameters.
 func (c *Client) SettingXListFormDynamicParameters(ctx context.Context) (RawJSON, error) {
 	return c.externalGet(ctx, "/settings/form-dynamic-parameters")
+}
+
+// SettingXListFormDynamicParametersByType returns the form dynamic parameters for
+// one form type. The collection GET requires a formType filter (the unfiltered
+// read is rejected), so config-as-code lists per type; FormType has a single
+// usable value, "CloseCase".
+func (c *Client) SettingXListFormDynamicParametersByType(ctx context.Context, formType string) (RawJSON, error) {
+	return c.externalGetQuery(ctx, "/settings/form-dynamic-parameters", url.Values{"formType": {formType}})
 }
 
 // SettingXGetFormDynamicParameter returns one form dynamic parameter by its

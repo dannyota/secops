@@ -248,7 +248,7 @@ live-write-validated. Status after closing them:
   delete (`RetentionDeleteCases`) is 403 for the AppKey role, so the smoke cleans up by
   closing (re-run-tolerant; a retention grant would make it zero-residue).
 
-### Wave 7 — SOAR completion  *(next)*
+### Wave 7 — SOAR completion  *(done — reads + connectors/jobs writes live-validated; form-dynamic-parameters deferred)*
 - **Goal.** Close SOAR to full config-as-code.
 - **Scope.** Finish the remaining write-smokes + enable `--prune` where a clean
   delete-by-id exists; **ontology** raw lane (entity mappings/relations, export/import
@@ -261,6 +261,26 @@ live-write-validated. Status after closing them:
 - **Exit.** SOAR CATALOG rows ✅ or documented read-only-by-choice; ontology covered;
   `connectors`/`jobs` write live-validated.
 - **Docs.** SOAR-DESIGN, CATALOG.
+- **Status (done — live-validated).** `connectors` and `jobs` moved off the flaky
+  modern v1alpha pull+patch onto the reliable legacy AppKey **reconcile engine**
+  (`soar pull/push connectors|jobs`) — reconcile lane 14 → 16. All 16 SOAR reconcile
+  surfaces **read** round-trip clean live (`TestLiveReconcileReadAllSOAR`); `jobs`
+  **write** is live-validated (`TestLiveReconcileJobWriteSmoke`: throwaway disabled
+  job → engine update → delete); `connectors` **write** is live-validated full CUD
+  (`TestLiveReconcileConnectorWriteSmoke`: throwaway DISABLED connector from a
+  template → engine create → update → delete). Connector **create** works by OMITTING
+  the `identifier` (the server assigns one; a client-assigned id routes to the update
+  path and 404s) + supplying the mandatory params. **Prune sweep**: `PruneEligible` on
+  `connectors`, `visual-families`, `networks` (joining `webhooks`). **Integration instances** (no
+  update endpoint) → imperative `soar integration create`/`delete`; **singleton
+  case-routing policies** → imperative `soar settings case-assignment`/`move-case-policy`
+  (`get`/`set`). **Ontology** mapping rules (selector read + batch upsert + body
+  delete) + export/import bundles stay the raw lane — covered, not a reconcile fit;
+  remaining settings (RBAC/SSO, config-items, system singletons) are
+  read-only-by-choice/raw. **`form-dynamic-parameters` investigated but deferred** —
+  its strict PUT update silently resets a parameter's `formType` to Invalid (dropping
+  it out of its form) even with the UI's integer-enum body, so reconcile update is
+  unsafe; reachable read-only via the raw lane.
 
 ### Wave 8 — Chronicle (UUID) operational API + remaining SIEM surfaces
 - **Goal.** Reach cases/alerts/events through Chronicle's newer **UUID API** — the

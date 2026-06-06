@@ -38,15 +38,51 @@ type CaseQueueRequest struct {
 	Statuses      []int `json:"statuses"` // 1=OPEN 2=CLOSED
 }
 
-// CloseReason is the legacy bulk-close reason code.
+// CloseReason is the legacy bulk-close reason code (the server's CloseReasonEnum).
 type CloseReason int
 
-// CloseReason values accepted by BulkCloseCases.
+// CloseReason values accepted by BulkCloseCases. The integer encoding is the
+// server's, not alphabetical — Malicious is 0, per the swagger CloseReasonEnum
+// description (Malicious=0 / NotMalicious=1 / Maintenance=2 / Inconclusive=3 /
+// Unknown=4). Do not reorder.
 const (
-	CloseNotMalicious CloseReason = 0
-	CloseMalicious    CloseReason = 1
+	CloseMalicious    CloseReason = 0
+	CloseNotMalicious CloseReason = 1
 	CloseMaintenance  CloseReason = 2
 	CloseInconclusive CloseReason = 3
+	CloseUnknown      CloseReason = 4
+)
+
+// String returns the reason name (for CLI/log output).
+func (r CloseReason) String() string {
+	switch r {
+	case CloseMalicious:
+		return "Malicious"
+	case CloseNotMalicious:
+		return "NotMalicious"
+	case CloseMaintenance:
+		return "Maintenance"
+	case CloseInconclusive:
+		return "Inconclusive"
+	case CloseUnknown:
+		return "Unknown"
+	default:
+		return "CloseReason(" + strconv.Itoa(int(r)) + ")"
+	}
+}
+
+// CasePriority is the case priority scale (the server's CasePriority enum). The
+// integer values are non-contiguous (sourced from the swagger schema description).
+type CasePriority int
+
+// CasePriority values for ManualCaseRequest.Priority and the priority verbs.
+const (
+	PriorityInformative CasePriority = -1
+	PriorityUnchanged   CasePriority = 0
+	PriorityLow         CasePriority = 40
+	PriorityMedium      CasePriority = 60
+	PriorityHigh        CasePriority = 80
+	PriorityCritical    CasePriority = 100
 )
 
 // BulkCloseRequest closes one or more cases in a single legacy operation.
@@ -81,19 +117,19 @@ func (c *Client) ListCaseCards(ctx context.Context, req CaseQueueRequest) (json.
 // OccurenceTime is an RFC3339 timestamp. Priority is a CasePriority enum value
 // (0/40/60/80/100, or -1 for Informative). SLAExpirationDateTime is optional.
 type ManualCaseRequest struct {
-	Title                       string   `json:"title"`
-	AssignedUser                string   `json:"assignedUser"`
-	Reason                      string   `json:"reason"`
-	Priority                    int      `json:"priority"`
-	Environment                 string   `json:"environment"`
-	IsImportant                 bool     `json:"isImportant"`
-	AlertName                   string   `json:"alertName"`
-	OccurenceTime               string   `json:"occurenceTime"`
-	SLAExpirationDateTime       *string  `json:"slaExpirationDateTime"`
-	Entities                    []any    `json:"entities"`
-	Playbooks                   []string `json:"playbooks"`
-	AutomaticPlaybookAttachment bool     `json:"automaticPlaybookAttachment"`
-	Tags                        []string `json:"tags"`
+	Title                       string       `json:"title"`
+	AssignedUser                string       `json:"assignedUser"`
+	Reason                      string       `json:"reason"`
+	Priority                    CasePriority `json:"priority"`
+	Environment                 string       `json:"environment"`
+	IsImportant                 bool         `json:"isImportant"`
+	AlertName                   string       `json:"alertName"`
+	OccurenceTime               string       `json:"occurenceTime"`
+	SLAExpirationDateTime       *string      `json:"slaExpirationDateTime"`
+	Entities                    []any        `json:"entities"`
+	Playbooks                   []string     `json:"playbooks"`
+	AutomaticPlaybookAttachment bool         `json:"automaticPlaybookAttachment"`
+	Tags                        []string     `json:"tags"`
 }
 
 // CreateManualCase creates a manual (analyst-authored) case and returns the new

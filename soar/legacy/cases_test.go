@@ -43,7 +43,7 @@ func TestCreateManualCaseForcesEmptyCollections(t *testing.T) {
 	c := newCaptureClient(rt)
 
 	id, err := c.CreateManualCase(context.Background(), ManualCaseRequest{
-		Title: "x", AssignedUser: "@Tier1", Priority: 40, Environment: "Default Environment",
+		Title: "x", AssignedUser: "@Tier1", Priority: PriorityLow, Environment: "Default Environment",
 		AlertName: "x", OccurenceTime: "2026-01-02T03:04:05Z",
 		// Entities / Playbooks / Tags intentionally left nil.
 	})

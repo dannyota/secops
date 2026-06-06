@@ -5,6 +5,35 @@ package legacy
 
 import "context"
 
+// Block-list enum codings are the server's integers, sourced from the swagger
+// schema `description` fields.
+
+// BlockListItemType is a model block-list entry's element type (ApiBlockListItemType).
+type BlockListItemType int
+
+const (
+	BlockHostName       BlockListItemType = 0
+	BlockUserUniqName   BlockListItemType = 1
+	BlockIP             BlockListItemType = 2
+	BlockEventProduct   BlockListItemType = 3
+	BlockEventVendor    BlockListItemType = 4
+	BlockEventSignature BlockListItemType = 5
+	BlockMacAddress     BlockListItemType = 6
+	BlockEntity         BlockListItemType = 7
+	BlockEvent          BlockListItemType = 8
+)
+
+// BlockListScope is a model block-list entry's scope (ApiBlockListItemScope).
+type BlockListScope int
+
+const (
+	BlockScopeAll                BlockListScope = 0
+	BlockScopeForAggregationOnly BlockListScope = 1
+	BlockScopeForGroupOnly       BlockListScope = 2
+	BlockScopeForModel           BlockListScope = 3
+	BlockScopeForCreationAlert   BlockListScope = 4
+)
+
 // GetAllModelBlockRecords returns every block-list (model block) record.
 func (c *Client) GetAllModelBlockRecords(ctx context.Context) (RawJSON, error) {
 	return c.externalGet(ctx, "/settings/GetAllModelBlockRecords")

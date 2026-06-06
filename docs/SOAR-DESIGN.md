@@ -27,9 +27,9 @@ reconcile):
 
 | Lane | Mechanism | SOAR surfaces |
 |---|---|---|
-| **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **14**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) |
-| **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` | reads: `list` (queue cards) · `get <id>` (case + its alerts); 9 mutate verbs: assign · rename · stage · tag · untag · describe · importance · close · merge; plus `soar push bulk-close` |
-| **raw** (batch upserts / bundles / selector reads) | `soar legacy call <op>` | integrations · jobs · ontology-mapping · permissions · settings · … |
+| **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **16**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) · `connectors` (Wave 7) · `jobs` (Wave 7). (`form-dynamic-parameters` was investigated and deferred — its PUT update is unsafe; see CATALOG) |
+| **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar integration` · `soar settings` | cases: `list` (queue cards) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (modern v1alpha): `integration list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`) |
+| **raw** (batch upserts / bundles / selector reads) | `soar legacy call <op>` | integrations (reads) · ontology-mapping (selector read + batch upsert + body delete) · environment-priorities · permissions · system/singleton settings · … |
 
 Commands:
 
@@ -42,8 +42,11 @@ Commands:
 The operational loop is **`soar case list` → review → `soar case get <id>` → act**
 (a mutate verb or `soar push bulk-close`). Per-surface identity, capabilities (NoDelete /
 WholeBodyWrite / PruneEligible) and read/write validation are in
-[CATALOG.md](CATALOG.md) — today only `webhooks` is `PruneEligible`; every other
-surface is additive/NoDelete by design.
+[CATALOG.md](CATALOG.md). `PruneEligible` (a clean, low-blast delete-by-id, so
+`--prune` may delete server-only objects) is set on `webhooks`, `connectors`,
+`visual-families`, and `networks`; every other surface is additive/NoDelete by design — its delete takes a body selector, or is high-blast
+(an environment orphans its cases) or RBAC/SSO-sensitive (`idp` has a clean by-id
+delete but pruning a forgotten mapping would silently revoke a group's access).
 
 ## The transport tiers (under the hood)
 
@@ -53,7 +56,7 @@ lanes ride on. SOAR uses one host (`https://<tenant>.siemplify-soar.com`) with
 
 | Tier | Surface | Transport | Lifecycle |
 |---|---|---|---|
-| **Modern** ⚠ | v1alpha native: integrations · connectors · jobs · alertGroupingRules · moduleSettings · cases | `/v1alpha/projects/<num>/…/instances/<id>` + `?format=camel` + `x-goog-api-version` + `updateMask` | pull/patch-only · **500s intermittently** — not the build path today |
+| **Modern** ⚠ | v1alpha native: integrations · connectors · jobs · alertGroupingRules · moduleSettings · cases | `/v1alpha/projects/<num>/…/instances/<id>` + `?format=camel` + `x-goog-api-version` + `updateMask` | pull/patch-only · **500s intermittently** — not the build path today. **Connectors/jobs config-as-code moved off this tier onto the Legacy AppKey reconcile engine (Wave 7);** `alertGroupingRules`/`moduleSettings` stay here via `soar pull grouping` |
 | **Bridge** 🟠 | `legacyPlaybooks:legacy*` (list/get/save/attach/stats) | v1alpha host, **legacy op names** | the one genuine *quarantine*: delete when native v1alpha **playbook CRUD** ships |
 | **Legacy AppKey** ✅ | Siemplify external API — the broad, reliable surface the **reconcile engine** runs on | `/api/external/v1/…` (offset paging) | **durable backbone**, not slated for removal |
 
@@ -86,7 +89,7 @@ danny.vn/secops/
     │
     ├── MODERN — v1alpha native (pull/patch only · flaky) ─────────────────────
     │     client.go        SOAR client
-    │     integrations.go  integrations · connectors · jobs   (discovery)
+    │     integrations.go  integrations(list/get/delete) · connector defs(list/get/delete) · jobs   (discovery + custom cleanup)
     │     connectors.go    connectorInstances   GET · PATCH(updateMask) · :fetchLatestDefinition
     │     jobs.go          jobInstances         GET · PATCH(updateMask)
     │     grouping.go      alertGroupingRules · moduleSettings(:batchUpdate)
@@ -134,8 +137,14 @@ bridge/playbooks    coercePlaybookTypes(): id/priority/version/*UnixTimeInMs int
   not two case systems.
 - **Parameters are always strings** on connectors/jobs (even bool/int); secrets
   read back masked (`***…`) and must be passed through unchanged on PATCH.
-- **Integration clones** — integrations can appear twice (`Name` + `Name__<uuid>`);
-  use the un-suffixed one for live edits.
+- **Installed vs catalog integrations** — each marketplace pack lists twice: the
+  per-tenant **installed** copy has an `identifier` of `<base>__<uuid>` (with
+  `productionIdentifier` = the base) and is what the tenant runs; the bare
+  `<base>` entry is the catalog/base definition. Both report `custom:false`, so
+  neither is whole-deletable (`integrations.delete` is custom-packs-only) — that
+  protects the working installs. A duplicated connector **definition** inside a
+  pack (`custom:true`, e.g. a "Copy of …") is removed per-definition via
+  `DeleteConnectorDef`, not by deleting the pack.
 - **Two paginations** — legacy is offset (`requestedPage`/`pageSize`); v1alpha is
   Google-style (`pageToken`/`nextPageToken`).
 

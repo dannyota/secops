@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -102,13 +103,14 @@ func init() {
 			"rules, cases, and playbooks, and guarded mutating `push`. SOAR uses a\n" +
 			"long-lived AppKey ($SECOPS_SOAR_APP_KEY) and the soar_url config host.",
 	}
-	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARCaseCmd(), newSOARLegacyCmd())
+	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARCaseCmd(), newSOARLegacyCmd(),
+		newSOARIntegrationCmd(), newSOARSettingsCmd())
 	rootCmd.AddCommand(soarCmd)
 }
 
 func newSOARPullCmd() *cobra.Command {
 	var out string
-	bespoke := []string{"connectors", "jobs", "grouping", "cases"}
+	bespoke := []string{"grouping", "cases"}
 	engine := mirror.SOARSurfaceNames()
 	valid := append(append(append([]string{}, bespoke...), engine...), "all")
 
@@ -154,8 +156,6 @@ func newSOARPullCmd() *cobra.Command {
 				return err
 			}
 
-			conn := func(c *soar.Client, d string) (int, error) { return mirror.PullSOARConnectors(ctx, c, d) }
-			jobs := func(c *soar.Client, d string) (int, error) { return mirror.PullSOARJobs(ctx, c, d) }
 			grp := func(c *soar.Client, d string) (int, error) { return mirror.PullSOARGrouping(ctx, c, d) }
 			cases := func(lc *legacy.Client, d string) (int, error) { return mirror.PullSOARCases(ctx, lc, d) }
 
@@ -163,21 +163,11 @@ func newSOARPullCmd() *cobra.Command {
 				return runEngine(target)
 			}
 			switch target {
-			case "connectors":
-				return runModern(conn, mirror.DirSOARConnectors)
-			case "jobs":
-				return runModern(jobs, mirror.DirSOARJobs)
 			case "grouping":
 				return runModern(grp, mirror.DirSOARGrouping)
 			case "cases":
 				return runLegacy(cases, mirror.DirSOARCases)
 			case "all":
-				if err := runModern(conn, mirror.DirSOARConnectors); err != nil {
-					return err
-				}
-				if err := runModern(jobs, mirror.DirSOARJobs); err != nil {
-					return err
-				}
 				if err := runModern(grp, mirror.DirSOARGrouping); err != nil {
 					return err
 				}
@@ -220,8 +210,6 @@ func newSOARPushCmd() *cobra.Command {
 	}
 	cmd.AddCommand(
 		newSOARBulkCloseCmd(),
-		newSOARPatchCmd("connector", "patch a connector instance from an edited snapshot YAML"),
-		newSOARPatchCmd("job", "patch a job instance from an edited snapshot YAML"),
 		newSOARPlaybookSaveCmd(),
 	)
 	for _, name := range mirror.SOARSurfaceNames() {
@@ -272,7 +260,7 @@ func newSOAREnginePushCmd(name string) *cobra.Command {
 func newSOARBulkCloseCmd() *cobra.Command {
 	var (
 		idsArg    string
-		reason    int
+		reason    string
 		rootCause string
 		comment   string
 		dryRun    bool
@@ -280,10 +268,14 @@ func newSOARBulkCloseCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "bulk-close",
-		Short: "Bulk-close SOAR cases by id (reason 0=NotMalicious 1=Malicious 2=Maintenance 3=Inconclusive)",
+		Short: "Bulk-close SOAR cases by id (reason: malicious|not-malicious|maintenance|inconclusive|unknown)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ids, err := parseIntList(idsArg)
+			if err != nil {
+				return err
+			}
+			cr, err := parseCloseReason(reason)
 			if err != nil {
 				return err
 			}
@@ -292,50 +284,19 @@ func newSOARBulkCloseCmd() *cobra.Command {
 				return err
 			}
 			dr, ay := soarGuard("bulk-close cases", dryRun, yes)
-			_, err = mirror.PushSOARBulkClose(baseContext(), lc, ids, legacy.CloseReason(reason), rootCause, comment, dr, ay, os.Stdout)
+			_, err = mirror.PushSOARBulkClose(baseContext(), lc, ids, cr, rootCause, comment, dr, ay, os.Stdout)
 			return err
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&idsArg, "ids", "", "comma-separated SOAR case ids (required)")
-	f.IntVar(&reason, "reason", 0, "close reason: 0 NotMalicious, 1 Malicious, 2 Maintenance, 3 Inconclusive")
+	f.StringVar(&reason, "reason", "maintenance", "close reason: malicious | not-malicious | maintenance | inconclusive | unknown")
 	f.StringVar(&rootCause, "root-cause", "", "close root cause")
 	f.StringVar(&comment, "comment", "", "close comment")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("ids")
-	return cmd
-}
-
-func newSOARPatchCmd(kind, short string) *cobra.Command {
-	var (
-		file   string
-		dryRun bool
-		yes    bool
-	)
-	cmd := &cobra.Command{
-		Use:   kind + " --file <snapshot.yaml>",
-		Short: short,
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := newSOARClient()
-			if err != nil {
-				return err
-			}
-			dr, ay := soarGuard(kind+" patch", dryRun, yes)
-			if kind == "connector" {
-				return mirror.PushSOARConnectorPatch(baseContext(), c, file, dr, ay, os.Stdout)
-			}
-			return mirror.PushSOARJobPatch(baseContext(), c, file, dr, ay, os.Stdout)
-		},
-	}
-	f := cmd.Flags()
-	f.StringVar(&file, "file", "", "edited snapshot YAML to apply (required)")
-	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
-	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
-	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	_ = cmd.MarkFlagRequired("file")
 	return cmd
 }
 
@@ -451,6 +412,378 @@ func newSOARLegacyCallCmd() *cobra.Command {
 	return cmd
 }
 
+// newSOARIntegrationCmd groups the imperative integration-instance verbs.
+// Integration instances are not reconcilable (no update endpoint, no round-tripping
+// read shape), so they are operated imperatively; reads stay on `soar legacy call`.
+func newSOARIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "integration",
+		Short: "Manage SOAR integration instances (imperative create/delete)",
+	}
+	cmd.AddCommand(newSOARIntegrationCreateCmd(), newSOARIntegrationDeleteCmd(),
+		newSOARIntegrationListCmd(), newSOARIntegrationUninstallCmd(),
+		newSOARIntegrationConnectorCmd())
+	return cmd
+}
+
+// newSOARIntegrationConnectorCmd groups the connector-DEFINITION verbs (the
+// connector templates inside an integration, as opposed to the configured
+// connector instances under `soar pull/push connectors`).
+func newSOARIntegrationConnectorCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connector",
+		Short: "List/delete connector definitions inside an integration",
+	}
+	cmd.AddCommand(newSOARConnectorDefListCmd(), newSOARConnectorDefDeleteCmd())
+	return cmd
+}
+
+func newSOARConnectorDefListCmd() *cobra.Command {
+	var (
+		integration string
+		asJSON      bool
+	)
+	cmd := &cobra.Command{
+		Use:   "list --integration <key>",
+		Short: "List an integration's connector definitions (read-only)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
+			defs, err := c.ListConnectors(baseContext(), integration)
+			if err != nil {
+				return err
+			}
+			if asJSON {
+				return json.NewEncoder(os.Stdout).Encode(defs)
+			}
+			for _, d := range defs {
+				tag := ""
+				if d.Custom {
+					tag = "  [custom/deletable]"
+				}
+				fmt.Fprintf(os.Stdout, "%-6s %s%s\n", d.ID.String(), d.DisplayName, tag)
+			}
+			fmt.Fprintf(os.Stdout, "\n%d connector definition(s)\n", len(defs))
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&integration, "integration", "", "integration key/identifier (required)")
+	f.BoolVar(&asJSON, "json", false, "emit JSON")
+	_ = cmd.MarkFlagRequired("integration")
+	return cmd
+}
+
+func newSOARConnectorDefDeleteCmd() *cobra.Command {
+	var (
+		integration string
+		id          string
+		dryRun      bool
+		yes         bool
+	)
+	cmd := &cobra.Command{
+		Use:   "delete --integration <key> --id <connector-id>",
+		Short: "Delete a custom connector definition (e.g. a 'Copy of …' duplicate)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
+			ctx := baseContext()
+			def, err := c.GetConnectorDef(ctx, integration, id)
+			if err != nil {
+				return fmt.Errorf("connector definition %s/%s not found: %w", integration, id, err)
+			}
+			if !def.Custom {
+				return fmt.Errorf("connector %q (id %s) is a commercial definition, not deletable", def.DisplayName, id)
+			}
+			dr, _ := soarGuard("integration connector delete", dryRun, yes)
+			if dr {
+				fmt.Fprintf(os.Stdout, "DRY RUN: would delete custom connector definition %q (%s/%s)\n", def.DisplayName, integration, id)
+				return nil
+			}
+			if err := c.DeleteConnectorDef(ctx, integration, id); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stdout, "deleted custom connector definition %q (%s/%s)\n", def.DisplayName, integration, id)
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&integration, "integration", "", "integration key/identifier (required)")
+	f.StringVar(&id, "id", "", "numeric connector-definition id (required)")
+	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	_ = cmd.MarkFlagRequired("integration")
+	_ = cmd.MarkFlagRequired("id")
+	return cmd
+}
+
+// newSOARIntegrationListCmd lists installed integration packs via the modern
+// v1alpha surface — the discovery side of uninstall. Read-only.
+func newSOARIntegrationListCmd() *cobra.Command {
+	var (
+		asJSON bool
+		custom bool
+	)
+	cmd := &cobra.Command{
+		Use:   "list [--custom] [--json]",
+		Short: "List installed integration packs (read-only)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
+			ints, err := c.ListIntegrations(baseContext())
+			if err != nil {
+				return err
+			}
+			if custom {
+				ints = slices.DeleteFunc(ints, func(i soar.Integration) bool { return !soar.IsDeletableIntegration(i) })
+			}
+			if asJSON {
+				return json.NewEncoder(os.Stdout).Encode(ints)
+			}
+			for _, i := range ints {
+				tag := ""
+				if soar.IsDeletableIntegration(i) {
+					tag = "  [deletable]"
+				}
+				fmt.Fprintf(os.Stdout, "%-52s %s%s\n", i.Identifier, i.DisplayName, tag)
+			}
+			fmt.Fprintf(os.Stdout, "\n%d integration(s)\n", len(ints))
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.BoolVar(&custom, "custom", false, "show only deletable (custom pack or clone) integrations")
+	f.BoolVar(&asJSON, "json", false, "emit JSON")
+	return cmd
+}
+
+// newSOARIntegrationUninstallCmd deletes a CUSTOM integration pack (e.g. a cloned
+// "Copy of …") by its addressable key via the v1alpha integrations.delete path.
+// Commercial/marketplace packs are not deletable. Guarded LIVE MUTATION.
+func newSOARIntegrationUninstallCmd() *cobra.Command {
+	var (
+		name   string
+		dryRun bool
+		yes    bool
+	)
+	cmd := &cobra.Command{
+		Use:   "uninstall --name <integration-key>",
+		Short: "Delete a custom integration pack (clone) by its key",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
+			ctx := baseContext()
+			target, err := resolveCustomIntegration(ctx, c, name)
+			if err != nil {
+				return err
+			}
+			dr, _ := soarGuard("integration uninstall", dryRun, yes)
+			key := target.Name
+			if key == "" {
+				key = target.Identifier
+			}
+			if dr {
+				fmt.Fprintf(os.Stdout, "DRY RUN: would delete custom integration %q (%s)\n", target.DisplayName, key)
+				return nil
+			}
+			if err := c.DeleteIntegration(ctx, key); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stdout, "deleted custom integration %q (%s)\n", target.DisplayName, key)
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&name, "name", "", "integration key: Name (clone), Identifier, or displayName (required)")
+	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	_ = cmd.MarkFlagRequired("name")
+	return cmd
+}
+
+// resolveCustomIntegration finds the integration addressed by key (matched against
+// Name, Identifier, or DisplayName) and refuses anything that isn't custom — the
+// guardrail against deleting a commercial pack or the stock base integration.
+func resolveCustomIntegration(ctx context.Context, c *soar.Client, key string) (soar.Integration, error) {
+	ints, err := c.ListIntegrations(ctx)
+	if err != nil {
+		return soar.Integration{}, err
+	}
+	var matches []soar.Integration
+	for _, i := range ints {
+		if i.Name == key || i.Identifier == key || i.DisplayName == key {
+			matches = append(matches, i)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return soar.Integration{}, fmt.Errorf("no installed integration matches %q (try `soar integration list`)", key)
+	case 1:
+		if !soar.IsDeletableIntegration(matches[0]) {
+			return soar.Integration{}, fmt.Errorf("integration %q is a stock base pack, not a custom pack or clone; only those are deletable", key)
+		}
+		return matches[0], nil
+	default:
+		return soar.Integration{}, fmt.Errorf("%q is ambiguous (%d matches); address the clone by its unique Name", key, len(matches))
+	}
+}
+
+func newSOARIntegrationCreateCmd() *cobra.Command {
+	var (
+		integration string
+		env         string
+		dryRun      bool
+		yes         bool
+	)
+	cmd := &cobra.Command{
+		Use:   "create --integration <id> --environment <env>",
+		Short: "Create a new, unconfigured (inert) integration instance",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			dr, ay := soarGuard("integration create", dryRun, yes)
+			return mirror.PushSOARIntegrationCreate(baseContext(), lc, integration, env, dr, ay, os.Stdout)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&integration, "integration", "", "installed integration identifier (required)")
+	f.StringVar(&env, "environment", "", "environment to scope the instance to (required)")
+	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	_ = cmd.MarkFlagRequired("integration")
+	_ = cmd.MarkFlagRequired("environment")
+	return cmd
+}
+
+func newSOARIntegrationDeleteCmd() *cobra.Command {
+	var (
+		integration string
+		env         string
+		id          string
+		dryRun      bool
+		yes         bool
+	)
+	cmd := &cobra.Command{
+		Use:   "delete --integration <id> --environment <env> --id <instance-id>",
+		Short: "Delete an integration instance (warns if playbooks use it)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			dr, ay := soarGuard("integration delete", dryRun, yes)
+			return mirror.PushSOARIntegrationDelete(baseContext(), lc, integration, env, id, dr, ay, os.Stdout)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&integration, "integration", "", "installed integration identifier (required)")
+	f.StringVar(&env, "environment", "", "environment the instance is scoped to (required)")
+	f.StringVar(&id, "id", "", "instance identifier to delete (required)")
+	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	_ = cmd.MarkFlagRequired("integration")
+	_ = cmd.MarkFlagRequired("environment")
+	_ = cmd.MarkFlagRequired("id")
+	return cmd
+}
+
+// newSOARSettingsCmd groups the singleton case-routing policy get/set verbs.
+// These are one-record settings (no list/id/delete), so they are imperative rather
+// than reconcile surfaces.
+func newSOARSettingsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "settings",
+		Short: "Read/set singleton SOAR case-routing policies",
+	}
+	cmd.AddCommand(
+		newSOARPolicyCmd("case-assignment", "case auto-assignment policy", "assignmentPolicy",
+			func(lc *legacy.Client) func(context.Context) (legacy.RawJSON, error) {
+				return lc.GetCaseAssignmentPolicySettings
+			},
+			func(lc *legacy.Client) func(context.Context, any) (legacy.RawJSON, error) {
+				return lc.AddOrUpdateCaseAssignmentPolicySettings
+			}),
+		newSOARPolicyCmd("move-case-policy", "cross-environment case-move policy", "moveCaseBetweenEnvironmentsPolicy",
+			func(lc *legacy.Client) func(context.Context) (legacy.RawJSON, error) {
+				return lc.GetMoveCaseBetweenEnvironmentsPolicySettings
+			},
+			func(lc *legacy.Client) func(context.Context, any) (legacy.RawJSON, error) {
+				return lc.AddOrUpdateMoveCaseBetweenEnvironmentsPolicySettings
+			}),
+	)
+	return cmd
+}
+
+// newSOARPolicyCmd builds a `get`/`set <value>` command pair for one singleton
+// policy. value is the integer enum the policy accepts; a set is guarded.
+func newSOARPolicyCmd(use, desc, field string,
+	get func(*legacy.Client) func(context.Context) (legacy.RawJSON, error),
+	set func(*legacy.Client) func(context.Context, any) (legacy.RawJSON, error)) *cobra.Command {
+	parent := &cobra.Command{Use: use, Short: desc}
+
+	getCmd := &cobra.Command{
+		Use:   "get",
+		Short: "Print the current " + desc,
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			return mirror.PrintSOARSettingSingleton(baseContext(), desc, get(lc), os.Stdout)
+		},
+	}
+
+	var (
+		dryRun bool
+		yes    bool
+	)
+	setCmd := &cobra.Command{
+		Use:   "set <value>",
+		Short: "Set the " + desc + " (integer enum; guarded)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			v, err := strconv.Atoi(strings.TrimSpace(args[0]))
+			if err != nil {
+				return fmt.Errorf("value must be an integer enum: %w", err)
+			}
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			dr, ay := soarGuard(use+" set", dryRun, yes)
+			return mirror.PushSOARSettingPolicy(baseContext(), desc, field, v, set(lc), dr, ay, os.Stdout)
+		},
+	}
+	sf := setCmd.Flags()
+	sf.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	sf.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	setCmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+
+	parent.AddCommand(getCmd, setCmd)
+	return parent
+}
+
 // legacyCallBanner warns before a mutating raw external-API call.
 func legacyCallBanner(method, op string) {
 	bar := strings.Repeat("!", 72)
@@ -468,6 +801,28 @@ func indentJSON(raw json.RawMessage) []byte {
 	}
 	buf.WriteByte('\n')
 	return buf.Bytes()
+}
+
+// parseCloseReason maps a reason name (or a raw int) to the typed CloseReason. Names
+// are used over magic ints because the integer coding is the server's and is NOT
+// alphabetical (Malicious=0) — a bare number is easy to get backwards.
+func parseCloseReason(s string) (legacy.CloseReason, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "malicious":
+		return legacy.CloseMalicious, nil
+	case "not-malicious", "notmalicious", "not_malicious":
+		return legacy.CloseNotMalicious, nil
+	case "maintenance":
+		return legacy.CloseMaintenance, nil
+	case "inconclusive":
+		return legacy.CloseInconclusive, nil
+	case "unknown":
+		return legacy.CloseUnknown, nil
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+		return legacy.CloseReason(n), nil
+	}
+	return 0, fmt.Errorf("invalid close reason %q (use malicious|not-malicious|maintenance|inconclusive|unknown)", s)
 }
 
 // parseIntList parses "1,2,3" into []int.

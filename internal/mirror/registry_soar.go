@@ -41,6 +41,9 @@ var soarSurfaceDefs = []soarSurfaceDef{
 	{"blacklists", blacklistsSurface},
 	{"playbook-categories", playbookCategoriesSurface},
 	{"playbooks", playbooksSurface},
+	// Wave-7 operational config (defined in soar_operational_surfaces.go).
+	{"connectors", connectorsSurface},
+	{"jobs", jobsSurface},
 }
 
 // SOARSurfaceNames returns the engine-backed SOAR surface names, sorted.
@@ -139,7 +142,9 @@ func idpSurface(lc *legacy.Client) reconcile.Surface {
 
 // visualFamiliesSurface: ontology visual families (flat array; id + family). The
 // write API expects the record wrapped as {visualFamilyDataModel: record}; the
-// icon blob (imageBase64) is stripped from the diff.
+// icon blob (imageBase64) is stripped from the diff. DeleteFamilyData is a clean
+// by-id delete on a custom family (which affects no detection or real entity), so
+// the surface is PruneEligible.
 func visualFamiliesSurface(lc *legacy.Client) reconcile.Surface {
 	return jsonSurface(jsonSurfaceSpec{
 		name: "visual-families", dir: DirSOARVisualFams,
@@ -147,10 +152,11 @@ func visualFamiliesSurface(lc *legacy.Client) reconcile.Surface {
 		idField: "id", nameField: "family",
 		extraStrip: []string{"imageBase64"},
 		wrapKey:    "visualFamilyDataModel",
-		caps:       reconcile.Capabilities{NoDelete: true},
+		caps:       reconcile.Capabilities{PruneEligible: true},
 		list:       lc.ListVisualFamilies,
 		create:     lc.AddOrUpdateVisualFamily,
 		update:     lc.AddOrUpdateVisualFamily,
+		del:        lc.DeleteFamilyData,
 	})
 }
 
@@ -204,7 +210,9 @@ func caseTagsSurface(lc *legacy.Client) reconcile.Surface {
 	})
 }
 
-// closeRootCausesSurface: case close root-causes (flat array; id + rootCause).
+// closeRootCausesSurface: case close root-causes (flat array; id + rootCause). Each
+// record's `forCloseReason` is the `legacy.CloseReason` enum (Malicious=0, …) it is
+// offered under; it stays in the canonical so the reason→root-cause link round-trips.
 func closeRootCausesSurface(lc *legacy.Client) reconcile.Surface {
 	return jsonSurface(jsonSurfaceSpec{
 		name: "close-root-causes", dir: DirSOARRootCauses,
@@ -291,8 +299,10 @@ func environmentsSurface(lc *legacy.Client) reconcile.Surface {
 // networksSurface: named networks/CIDRs (internal/external scoping, enrichment)
 // as config-as-code. Same paged {metadata, objectsList} read shape as
 // environments; records carry id + name + address. AddOrUpdateNetworkDetailsRecords
-// is a single-record upsert keyed by id. Additive (NoDelete) for now — wire the
-// by-id DeleteNetwork as a prune path only after a live write smoke confirms it.
+// is a single-record upsert keyed by id. PruneEligible: DeleteNetwork is a clean
+// by-id delete (the record id is the DELETE path identifier) and a named
+// network/CIDR is low-blast enrichment data (removing one drops that scoping
+// entry, orphaning no cases).
 func networksSurface(lc *legacy.Client) reconcile.Surface {
 	return jsonSurface(jsonSurfaceSpec{
 		name:      "networks",
@@ -300,11 +310,12 @@ func networksSurface(lc *legacy.Client) reconcile.Surface {
 		product:   reconcile.ProductSOAR,
 		idField:   "id",
 		nameField: "name",
-		caps:      reconcile.Capabilities{NoDelete: true},
+		caps:      reconcile.Capabilities{PruneEligible: true},
 		list: func(ctx context.Context) (json.RawMessage, error) {
 			return lc.GetNetworkDetails(ctx, allRecordsSelector)
 		},
 		create: lc.AddOrUpdateNetworkDetailsRecords,
 		update: lc.AddOrUpdateNetworkDetailsRecords,
+		del:    lc.DeleteNetwork,
 	})
 }

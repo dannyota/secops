@@ -2,6 +2,7 @@ package mirror
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -536,7 +537,7 @@ func TestLiveReconcileBlacklistWriteSmoke(t *testing.T) {
 	s, _ := BuildSOARSurface("blacklists", lc)
 	label := smokeLabel("block")
 	// A throwaway USER block-list entry for a smoke-label user matches no real entity.
-	body := map[string]any{"entityIdentifier": label, "entityType": "USER", "elementType": 0, "scope": 3, "environments": []any{}}
+	body := map[string]any{"entityIdentifier": label, "entityType": "USER", "elementType": int(legacy.BlockUserUniqName), "scope": int(legacy.BlockScopeForModel), "environments": []any{}}
 	runReconcileCreateUpdateSmoke(t, ctx, s, label, body, "", "", func(o reconcile.Object) error {
 		var m map[string]any
 		_ = json.Unmarshal(o.Raw, &m)
@@ -667,6 +668,658 @@ func TestLiveReconcilePlaybookSaveSemantics(t *testing.T) {
 	}
 }
 
+// boolField reports the boolean value of key in an object's raw body.
+func boolField(o reconcile.Object, key string) bool {
+	var m map[string]any
+	if json.Unmarshal(o.Raw, &m) != nil {
+		return false
+	}
+	b, _ := m[key].(bool)
+	return b
+}
+
+// editFileField overlays one field on an on-disk object file (preserving the
+// _server block) so the engine plans exactly one update.
+func editFileField(t *testing.T, path, field string, value any) {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, path)), &m); err != nil {
+		t.Fatal(err)
+	}
+	m[field] = value
+	b, _ := json.MarshalIndent(m, "", "  ")
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestLiveReconcileConnectorWriteSmoke validates the connectors engine full CUD on a
+// THROWAWAY, never touching a real connector. It creates a DISABLED connector from a
+// template — the create path triggers by OMITTING the identifier (the server assigns
+// one; sending a client id routes to the update path and 404s) with the mandatory
+// params filled with placeholders — then runs an engine update and an engine delete.
+// It iterates templates until one creates cleanly, so it stays tenant-neutral. The
+// connector is always DISABLED (never ingests) and self-cleaning even on failure.
+func TestLiveReconcileConnectorWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, ok := BuildSOARSurface("connectors", lc)
+	if !ok {
+		t.Fatal("connectors not registered")
+	}
+	env := firstEnvironmentName(ctx, lc)
+	if env == "" {
+		t.Skip("no environment to scope a throwaway connector")
+	}
+	raw, err := lc.ListConnectorTemplateCards(ctx)
+	if err != nil {
+		t.Fatalf("list connector templates: %v", err)
+	}
+	templates, err := decodeRawList(raw)
+	if err != nil {
+		t.Fatalf("decode connector templates: %v", err)
+	}
+	if len(templates) == 0 {
+		t.Skip("no connector templates to instantiate")
+	}
+
+	label := smokeLabel("connector")
+	slug := Slugify(label)
+	dir := t.TempDir()
+	if _, err := reconcile.Pull(ctx, s, dir, io.Discard); err != nil {
+		t.Fatalf("baseline pull: %v", err)
+	}
+	path := filepath.Join(dir, slug+".json")
+
+	cleaned := false
+	t.Cleanup(func() {
+		if cleaned {
+			return
+		}
+		if o, ok := findBySlug(ctx, s, slug); ok {
+			if _, err := lc.DeleteConnector(ctx, o.ServerID); err != nil {
+				t.Logf("cleanup: delete throwaway connector %q: %v", label, err)
+			}
+		}
+	})
+
+	// Create a DISABLED throwaway from the first template that the engine creates
+	// cleanly (identifier omitted -> server-assigned create path; mandatory params
+	// filled with placeholders).
+	created := false
+	var buf strings.Builder
+	for i, tc := range templates {
+		if i >= 10 {
+			break
+		}
+		integ, def := jsonField(tc, "integration"), jsonField(tc, "connectorDefinitionName")
+		if integ == "" || def == "" {
+			continue
+		}
+		tplRaw, terr := lc.GetConnectorTemplate(ctx, map[string]any{"integration": integ, "connectorDefinitionName": def})
+		if terr != nil {
+			continue
+		}
+		var m map[string]any
+		if json.Unmarshal(tplRaw, &m) != nil {
+			continue
+		}
+		delete(m, "identifier") // omit -> create path (server assigns the id)
+		m["displayName"] = label
+		m["environment"] = env
+		m["isEnabled"] = false
+		fillConnectorParams(m)
+		b, _ := json.Marshal(m)
+		if err := os.WriteFile(path, b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		buf.Reset()
+		if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+			t.Fatalf("push create: %v\n%s", err, buf.String())
+		}
+		if _, ok := findBySlug(ctx, s, slug); ok {
+			created = true
+			break
+		}
+	}
+	if !created {
+		t.Skip("no connector template produced a clean engine create with placeholder params")
+	}
+
+	live, _ := findBySlug(ctx, s, slug)
+	if boolField(live, "isEnabled") {
+		_, _ = lc.DeleteConnector(ctx, live.ServerID)
+		t.Fatal("throwaway connector came up ENABLED; deleted it and failing")
+	}
+	if id, _ := serverBlock([]byte(readFile(t, path))); id == "" || id != live.ServerID {
+		t.Fatalf("create did not record server id (file=%q live=%q)", id, live.ServerID)
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-create not in sync: +%d ~%d -%d (volatile field needs extraStrip?)",
+			len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	// Engine update: benign edit -> exactly one update -> in-sync.
+	editFileField(t, path, "description", "secopsctl reconcile smoke (edited)")
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); len(plan.Updates()) != 1 || len(plan.Creates()) != 0 {
+		t.Fatalf("expected exactly one update, got +%d ~%d", len(plan.Creates()), len(plan.Updates()))
+	}
+	buf.Reset()
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+		t.Fatalf("push update: %v\n%s", err, buf.String())
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-update not in sync: +%d ~%d -%d", len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	// Engine delete by id -> gone.
+	if err := s.Delete(ctx, live); err != nil {
+		t.Fatalf("engine delete: %v", err)
+	}
+	cleaned = true
+	if _, still := findBySlug(ctx, s, slug); still {
+		t.Fatalf("throwaway connector %q still present after delete", label)
+	}
+}
+
+// fillConnectorParams gives every empty-valued connector parameter a placeholder so a
+// DISABLED throwaway passes the server's mandatory-field validation (it never runs).
+func fillConnectorParams(m map[string]any) {
+	ps, _ := m["parameters"].([]any)
+	for _, p := range ps {
+		pm, _ := p.(map[string]any)
+		if pm == nil {
+			continue
+		}
+		if v, _ := pm["value"].(string); v != "" {
+			continue
+		}
+		name, _ := pm["name"].(string)
+		switch {
+		case strings.Contains(strings.ToLower(name), "json"):
+			pm["value"] = "{}"
+		case strings.Contains(strings.ToLower(name), "email"):
+			pm["value"] = "noreply@example.com"
+		default:
+			pm["value"] = "secopsctl-smoke-placeholder"
+		}
+	}
+}
+
+// TestLiveReconcileJobWriteSmoke validates the jobs engine update path on a
+// THROWAWAY, never touching a real job. The engine has no job create/delete
+// (create needs a trimmed body; delete takes a body), so the throwaway is created
+// from a job template (DISABLED → never scheduled) and removed via the raw SDK; the
+// ENGINE update is exercised in between. Self-cleaning even on failure.
+func TestLiveReconcileJobWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, ok := BuildSOARSurface("jobs", lc)
+	if !ok {
+		t.Fatal("jobs not registered")
+	}
+	raw, err := lc.ListJobTemplates(ctx)
+	if err != nil {
+		t.Fatalf("list job templates: %v", err)
+	}
+	templates, err := decodeRawList(raw)
+	if err != nil {
+		t.Fatalf("decode job templates: %v", err)
+	}
+	if len(templates) == 0 {
+		t.Skip("no job templates to clone")
+	}
+	// Prefer the template with the fewest parameters (simplest valid create body).
+	src := templates[0]
+	for _, tpl := range templates {
+		if paramCount(tpl) < paramCount(src) {
+			src = tpl
+		}
+	}
+	var sm map[string]any
+	if err := json.Unmarshal(src, &sm); err != nil {
+		t.Fatal(err)
+	}
+
+	label := smokeLabel("job")
+	slug := Slugify(label)
+	// Minimal create body: definition-identity + scheduling only. Echoing the
+	// template's read-only/audit fields (id/version/creationTime/lastRun*) is rejected.
+	body := map[string]any{
+		"jobDefinitionId":      sm["jobDefinitionId"],
+		"jobDefinitionName":    sm["jobDefinitionName"],
+		"integration":          sm["integration"],
+		"script":               sm["script"],
+		"description":          "secopsctl reconcile smoke (disabled)",
+		"parameters":           orEmptyArray(sm["parameters"]),
+		"name":                 label,
+		"isCustom":             true,
+		"isEnabled":            false,
+		"runIntervalInSeconds": 86400,
+	}
+
+	cleaned := false
+	t.Cleanup(func() {
+		if cleaned {
+			return
+		}
+		if full, ok := findJobByName(ctx, lc, label); ok {
+			if _, err := lc.DeleteJobData(ctx, full); err != nil {
+				t.Logf("cleanup: delete throwaway job %q: %v", label, err)
+			}
+		}
+	})
+	if _, err := lc.SaveOrUpdateJob(ctx, body); err != nil {
+		t.Fatalf("create throwaway job: %v", err)
+	}
+
+	dir := t.TempDir()
+	if _, err := reconcile.Pull(ctx, s, dir, io.Discard); err != nil {
+		t.Fatalf("pull after create: %v", err)
+	}
+	live, found := findBySlug(ctx, s, slug)
+	if !found {
+		t.Fatalf("throwaway job %q not found after create", label)
+	}
+	if boolField(live, "isEnabled") {
+		t.Fatal("throwaway job is ENABLED; expected disabled (inert)")
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-create plan not in sync: +%d ~%d -%d (volatile field needs extraStrip?)",
+			len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	// ENGINE update: benign edit -> one update -> in-sync.
+	path := filepath.Join(dir, slug+".json")
+	editFileField(t, path, "description", "secopsctl reconcile smoke (edited)")
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); len(plan.Updates()) != 1 {
+		t.Fatalf("expected one update, got +%d ~%d", len(plan.Creates()), len(plan.Updates()))
+	}
+	var buf strings.Builder
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+		t.Fatalf("push update: %v\n%s", err, buf.String())
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-update plan not in sync: +%d ~%d -%d",
+			len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	// Cleanup via the raw delete (jobs delete takes a body) + verify gone.
+	full, ok := findJobByName(ctx, lc, label)
+	if !ok {
+		t.Fatalf("throwaway job %q not found for delete", label)
+	}
+	if _, err := lc.DeleteJobData(ctx, full); err != nil {
+		t.Fatalf("delete throwaway job: %v", err)
+	}
+	cleaned = true
+	if _, still := findBySlug(ctx, s, slug); still {
+		t.Fatalf("throwaway job %q still present after delete", label)
+	}
+}
+
+// paramCount returns the length of a record's "parameters" array.
+func paramCount(raw json.RawMessage) int {
+	var m struct {
+		Parameters []json.RawMessage `json:"parameters"`
+	}
+	_ = json.Unmarshal(raw, &m)
+	return len(m.Parameters)
+}
+
+// orEmptyArray returns v when it is a non-nil array, else an empty array (the
+// legacy server NPEs on a null collection where it wants []).
+func orEmptyArray(v any) any {
+	if a, ok := v.([]any); ok && a != nil {
+		return a
+	}
+	return []any{}
+}
+
+// findJobByName returns the full installed-job object (as a map, so it marshals as a
+// JSON object — a json.RawMessage through `body any` would be base64-encoded) whose
+// name matches, for the body-shaped DeleteJobData.
+func findJobByName(ctx context.Context, lc *legacy.Client, name string) (map[string]any, bool) {
+	raw, err := lc.ListInstalledJobs(ctx)
+	if err != nil {
+		return nil, false
+	}
+	items, err := decodeRawList(raw)
+	if err != nil {
+		return nil, false
+	}
+	for _, it := range items {
+		if jsonField(it, "name") == name {
+			var m map[string]any
+			if json.Unmarshal(it, &m) == nil {
+				return m, true
+			}
+		}
+	}
+	return nil, false
+}
+
+// newUUIDv4 generates a random v4 UUID (a connector instance is keyed by a
+// client-assigned identifier).
+func newUUIDv4(t *testing.T) string {
+	t.Helper()
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		t.Fatalf("uuid: %v", err)
+	}
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+// findByServerID returns the live object with the given ServerID (robust to a
+// name/slug edit, unlike findBySlug).
+func findByServerID(ctx context.Context, s reconcile.Surface, id string) (reconcile.Object, bool) {
+	if id == "" {
+		return reconcile.Object{}, false
+	}
+	res, err := s.List(ctx)
+	if err != nil {
+		return reconcile.Object{}, false
+	}
+	for _, o := range res.Objects {
+		if o.ServerID == id {
+			return o, true
+		}
+	}
+	return reconcile.Object{}, false
+}
+
+// runReconcileCloneLifecycle drives engine create -> (optional) update of one field
+// -> raw delete on a throwaway built from `body`. It tracks the object by ServerID
+// (so the update may change the name/slug) and removes it via `del`, with a t.Cleanup
+// safety-net. editValue may be any JSON type (string, number, bool); editField ""
+// skips the update leg.
+func runReconcileCloneLifecycle(t *testing.T, ctx context.Context, s reconcile.Surface, label string, body map[string]any, editField string, editValue any, del func(reconcile.Object) error) {
+	t.Helper()
+	slug := Slugify(label)
+	dir := t.TempDir()
+	if _, err := reconcile.Pull(ctx, s, dir, io.Discard); err != nil {
+		t.Fatalf("baseline pull: %v", err)
+	}
+	path := filepath.Join(dir, slug+".json")
+	raw, _ := json.Marshal(body)
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	createdID := ""
+	cleaned := false
+	t.Cleanup(func() {
+		if cleaned || createdID == "" {
+			return
+		}
+		if o, ok := findByServerID(ctx, s, createdID); ok {
+			if err := del(o); err != nil {
+				t.Logf("cleanup %s %q: %v", s.Name, label, err)
+			}
+		}
+	})
+
+	var buf strings.Builder
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+		t.Fatalf("push create: %v\n%s", err, buf.String())
+	}
+	live, ok := findBySlug(ctx, s, slug)
+	if !ok {
+		t.Fatalf("created %s %q not found. push log:\n%s", s.Name, label, buf.String())
+	}
+	createdID = live.ServerID
+	if id, _ := serverBlock([]byte(readFile(t, path))); id == "" || id != live.ServerID {
+		t.Fatalf("create did not record server id (file=%q live=%q)", id, live.ServerID)
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-create %s not in sync: +%d ~%d -%d", s.Name, len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	if editField != "" {
+		editFileField(t, path, editField, editValue)
+		if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); len(plan.Updates()) != 1 || len(plan.Creates()) != 0 {
+			t.Fatalf("%s: expected exactly one update, got +%d ~%d", s.Name, len(plan.Creates()), len(plan.Updates()))
+		}
+		buf.Reset()
+		if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+			t.Fatalf("push update: %v\n%s", err, buf.String())
+		}
+		if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+			t.Fatalf("post-update %s not in sync: +%d ~%d -%d", s.Name, len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+		}
+	}
+
+	live2, ok := findByServerID(ctx, s, createdID)
+	if !ok {
+		t.Fatalf("%s %q gone before delete", s.Name, label)
+	}
+	if err := del(live2); err != nil {
+		t.Fatalf("delete %s: %v", s.Name, err)
+	}
+	cleaned = true
+	if _, still := findByServerID(ctx, s, createdID); still {
+		t.Fatalf("%s %q still present after delete", s.Name, label)
+	}
+}
+
+// delByBody returns a del closure that removes an object via a body-shaped legacy
+// remover (the object is sent as a JSON object, not base64-encoded bytes).
+func delByBody(ctx context.Context, remove func(context.Context, any) (legacy.RawJSON, error)) func(reconcile.Object) error {
+	return func(o reconcile.Object) error {
+		var m map[string]any
+		if err := json.Unmarshal(o.Raw, &m); err != nil {
+			return err
+		}
+		_, err := remove(ctx, m)
+		return err
+	}
+}
+
+// TestLiveReconcileConnectorDuplicateDeleteSmoke attempts to create a connector by
+// DUPLICATING an existing one (full GetConnector body → new UUID + label, DISABLED,
+// isNew) and then exercising the engine delete-by-id. On this tenant SaveConnector is
+// update-only (404 for a new id), so this is expected to skip cleanly; where create
+// IS supported it validates connector create + delete end-to-end. The duplicate is
+// always DISABLED (never ingests) and deleted on cleanup.
+func TestLiveReconcileConnectorDuplicateDeleteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, ok := BuildSOARSurface("connectors", lc)
+	if !ok {
+		t.Fatal("connectors not registered")
+	}
+	res, err := s.List(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(res.Objects) == 0 {
+		t.Skip("no connector to duplicate")
+	}
+	var seed map[string]any
+	if err := json.Unmarshal(res.Objects[0].Raw, &seed); err != nil {
+		t.Fatal(err)
+	}
+
+	label := smokeLabel("connector")
+	newID := newUUIDv4(t)
+	seed["identifier"] = newID
+	seed["displayName"] = label
+	seed["isEnabled"] = false
+	seed["isNew"] = true
+
+	deleted := false
+	t.Cleanup(func() {
+		if deleted {
+			return
+		}
+		if _, err := lc.DeleteConnector(ctx, newID); err != nil {
+			t.Logf("cleanup: delete duplicate connector %q (%s): %v", label, newID, err)
+		}
+	})
+	if _, err := lc.SaveConnector(ctx, seed); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") {
+			t.Skipf("connector create unsupported on this tenant (SaveConnector is update-only): %v", err)
+		}
+		t.Fatalf("duplicate connector: %v", err)
+	}
+
+	live, found := findBySlug(ctx, s, Slugify(label))
+	if !found {
+		t.Fatalf("duplicate connector %q not found after create", label)
+	}
+	if boolField(live, "isEnabled") {
+		// Must never leave a duplicate ingesting; delete immediately.
+		_, _ = lc.DeleteConnector(ctx, live.ServerID)
+		t.Fatal("duplicate connector came up ENABLED; deleted it and failing")
+	}
+	// Engine delete-by-id.
+	if err := s.Delete(ctx, live); err != nil {
+		t.Fatalf("engine delete duplicate connector: %v", err)
+	}
+	deleted = true
+	if _, still := findBySlug(ctx, s, Slugify(label)); still {
+		t.Fatalf("duplicate connector %q still present after delete", label)
+	}
+}
+
+// TestLiveReconcileNetworkDeleteByIDSmoke validates the by-id DeleteNetwork path
+// (the prune candidate) on an RFC 5737 throwaway: engine create → DeleteNetwork(id)
+// → verify gone. Confirms the record id == the DELETE path identifier; if it passes,
+// networks can flip to PruneEligible.
+func TestLiveReconcileNetworkDeleteByIDSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, ok := BuildSOARSurface("networks", lc)
+	if !ok {
+		t.Fatal("networks not registered")
+	}
+	env := firstEnvironmentName(ctx, lc)
+	if env == "" {
+		t.Skip("no environment to scope a throwaway network")
+	}
+	label := smokeLabel("network")
+	slug := Slugify(label)
+	dir := t.TempDir()
+	if _, err := reconcile.Pull(ctx, s, dir, io.Discard); err != nil {
+		t.Fatalf("baseline pull: %v", err)
+	}
+	body, _ := json.Marshal(map[string]any{"name": label, "address": "192.0.2.0/24", "priority": 1, "environments": []any{env}})
+	if err := os.WriteFile(filepath.Join(dir, slug+".json"), body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	removed := false
+	t.Cleanup(func() {
+		if removed {
+			return
+		}
+		if o, ok := findBySlug(ctx, s, slug); ok {
+			var m map[string]any
+			_ = json.Unmarshal(o.Raw, &m)
+			_, _ = lc.RemoveNetworkDetailsRecords(ctx, []any{m})
+		}
+	})
+	var buf strings.Builder
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+		t.Fatalf("push create: %v\n%s", err, buf.String())
+	}
+	live, ok := findBySlug(ctx, s, slug)
+	if !ok {
+		t.Fatalf("throwaway network %q not found after create", label)
+	}
+	// THE TEST: delete by the record's id via DeleteNetwork.
+	if _, err := lc.DeleteNetwork(ctx, live.ServerID); err != nil {
+		t.Fatalf("DeleteNetwork(%q): %v (record id may not equal the DELETE path identifier)", live.ServerID, err)
+	}
+	removed = true
+	if _, still := findBySlug(ctx, s, slug); still {
+		t.Fatalf("network %q still present after DeleteNetwork by id", label)
+	}
+}
+
+// TestLiveReconcileSocRoleWriteSmoke validates the soc-roles engine create/update +
+// delete on a throwaway role (cloned, no users assigned → inert). RBAC surface kept
+// read-only-by-choice operationally; this validates the write path only. Self-cleaning.
+func TestLiveReconcileSocRoleWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, _ := BuildSOARSurface("soc-roles", lc)
+	label := smokeLabel("socrole")
+	body := cloneSeedRecord(t, ctx, s, "name", label, "usersAssigned", "isDefault")
+	body["isDefault"] = false
+	// DeleteSocRole takes {socRoleId:int}, not the full record.
+	del := func(o reconcile.Object) error {
+		id, err := strconv.Atoi(o.ServerID)
+		if err != nil {
+			return err
+		}
+		_, err = lc.SocRoleDelete(ctx, map[string]any{"socRoleId": id})
+		return err
+	}
+	runReconcileCloneLifecycle(t, ctx, s, label, body, "name", label+"-edited", del)
+}
+
+// TestLiveReconcileIdpWriteSmoke validates the idp engine create/update + by-id
+// delete on a throwaway mapping for a FAKE group (nobody is a member → no real users
+// affected). SSO surface kept read-only-by-choice operationally. Self-cleaning.
+func TestLiveReconcileIdpWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, _ := BuildSOARSurface("idp", lc)
+	label := smokeLabel("idpgroup")
+	body := cloneSeedRecord(t, ctx, s, "idpGroup", label, "groupMembers", "isSystem", "isDefault", "workforcePoolId")
+	body["isDefault"] = false
+	body["isSystem"] = false
+	del := func(o reconcile.Object) error { _, err := lc.DeleteIdpGroupMapping(ctx, o.ServerID); return err }
+	runReconcileCloneLifecycle(t, ctx, s, label, body, "idpGroup", label+"-edited", del)
+}
+
+// TestLiveReconcileCaseStageWriteSmoke validates the case-stages engine create/update
+// + delete on a throwaway stage (used by no case). Update flips the numeric `order`.
+// Self-cleaning.
+func TestLiveReconcileCaseStageWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, _ := BuildSOARSurface("case-stages", lc)
+	label := smokeLabel("stage")
+	body := cloneSeedRecord(t, ctx, s, "name", label)
+	runReconcileCloneLifecycle(t, ctx, s, label, body, "order", 999, delByBody(ctx, lc.RemoveCaseStageDefinitionRecords))
+}
+
+// TestLiveReconcileSlaWriteSmoke validates the sla-definitions engine create/update +
+// delete on a throwaway "Case Priority = High" SLA. The legacy ApiSlaDefinition uses
+// integer enums documented in the swagger schema descriptions: valueType
+// (ApiSlaProviderTypeEnum) 2=AlertRuleGenerator, 3=CaseStage, 4=CasePriority,
+// 5=AlertPriority; slaPeriodType/criticalPeriodType (ApiPeriodTypeEnum) 0=Minutes,
+// 1=Hours, 2=Days, 3=Seconds; alertType (ApiSlaAlertType) 0=AllAlerts, 1=SpecificAlerts.
+// The SLA's identity (nameField) is its `value` ("High"), so the slug is "high"; it is
+// created then deleted within the test (the tenant otherwise has none), so the
+// routing-surface window is seconds. Self-cleaning.
+func TestLiveReconcileSlaWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, ok := BuildSOARSurface("sla-definitions", lc)
+	if !ok {
+		t.Fatal("sla-definitions not registered")
+	}
+	env := firstEnvironmentName(ctx, lc)
+	if env == "" {
+		t.Skip("no environment to scope a throwaway SLA")
+	}
+	// For CasePriority the server normalizes `value` to a JSON-array string
+	// (`["High"]`, matching the v1alpha slaTypeValue form), so send it that way for a
+	// clean round-trip; `values` is the plain array.
+	value := `["High"]`
+	body := map[string]any{
+		"valueType": int(legacy.SlaCasePriority), "value": value, "values": []any{"High"},
+		"slaPeriod": 24, "slaPeriodType": int(legacy.SlaHours),
+		"criticalPeriod": 23, "criticalPeriodType": int(legacy.SlaHours),
+		"alertType": int(legacy.SlaAllAlerts), "environments": []any{env},
+	}
+	runReconcileCloneLifecycle(t, ctx, s, value, body, "criticalPeriod", 22, delByBody(ctx, lc.RemoveSlaDefinitionRecords))
+}
+
 // findAny returns any one live object from a surface (a clone template).
 func findAny(ctx context.Context, s reconcile.Surface) (reconcile.Object, bool) {
 	res, err := s.List(ctx)
@@ -722,7 +1375,7 @@ func TestLiveSOARCaseVerbsWriteSmoke(t *testing.T) {
 		label := strings.ReplaceAll(smokeLabel("case"), "-", "_")
 		id, err := lc.CreateManualCase(ctx, legacy.ManualCaseRequest{
 			Title: label, AssignedUser: "@" + role, Reason: "secopsctl smoke",
-			Priority: 40, Environment: env, AlertName: label,
+			Priority: legacy.PriorityLow, Environment: env, AlertName: label,
 			OccurenceTime: time.Now().UTC().Format(time.RFC3339),
 			// Entities/Playbooks/Tags left nil → the SDK sends [] (server NPEs on null).
 		})
@@ -758,7 +1411,7 @@ func TestLiveSOARCaseVerbsWriteSmoke(t *testing.T) {
 	chk("describe", r, e)
 	r, e = lc.ChangeCaseImportanceStatus(ctx, map[string]any{"caseId": a, "isImportant": true})
 	chk("importance", r, e)
-	r, e = lc.ChangeCasePriority(ctx, map[string]any{"caseId": a, "priority": 60})
+	r, e = lc.ChangeCasePriority(ctx, map[string]any{"caseId": a, "priority": int(legacy.PriorityMedium)})
 	chk("priority", r, e)
 	r, e = lc.AddCaseTag(ctx, map[string]any{"caseId": a, "tag": "secopsctl-smoke"})
 	chk("tag", r, e)
