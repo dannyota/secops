@@ -294,12 +294,70 @@ the Chronicle v1alpha docs against the SDK (see [SURFACES.md](SURFACES.md) for t
 per-family gap map). The legacy SOAR external API is ~99.8% wrapped; the remaining
 work is almost entirely **modern v1alpha SIEM** surfaces.
 
-### Wave 8 — Chronicle (UUID) operational API + remaining SIEM surfaces
+**Ordered by risk × value so we build strictly in sequence** (the number *is* the
+order — no skipping): the stable-plane SIEM surfaces first, lowest-risk first —
+read-only Threat Intel to prove the new-surface pattern, then the config-as-code
+completions (curated rules → RBAC → Content Hub → ingestion). The **flaky-backend**
+surfaces come after, behind clean-error-on-500 guards (Chronicle UUID operational,
+then SOAR v1alpha lifecycle), with the reliable lanes staying the default. Cross-cutting
+hardening, distribution, and automation close out.
+
+### Wave 8 — Threat Intelligence (SIEM read)
+- **Goal.** Mandiant / Applied Threat Intelligence as code — read the campaigns,
+  reports, actors, malware and IoCs the tenant is matched against. Read-only (TI is
+  Google/Mandiant-sourced — there is no write path), so low-risk and high-signal —
+  the first wave, and the one that proves the new-surface pattern end to end.
+- **Scope.** `threatCollections` list/get (+ `:fetchRelated`/`:fetchEntityMetadata`/
+  `:fetchIocMatchMetadata`); modern `iocs:find`/get/batchGet. SIEM plane,
+  `chronicle/ti.go`. Operational lane (query → review), `--limit`-capped.
+- **Exit.** Live read round-trip on `threatCollections` + `iocs:find`; CATALOG ✅.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 9 — Curated-rules-as-code completion
+- **Goal.** Make curated (Google-managed) detections fully diff-and-push-able.
+- **Scope.** `curatedRuleSetDeployments:batchUpdate` (the atomic write primitive for
+  a desired-state curated-deployment file); `listCuratedRules`/`getCuratedRule`;
+  `legacyRunTestRule` (dry-run a rule against historical data); add `archived` to the
+  custom-rule deployment update. SIEM plane, `chronicle/curated.go` + `rules_write.go`.
+- **Exit.** A curated-deployment file reconciles via one batch call; `RunTestRule`
+  read-validated; CATALOG ✅.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 10 — SIEM RBAC & data governance
+- **Goal.** Manage access control as code — the highest-value SIEM config still
+  missing.
+- **Scope.** `dataAccessLabels` + `dataAccessScopes` full CRUD on the reconcile
+  engine; `instances:getRiskConfig`/`:updateRiskConfig` (imperative); BigQuery-export
+  config. SIEM plane, `chronicle/rbac.go`.
+- **Exit.** Labels/scopes pull clean + a gated reconcile write-smoke on a throwaway;
+  risk-config read/write validated.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 11 — Content Hub (SIEM modern)
+- **Goal.** Manage installable content on the durable SIEM-plane API — the twin of
+  the legacy `/store` install path, and the only place an **uninstall** exists.
+- **Scope.** `marketplaceIntegrations` list/get/install/uninstall; `contentHub.
+  contentPacks` list/get/add/delete; featured native dashboards install. SIEM plane,
+  `chronicle/content.go`. Imperative (install/uninstall) + raw where bundled.
+- **Exit.** Read-validated; a gated install→uninstall smoke on a throwaway pack.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 12 — SIEM ingestion completion
+- **Goal.** Ingestion config-as-code beyond feeds/parsers.
+- **Scope.** `forwarders` + `forwarders.collectors` full CRUD (reconcile);
+  `feedSourceTypeSchemas`/`logTypeSchemas` discovery (validate feed YAML before
+  deploy); `logTypes` get/update setting. SIEM plane.
+- **Exit.** Forwarders/collectors pull clean + gated write-smoke; schema discovery
+  drives feed validation.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 13 — Chronicle (UUID) operational API + remaining SIEM operational
 - **Goal.** Reach cases/alerts/events through Chronicle's newer **UUID API** — the
   **same** cases the SOAR AppKey lane already operates, not a separate system —
   lighting it up if/when those endpoints stabilize, behind a clean-error-on-500
-  guard. Sequenced last because its backend is the flaky one; the reliable case
-  path stays the SOAR AppKey lane. Also wire the remaining SIEM surfaces.
+  guard. Sequenced **late** (among the last feature waves) because its backend is the
+  flaky one; the reliable case path stays the SOAR AppKey lane. Also wire the
+  remaining SIEM operational surfaces.
 - **Scope.** `cases` act/bulk (v1beta, the UUID API onto the same case),
   `alerts list/get/update/bulk`, `stats`, `search nl`, `entity summarize`,
   `iocs list`; wire `watchlists`/`forwarders`/`log_pipelines` (SDK present);
@@ -311,56 +369,8 @@ work is almost entirely **modern v1alpha SIEM** surfaces.
   exists). Where the Chronicle `cases` UUID API answers, validate reads; mutations
   stay gated and 500s fail clean.
 - **Exit.** Reads validated where the API answers; the listed surfaces' writes
-  live-validated or documented why not; mutations gated; 500s fail clean.
+  validated or documented why not; mutations gated; 500s fail clean.
 - **Docs.** SIEM-DESIGN, ARCHITECTURE §6, CATALOG.
-
-### Wave 9 — Threat Intelligence (SIEM read)
-- **Goal.** Mandiant / Applied Threat Intelligence as code — read the campaigns,
-  reports, actors, malware and IoCs the tenant is matched against. Read-only (TI is
-  Google/Mandiant-sourced — there is no write path), so low-risk and high-signal.
-- **Scope.** `threatCollections` list/get (+ `:fetchRelated`/`:fetchEntityMetadata`/
-  `:fetchIocMatchMetadata`); modern `iocs:find`/get/batchGet. SIEM plane,
-  `chronicle/ti.go`. Operational lane (query → review), `--limit`-capped.
-- **Exit.** Live read round-trip on `threatCollections` + `iocs:find`; CATALOG ✅.
-- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
-
-### Wave 10 — Content Hub (SIEM modern)
-- **Goal.** Manage installable content on the durable SIEM-plane API — the twin of
-  the legacy `/store` install path, and the only place an **uninstall** exists.
-- **Scope.** `marketplaceIntegrations` list/get/install/uninstall; `contentHub.
-  contentPacks` list/get/add/delete; featured native dashboards install. SIEM plane,
-  `chronicle/content.go`. Imperative (install/uninstall) + raw where bundled.
-- **Exit.** Read-validated; a gated install→uninstall smoke on a throwaway pack.
-- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
-
-### Wave 11 — SIEM RBAC & data governance
-- **Goal.** Manage access control as code — the highest-value SIEM config still
-  missing.
-- **Scope.** `dataAccessLabels` + `dataAccessScopes` full CRUD on the reconcile
-  engine; `instances:getRiskConfig`/`:updateRiskConfig` (imperative); BigQuery-export
-  config. SIEM plane, `chronicle/rbac.go`.
-- **Exit.** Labels/scopes pull clean + a gated reconcile write-smoke on a throwaway;
-  risk-config read/write validated.
-- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
-
-### Wave 12 — Curated-rules-as-code completion
-- **Goal.** Make curated (Google-managed) detections fully diff-and-push-able.
-- **Scope.** `curatedRuleSetDeployments:batchUpdate` (the atomic write primitive for
-  a desired-state curated-deployment file); `listCuratedRules`/`getCuratedRule`;
-  `legacyRunTestRule` (dry-run a rule against historical data); add `archived` to the
-  custom-rule deployment update. SIEM plane, `chronicle/curated.go` + `rules_write.go`.
-- **Exit.** A curated-deployment file reconciles via one batch call; `RunTestRule`
-  read-validated; CATALOG ✅.
-- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
-
-### Wave 13 — SIEM ingestion completion
-- **Goal.** Ingestion config-as-code beyond feeds/parsers.
-- **Scope.** `forwarders` + `forwarders.collectors` full CRUD (reconcile);
-  `feedSourceTypeSchemas`/`logTypeSchemas` discovery (validate feed YAML before
-  deploy); `logTypes` get/update setting. SIEM plane.
-- **Exit.** Forwarders/collectors pull clean + gated write-smoke; schema discovery
-  drives feed validation.
-- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 14 — SOAR v1alpha lifecycle *(reliability-gated)*
 - **Goal.** Close the modern-SOAR lifecycle gaps the legacy lane can't cover — only

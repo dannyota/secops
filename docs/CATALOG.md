@@ -80,7 +80,7 @@ product-neutral engine is `internal/mirror/reconcile`; live write-smokes are gat
 | Domain | Query | Act | Status | Notes |
 |---|---|---|---|---|
 | **events (UDM)** | `query udm` · `search nl` · `stats` | — | 🔨 query udm · 📐 rest | immutable telemetry — **read-only** |
-| **alerts** | `alerts list/get` | `alerts update/bulk` (verdict/priority/status/comment) | 📐 | standalone Chronicle alerts SDK built (`GetAlerts`/`UpdateAlert`/`BulkUpdateAlerts`). In practice operators read alerts as a **field of the case** via the reliable SOAR AppKey lane (`GetCaseFullDetails.alerts`). Live-test focus in Wave 8 |
+| **alerts** | `alerts list/get` | `alerts update/bulk` (verdict/priority/status/comment) | 📐 | standalone Chronicle alerts SDK built (`GetAlerts`/`UpdateAlert`/`BulkUpdateAlerts`). In practice operators read alerts as a **field of the case** via the reliable SOAR AppKey lane (`GetCaseFullDetails.alerts`). Live-test focus in Wave 13 |
 | **cases** (Chronicle UUID API) | `cases list/search/get` | (planned) | 🔨 read · ⛔ API | the **same case** as `soar case` (above) reached via the newer Chronicle API (UUID); it returns intermittent 5xx/404, so it is **not used**. One case, two APIs — all case work runs on the reliable SOAR AppKey lane (`soar case`), linked by `soarPlatformInfo.caseId`. Not a separate case system. See SOAR-DESIGN |
 | **entities / IoCs** | `entity summarize` · `iocs list` | — | 📐 | enrichment — read-only |
 
