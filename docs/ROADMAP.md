@@ -170,7 +170,7 @@ CATALOG rows moved forward, its design docs updated) before the next begins. The
 number *is* the sequence. Per-wave: **Goal · Scope · Exit · Docs.** Live status per
 surface lives in [CATALOG.md](CATALOG.md).
 
-### Wave 4 — Case + alert triage (SOAR AppKey — the reliable lane)  *(in progress — reads wired; live read-validation pending)*
+### Wave 4 — Case + alert triage (SOAR AppKey — the reliable lane)  *(done — reads live-validated; act verbs dry-run-validated)*
 - **Goal.** Finish the daily triage workflow on the path that is reliable. Small,
   unblocked, high-value — the SDK already exists, this is CLI plumbing + validation.
   (The SIEM-native cases collection is the flaky secondary view; this wave uses the
@@ -183,7 +183,7 @@ surface lives in [CATALOG.md](CATALOG.md).
   throwaway-safe case only).
 - **Docs.** SOAR-DESIGN, SIEM-DESIGN (the cases-are-one-case bridge), CATALOG.
 
-### Wave 5 — SIEM config plane onto the engine
+### Wave 5 — SIEM config plane onto the engine  *(next)*
 - **Goal.** Turn SIEM config-as-code from one surface into the whole plane.
 - **Scope.** Wire `data_tables` → `feeds` → `parsers` → `dashboards` → `curated`
   (read + enable/disable) onto the shared reconcile engine; add a SIEM write-smoke

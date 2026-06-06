@@ -141,8 +141,8 @@ func TestEmitSOARCaseFull(t *testing.T) {
 	  "stage": "Triage", "assignedUserName": "analyst2", "environment": "Default Environment",
 	  "isImportant": true, "isIncident": false, "description": "exfil attempt",
 	  "alerts": [
-	    {"id": 9001, "identifier": "ALERT-A", "name": "Brute force", "product": "Auth", "priority": 80},
-	    {"id": 9002, "identifier": "ALERT-B", "name": "Impossible travel", "product": "IdP", "priority": 60}
+	    {"identifier": "ALERT-A", "name": "Brute force", "product": "Auth", "priority": 80},
+	    {"identifier": "ALERT-B", "name": "Impossible travel", "product": "IdP", "priority": 60}
 	  ]
 	}`)
 	var buf bytes.Buffer
@@ -152,7 +152,7 @@ func TestEmitSOARCaseFull(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{"Case 555", "Credential theft", "Critical", "OPEN", "Triage",
 		"analyst2", "Default Environment", "exfil attempt", "Alerts (2)",
-		"9001", "Brute force", "High", "9002", "Impossible travel"} {
+		"--alert ALERT-A", "Brute force", "High", "--alert ALERT-B", "Impossible travel"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("detail view missing %q in:\n%s", want, out)
 		}

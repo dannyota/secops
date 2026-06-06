@@ -40,9 +40,10 @@ type soarCaseQueueResponse struct {
 	TotalCount int            `json:"totalCount"`
 }
 
-// soarAlertCard is the subset of a case alert we render under `get`.
+// soarAlertCard is the subset of a case alert we render under `get`. The legacy
+// payload leaves the integer `id` unset; `identifier` is the canonical key and
+// the value the mutating verbs' --alert flag consumes, so that is what we show.
 type soarAlertCard struct {
-	ID          int    `json:"id"`
 	Identifier  string `json:"identifier"`
 	Name        string `json:"name"`
 	Product     string `json:"product"`
@@ -211,12 +212,15 @@ func emitSOARCaseFull(w io.Writer, raw json.RawMessage) error {
 		fmt.Fprintln(w, "    none.")
 		return nil
 	}
-	fmt.Fprintf(w, "    %-10s %-12s %-28s %-18s %s\n", "ID", "PRIORITY", "NAME", "PRODUCT", "START")
+	// One block per alert: a summary line plus the verbatim --alert identifier
+	// (too long for a table column, and the value the mutate verbs need).
 	for i := range cs.Alerts {
 		a := &cs.Alerts[i]
-		fmt.Fprintf(w, "    %-10d %-12s %-28s %-18s %s\n",
-			a.ID, soarPriorityName(a.Priority), truncate(orDash(a.Name), 27),
-			truncate(orDash(a.Product), 17), msToUTC(a.StartTimeMs))
+		fmt.Fprintf(w, "    %d. %s  —  %s · %s · %s\n",
+			i+1, orDash(a.Name), soarPriorityName(a.Priority), orDash(a.Product), msToUTC(a.StartTimeMs))
+		if a.Identifier != "" {
+			fmt.Fprintf(w, "       --alert %s\n", a.Identifier)
+		}
 	}
 	return nil
 }

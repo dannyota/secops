@@ -44,7 +44,7 @@ Design in [ARCHITECTURE.md](ARCHITECTURE.md); product specifics in
 
 | Surface | Lane | Status | Notes |
 |---|---|---|---|
-| `soar case list` / `get <id>` | operational read | 🔨 | **the reliable operational read path** (AppKey). `list` (`ListCaseCards`; `--status`/`--limit`/`--json`) + `get <id>` (`GetCaseFullDetails` → case **and its alerts**); table or `--json`; offline-tested. Live read-validation pending |
+| `soar case list` / `get <id>` | operational read | ✅ | **the reliable operational read path** (AppKey), live read-validated. `list` (`ListCaseCards`; `--status`/`--limit`/`--json`) + `get <id>` (`GetCaseFullDetails` → case **and its alerts**, each with its `--alert` identifier for the mutate verbs); table or `--json` |
 | `soar case <verb>` (assign/rename/stage/tag/untag/describe/importance/close/merge) | imperative | 🔨 | **the reliable operational case path** (AppKey). 9 mutate verbs; swagger-verified bodies + unit test; dry-run validated, live mutation not exercised |
 | `soar push bulk-close` | imperative | 🔨 | queue bulk-close (`ExecuteBulkCloseCase`, AppKey) — pre-existing |
 | `soar legacy call <op>` | raw | ✅ | passthrough for integrations · jobs · ontology-mapping · permissions · settings · … (batch/bundle/selector) |
