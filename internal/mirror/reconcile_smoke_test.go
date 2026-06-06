@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -396,23 +397,28 @@ func runReconcileCreateUpdateSmoke(t *testing.T, ctx context.Context, s reconcil
 		t.Fatalf("post-create not in sync: +%d ~%d -%d", len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
 	}
 
-	// Edit a benign field -> exactly one update reconciles clean.
-	var m map[string]any
-	_ = json.Unmarshal([]byte(readFile(t, path)), &m)
-	m[editField] = editValue
-	b, _ := json.MarshalIndent(m, "", "  ")
-	if err := os.WriteFile(path, b, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); len(plan.Updates()) != 1 || len(plan.Creates()) != 0 {
-		t.Fatalf("expected exactly one update, got +%d ~%d", len(plan.Creates()), len(plan.Updates()))
-	}
-	buf.Reset()
-	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
-		t.Fatalf("push update: %v\n%s", err, buf.String())
-	}
-	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
-		t.Fatalf("post-update not in sync: +%d ~%d -%d", len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	// Edit a benign field -> exactly one update reconciles clean. Skipped when
+	// editField is "" (clone-based records with no obvious safe scalar to flip);
+	// the create+delete path is still fully exercised, and the update path is
+	// proven on other surfaces.
+	if editField != "" {
+		var m map[string]any
+		_ = json.Unmarshal([]byte(readFile(t, path)), &m)
+		m[editField] = editValue
+		b, _ := json.MarshalIndent(m, "", "  ")
+		if err := os.WriteFile(path, b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); len(plan.Updates()) != 1 || len(plan.Creates()) != 0 {
+			t.Fatalf("expected exactly one update, got +%d ~%d", len(plan.Creates()), len(plan.Updates()))
+		}
+		buf.Reset()
+		if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+			t.Fatalf("push update: %v\n%s", err, buf.String())
+		}
+		if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+			t.Fatalf("post-update not in sync: +%d ~%d -%d", len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+		}
 	}
 
 	// Cleanup (raw remove) + verify gone.
@@ -469,6 +475,91 @@ func TestLiveReconcileVisualFamilyWriteSmoke(t *testing.T) {
 			_, err := lc.DeleteFamilyData(ctx, o.ServerID)
 			return err
 		})
+}
+
+// cloneSeedRecord clones an existing record (full body), strips server-managed
+// fields, and renames it to label — a guaranteed-valid create body for surfaces
+// where construction is fiddly. Skips the test if there is nothing to clone.
+func cloneSeedRecord(t *testing.T, ctx context.Context, s reconcile.Surface, nameField, label string, extraStrip ...string) map[string]any {
+	t.Helper()
+	seed, ok := findAny(ctx, s)
+	if !ok {
+		t.Skipf("no existing %s record to clone as a template", s.Name)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(seed.Raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range append([]string{"id", "creationTimeUnixTimeInMs", "modificationTimeUnixTimeInMs"}, extraStrip...) {
+		delete(m, k)
+	}
+	m[nameField] = label
+	return m
+}
+
+// The four write-safe case/playbook config surfaces (workflow-classified inert +
+// self-cleaning), using ground-truth bodies from the existing passing live tests.
+// create + delete is exercised (update is proven on other surfaces); cleanup uses
+// each surface's body-shaped raw remove.
+
+func TestLiveReconcileCaseTagWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, _ := BuildSOARSurface("case-tags", lc)
+	label := smokeLabel("tag")
+	body := cloneSeedRecord(t, ctx, s, "name", label)
+	runReconcileCreateUpdateSmoke(t, ctx, s, label, body, "", "", func(o reconcile.Object) error {
+		var m map[string]any
+		_ = json.Unmarshal(o.Raw, &m)
+		_, err := lc.RemoveTagDefinitionRecords(ctx, m)
+		return err
+	})
+}
+
+func TestLiveReconcileRootCauseWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, _ := BuildSOARSurface("close-root-causes", lc)
+	label := smokeLabel("rootcause")
+	body := cloneSeedRecord(t, ctx, s, "rootCause", label)
+	runReconcileCreateUpdateSmoke(t, ctx, s, label, body, "", "", func(o reconcile.Object) error {
+		var m map[string]any
+		_ = json.Unmarshal(o.Raw, &m)
+		_, err := lc.RemoveRootCauseClose(ctx, m)
+		return err
+	})
+}
+
+func TestLiveReconcileBlacklistWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, _ := BuildSOARSurface("blacklists", lc)
+	label := smokeLabel("block")
+	// A throwaway USER block-list entry for a smoke-label user matches no real entity.
+	body := map[string]any{"entityIdentifier": label, "entityType": "USER", "elementType": 0, "scope": 3, "environments": []any{}}
+	runReconcileCreateUpdateSmoke(t, ctx, s, label, body, "", "", func(o reconcile.Object) error {
+		var m map[string]any
+		_ = json.Unmarshal(o.Raw, &m)
+		_, err := lc.RemoveModelBlockRecords(ctx, m)
+		return err
+	})
+}
+
+func TestLiveReconcilePlaybookCategoryWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	s, _ := BuildSOARSurface("playbook-categories", lc)
+	label := smokeLabel("pbcat")
+	body := cloneSeedRecord(t, ctx, s, "name", label, "isDefaultCategory")
+	body["isDefaultCategory"] = false
+	runReconcileCreateUpdateSmoke(t, ctx, s, label, body, "", "", func(o reconcile.Object) error {
+		id, err := strconv.Atoi(o.ServerID)
+		if err != nil {
+			return err
+		}
+		_, err = lc.RemovePlaybookCategories(ctx, map[string]any{"ids": []int{id}})
+		return err
+	})
 }
 
 // findAny returns any one live object from a surface (a clone template).
