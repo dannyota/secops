@@ -50,15 +50,18 @@
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
     window.addEventListener('load', function () {
-      document.querySelectorAll('div.language-mermaid').forEach(function (el) {
+      // GitHub Pages (kramdown) emits ```mermaid as <pre><code class="language-mermaid">;
+      // some setups wrap it in <div class="language-mermaid">. Handle both.
+      document.querySelectorAll('.language-mermaid').forEach(function (el) {
         var pre = document.createElement('pre');
         pre.className = 'mermaid';
         pre.textContent = el.textContent;
-        el.parentNode.replaceChild(pre, el);
+        var target = el.closest('div.language-mermaid') || el.closest('pre') || el;
+        target.parentNode.replaceChild(pre, target);
       });
-      if (window.mermaid) {
+      if (window.mermaid && document.querySelector('pre.mermaid')) {
         mermaid.initialize({ startOnLoad: false, theme: 'default' });
-        mermaid.run();
+        mermaid.run({ querySelector: 'pre.mermaid' });
       }
     });
   </script>
