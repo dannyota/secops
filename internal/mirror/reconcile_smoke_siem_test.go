@@ -431,6 +431,91 @@ func TestLiveRetrohuntCreateWriteSmoke(t *testing.T) {
 	deleted = true
 }
 
+// TestLiveReconcileRuleExclusionWriteSmoke exercises the rule_exclusions engine
+// write loop on an inert throwaway exclusion (a UDM query matching a nonexistent
+// host → suppresses nothing): create → in-sync → update the query → in-sync, then
+// ARCHIVE it for cleanup. Rule exclusions have no delete API; archiving
+// (deployment enabled=false, archived=true) is the documented teardown — the same
+// state several live exclusions already sit in.
+func TestLiveReconcileRuleExclusionWriteSmoke(t *testing.T) {
+	c, ctx := liveChronicleClient(t)
+	requireSIEMSmokeWrite(t)
+
+	s, ok := BuildSIEMSurface("rule_exclusions", c)
+	if !ok {
+		t.Fatal("rule_exclusions is not a registered engine surface")
+	}
+	label := smokeLabel("excl")
+	slug := Slugify(label)
+	dir := t.TempDir()
+
+	if _, err := reconcile.Pull(ctx, s, dir, io.Discard); err != nil {
+		t.Fatalf("baseline pull: %v", err)
+	}
+
+	archived := false
+	t.Cleanup(func() {
+		if archived {
+			return
+		}
+		if o, found := findBySlug(ctx, s, slug); found {
+			if _, err := c.UpdateRuleExclusionDeployment(ctx, lastSegment(o.ServerID),
+				chronicle.RuleExclusionDeploymentUpdate{Enabled: new(false), Archived: new(true)}); err != nil {
+				t.Logf("cleanup: archive exclusion %q: %v", label, err)
+			}
+		}
+	})
+
+	// New local file (no name → create): an inert exclusion that matches nothing.
+	if err := writeYAML(filepath.Join(dir, slug+".yaml"), ruleExclusionMeta{
+		DisplayName: label,
+		Type:        string(chronicle.DetectionExclusion),
+		Query:       `(principal.hostname = "secopsctl-smoketest-nonexistent-zzzzzz")`,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf strings.Builder
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+		t.Fatalf("push create: %v\n%s", err, buf.String())
+	}
+	live, found := findBySlug(ctx, s, slug)
+	if !found {
+		t.Fatalf("exclusion %q not found after create. push log:\n%s", label, buf.String())
+	}
+	var meta ruleExclusionMeta
+	if err := readYAMLFile(filepath.Join(dir, slug+".yaml"), &meta); err != nil {
+		t.Fatal(err)
+	}
+	if meta.Name == "" || meta.Name != live.ServerID {
+		t.Fatalf("create did not record server name (yaml=%q live=%q)", meta.Name, live.ServerID)
+	}
+	if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+		t.Fatalf("post-create plan not in sync: +%d ~%d -%d",
+			len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+
+	// Edit the query → exactly one update reconciles clean.
+	meta.Query = `(principal.hostname = "secopsctl-smoketest-nonexistent-yyyyyy")`
+	if err := writeYAML(filepath.Join(dir, slug+".yaml"), meta); err != nil {
+		t.Fatal(err)
+	}
+	assertOneUpdate(t, ctx, s, dir, "query")
+
+	// Cleanup: archive (the only teardown the API offers) + verify.
+	exclusionID := lastSegment(live.ServerID)
+	if _, err := c.UpdateRuleExclusionDeployment(ctx, exclusionID,
+		chronicle.RuleExclusionDeploymentUpdate{Enabled: new(false), Archived: new(true)}); err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+	archived = true
+	if dep, err := c.GetRuleExclusionDeployment(ctx, exclusionID); err != nil {
+		t.Fatalf("get deployment: %v", err)
+	} else if !dep.Archived {
+		t.Errorf("exclusion not archived after cleanup")
+	}
+}
+
 // writeSmokeDataTableFiles writes the `<slug>.yaml` + `<slug>.csv` for a new
 // throwaway table (no server name → a create).
 func writeSmokeDataTableFiles(t *testing.T, dir, slug, display, description string, rows [][]string) {
