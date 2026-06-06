@@ -37,7 +37,7 @@ identity + canonical diff + redaction + additive/`--prune` guard.
 |---|---|---|
 | `rules` (YARA-L) | source `.yaral` + deployment state machine | **bespoke** (two-resource; keep `push rules-create/disable`, extend with update/enable/retrohunt) — not a single canonical body |
 | `reference_lists` | typed, `.txt`+`.yaml` | **done** (engine, NoDelete) |
-| `data_tables` | `.csv`+`.yaml`, rows via a separate API | **done** (engine, `push data_tables`): columns immutable after create (update rejects a column change); rows = wholesale `ReplaceDataTableRows`; not prune-eligible (whole-table delete is high-blast). Gated write smoke `TestLiveReconcileDataTableWriteSmoke` |
+| `data_tables` | `.csv`+`.yaml`, rows via a separate API | **done + live-validated** (engine, `push data_tables`): columns immutable after create (update rejects a column change); rows = wholesale `ReplaceDataTableRows`; not prune-eligible (whole-table delete is high-blast). Gated write smoke `TestLiveReconcileDataTableWriteSmoke` passed on the tenant |
 | `feeds` | typed, secrets in `settings` | engine surface; redact on pull, overlay on update; **resolve the `assetNamespace`(read) vs `namespace`(write) mismatch with a live smoke first** |
 | `parsers` | versioned/immutable (create new, no update) | engine surface, `Create`+`Delete` only (no update) |
 | `dashboards` (native) | typed, charts as JSON | engine surface, full CUD |

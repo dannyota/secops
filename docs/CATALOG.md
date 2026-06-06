@@ -57,7 +57,7 @@ product-neutral engine is `internal/mirror/reconcile`; live write-smokes are gat
 |---|---|---|---|---|
 | `rules` | bespoke | 🔨 | 🔨 | YARA-L source + deployment state machine (two resources) — `push rules-create/disable`; not a single canonical body |
 | `reference_lists` | reconcile | ✅ | 🔨 | typed, `.txt`+`.yaml`; NoDelete; engine = product-neutral |
-| `data_tables` | reconcile | ✅ | 🔨 | `.csv`+`.yaml` on the engine; `push data_tables` (create/update). Columns immutable after create; rows are wholesale destroy-and-replace (`ReplaceDataTableRows`). Not prune-eligible (whole-table delete is high-blast). Write smoke `TestLiveReconcileDataTableWriteSmoke` (gated) |
+| `data_tables` | reconcile | ✅ | ✅ | `.csv`+`.yaml` on the engine; `push data_tables` (create/update). Columns immutable after create; rows are wholesale destroy-and-replace (`ReplaceDataTableRows`). Not prune-eligible (whole-table delete is high-blast). Write smoke `TestLiveReconcileDataTableWriteSmoke` passed (create→update desc→replace rows→delete) |
 | `feeds` | reconcile | 🔨(pull) | 📐 | secrets in `settings`; **resolve `assetNamespace`(read) vs `namespace`(write) with a live smoke first** |
 | `parsers` | reconcile | 🔨(pull) | 📐 | versioned/immutable → Create + Delete only |
 | `dashboards` | reconcile | 🔨(pull) | 📐 | native dashboards, charts as JSON; full CUD |
