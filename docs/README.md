@@ -58,6 +58,7 @@ flowchart LR
 | **[README.md](README.md)** (this) | The map: model, diagram, index | get oriented |
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | The cross-cutting design — engine, lanes, planes, auth, safety, reliability | understand *how* it works (any surface) |
 | **[CATALOG.md](CATALOG.md)** | Every surface & command + a **status matrix** (designed / built / validated) | see *what exists* and its maturity — the tracker |
+| **[SURFACES.md](SURFACES.md)** | The API surface map: every family split by **plane** (SIEM / SOAR-legacy / SOAR-modern) with gaps | see *which API does what* and what's unbuilt |
 | **[SOAR-DESIGN.md](SOAR-DESIGN.md)** | SOAR specifics (3 tiers, gotchas, per-surface notes) | work on SOAR |
 | **[SIEM-DESIGN.md](SIEM-DESIGN.md)** | SIEM specifics (two planes, cases/alerts model) | work on SIEM |
 | **[ROADMAP.md](ROADMAP.md)** | Waves / sequencing | see what's next |

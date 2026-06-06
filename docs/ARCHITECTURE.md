@@ -131,8 +131,51 @@ responding, change the const to the version that works and update this table.
 | Chronicle **cases** (UUID) API — get/list/patch/merge/bulk | `v1beta` | ⛔ | the **same case** as the SOAR AppKey row below, via Chronicle's newer API; v1 / v1alpha / v1beta all 500 or hang intermittently (server-side) — **not** the working case path. Operational case work uses the reliable SOAR AppKey row below; one case, two APIs |
 | SIEM legacy case reads — `legacy:legacyListCases` · `legacyBatchGetCases` | `v1alpha` | ⛔ | `legacyListCases` 404; `legacyBatchGetCases` is the SOAR-int ⇄ SIEM-uuid bridge |
 | SOAR legacy — `/api/external/v1/…` (**cases** · connectors · jobs · settings · playbooks bridge) | external `v1` · AppKey | ✅ | the reliable path — **incl. the working operational case lane** (`GetCaseCardsByRequest`, `GetCaseFullDetails` → alerts, `ExecuteBulkCloseCase`, `ChangeCasePriority`) |
-| SOAR modern — integrations · connectors · jobs · grouping | `v1alpha` | 🔨 | pull + patch |
+| SOAR modern — integrations · connectors · jobs · grouping | `v1alpha` | 🔨 | pull + patch; integration/connector-definition management |
+| SIEM Threat Intel — `threatCollections` · `iocs` · `iocAssociations` | `v1alpha` | ⬜ | planned read surface (Mandiant-sourced; read-only) |
+| SIEM Content Hub — `marketplaceIntegrations` · `contentHub.*` | `v1alpha` | ⬜ | SIEM-plane install/uninstall (durable twin of the legacy `/store` path) |
+| SIEM governance — `dataAccessLabels` · `dataAccessScopes` · `:getRiskConfig` | `v1alpha` | ⬜ | planned RBAC/data-governance reconcile |
 
 Principle: **test → hard-code the working version per family → record it here.** No
 per-user version flag; the SDK ships the version that works, and this table tracks
 which is which (and what's currently down).
+
+## 7. Surface taxonomy & registry
+
+Every API family has one home: a **plane** `(host, auth)` and a **lane**. The full
+inventory and the SIEM-vs-SOAR split live in [SURFACES.md](SURFACES.md); this section
+is the design behind it.
+
+**Two orthogonal axes.** Don't conflate them:
+- **Plane** (*product + transport*, SURFACES.md): **SIEM** (`chronicle.googleapis.com`,
+  ADC), **SOAR-legacy** (`*.siemplify-soar.com` `/api/external/v1`, AppKey — reliable),
+  **SOAR-modern** (`*.siemplify-soar.com` v1alpha, AppKey — flaky).
+- **Lane** (*how it's modeled*, §3): reconcile / raw / imperative / operational / skip.
+  A surface is one plane **and** one lane (e.g. SIEM reference lists = SIEM-plane +
+  reconcile-lane + control-plane).
+
+**Place by host+auth, not by feel.** The Content Hub and `marketplaceIntegrations`
+install integrations, so they read as SOAR — but they answer on
+`chronicle.googleapis.com` with ADC, so they are **SIEM-plane**. Threat Intelligence
+is likewise SIEM-plane. Putting them in `chronicle/` keeps the auth and the package
+honest.
+
+**One resource can live on two hosts.** For customer-managed-project tenants,
+`integrations` / `connectors` / `jobs` answer on **both** the SOAR AppKey host and
+`chronicle.googleapis.com` v1alpha. The rule: **operate config-as-code on the legacy
+AppKey lane** (reliable) and reach for the modern path only for what the legacy API
+lacks (e.g. the per-connector-definition delete). Each dual-host family records the
+host it actually uses and why.
+
+**The registry is the spine.** Each family is one declarative entry:
+
+```
+SurfaceFamily{ Name, Plane, Host, Auth, APIVersion, Lane, Status, SDKLocation }
+```
+
+It is the single source of truth that the §6 version table and the
+[CATALOG.md](CATALOG.md) status matrix derive from — so the map, the docs, and the
+code cannot silently drift. Adding a surface is: write the registry entry → verify
+the SDK signature against the spec by hand → wire the Surface/command → read-validate
+→ gated write-smoke (§5). Keep `chronicle/` and `soar/` flat with one file per
+family; the registry, not the package tree, carries the structure.

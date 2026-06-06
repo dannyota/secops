@@ -2,7 +2,8 @@
 
 The source of truth for **what exists and how mature it is**. Every surface
 carries a status; update it in the same commit that moves the surface forward.
-Design in [ARCHITECTURE.md](ARCHITECTURE.md); product specifics in
+Design in [ARCHITECTURE.md](ARCHITECTURE.md); the full API split by plane and the
+unbuilt gaps are in [SURFACES.md](SURFACES.md); product specifics in
 [SOAR-DESIGN.md](SOAR-DESIGN.md) / [SIEM-DESIGN.md](SIEM-DESIGN.md).
 
 **Where the code is:** surfaces register in `internal/mirror/registry_{soar,siem}.go`

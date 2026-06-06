@@ -280,7 +280,19 @@ live-write-validated. Status after closing them:
   read-only-by-choice/raw. **`form-dynamic-parameters` investigated but deferred** —
   its strict PUT update silently resets a parameter's `formType` to Invalid (dropping
   it out of its form) even with the UI's integer-enum body, so reconcile update is
-  unsafe; reachable read-only via the raw lane.
+  unsafe; reachable read-only via the raw lane. **Integration management** (modern
+  v1alpha): `soar integration list`/`uninstall` (custom packs) and
+  `soar integration connector list`/`delete` (custom connector **definitions** —
+  e.g. a duplicated "Copy of …" template) round out the surface; whole-integration
+  delete is custom-only, and the installed-vs-catalog model is documented in
+  [SURFACES.md](SURFACES.md).
+
+---
+
+The forward waves below are **derived from a full audit** of the legacy swagger and
+the Chronicle v1alpha docs against the SDK (see [SURFACES.md](SURFACES.md) for the
+per-family gap map). The legacy SOAR external API is ~99.8% wrapped; the remaining
+work is almost entirely **modern v1alpha SIEM** surfaces.
 
 ### Wave 8 — Chronicle (UUID) operational API + remaining SIEM surfaces
 - **Goal.** Reach cases/alerts/events through Chronicle's newer **UUID API** — the
@@ -302,7 +314,66 @@ live-write-validated. Status after closing them:
   live-validated or documented why not; mutations gated; 500s fail clean.
 - **Docs.** SIEM-DESIGN, ARCHITECTURE §6, CATALOG.
 
-### Wave 9 — Reliability & safety hardening
+### Wave 9 — Threat Intelligence (SIEM read)
+- **Goal.** Mandiant / Applied Threat Intelligence as code — read the campaigns,
+  reports, actors, malware and IoCs the tenant is matched against. Read-only (TI is
+  Google/Mandiant-sourced — there is no write path), so low-risk and high-signal.
+- **Scope.** `threatCollections` list/get (+ `:fetchRelated`/`:fetchEntityMetadata`/
+  `:fetchIocMatchMetadata`); modern `iocs:find`/get/batchGet. SIEM plane,
+  `chronicle/ti.go`. Operational lane (query → review), `--limit`-capped.
+- **Exit.** Live read round-trip on `threatCollections` + `iocs:find`; CATALOG ✅.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 10 — Content Hub (SIEM modern)
+- **Goal.** Manage installable content on the durable SIEM-plane API — the twin of
+  the legacy `/store` install path, and the only place an **uninstall** exists.
+- **Scope.** `marketplaceIntegrations` list/get/install/uninstall; `contentHub.
+  contentPacks` list/get/add/delete; featured native dashboards install. SIEM plane,
+  `chronicle/content.go`. Imperative (install/uninstall) + raw where bundled.
+- **Exit.** Read-validated; a gated install→uninstall smoke on a throwaway pack.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 11 — SIEM RBAC & data governance
+- **Goal.** Manage access control as code — the highest-value SIEM config still
+  missing.
+- **Scope.** `dataAccessLabels` + `dataAccessScopes` full CRUD on the reconcile
+  engine; `instances:getRiskConfig`/`:updateRiskConfig` (imperative); BigQuery-export
+  config. SIEM plane, `chronicle/rbac.go`.
+- **Exit.** Labels/scopes pull clean + a gated reconcile write-smoke on a throwaway;
+  risk-config read/write validated.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 12 — Curated-rules-as-code completion
+- **Goal.** Make curated (Google-managed) detections fully diff-and-push-able.
+- **Scope.** `curatedRuleSetDeployments:batchUpdate` (the atomic write primitive for
+  a desired-state curated-deployment file); `listCuratedRules`/`getCuratedRule`;
+  `legacyRunTestRule` (dry-run a rule against historical data); add `archived` to the
+  custom-rule deployment update. SIEM plane, `chronicle/curated.go` + `rules_write.go`.
+- **Exit.** A curated-deployment file reconciles via one batch call; `RunTestRule`
+  read-validated; CATALOG ✅.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 13 — SIEM ingestion completion
+- **Goal.** Ingestion config-as-code beyond feeds/parsers.
+- **Scope.** `forwarders` + `forwarders.collectors` full CRUD (reconcile);
+  `feedSourceTypeSchemas`/`logTypeSchemas` discovery (validate feed YAML before
+  deploy); `logTypes` get/update setting. SIEM plane.
+- **Exit.** Forwarders/collectors pull clean + gated write-smoke; schema discovery
+  drives feed validation.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 14 — SOAR v1alpha lifecycle *(reliability-gated)*
+- **Goal.** Close the modern-SOAR lifecycle gaps the legacy lane can't cover — only
+  where the legacy API has no equivalent, and only once the v1alpha endpoints stop
+  500ing.
+- **Scope.** `connectorInstances`/`jobInstances` create/delete + `:runOnDemand`;
+  `alertGroupingRules` create/delete (completing list/get/patch). SOAR-modern plane.
+  Each method clean-error-on-500; the reliable legacy lane stays the default.
+- **Exit.** Where the endpoint answers, read + gated write validated; 500s fail clean
+  and the legacy path remains the documented default.
+- **Docs.** SOAR-DESIGN, SURFACES, ARCHITECTURE §6, CATALOG.
+
+### Wave 15 — Reliability & safety hardening
 - **Goal.** Production-grade trust.
 - **Scope.** Per-endpoint version-pinning audit (the §6 map kept current);
   **drift-detection mode** (`pull` + diff + report, no push — a CI gate); etag/conflict
@@ -312,7 +383,7 @@ live-write-validated. Status after closing them:
 - **Exit.** Secret-at-rest shipped + tested on 3 OSes; drift mode runnable in CI.
 - **Docs.** ARCHITECTURE, ROADMAP.
 
-### Wave 10 — Distribution & operability
+### Wave 16 — Distribution & operability
 - **Goal.** Easy to install and run anywhere.
 - **Scope.** CI (build/test/lint/`govulncheck`/`semgrep`); release binaries
   (goreleaser); `secopsctl version`; shell completions; man pages; `doctor`
@@ -320,7 +391,7 @@ live-write-validated. Status after closing them:
 - **Exit.** A tagged release with signed binaries; CI green on PRs.
 - **Docs.** README, ROADMAP.
 
-### Wave 11 — Automation & scheduling *(stretch)*
+### Wave 17 — Automation & scheduling *(stretch)*
 - **Goal.** Tenant-neutral scheduled automation scaffolding.
 - **Scope.** Generic scheduled runners (case-hygiene jobs); the LLM-driven automation
   notes in `tips/`; scheduled drift reports.
