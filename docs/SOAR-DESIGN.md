@@ -28,12 +28,19 @@ reconcile):
 | Lane | Mechanism | SOAR surfaces |
 |---|---|---|
 | **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **14**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) |
-| **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` | 9 verbs: assign · rename · stage · tag · untag · describe · importance · close · merge; plus `soar push bulk-close` |
+| **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` | reads: `list` (queue cards) · `get <id>` (case + its alerts); 9 mutate verbs: assign · rename · stage · tag · untag · describe · importance · close · merge; plus `soar push bulk-close` |
 | **raw** (batch upserts / bundles / selector reads) | `soar legacy call <op>` | integrations · jobs · ontology-mapping · permissions · settings · … |
 
-Commands: `soar pull <surface>` (live → files) · `soar push <surface> [--prune]`
-(files → live; additive by default, dry-run unless `--yes`) · `soar case <verb>` ·
-`soar legacy call <op>`. Per-surface identity, capabilities (NoDelete /
+Commands:
+
+- `soar pull <surface>` — live → files
+- `soar push <surface> [--prune]` — files → live; additive by default, dry-run unless `--yes`
+- `soar case list`/`get` — read
+- `soar case <verb>` — guarded mutate
+- `soar legacy call <op>` — raw passthrough
+
+The operational loop is **`soar case list` → review → `soar case get <id>` → act**
+(a mutate verb or `soar push bulk-close`). Per-surface identity, capabilities (NoDelete /
 WholeBodyWrite / PruneEligible) and read/write validation are in
 [CATALOG.md](CATALOG.md) — today only `webhooks` is `PruneEligible`; every other
 surface is additive/NoDelete by design.

@@ -79,7 +79,7 @@ this plane is about the *operator model* and *safety*, not new API code.
 > | id | integer (e.g. `234`) | UUID (resource name) |
 > | api · auth | `/api/external/v1/cases` · AppKey | v1beta `cases` + v1alpha `legacy:legacyListCases` · ADC |
 > | role | the engine — alerts→case, playbooks, tasks, queue, stages, close | the first-class SecOps cases surface (get/list/patch/merge/bulk) — the convergence layer |
-> | CLI | `soar case <verb>` | `cases …` |
+> | CLI | `soar case list`/`get` (read) · `soar case <verb>` (act) | `cases …` |
 > | today | mature, **reliable** | newer, **flaky** (v1beta 500 / v1alpha 404 observed) |
 >
 > They stay **separate command trees** (different id, api, reliability), bridged by
@@ -180,7 +180,8 @@ secopsctl cases   list | get | search | comment | assign | tag | priority | stag
 > new and returns intermittent 5xx; the **reliable, complete path for case operations
 > is the SOAR AppKey API** — `soar case <verb>` plus the `soar case list`/`get` reads
 > (`ListCaseCards` / `GetCaseFullDetails`, which also returns the case's **alerts**).
-> Wire the SOAR reads first; the SIEM-native `cases`/`alerts` commands here are the
+> The SOAR reads are wired (`soar case list`/`get`), completing the reliable
+> query → review → act loop; the SIEM-native `cases`/`alerts` commands here are the
 > unified view for when that collection stabilizes.
 
 Decided: the subset-act model is **both** paths (reviewed-`--ids` preferred,

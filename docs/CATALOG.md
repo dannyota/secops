@@ -10,10 +10,16 @@ Design in [ARCHITECTURE.md](ARCHITECTURE.md); product specifics in
 `internal/mirror/reconcile`; live write-smokes are gated by `SECOPS_SOAR_SMOKE`
 (read) / `SECOPS_SOAR_SMOKE_WRITE` (write) in `reconcile_smoke_test.go`.
 
-**Status legend** — `📐 designed` · `🔨 built` (code lands) · `✅ live-validated`
-(reads round-trip clean / a write smoke ran) · `🔒 read-only by choice` (write
-deliberately not run — RBAC/SSO/high-blast/routing) · `⛔ blocked` (Google API
-down) · `—` n/a.
+**Status legend**
+
+| | Status | Meaning |
+|:-:|---|---|
+| 📐 | **designed** | spec'd, code not landed |
+| 🔨 | **built** | code lands |
+| ✅ | **live-validated** | reads round-trip clean / a write smoke ran |
+| 🔒 | **read-only by choice** | write deliberately not run — RBAC/SSO/high-blast/routing |
+| ⛔ | **blocked** | Google API down |
+| — | **n/a** | — |
 
 ## SOAR · control plane (reconcile)  — auth: AppKey (reliable)
 
@@ -38,7 +44,8 @@ down) · `—` n/a.
 
 | Surface | Lane | Status | Notes |
 |---|---|---|---|
-| `soar case <verb>` (assign/rename/stage/tag/untag/describe/importance/close/merge) | imperative | 🔨 | **the reliable operational case path** (AppKey). 9 mutate verbs; swagger-verified bodies + unit test; dry-run validated, live mutation not exercised. **Gap: the `list`/`get` reads** (`ListCaseCards`/`GetCaseFullDetails` exist in the SDK, not yet wired as CLI) |
+| `soar case list` / `get <id>` | operational read | 🔨 | **the reliable operational read path** (AppKey). `list` (`ListCaseCards`; `--status`/`--limit`/`--json`) + `get <id>` (`GetCaseFullDetails` → case **and its alerts**); table or `--json`; offline-tested. Live read-validation pending |
+| `soar case <verb>` (assign/rename/stage/tag/untag/describe/importance/close/merge) | imperative | 🔨 | **the reliable operational case path** (AppKey). 9 mutate verbs; swagger-verified bodies + unit test; dry-run validated, live mutation not exercised |
 | `soar push bulk-close` | imperative | 🔨 | queue bulk-close (`ExecuteBulkCloseCase`, AppKey) — pre-existing |
 | `soar legacy call <op>` | raw | ✅ | passthrough for integrations · jobs · ontology-mapping · permissions · settings · … (batch/bundle/selector) |
 | `soar pull/push connectors\|jobs\|grouping` | (modern) | 🔨 | pre-existing v1alpha pull + patch — not full reconcile |

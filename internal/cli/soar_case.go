@@ -22,12 +22,15 @@ import (
 func newSOARCaseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "case <verb>",
-		Short: "MUTATING (guarded): per-case actions (assign, tag, close, ...). Dry-run by default",
-		Long: "Imperative case actions against the live SOAR tenant. caseId is the SOAR\n" +
-			"integer id (not the SIEM UUID). Every verb defaults to a dry run; pass\n" +
-			"--yes to apply (or confirm interactively).",
+		Short: "Per-case triage: read (list, get) + guarded mutations (assign, tag, close, ...)",
+		Long: "Per-case workflow against the live SOAR tenant (AppKey, the reliable lane).\n" +
+			"caseId is the SOAR integer id (not the SIEM UUID). `list` and `get` read\n" +
+			"only; every mutating verb defaults to a dry run — pass --yes to apply (or\n" +
+			"confirm interactively).",
 	}
 	cmd.AddCommand(
+		newCaseListCmd(),
+		newCaseGetCmd(),
 		newCaseAssignCmd(),
 		newCaseRenameCmd(),
 		newCaseStageCmd(),

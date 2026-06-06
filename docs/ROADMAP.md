@@ -170,7 +170,7 @@ CATALOG rows moved forward, its design docs updated) before the next begins. The
 number *is* the sequence. Per-wave: **Goal · Scope · Exit · Docs.** Live status per
 surface lives in [CATALOG.md](CATALOG.md).
 
-### Wave 4 — Case + alert triage (SOAR AppKey — the reliable lane)  *(next)*
+### Wave 4 — Case + alert triage (SOAR AppKey — the reliable lane)  *(in progress — reads wired; live read-validation pending)*
 - **Goal.** Finish the daily triage workflow on the path that is reliable. Small,
   unblocked, high-value — the SDK already exists, this is CLI plumbing + validation.
   (The SIEM-native cases collection is the flaky secondary view; this wave uses the
