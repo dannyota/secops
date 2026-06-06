@@ -19,6 +19,12 @@ type DataTableColumn struct {
 	OriginalColumn string `json:"originalColumn,omitempty"`
 	ColumnIndex    int    `json:"columnIndex,omitempty"`
 	Name           string `json:"name,omitempty"`
+	// ColumnType is the value type for a plain column (one of the
+	// DataTableColumnType* enums). It is mutually exclusive with MappedColumnPath.
+	ColumnType string `json:"columnType,omitempty"`
+	// MappedColumnPath maps the column to an entity-graph field path instead of a
+	// value type; mutually exclusive with ColumnType.
+	MappedColumnPath string `json:"mappedColumnPath,omitempty"`
 	// Raw is the column object exactly as returned by the API. It is not part
 	// of the JSON contract itself (json:"-"); UnmarshalJSON fills it.
 	Raw json.RawMessage `json:"-"`

@@ -6,9 +6,10 @@ Design in [ARCHITECTURE.md](ARCHITECTURE.md); product specifics in
 [SOAR-DESIGN.md](SOAR-DESIGN.md) / [SIEM-DESIGN.md](SIEM-DESIGN.md).
 
 **Where the code is:** surfaces register in `internal/mirror/registry_{soar,siem}.go`
-(playbooks: `soar_playbooks.go`); the product-neutral engine is
-`internal/mirror/reconcile`; live write-smokes are gated by `SECOPS_SOAR_SMOKE`
-(read) / `SECOPS_SOAR_SMOKE_WRITE` (write) in `reconcile_smoke_test.go`.
+(playbooks: `soar_playbooks.go`; data_tables: `datatables_surface.go`); the
+product-neutral engine is `internal/mirror/reconcile`; live write-smokes are gated by
+`SECOPS_SOAR_SMOKE`/`_WRITE` (`reconcile_smoke_test.go`) for SOAR and
+`SECOPS_SIEM_SMOKE`/`_WRITE` (`reconcile_smoke_siem_test.go`) for SIEM.
 
 **Status legend**
 
@@ -56,7 +57,7 @@ Design in [ARCHITECTURE.md](ARCHITECTURE.md); product specifics in
 |---|---|---|---|---|
 | `rules` | bespoke | 🔨 | 🔨 | YARA-L source + deployment state machine (two resources) — `push rules-create/disable`; not a single canonical body |
 | `reference_lists` | reconcile | ✅ | 🔨 | typed, `.txt`+`.yaml`; NoDelete; engine = product-neutral |
-| `data_tables` | reconcile | ✅(pull) | 📐 | `.csv`+`.yaml`; rows via separate `ReplaceDataTableRows` |
+| `data_tables` | reconcile | ✅ | 🔨 | `.csv`+`.yaml` on the engine; `push data_tables` (create/update). Columns immutable after create; rows are wholesale destroy-and-replace (`ReplaceDataTableRows`). Not prune-eligible (whole-table delete is high-blast). Write smoke `TestLiveReconcileDataTableWriteSmoke` (gated) |
 | `feeds` | reconcile | 🔨(pull) | 📐 | secrets in `settings`; **resolve `assetNamespace`(read) vs `namespace`(write) with a live smoke first** |
 | `parsers` | reconcile | 🔨(pull) | 📐 | versioned/immutable → Create + Delete only |
 | `dashboards` | reconcile | 🔨(pull) | 📐 | native dashboards, charts as JSON; full CUD |

@@ -37,7 +37,7 @@ identity + canonical diff + redaction + additive/`--prune` guard.
 |---|---|---|
 | `rules` (YARA-L) | source `.yaral` + deployment state machine | **bespoke** (two-resource; keep `push rules-create/disable`, extend with update/enable/retrohunt) — not a single canonical body |
 | `reference_lists` | typed, `.txt`+`.yaml` | **done** (engine, NoDelete) |
-| `data_tables` | `.csv`+`.yaml`, rows via a separate API | engine surface; rows = wholesale `ReplaceDataTableRows` |
+| `data_tables` | `.csv`+`.yaml`, rows via a separate API | **done** (engine, `push data_tables`): columns immutable after create (update rejects a column change); rows = wholesale `ReplaceDataTableRows`; not prune-eligible (whole-table delete is high-blast). Gated write smoke `TestLiveReconcileDataTableWriteSmoke` |
 | `feeds` | typed, secrets in `settings` | engine surface; redact on pull, overlay on update; **resolve the `assetNamespace`(read) vs `namespace`(write) mismatch with a live smoke first** |
 | `parsers` | versioned/immutable (create new, no update) | engine surface, `Create`+`Delete` only (no update) |
 | `dashboards` (native) | typed, charts as JSON | engine surface, full CUD |
@@ -46,9 +46,11 @@ identity + canonical diff + redaction + additive/`--prune` guard.
 
 **Discipline (same as SOAR, proven):** workflow-spec the shape → verify SDK
 signatures by hand → wire as a `reconcile.Surface` → **live read-validate** →
-**gated write-smoke** on an inert throwaway (read+write, but blocked here until a
-token + the v1alpha 500s settle). No surface is trusted for `--yes` until its
-write loop is live-validated.
+**gated write-smoke** on an inert throwaway. The SIEM write-smoke harness lives in
+`internal/mirror/reconcile_smoke_siem_test.go`, gated by `SECOPS_SIEM_SMOKE` (read
+round-trip of every SIEM surface) and `SECOPS_SIEM_SMOKE_WRITE` (the
+create/update/delete cycle). No surface is trusted for `--yes` until its write loop
+is live-validated.
 
 ---
 

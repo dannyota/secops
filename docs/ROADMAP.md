@@ -183,7 +183,7 @@ surface lives in [CATALOG.md](CATALOG.md).
   throwaway-safe case only).
 - **Docs.** SOAR-DESIGN, SIEM-DESIGN (the cases-are-one-case bridge), CATALOG.
 
-### Wave 5 — SIEM config plane onto the engine  *(next)*
+### Wave 5 — SIEM config plane onto the engine  *(in progress — `data_tables` landed + SIEM write-smoke harness; `feeds`/`parsers`/`dashboards`/`curated` next)*
 - **Goal.** Turn SIEM config-as-code from one surface into the whole plane.
 - **Scope.** Wire `data_tables` → `feeds` → `parsers` → `dashboards` → `curated`
   (read + enable/disable) onto the shared reconcile engine; add a SIEM write-smoke
