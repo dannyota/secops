@@ -91,7 +91,8 @@ operator model and its **safety**.
      (prints match count + a sample, refuses to mutate) and **`--limit`-capped**.
 - **One guard rule:** an operational mutation is a production deploy — `LIVE`
   banner, dry-run default, `--yes`. Events are immutable telemetry: **read-only,
-  never mutate**. SIEM cases (UUID) stay distinct from SOAR cases (int).
+  never mutate**. A case is **one record with two ids** (Chronicle UUID, SOAR
+  integer) — operate it on the reliable SOAR AppKey lane, not two case systems.
 
 ## 5. Cross-cutting
 
@@ -127,7 +128,7 @@ responding, change the const to the version that works and update this table.
 | Endpoint family | Version | Status | Notes |
 |---|---|---|---|
 | SIEM config + reads — rules · reference_lists · data_tables · feeds · parsers · dashboards · search · entity | `v1alpha` | ✅ | `DefaultAPIVersion`; doctor + pulls confirm |
-| SIEM **cases** collection — get/list/patch/merge/bulk | `v1beta` | ⛔ | new collection; v1 / v1alpha / v1beta all 500 or hang intermittently (server-side). This is the SIEM-*native* unified view — **not** the working case path; operational case work uses the SOAR AppKey row below |
+| Chronicle **cases** (UUID) API — get/list/patch/merge/bulk | `v1beta` | ⛔ | the **same case** as the SOAR AppKey row below, via Chronicle's newer API; v1 / v1alpha / v1beta all 500 or hang intermittently (server-side) — **not** the working case path. Operational case work uses the reliable SOAR AppKey row below; one case, two APIs |
 | SIEM legacy case reads — `legacy:legacyListCases` · `legacyBatchGetCases` | `v1alpha` | ⛔ | `legacyListCases` 404; `legacyBatchGetCases` is the SOAR-int ⇄ SIEM-uuid bridge |
 | SOAR legacy — `/api/external/v1/…` (**cases** · connectors · jobs · settings · playbooks bridge) | external `v1` · AppKey | ✅ | the reliable path — **incl. the working operational case lane** (`GetCaseCardsByRequest`, `GetCaseFullDetails` → alerts, `ExecuteBulkCloseCase`, `ChangeCasePriority`) |
 | SOAR modern — integrations · connectors · jobs · grouping | `v1alpha` | 🔨 | pull + patch |

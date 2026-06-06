@@ -72,7 +72,8 @@ matching `third_party/secops-wrapper/src/secops/chronicle/*.py` when implementin
   ListIoCs (Mandiant prioritization).
 - **Cases & alerts** (`case.go`, `alert.go`): get/list/patch/merge cases, get/
   update/bulk-update alerts, bulk case ops (tag/assign/priority/stage/close/reopen).
-  Note: SIEM case ID is a UUID; SOAR uses a separate integer ID (Wave 3).
+  Note: one case has two ids — a UUID on the Chronicle API and an integer on the
+  SOAR AppKey API (same record, not two cases); the reliable path is SOAR (Wave 3).
 - **Investigations** (`investigations.go`).
 - **Reference-list / data-table / feed / parser / dashboard WRITES**: create/
   update/delete + replace-rows, parser run/copy/activate, parser extensions,
@@ -173,8 +174,8 @@ surface lives in [CATALOG.md](CATALOG.md).
 ### Wave 4 — Case + alert triage (SOAR AppKey — the reliable lane)  *(done — reads live-validated; act verbs dry-run-validated)*
 - **Goal.** Finish the daily triage workflow on the path that is reliable. Small,
   unblocked, high-value — the SDK already exists, this is CLI plumbing + validation.
-  (The SIEM-native cases collection is the flaky secondary view; this wave uses the
-  reliable SOAR AppKey lane.)
+  (Same case, two APIs: this wave uses the reliable SOAR AppKey lane; the Chronicle
+  UUID API reaches the same case but is flaky.)
 - **Scope.** Wire the missing **reads** on the AppKey lane: `soar case list`
   (`ListCaseCards`; `--status`/`--limit`/`--json`) and `soar case get <id>`
   (`GetCaseFullDetails` → the case **and its alerts**). Complete the query → review →
@@ -209,18 +210,32 @@ surface lives in [CATALOG.md](CATALOG.md).
   delete-by-id exists; **ontology** raw lane (entity mappings/relations, export/import
   bundles); `connectors`/`jobs`/`integrations` full reconcile (beyond pull+patch);
   dynamic-case config; remaining settings surfaces.
-- **Exit.** SOAR CATALOG rows ✅ or documented read-only-by-choice; ontology covered.
+- **Live-test focus.** `connectors`/`jobs` — validate the write path live, safely:
+  an **idempotent same-value PATCH** (re-send current config, no change) proves the
+  patch round-trip without disturbing a live integration; secrets read back masked
+  must pass through unchanged.
+- **Exit.** SOAR CATALOG rows ✅ or documented read-only-by-choice; ontology covered;
+  `connectors`/`jobs` write live-validated.
 - **Docs.** SOAR-DESIGN, CATALOG.
 
-### Wave 8 — SIEM-native operational view (the unified SecOps surface)
-- **Goal.** The first-class Chronicle view of cases/alerts/events — lights up as
-  Google's new APIs stabilize; built now behind a clean-error-on-500 guard. Sequenced
-  after the reliable surfaces because its backend is the flaky one.
-- **Scope.** `cases` act/bulk (v1beta), `alerts list/get/update/bulk`, `stats`,
-  `search nl`, `entity summarize`, `iocs list`; reviewed-`--ids` + `--filter`
-  dry-run-first + `--limit` caps. Per-endpoint version pinned + tracked in
-  ARCHITECTURE §6.
-- **Exit.** Reads validated where the API answers; mutations gated; 500s fail clean.
+### Wave 8 — Chronicle (UUID) operational API + remaining SIEM surfaces
+- **Goal.** Reach cases/alerts/events through Chronicle's newer **UUID API** — the
+  **same** cases the SOAR AppKey lane already operates, not a separate system —
+  lighting it up if/when those endpoints stabilize, behind a clean-error-on-500
+  guard. Sequenced last because its backend is the flaky one; the reliable case
+  path stays the SOAR AppKey lane. Also wire the remaining SIEM surfaces.
+- **Scope.** `cases` act/bulk (v1beta, the UUID API onto the same case),
+  `alerts list/get/update/bulk`, `stats`, `search nl`, `entity summarize`,
+  `iocs list`; wire `watchlists`/`forwarders`/`log_pipelines` (SDK present);
+  reviewed-`--ids` + `--filter` dry-run-first + `--limit` caps. Per-endpoint
+  version pinned + tracked in ARCHITECTURE §6.
+- **Live-test focus.** `alerts` (read + gated update/bulk) and
+  `watchlists`/`forwarders`/`log_pipelines` — live read round-trip, plus a gated
+  write-smoke on a self-cleaning throwaway for each (where a delete/teardown
+  exists). Where the Chronicle `cases` UUID API answers, validate reads; mutations
+  stay gated and 500s fail clean.
+- **Exit.** Reads validated where the API answers; the listed surfaces' writes
+  live-validated or documented why not; mutations gated; 500s fail clean.
 - **Docs.** SIEM-DESIGN, ARCHITECTURE §6, CATALOG.
 
 ### Wave 9 — Reliability & safety hardening

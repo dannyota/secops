@@ -68,26 +68,27 @@ this plane is about the *operator model* and *safety*, not new API code.
 |---|---|---|---|
 | **events (UDM)** | `SearchUDM` / `NLSearch` / `GetStats` / `FindUDMFieldValues` | — | immutable telemetry — **read-only, never mutate** |
 | **alerts** | `GetAlerts` (list) · `GetAlert` · `ListDetections` · `SearchRuleAlerts` | `UpdateAlert` · `BulkUpdateAlerts` (status / verdict / priority / reason / comment) | per-item + subset |
-| **cases (SIEM, UUID)** | `ListCases` / `SearchCases` (filter) · `GetCase` · `GetCases` | `PatchCase` (+etag/updateMask) · `MergeCases` · `BulkClose/Assign/AddTag/ChangePriority/ChangeStage/Reopen` | per-item + subset |
+| **cases** (one case; reliable path = SOAR AppKey `soar case`, see below) | `ListCases` / `SearchCases` · `GetCase` (Chronicle UUID API — same case, flaky) | `PatchCase` · `MergeCases` · `BulkClose/Assign/AddTag/ChangePriority/ChangeStage/Reopen` | per-item + subset |
 | **entities / IoCs** | `SummarizeEntity` · `ListIoCs` · `FetchAssociatedInvestigations` | — | enrichment — read-only |
 
-> **SIEM cases and SOAR cases are TWO VIEWS OF THE SAME CASE — not two systems.**
-> Google SecOps = Chronicle (SIEM) + Siemplify (SOAR) merged; cases originate in
-> the SOAR case-management engine and are surfaced natively in the SIEM. The proof
-> is in the wire: a case carries **both** ids and `legacyBatchGetCases` returns
-> `soarPlatformInfo.caseId` — the bridge between them.
+> **There is ONE case — two APIs reach it, not two case systems.** Google SecOps
+> = Chronicle (SIEM) + Siemplify (SOAR) merged, so a case is a **single record**
+> reachable two ways. It is the same case on both: it carries two ids and
+> `legacyBatchGetCases` returns `soarPlatformInfo.caseId` linking them. secopsctl
+> operates cases on the **SOAR AppKey API because it is reliable and complete**;
+> the Chronicle API is the *same case* through a newer endpoint that currently
+> 500s/404s, so it is not used unless it stabilizes.
 >
-> | | SOAR case (Siemplify) | SIEM case (Chronicle/SecOps) |
+> | | via SOAR AppKey API *(the path secopsctl uses)* | via Chronicle API *(same case, alternate)* |
 > |---|---|---|
 > | id | integer (e.g. `234`) | UUID (resource name) |
 > | api · auth | `/api/external/v1/cases` · AppKey | v1beta `cases` + v1alpha `legacy:legacyListCases` · ADC |
-> | role | the engine — alerts→case, playbooks, tasks, queue, stages, close | the first-class SecOps cases surface (get/list/patch/merge/bulk) — the convergence layer |
-> | CLI | `soar case list`/`get` (read) · `soar case <verb>` (act) | `cases …` |
-> | today | mature, **reliable** | newer, **flaky** (v1beta 500 / v1alpha 404 observed) |
+> | today | mature, **reliable**, complete | newer, **flaky** (v1beta 500 / v1alpha 404 observed) |
+> | CLI | `soar case list`/`get` (read) · `soar case <verb>` (act) | — (would be `cases …` if/when it stabilizes) |
 >
-> They stay **separate command trees** (different id, api, reliability), bridged by
-> `soarPlatformInfo.caseId` only when correlating. The SIEM-UUID api is the
-> forward-looking unified one; the SOAR-integer api is what works today.
+> Same case, two ids — `soarPlatformInfo.caseId` bridges them only when you need to
+> correlate across the two APIs. The Chronicle UUID API is **not** a separate or
+> preferred surface; it is the same case via an API that does not work reliably yet.
 
 ### The query model
 
@@ -179,13 +180,13 @@ secopsctl cases   list | get | search | comment | assign | tag | priority | stag
 
 ## First implementation wave — SIEM **cases** (operational)
 
-> **Two case paths, one case.** The *SIEM-native* cases collection below (v1beta) is
-> new and returns intermittent 5xx; the **reliable, complete path for case operations
-> is the SOAR AppKey API** — `soar case <verb>` plus the `soar case list`/`get` reads
+> **One case, two APIs.** The **reliable, complete path for all case operations is
+> the SOAR AppKey API** — `soar case <verb>` plus the `soar case list`/`get` reads
 > (`ListCaseCards` / `GetCaseFullDetails`, which also returns the case's **alerts**).
-> The SOAR reads are wired (`soar case list`/`get`), completing the reliable
-> query → review → act loop; the SIEM-native `cases`/`alerts` commands here are the
-> unified view for when that collection stabilizes.
+> That loop is wired and is what to use. The Chronicle (UUID) `cases` collection
+> below (v1beta) reaches the **same case** through a newer API that returns
+> intermittent 5xx — it is not a separate or preferred surface, just an alternate
+> API to reach for if/when it stabilizes.
 
 Decided: the subset-act model is **both** paths (reviewed-`--ids` preferred,
 `--filter` gated dry-run-first + `--limit`-capped), and the first wave is **case

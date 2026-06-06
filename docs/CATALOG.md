@@ -70,8 +70,8 @@ product-neutral engine is `internal/mirror/reconcile`; live write-smokes are gat
 | Domain | Query | Act | Status | Notes |
 |---|---|---|---|---|
 | **events (UDM)** | `query udm` · `search nl` · `stats` | — | 🔨 query udm · 📐 rest | immutable telemetry — **read-only** |
-| **alerts** | `alerts list/get` | `alerts update/bulk` (verdict/priority/status/comment) | 📐 | SIEM-native SDK built (`GetAlerts`/`UpdateAlert`/`BulkUpdateAlerts`). In practice operators read alerts as a **field of the SOAR case** (`GetCaseFullDetails.alerts`) — the reliable view |
-| **cases** (SIEM-native, UUID) | `cases list/search/get` | (planned) | 🔨 read · ⛔ API | the SIEM-*native* v1beta/v1alpha collection returns intermittent 5xx/404 — a **secondary** unified view, **not** the working path. **Operational case work runs on the reliable SOAR AppKey lane** (next row) — same case, bridged by `soarPlatformInfo.caseId`. See SOAR-DESIGN |
+| **alerts** | `alerts list/get` | `alerts update/bulk` (verdict/priority/status/comment) | 📐 | standalone Chronicle alerts SDK built (`GetAlerts`/`UpdateAlert`/`BulkUpdateAlerts`). In practice operators read alerts as a **field of the case** via the reliable SOAR AppKey lane (`GetCaseFullDetails.alerts`). Live-test focus in Wave 8 |
+| **cases** (Chronicle UUID API) | `cases list/search/get` | (planned) | 🔨 read · ⛔ API | the **same case** as `soar case` (above) reached via the newer Chronicle API (UUID); it returns intermittent 5xx/404, so it is **not used**. One case, two APIs — all case work runs on the reliable SOAR AppKey lane (`soar case`), linked by `soarPlatformInfo.caseId`. Not a separate case system. See SOAR-DESIGN |
 | **entities / IoCs** | `entity summarize` · `iocs list` | — | 📐 | enrichment — read-only |
 
 ## How to keep this current

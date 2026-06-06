@@ -127,8 +127,11 @@ bridge/playbooks    coercePlaybookTypes(): id/priority/version/*UnixTimeInMs int
   `id`/`priority`/`version`/`*UnixTimeInMs` (top-level, `trigger`, each `step`);
   `templateName` must be `""`, never `null`.
 - **Playbook name charset** — letters/digits/space/`-`/`_` only; reject `.()[]:/`.
-- **Dual case IDs** — SOAR uses integer IDs, SIEM uses UUIDs; map via
-  `legacy:legacyBatchGetCases` (`soarPlatformInfo.caseId`).
+- **One case, two ids** — a case is a single record reachable by two APIs: the
+  SOAR AppKey API (integer id, the reliable path secopsctl uses) and the Chronicle
+  API (UUID, same case, currently flaky). Map between the ids via
+  `legacy:legacyBatchGetCases` (`soarPlatformInfo.caseId`) only when correlating —
+  not two case systems.
 - **Parameters are always strings** on connectors/jobs (even bool/int); secrets
   read back masked (`***…`) and must be passed through unchanged on PATCH.
 - **Integration clones** — integrations can appear twice (`Name` + `Name__<uuid>`);

@@ -45,7 +45,9 @@ flowchart LR
 | | **SIEM** · Chronicle | **SOAR** · Siemplify |
 |---|---|---|
 | **Control**<br/>`pull → push` | rules · reference_lists · data_tables · feeds · parsers · dashboards · curated\* | webhooks · environments · networks · idp · soc-roles · blacklists · case-stages · case-tags · playbooks · visual-families · … |
-| **Operational**<br/>`query → act` | events (read-only) · alerts · cases (UUID) | `soar case list`/`get` (read) · `soar case` (per-case verbs) · bulk-close |
+| **Operational**<br/>`query → act` | events (read-only) · alerts · cases† | `soar case list`/`get` (read) · `soar case` (per-case verbs) · bulk-close |
+
+<sub>† There is **one** case, reachable by two APIs. secopsctl operates it on the reliable SOAR AppKey lane (`soar case`, under SOAR); the Chronicle UUID `cases` API reaches the *same* case but currently 500s, so it's not used. Not two case systems.</sub>
 
 <sub>\* curated = Google-managed: read + enable/disable/alerting, not full CUD. The SOAR list is representative (14 surfaces total) — the authoritative set + live status is in [CATALOG.md](CATALOG.md).</sub>
 
