@@ -183,7 +183,7 @@ surface lives in [CATALOG.md](CATALOG.md).
   throwaway-safe case only).
 - **Docs.** SOAR-DESIGN, SIEM-DESIGN (the cases-are-one-case bridge), CATALOG.
 
-### Wave 5 — SIEM config plane onto the engine  *(in progress — `data_tables` landed + SIEM write-smoke harness; `feeds`/`parsers`/`dashboards`/`curated` next)*
+### Wave 5 — SIEM config plane onto the engine  *(done — `data_tables`/`parsers`/`feeds`/`dashboards`/`rule_exclusions` on the engine + `curated` toggles + SIEM write-smoke harness; all read live-validated)*
 - **Goal.** Turn SIEM config-as-code from one surface into the whole plane.
 - **Scope.** Wire `data_tables` → `feeds` → `parsers` → `dashboards` → `curated`
   (read + enable/disable) onto the shared reconcile engine; add a SIEM write-smoke
@@ -194,7 +194,7 @@ surface lives in [CATALOG.md](CATALOG.md).
 - **Exit.** Each surface pulls clean + a gated write-smoke passes; CATALOG → ✅.
 - **Docs.** SIEM-DESIGN (plan → built), CATALOG, ARCHITECTURE §3.
 
-### Wave 6 — Rules as code (finish the one bespoke surface)
+### Wave 6 — Rules as code (finish the one bespoke surface)  *(next)*
 - **Goal.** Full rule lifecycle as code (rules stay bespoke: YARA-L source + a
   deployment state machine, not one canonical body).
 - **Scope.** Over the existing `rules_write`/`rule_exclusion`/`retrohunt`/`rule_results`

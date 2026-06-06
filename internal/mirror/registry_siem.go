@@ -24,6 +24,10 @@ type siemSurfaceDef struct {
 var siemSurfaceDefs = []siemSurfaceDef{
 	{"reference_lists", referenceListsSurface},
 	{"data_tables", dataTablesSurface},
+	{"parsers", parsersSurface},
+	{"feeds", feedsSurface},
+	{"dashboards", dashboardsSurface},
+	{"rule_exclusions", ruleExclusionsSurface},
 }
 
 // SIEMSurfaceNames returns the engine-backed SIEM surface names, sorted.

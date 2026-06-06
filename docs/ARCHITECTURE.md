@@ -66,7 +66,7 @@ name — that distinction is what kept the engine honest.
 |---|---|---|
 | **reconcile** | clean per-object CUD: stable id, read-shape ≈ write-shape, delete-by-id | the engine + a Surface |
 | **raw** | batch upserts, export/import bundles, selector-only reads, read≠write | `soar legacy call` (pull JSON → edit → guarded post) |
-| **imperative** | per-entity verbs, no desired-state file | a command tree (`soar case`) |
+| **imperative** | per-entity verbs, no desired-state file | a command tree (`soar case`, `curated`) |
 | **operational** | live data: query a subset, act on it | query + act commands (§4) |
 | **skip** | runtime/UI/telemetry, singletons, auth topology | not modeled |
 

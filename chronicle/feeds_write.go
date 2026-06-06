@@ -45,8 +45,10 @@ func buildDetails(sourceType, logType, namespace string, settings map[string]any
 		d["logType"] = logType
 	}
 	if namespace != "" {
-		// Feed asset namespace ("environment"); tags ingested events.
-		d["namespace"] = namespace
+		// Feed asset namespace ("environment"); tags ingested events. The live
+		// API returns and accepts this under "assetNamespace" (verified against a
+		// live tenant); the read side (mirror.feedRecord) uses the same key.
+		d["assetNamespace"] = namespace
 	}
 	maps.Copy(d, settings)
 	return d

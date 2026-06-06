@@ -1,7 +1,10 @@
 package mirror
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -169,6 +172,90 @@ func TestLiveReconcileDataTableWriteSmoke(t *testing.T) {
 	deleted = true
 	if _, still := findBySlug(ctx, s, slug); still {
 		t.Fatalf("throwaway data table %q still present after delete", label)
+	}
+}
+
+// TestLiveReconcileDashboardWriteSmoke exercises the dashboards write loop on a
+// throwaway CUSTOM dashboard: create → write/load round-trip → update the
+// description → delete. It drives the surface closures DIRECTLY rather than
+// reconcile.Push, because the dashboards List fetches every CUSTOM dashboard in
+// FULL view — repeating that per plan rebuild can rate-limit (429) on instances
+// with many dashboards. The engine plan path itself is covered by the read round-trip and the
+// data_tables/feeds write smokes; here we validate the dashboard-specific
+// create/update/delete + canonical round-trip with a minimal call count.
+func TestLiveReconcileDashboardWriteSmoke(t *testing.T) {
+	c, ctx := liveChronicleClient(t)
+	requireSIEMSmokeWrite(t)
+
+	s, ok := BuildSIEMSurface("dashboards", c)
+	if !ok {
+		t.Fatal("dashboards is not a registered engine surface")
+	}
+	label := smokeLabel("dash")
+	dir := t.TempDir()
+
+	createCanon, err := reconcile.Canonicalize(fmt.Appendf(nil,
+		`{"displayName":%q,"description":"secopsctl reconcile smoke","access":"DASHBOARD_PRIVATE","type":"CUSTOM"}`, label))
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := reconcile.Object{Slug: Slugify(label), Canonical: createCanon}
+
+	deleted := false
+	var serverID string
+	t.Cleanup(func() {
+		if deleted || serverID == "" {
+			return
+		}
+		if err := c.DeleteDashboard(ctx, lastSegment(serverID)); err != nil {
+			t.Logf("cleanup: could not delete throwaway dashboard %q: %v", label, err)
+		}
+	})
+
+	// Create (direct closure).
+	echo, err := s.Create(ctx, local)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	serverID = echo.ServerID
+	if serverID == "" {
+		t.Fatal("create returned no ServerID")
+	}
+
+	// Round-trip: write the echo, reload from disk, canonical must match.
+	if err := s.Write(dir, echo); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	loaded, err := s.LoadDir(dir)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(loaded) != 1 || loaded[0].ServerID != serverID {
+		t.Fatalf("round-trip: loaded %d obj (id=%v), want 1 with id %q", len(loaded), loaded, serverID)
+	}
+	if !bytes.Equal(loaded[0].Canonical, echo.Canonical) {
+		t.Fatalf("create round-trip canonical mismatch:\n echo: %s\n disk: %s", echo.Canonical, loaded[0].Canonical)
+	}
+
+	// Update: edit the description, run the Update closure, confirm it applied.
+	editedCanon := json.RawMessage(strings.Replace(string(echo.Canonical),
+		"secopsctl reconcile smoke", "secopsctl reconcile smoke (edited)", 1))
+	edited := reconcile.Object{Slug: echo.Slug, ServerID: serverID, Canonical: editedCanon}
+	echo2, err := s.Update(ctx, edited, echo)
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if !strings.Contains(string(echo2.Canonical), "(edited)") {
+		t.Errorf("update not applied:\n%s", echo2.Canonical)
+	}
+
+	// Delete + confirm gone.
+	if err := s.Delete(ctx, echo2); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	deleted = true
+	if _, gerr := c.GetDashboard(ctx, lastSegment(serverID), false); gerr == nil {
+		t.Errorf("dashboard still present after delete")
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"danny.vn/secops/chronicle"
 	"danny.vn/secops/internal/mirror"
+	"danny.vn/secops/internal/mirror/reconcile"
 )
 
 // pullTarget binds a CLI target name to its on-disk subdirectory (relative to
@@ -33,7 +34,14 @@ var pullOrder = []pullTarget{
 		return mirror.PullDataTables(baseContext(), c, out)
 	}},
 	{"dashboards", mirror.DirDashboards, func(c *chronicle.Client, out, _ string) (int, error) {
-		return mirror.PullDashboards(baseContext(), c, out)
+		// dashboards reconcile on the engine: pull the canonical config (CUSTOM
+		// only) so a pulled snapshot pushes back via `push dashboards`. (The legacy
+		// export-envelope puller is not round-trippable through the engine.)
+		s, ok := mirror.BuildSIEMSurface("dashboards", c)
+		if !ok {
+			return 0, fmt.Errorf("dashboards surface not registered")
+		}
+		return reconcile.Pull(baseContext(), s, out, os.Stdout)
 	}},
 	{"curated", mirror.DirCurated, func(c *chronicle.Client, out, _ string) (int, error) {
 		return mirror.PullCurated(baseContext(), c, out)
@@ -47,6 +55,14 @@ var pullOrder = []pullTarget{
 	{"parsers", mirror.DirParsers, func(c *chronicle.Client, out, _ string) (int, error) {
 		// nil log types: derive the active set from configured feeds.
 		return mirror.PullParsers(baseContext(), c, out, nil)
+	}},
+	{"rule_exclusions", mirror.DirRuleExcl, func(c *chronicle.Client, out, _ string) (int, error) {
+		// No legacy puller — pull through the engine surface.
+		s, ok := mirror.BuildSIEMSurface("rule_exclusions", c)
+		if !ok {
+			return 0, fmt.Errorf("rule_exclusions surface not registered")
+		}
+		return reconcile.Pull(baseContext(), s, out, os.Stdout)
 	}},
 }
 
