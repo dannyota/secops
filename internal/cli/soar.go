@@ -108,7 +108,7 @@ func init() {
 
 func newSOARPullCmd() *cobra.Command {
 	var out string
-	bespoke := []string{"connectors", "jobs", "grouping", "cases", "playbooks"}
+	bespoke := []string{"connectors", "jobs", "grouping", "cases"}
 	engine := mirror.SOARSurfaceNames()
 	valid := append(append(append([]string{}, bespoke...), engine...), "all")
 
@@ -158,7 +158,6 @@ func newSOARPullCmd() *cobra.Command {
 			jobs := func(c *soar.Client, d string) (int, error) { return mirror.PullSOARJobs(ctx, c, d) }
 			grp := func(c *soar.Client, d string) (int, error) { return mirror.PullSOARGrouping(ctx, c, d) }
 			cases := func(lc *legacy.Client, d string) (int, error) { return mirror.PullSOARCases(ctx, lc, d) }
-			plays := func(lc *legacy.Client, d string) (int, error) { return mirror.PullSOARPlaybooks(ctx, lc, d) }
 
 			if slices.Contains(engine, target) {
 				return runEngine(target)
@@ -172,8 +171,6 @@ func newSOARPullCmd() *cobra.Command {
 				return runModern(grp, mirror.DirSOARGrouping)
 			case "cases":
 				return runLegacy(cases, mirror.DirSOARCases)
-			case "playbooks":
-				return runLegacy(plays, mirror.DirSOARPlaybooks)
 			case "all":
 				if err := runModern(conn, mirror.DirSOARConnectors); err != nil {
 					return err
@@ -185,9 +182,6 @@ func newSOARPullCmd() *cobra.Command {
 					return err
 				}
 				if err := runLegacy(cases, mirror.DirSOARCases); err != nil {
-					return err
-				}
-				if err := runLegacy(plays, mirror.DirSOARPlaybooks); err != nil {
 					return err
 				}
 				for _, n := range engine {

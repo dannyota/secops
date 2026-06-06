@@ -40,6 +40,7 @@ var soarSurfaceDefs = []soarSurfaceDef{
 	{"close-root-causes", closeRootCausesSurface},
 	{"blacklists", blacklistsSurface},
 	{"playbook-categories", playbookCategoriesSurface},
+	{"playbooks", playbooksSurface},
 }
 
 // SOARSurfaceNames returns the engine-backed SOAR surface names, sorted.
