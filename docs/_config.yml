@@ -1,0 +1,12 @@
+# GitHub Pages (Jekyll) config — serves the docs/ folder as the project site.
+# The Markdown files stay clean (no per-file front matter); the layout is applied
+# to every page via front-matter defaults below.
+title: secopsctl
+description: Operate Google SecOps (Chronicle SIEM + Siemplify SOAR) as code
+baseurl: "/secops"
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
