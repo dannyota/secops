@@ -180,7 +180,7 @@ CATALOG rows moved forward, its design docs updated) before the next begins. The
 number *is* the sequence. Per-wave: **Goal · Scope · Exit · Docs.** Live status per
 surface lives in [CATALOG.md](CATALOG.md).
 
-### Wave 4 — Case + alert triage (SOAR AppKey — the reliable lane)  *(done — reads live-validated; act verbs dry-run-validated)*
+### Wave 4 — Case + alert triage (SOAR AppKey — the reliable lane)  *(done — reads live-validated; all 9 case verbs live-validated end-to-end)*
 - **Goal.** Finish the daily triage workflow on the path that is reliable. Small,
   unblocked, high-value — the SDK already exists, this is CLI plumbing + validation.
   (Same case, two APIs: this wave uses the reliable SOAR AppKey lane; the Chronicle
