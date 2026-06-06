@@ -101,6 +101,7 @@ func (c *Client) CreateReferenceList(ctx context.Context, displayName, descripti
 	if err := c.post(ctx, c.resourcePath("referenceLists", false), body, &rl, withQuery(q)); err != nil {
 		return nil, err
 	}
+	rl.Name = c.canonicalRefListName(rl.Name)
 	return &rl, nil
 }
 
@@ -123,6 +124,7 @@ func (c *Client) GetReferenceList(ctx context.Context, name string, full bool) (
 	if err := c.get(ctx, c.resourcePath("referenceLists/"+id, false), &rl, withQuery(q)); err != nil {
 		return nil, err
 	}
+	rl.Name = c.canonicalRefListName(rl.Name)
 	return &rl, nil
 }
 
@@ -184,6 +186,7 @@ func (c *Client) UpdateReferenceList(ctx context.Context, name, description stri
 	if err := c.patch(ctx, c.resourcePath("referenceLists/"+id, false), body, &rl, withQuery(q)); err != nil {
 		return nil, err
 	}
+	rl.Name = c.canonicalRefListName(rl.Name)
 	return &rl, nil
 }
 
@@ -195,4 +198,20 @@ func refListShortID(name string) string {
 		return name[i+1:]
 	}
 	return name
+}
+
+// canonicalRefListName rebuilds a reference-list resource name in the project-ID
+// form this SDK uses (numeric=false), from whatever name the server echoed.
+//
+// DEVIATION: the server is inconsistent about the project segment — Create echoes
+// the project NUMBER in the returned name while List echoes the project ID. Left
+// as-is, a freshly created list and the same list seen via List carry different
+// resource names, so any consumer that keys identity on the name (the reconcile
+// engine) treats them as two objects. Normalizing every returned name to the
+// id form makes the identity stable. An empty name (never created) stays empty.
+func (c *Client) canonicalRefListName(name string) string {
+	if name == "" {
+		return ""
+	}
+	return c.resourcePath("referenceLists/"+refListShortID(name), false)
 }

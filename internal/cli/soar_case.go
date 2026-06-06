@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -302,6 +303,12 @@ func newCaseMergeCmd() *cobra.Command {
 			ids, err := parseIntList(idsArg)
 			if err != nil {
 				return err
+			}
+			// The API rejects a merge whose target is not in the selected set
+			// ("Cannot merge cases with case that is not selected"), so ensure the
+			// target id is present in casesIds.
+			if !slices.Contains(ids, into) {
+				ids = append(ids, into)
 			}
 			body := map[string]any{"casesIds": ids, "caseToMergeWith": into}
 			return caseAction(fmt.Sprintf("merge %v -> case %d", ids, into), body, dryRun, yes,

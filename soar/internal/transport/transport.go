@@ -144,9 +144,45 @@ func (t *Transport) External(ctx context.Context, method, path string, body, out
 	return t.do(ctx, method, full, body, out, nil)
 }
 
-var retryStatuses = map[int]bool{429: true, 500: true, 502: true, 503: true, 504: true}
+// retryStatuses5xx are server errors safe to retry ONLY for idempotent methods —
+// a 5xx on a mutating POST may have already taken effect server-side (the SOAR
+// external API in particular returns a post-creation 500 on CreateManualCase
+// while still creating the case), so blindly retrying it duplicates the side
+// effect. 429 (rate-limited → rejected before processing) is safe for any method.
+var retryStatuses5xx = map[int]bool{500: true, 502: true, 503: true, 504: true}
 
 const maxRetries = 4
+
+// baseBackoff is the first retry delay; subsequent attempts back off
+// exponentially (×2 each). A package var so tests can zero it.
+var baseBackoff = 300 * time.Millisecond
+
+// idempotentMethod reports whether retrying method is side-effect-safe. Only
+// these may be retried on a 5xx or a transport error; POST/PATCH are not.
+func idempotentMethod(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodPut, http.MethodDelete, http.MethodOptions, http.MethodTrace:
+		return true
+	default:
+		return false
+	}
+}
+
+// retryable decides whether a response/error for method warrants another attempt.
+// A transport error (no status) or a 5xx is retried only for idempotent methods;
+// 429 is retried for any method (the request was rejected, not processed).
+func retryable(method string, status int, transportErr bool) bool {
+	if transportErr {
+		return idempotentMethod(method)
+	}
+	if status == 429 {
+		return true
+	}
+	if retryStatuses5xx[status] {
+		return idempotentMethod(method)
+	}
+	return false
+}
 
 func (t *Transport) do(ctx context.Context, method, full string, body, out any, extraHeaders map[string]string) error {
 	var bodyBytes []byte
@@ -161,7 +197,7 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 	var lastErr error
 	for attempt := range maxRetries + 1 {
 		if attempt > 0 {
-			backoff := time.Duration(1<<uint(attempt-1)) * 300 * time.Millisecond
+			backoff := time.Duration(1<<uint(attempt-1)) * baseBackoff
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -188,7 +224,10 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 		resp, err := t.http.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("soar: %s %s: %w", method, full, err)
-			continue
+			if attempt < maxRetries && retryable(method, 0, true) {
+				continue
+			}
+			return lastErr
 		}
 		data, readErr := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
@@ -206,7 +245,7 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 		}
 
 		apiErr := &Error{Method: method, URL: full, Status: resp.StatusCode, Body: string(data)}
-		if retryStatuses[resp.StatusCode] && attempt < maxRetries {
+		if attempt < maxRetries && retryable(method, resp.StatusCode, false) {
 			lastErr = apiErr
 			continue
 		}

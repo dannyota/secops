@@ -60,6 +60,9 @@ func (c *Client) ListReferenceLists(ctx context.Context) ([]ReferenceList, error
 		if err := c.get(ctx, c.resourcePath("referenceLists", false), &resp, withQuery(q)); err != nil {
 			return "", err
 		}
+		for i := range resp.ReferenceLists {
+			resp.ReferenceLists[i].Name = c.canonicalRefListName(resp.ReferenceLists[i].Name)
+		}
 		all = append(all, resp.ReferenceLists...)
 		return resp.NextPageToken, nil
 	})

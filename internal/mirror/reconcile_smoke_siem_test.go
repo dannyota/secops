@@ -516,6 +516,258 @@ func TestLiveReconcileRuleExclusionWriteSmoke(t *testing.T) {
 	}
 }
 
+// TestLiveReconcileFeedWriteSmoke validates the feeds create + delete path on an
+// inert throwaway: an HTTP feed pointed at a dead URL (example.com) ingests
+// nothing and needs no bucket/IAM. It exercises CreateFeed (incl. the short→full
+// logType expansion) and the surface's Delete closure (DeleteFeed) — the delete
+// the reconcile push deliberately can't do (feeds aren't prune-eligible).
+func TestLiveReconcileFeedWriteSmoke(t *testing.T) {
+	c, ctx := liveChronicleClient(t)
+	requireSIEMSmokeWrite(t)
+
+	s, ok := BuildSIEMSurface("feeds", c)
+	if !ok {
+		t.Fatal("feeds is not a registered engine surface")
+	}
+	label := smokeLabel("feed")
+
+	created, err := c.CreateFeed(ctx, label, "HTTP", "WINEVTLOG", "", map[string]any{
+		"httpSettings": map[string]any{"uri": "https://example.com/secopsctl-smoke", "sourceType": "FILES"},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id := created.Name
+	if id == "" {
+		t.Fatal("create returned no resource name")
+	}
+
+	deleted := false
+	t.Cleanup(func() {
+		if deleted {
+			return
+		}
+		if derr := c.DeleteFeed(ctx, id); derr != nil {
+			t.Logf("cleanup: delete feed %q: %v", id, derr)
+		}
+	})
+
+	if got, gerr := c.GetFeed(ctx, id); gerr != nil {
+		t.Fatalf("get after create: %v", gerr)
+	} else if got.DisplayName != label {
+		t.Errorf("displayName = %q, want %q", got.DisplayName, label)
+	}
+
+	// Update (display-name-only PATCH) → verify it applied.
+	updated := label + " (updated)"
+	if _, uerr := c.UpdateFeed(ctx, id, updated, "", "", "", nil); uerr != nil {
+		t.Fatalf("update: %v", uerr)
+	}
+	if got, gerr := c.GetFeed(ctx, id); gerr != nil {
+		t.Fatalf("get after update: %v", gerr)
+	} else if got.DisplayName != updated {
+		t.Errorf("update not applied: displayName = %q, want %q", got.DisplayName, updated)
+	}
+
+	// Delete via the surface closure (the path reconcile push won't take).
+	if derr := s.Delete(ctx, reconcile.Object{ServerID: id}); derr != nil {
+		t.Fatalf("delete: %v", derr)
+	}
+	deleted = true
+	if _, gerr := c.GetFeed(ctx, id); gerr == nil {
+		t.Errorf("feed still present after delete")
+	}
+}
+
+// firstActiveParser returns a log type that has an ACTIVE parser and that
+// parser's full record (CBN populated), to borrow valid parser source from. The
+// log-type set is the same feed-derived set the puller uses.
+func firstActiveParser(ctx context.Context, t *testing.T, c *chronicle.Client) (string, *chronicle.Parser) {
+	t.Helper()
+	logTypes, err := logTypesInUse(ctx, c)
+	if err != nil {
+		t.Skipf("logTypesInUse: %v", err)
+	}
+	for _, lt := range logTypes {
+		parsers, perr := c.ListParsers(ctx, lt)
+		if perr != nil {
+			continue
+		}
+		a := activeParser(parsers)
+		if a == nil {
+			continue
+		}
+		full, gerr := c.GetParser(ctx, lt, lastSegment(a.Name))
+		if gerr != nil || full.CBN == "" {
+			continue
+		}
+		return lt, full
+	}
+	return "", nil
+}
+
+// TestLiveReconcileParserWriteSmoke validates the parser write lifecycle WITHOUT
+// disturbing live ingestion. Parsers are versioned/immutable: a created parser is
+// INACTIVE until separately activated, and only the ACTIVE one processes logs. The
+// smoke (1) runs RunParser — pure inert validation that creates no server state —
+// then (2) borrows a real ACTIVE parser's source (a unique trailing comment makes
+// it a distinct version), creates it as a new INACTIVE parser, confirms it never
+// went ACTIVE, and deletes the throwaway. The live ACTIVE parser is asserted
+// unchanged throughout; cleanup force-deletes the throwaway even on failure.
+func TestLiveReconcileParserWriteSmoke(t *testing.T) {
+	c, ctx := liveChronicleClient(t)
+	requireSIEMSmokeWrite(t)
+
+	logType, base := firstActiveParser(ctx, t, c)
+	if base == nil {
+		t.Skip("no log type with an ACTIVE parser found to borrow source from")
+	}
+	src, err := decodeCBN(base.CBN)
+	if err != nil || src == "" {
+		t.Skipf("active parser source unavailable: %v", err)
+	}
+
+	// 1. RunParser: evaluate the real source against a dummy log. Inert — nothing
+	// is created or activated; we only assert the API path round-trips.
+	if _, err := c.RunParser(ctx, logType, src, []string{"secopsctl-smoketest dummy log line"}); err != nil {
+		t.Fatalf("RunParser: %v", err)
+	}
+
+	// 2. Create a new INACTIVE version from the same source (unique comment → a
+	// distinct version), never activated, then delete it.
+	smokeSrc := src + "\n# secopsctl-smoketest " + smokeLabel("parser") + "\n"
+	created, err := c.CreateParser(ctx, logType, smokeSrc, false)
+	if err != nil {
+		t.Fatalf("CreateParser: %v", err)
+	}
+	id := lastSegment(created.Name)
+	if id == "" {
+		t.Fatalf("create returned no parser id: %+v", created)
+	}
+	if created.State == "ACTIVE" {
+		t.Fatalf("throwaway parser is ACTIVE on create (would shadow live ingestion); state=%q", created.State)
+	}
+
+	deleted := false
+	t.Cleanup(func() {
+		if deleted {
+			return
+		}
+		if derr := c.DeleteParser(ctx, logType, id, true); derr != nil {
+			t.Logf("cleanup: delete throwaway parser %s/%s: %v", logType, id, derr)
+		}
+	})
+
+	got, err := c.GetParser(ctx, logType, id)
+	if err != nil {
+		t.Fatalf("GetParser after create: %v", err)
+	}
+	if got.State == "ACTIVE" {
+		t.Errorf("throwaway parser became ACTIVE: %q", got.State)
+	}
+
+	// Delete the inactive throwaway (force=false: it must not be active).
+	if err := c.DeleteParser(ctx, logType, id, false); err != nil {
+		t.Fatalf("DeleteParser: %v", err)
+	}
+	deleted = true
+	if _, err := c.GetParser(ctx, logType, id); err == nil {
+		t.Errorf("throwaway parser still present after delete")
+	}
+
+	// The borrowed log type's ACTIVE parser must be the same one as before.
+	parsers, err := c.ListParsers(ctx, logType)
+	if err != nil {
+		t.Fatalf("relist parsers: %v", err)
+	}
+	if a := activeParser(parsers); a == nil || a.Name != base.Name {
+		t.Errorf("active parser for %s changed (want %q, got %+v)", logType, base.Name, a)
+	}
+}
+
+// TestLiveReconcileReferenceListWriteSmoke validates the reference_lists engine
+// write loop. Reference lists have NO delete API (NoDelete), so this can't be a
+// create-and-delete throwaway like the other surfaces; instead it reuses a single
+// fixed, clearly-labeled inert list ("secopsctl_smoke_reflist"): it creates the
+// list on first run (or reuses an existing one), then drives exactly one engine
+// update — a fresh description + entries each run, so the update is always present
+// — and asserts a clean round-trip. Rerunnable: it reuses the one list rather than
+// accumulating throwaways. The list's entries match no telemetry and it is left in
+// place by design (no delete endpoint exists).
+func TestLiveReconcileReferenceListWriteSmoke(t *testing.T) {
+	c, ctx := liveChronicleClient(t)
+	requireSIEMSmokeWrite(t)
+
+	s, ok := BuildSIEMSurface("reference_lists", c)
+	if !ok {
+		t.Fatal("reference_lists is not a registered engine surface")
+	}
+
+	const display = "secopsctl_smoke_reflist" // valid ref-list id: letter + letters/digits/underscores
+	slug := Slugify(display)
+	dir := t.TempDir()
+
+	// Baseline pull so existing lists have local files (else they show as deletes
+	// and the in-sync checks fail).
+	if _, err := reconcile.Pull(ctx, s, dir, io.Discard); err != nil {
+		t.Fatalf("baseline pull: %v", err)
+	}
+
+	// Create the fixed inert list if this tenant doesn't have it yet.
+	if _, found := findBySlug(ctx, s, slug); !found {
+		if err := writeYAML(filepath.Join(dir, slug+".yaml"), refListMeta{
+			DisplayName: display,
+			Description: "secopsctl reconcile smoke — inert; reference lists have no delete API",
+			SyntaxType:  chronicle.RefListSyntaxString,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, slug+".txt"),
+			[]byte("secopsctl-smoketest-inert-entry\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		var buf strings.Builder
+		if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
+			t.Fatalf("push create: %v\n%s", err, buf.String())
+		}
+		live, ok := findBySlug(ctx, s, slug)
+		if !ok {
+			t.Fatalf("reference list %q not found after create. push log:\n%s", display, buf.String())
+		}
+		var meta refListMeta
+		if err := readYAMLFile(filepath.Join(dir, slug+".yaml"), &meta); err != nil {
+			t.Fatal(err)
+		}
+		if meta.Name == "" || meta.Name != live.ServerID {
+			t.Fatalf("create did not record server name (yaml=%q live=%q)", meta.Name, live.ServerID)
+		}
+		if plan, _, _ := reconcile.BuildPlan(ctx, s, dir); !plan.Empty() {
+			t.Fatalf("post-create plan not in sync: +%d ~%d -%d",
+				len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+		}
+	}
+
+	// Drive exactly one update: a fresh description + entries (unique per run so an
+	// update is always present and the test stays rerunnable). This exercises the
+	// description PATCH and the wholesale entries replacement in one reconcile.
+	token := strings.ReplaceAll(smokeLabel("rev"), "-", "_")
+	var meta refListMeta
+	if err := readYAMLFile(filepath.Join(dir, slug+".yaml"), &meta); err != nil {
+		t.Fatal(err)
+	}
+	meta.Description = "secopsctl reconcile smoke " + token
+	if err := writeYAML(filepath.Join(dir, slug+".yaml"), meta); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, slug+".txt"),
+		[]byte("secopsctl-smoketest-inert-entry\n"+token+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	assertOneUpdate(t, ctx, s, dir, "description+entries")
+
+	t.Logf("reference_lists: no delete API — inert list %q left in place by design (reused, not accumulated)", display)
+}
+
 // writeSmokeDataTableFiles writes the `<slug>.yaml` + `<slug>.csv` for a new
 // throwaway table (no server name → a create).
 func writeSmokeDataTableFiles(t *testing.T, dir, slug, display, description string, rows [][]string) {

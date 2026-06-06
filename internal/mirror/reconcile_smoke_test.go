@@ -675,3 +675,105 @@ func findAny(ctx context.Context, s reconcile.Surface) (reconcile.Object, bool) 
 	}
 	return res.Objects[0], true
 }
+
+// firstSocRoleName returns any live SOC role name, for the "@RoleName" form
+// CreateManualCase requires in assignedUser.
+func firstSocRoleName(ctx context.Context, lc *legacy.Client) string {
+	s, ok := BuildSOARSurface("soc-roles", lc)
+	if !ok {
+		return ""
+	}
+	res, err := s.List(ctx)
+	if err != nil {
+		return ""
+	}
+	for _, o := range res.Objects {
+		var m map[string]any
+		if json.Unmarshal(o.Raw, &m) == nil {
+			if n, _ := m["name"].(string); n != "" {
+				return n
+			}
+		}
+	}
+	return ""
+}
+
+// TestLiveSOARCaseVerbsWriteSmoke validates the imperative `soar case` verbs
+// against DISPOSABLE manual cases. It creates two throwaway cases (CreateManualCase
+// — which forces the non-null Entities/Playbooks/Tags the server NPEs on if
+// omitted, so it returns the new id cleanly), exercises the reversible per-case
+// verbs on one, merges the second into it, and closes it. Cleanup closes both
+// (BulkCloseCases) and best-effort hard-deletes them — RetentionDeleteCases needs
+// a retention permission the AppKey role may lack (403), in which case the cases
+// remain CLOSED. So this is rerun-tolerant but not zero-residue without that grant.
+func TestLiveSOARCaseVerbsWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+	env := firstEnvironmentName(ctx, lc)
+	if env == "" {
+		t.Skip("no environment available to scope a throwaway case")
+	}
+	role := firstSocRoleName(ctx, lc)
+	if role == "" {
+		t.Skip("no SOC role available for assignedUser")
+	}
+
+	mkCase := func() int {
+		label := strings.ReplaceAll(smokeLabel("case"), "-", "_")
+		id, err := lc.CreateManualCase(ctx, legacy.ManualCaseRequest{
+			Title: label, AssignedUser: "@" + role, Reason: "secopsctl smoke",
+			Priority: 40, Environment: env, AlertName: label,
+			OccurenceTime: time.Now().UTC().Format(time.RFC3339),
+			// Entities/Playbooks/Tags left nil → the SDK sends [] (server NPEs on null).
+		})
+		if err != nil {
+			t.Fatalf("create case: %v", err)
+		}
+		if id == 0 {
+			t.Fatal("create returned case id 0")
+		}
+		return id
+	}
+
+	a := mkCase()
+	b := mkCase()
+	t.Cleanup(func() {
+		_, _ = lc.BulkCloseCases(ctx, legacy.BulkCloseRequest{
+			CasesIDs: []int{a, b}, CloseReason: legacy.CloseMaintenance,
+			RootCause: "secopsctl smoke", CloseComment: "secopsctl smoke", DynamicParameters: []any{},
+		})
+		// Best-effort hard delete (no-op 403 unless the role has retention perms).
+		_, _ = lc.RetentionDeleteCases(ctx, map[string]any{"batchSize": 100, "caseIds": []int{a, b}})
+	})
+
+	chk := func(name string, _ json.RawMessage, err error) {
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	// Reversible per-case verbs on A.
+	r, e := lc.RenameCase(ctx, map[string]any{"caseId": a, "title": "secopsctl smoke (renamed)"})
+	chk("rename", r, e)
+	r, e = lc.ChangeCaseDescription(ctx, map[string]any{"caseId": a, "description": "secopsctl smoke"})
+	chk("describe", r, e)
+	r, e = lc.ChangeCaseImportanceStatus(ctx, map[string]any{"caseId": a, "isImportant": true})
+	chk("importance", r, e)
+	r, e = lc.ChangeCasePriority(ctx, map[string]any{"caseId": a, "priority": 60})
+	chk("priority", r, e)
+	r, e = lc.AddCaseTag(ctx, map[string]any{"caseId": a, "tag": "secopsctl-smoke"})
+	chk("tag", r, e)
+	r, e = lc.RemoveCaseTag(ctx, map[string]any{"caseId": a, "tag": "secopsctl-smoke"})
+	chk("untag", r, e)
+	r, e = lc.ChangeCaseStage(ctx, map[string]any{"caseId": a, "stage": "Triage"})
+	chk("stage", r, e)
+
+	// Merge B into A, then close A (destructive — both are throwaways). The merge
+	// target must be present in casesIds ("Cannot merge cases with case that is not
+	// selected"), so the set includes both A and B.
+	r, e = lc.MergeCases(ctx, map[string]any{"casesIds": []int{a, b}, "caseToMergeWith": a})
+	chk("merge", r, e)
+	r, e = lc.CloseCase(ctx, map[string]any{
+		"caseId": a, "reason": "Maintenance", "rootCause": "secopsctl smoke", "comment": "secopsctl smoke",
+	})
+	chk("close", r, e)
+}

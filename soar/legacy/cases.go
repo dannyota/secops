@@ -71,6 +71,55 @@ func (c *Client) ListCaseCards(ctx context.Context, req CaseQueueRequest) (json.
 	return out, nil
 }
 
+// ManualCaseRequest is the body for CreateManualCase (an analyst-authored case).
+//
+// The collection fields (Entities, Playbooks, Tags) are ALWAYS serialized — their
+// json tags carry no omitempty and CreateManualCase normalizes nil to empty —
+// because the legacy server does not null-guard them: omitting any one makes the
+// call throw a server-side 500 *after* it has already created the case (leaving an
+// orphan). AssignedUser must be non-empty: a username, or a role as "@RoleName".
+// OccurenceTime is an RFC3339 timestamp. Priority is a CasePriority enum value
+// (0/40/60/80/100, or -1 for Informative). SLAExpirationDateTime is optional.
+type ManualCaseRequest struct {
+	Title                       string   `json:"title"`
+	AssignedUser                string   `json:"assignedUser"`
+	Reason                      string   `json:"reason"`
+	Priority                    int      `json:"priority"`
+	Environment                 string   `json:"environment"`
+	IsImportant                 bool     `json:"isImportant"`
+	AlertName                   string   `json:"alertName"`
+	OccurenceTime               string   `json:"occurenceTime"`
+	SLAExpirationDateTime       *string  `json:"slaExpirationDateTime"`
+	Entities                    []any    `json:"entities"`
+	Playbooks                   []string `json:"playbooks"`
+	AutomaticPlaybookAttachment bool     `json:"automaticPlaybookAttachment"`
+	Tags                        []string `json:"tags"`
+}
+
+// CreateManualCase creates a manual (analyst-authored) case and returns the new
+// SOAR integer case id. It forces the Entities/Playbooks/Tags collections to
+// non-null so the server's missing null-guards cannot 500 after creating the case.
+//
+// DEVIATION: unlike the freeform single-case actions in cases_actions.go, this is
+// typed — the empty-collection contract is load-bearing (a null trips a server
+// NPE), so the request is modeled rather than left freeform.
+func (c *Client) CreateManualCase(ctx context.Context, req ManualCaseRequest) (int, error) {
+	if req.Entities == nil {
+		req.Entities = []any{}
+	}
+	if req.Playbooks == nil {
+		req.Playbooks = []string{}
+	}
+	if req.Tags == nil {
+		req.Tags = []string{}
+	}
+	var id int
+	if err := c.t.External(ctx, http.MethodPost, "/cases/CreateManualCase", req, &id); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
 // BulkCloseCases closes every case in req.CasesIDs with one operation. This is a
 // live mutation against production cases — confirm the id set first.
 func (c *Client) BulkCloseCases(ctx context.Context, req BulkCloseRequest) (json.RawMessage, error) {

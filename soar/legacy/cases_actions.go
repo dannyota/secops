@@ -14,10 +14,8 @@ func (c *Client) CreateCase(ctx context.Context, body any) (RawJSON, error) {
 	return c.externalPost(ctx, "/cases/CreateCase", body)
 }
 
-// CreateManualCase creates a manual (analyst-authored) case.
-func (c *Client) CreateManualCase(ctx context.Context, body any) (RawJSON, error) {
-	return c.externalPost(ctx, "/cases/CreateManualCase", body)
-}
+// CreateManualCase is typed (it returns the new case id and enforces the
+// non-null collection contract); see cases.go.
 
 // CloseCase closes a case.
 func (c *Client) CloseCase(ctx context.Context, body any) (RawJSON, error) {

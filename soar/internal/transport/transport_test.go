@@ -1,0 +1,83 @@
+package transport
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"strings"
+	"testing"
+
+	"danny.vn/secops/auth"
+)
+
+// countingRT returns a fixed status for every call and counts how many requests
+// it saw, so a test can assert whether the transport retried.
+type countingRT struct {
+	status int
+	calls  int
+}
+
+func (r *countingRT) RoundTrip(*http.Request) (*http.Response, error) {
+	r.calls++
+	return &http.Response{
+		StatusCode: r.status,
+		Body:       io.NopCloser(strings.NewReader(`{}`)),
+		Header:     make(http.Header),
+	}, nil
+}
+
+func newTestTransport(rt http.RoundTripper) *Transport {
+	return New(Settings{BaseURL: "https://t.example.com", ProjectNumber: "0", Region: "us", CustomerID: "c"},
+		auth.SOARAppKey("k"), &http.Client{Transport: rt})
+}
+
+// TestRetryPolicy locks the fix: a mutating POST must NOT be retried on 5xx (the
+// request may have already taken effect server-side — retrying duplicates it),
+// while idempotent GETs are retried, and 429 is retried for any method.
+func TestRetryPolicy(t *testing.T) {
+	old := baseBackoff
+	baseBackoff = 0
+	t.Cleanup(func() { baseBackoff = old })
+	ctx := context.Background()
+	cases := []struct {
+		name      string
+		method    int // 0 = External POST, 1 = External GET
+		status    int
+		wantCalls int
+	}{
+		{"post 500 not retried", 0, 500, 1},
+		{"post 503 not retried", 0, 503, 1},
+		{"post 429 retried", 0, 429, maxRetries + 1},
+		{"get 500 retried", 1, 500, maxRetries + 1},
+		{"get 404 not retried", 1, 404, 1},
+		{"post 400 not retried", 0, 400, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rt := &countingRT{status: tc.status}
+			tr := newTestTransport(rt)
+			var out map[string]any
+			if tc.method == 0 {
+				_ = tr.External(ctx, http.MethodPost, "/x", map[string]any{"a": 1}, &out)
+			} else {
+				_ = tr.External(ctx, http.MethodGet, "/x", nil, &out)
+			}
+			if rt.calls != tc.wantCalls {
+				t.Errorf("%s: made %d calls, want %d", tc.name, rt.calls, tc.wantCalls)
+			}
+		})
+	}
+}
+
+func TestIdempotentMethod(t *testing.T) {
+	for _, m := range []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodDelete} {
+		if !idempotentMethod(m) {
+			t.Errorf("%s should be idempotent", m)
+		}
+	}
+	for _, m := range []string{http.MethodPost, http.MethodPatch} {
+		if idempotentMethod(m) {
+			t.Errorf("%s should NOT be idempotent", m)
+		}
+	}
+}

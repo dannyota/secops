@@ -87,13 +87,25 @@ func feedID(id string) string {
 func (c *Client) CreateFeed(ctx context.Context, displayName, sourceType, logType, namespace string, settings map[string]any) (*Feed, error) {
 	body := feedCreateBody{
 		DisplayName: displayName,
-		Details:     buildDetails(sourceType, logType, namespace, settings),
+		Details:     buildDetails(sourceType, c.feedLogType(logType), namespace, settings),
 	}
 	var f Feed
 	if err := c.post(ctx, c.resourcePath("feeds", false), body, &f); err != nil {
 		return nil, err
 	}
 	return &f, nil
+}
+
+// feedLogType expands a short log type id (e.g. "NGINX") to its full resource
+// name, which the feeds write API requires ("malformed resource name" otherwise).
+// An empty value or an already-qualified name (containing "/") is left unchanged.
+// The read side (mirror.feedRecord) stores the short form, so this restores the
+// full form a pulled feed needs to push back.
+func (c *Client) feedLogType(logType string) string {
+	if logType == "" {
+		return ""
+	}
+	return c.formatLogType(logType)
 }
 
 // GetFeed fetches a single feed by ID (accepts a bare ID or a full resource
@@ -123,7 +135,7 @@ func (c *Client) UpdateFeed(ctx context.Context, id, displayName, sourceType, lo
 		body.DisplayName = displayName
 		mask = append(mask, "displayName")
 	}
-	if d := buildDetails(sourceType, logType, namespace, settings); len(d) > 0 {
+	if d := buildDetails(sourceType, c.feedLogType(logType), namespace, settings); len(d) > 0 {
 		body.Details = d
 		mask = append(mask, "details")
 	}

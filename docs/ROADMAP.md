@@ -138,6 +138,15 @@ OpenAPI 3.0.1, **448 paths / 484 operations / 27 tags**, global security
 to implement. Goal: **support as many users/operations as feasible**, built on the
 existing `soar/legacy` tier + `soar/internal/transport` (External, AppKey).
 
+> **Swagger caveat — trust the shape, not the nullability.** The spec is an
+> accurate map of paths and field *names*, but its `nullable: true` annotations on
+> collection fields are unreliable: e.g. `CreateManualCase` marks
+> `entities`/`playbooks`/`tags` nullable, yet the server NPEs (500) if they arrive
+> as `null` — they must be sent as `[]`. When a write 500s with the generic
+> `errorCode 2000`, diff your request against the **real UI request** (browser
+> dev-tools) before assuming the endpoint is broken; the difference is often an
+> omitted-vs-empty collection or a value the swagger claims is optional.
+
 Priority order (config + automation that fits pull → diff → push; skip UI/runtime
 noise like Homepage, CommandCenter, Agents, Reports, Dashboards):
 1. **Connectors** (9) — CRUD, cards, templates, fetch-sample-data, statistics.
@@ -184,7 +193,7 @@ surface lives in [CATALOG.md](CATALOG.md).
   throwaway-safe case only).
 - **Docs.** SOAR-DESIGN, SIEM-DESIGN (the cases-are-one-case bridge), CATALOG.
 
-### Wave 5 — SIEM config plane onto the engine  *(done — `data_tables`/`parsers`/`feeds`/`dashboards`/`rule_exclusions` on the engine + `curated` toggles + SIEM write-smoke harness; all read live-validated)*
+### Wave 5 — SIEM config plane onto the engine  *(done — `data_tables`/`parsers`/`feeds`/`dashboards`/`rule_exclusions` on the engine + `curated` toggles + SIEM write-smoke harness; read **and write** live-validated)*
 - **Goal.** Turn SIEM config-as-code from one surface into the whole plane.
 - **Scope.** Wire `data_tables` → `feeds` → `parsers` → `dashboards` → `curated`
   (read + enable/disable) onto the shared reconcile engine; add a SIEM write-smoke
@@ -203,6 +212,41 @@ surface lives in [CATALOG.md](CATALOG.md).
   detections/errors, search rule alerts. New `push rules-update` etc.
 - **Exit.** Live read-validated + a gated write-smoke on a throwaway rule.
 - **Docs.** SIEM-DESIGN, CATALOG.
+
+### Finishing the "done" waves — write-validation gaps
+
+A few write paths in shipped waves were built + read-validated but not yet
+live-write-validated. Status after closing them:
+
+- **Wave 5 — `parsers`**: now ✅ — gated write smoke `TestLiveReconcileParserWriteSmoke`
+  runs `RunParser` (pure inert logic validation — no server state) then creates a new
+  **INACTIVE** version from a real active parser's source, asserts it never goes ACTIVE
+  (so live ingestion is untouched) and that the borrowed log type's active parser is
+  unchanged, then deletes the throwaway. Deliberately skips `activate` — the only
+  ingestion-affecting call. Found + fixed an SDK bug: the `RunParser` response decodes
+  `parsedEvents` as an object `{events:[{event:…}]}`, not a bare array.
+- **Wave 5 — `reference_lists`**: now ✅ — write live-validated. There is no delete (and
+  no archive) API, so the smoke can't be a throwaway-and-delete; instead
+  `TestLiveReconcileReferenceListWriteSmoke` reuses one fixed, clearly-labeled inert
+  list and drives a create-or-reuse + one update each run (fresh description + entries
+  → always-present update, rerunnable, no accumulation). Found + fixed a
+  reconcile-identity bug: create echoes the project NUMBER in the returned resource
+  name while list echoes the project ID, so the SDK now normalizes both to the id form
+  (the engine keys identity on the name).
+- **Wave 5 — `feeds`**: ✅ — write live-validated (incl. GCS V2 / Storage Transfer
+  Service); short-`logType` expansion fixed; `FetchFeedServiceAccount` added.
+- **Wave 4 — `soar case` verbs + `bulk-close`**: now ✅ — live-validated end-to-end by
+  `TestLiveSOARCaseVerbsWriteSmoke` (create two throwaway cases → rename/describe/
+  importance/priority/tag/untag/stage → merge → close). The blocking 500 was a
+  **server NPE on null collections**: the legacy server doesn't null-guard
+  `entities`/`playbooks`/`tags`, so omitting them threw a 500 *after* creating the
+  case (captured by diffing the real UI request — the UI sends those as `[]`). Two
+  fixes landed: `CreateManualCase` is now typed (`ManualCaseRequest`, returns the new
+  case id) and always sends those collections as `[]`; and the transport no longer
+  retries non-idempotent POSTs on 5xx (the retry was duplicating the half-created
+  case). `merge` needs the target id inside `casesIds` (the CLI adds it now); hard
+  delete (`RetentionDeleteCases`) is 403 for the AppKey role, so the smoke cleans up by
+  closing (re-run-tolerant; a retention grant would make it zero-residue).
 
 ### Wave 7 — SOAR completion  *(next)*
 - **Goal.** Close SOAR to full config-as-code.

@@ -104,13 +104,21 @@ func (c *Client) CopyParser(ctx context.Context, logType, sourceID string) (*Par
 	return &p, nil
 }
 
-// RunParserResult is one per-log result from RunParser. ParsedEvents holds the
-// emitted UDM events as raw JSON (their shape is the full open-ended UDM schema,
-// so it is kept freeform); Errors holds any per-log parse errors.
+// RunParserResult is one per-log result from RunParser. Log echoes back the
+// (base64-encoded) input log line; ParsedEvents wraps the emitted UDM events;
+// Errors holds any per-log parse errors. Each is freeform/open-ended UDM, so the
+// event payloads stay raw.
 type RunParserResult struct {
-	ParsedEvents     []json.RawMessage `json:"parsedEvents,omitempty"`
+	Log              string            `json:"log,omitempty"`
+	ParsedEvents     *ParsedEvents     `json:"parsedEvents,omitempty"`
 	Errors           []json.RawMessage `json:"errors,omitempty"`
 	StatedumpResults []json.RawMessage `json:"statedumpResults,omitempty"`
+}
+
+// ParsedEvents is the server's wrapper around the UDM events a parser emitted for
+// one input log. Each Events element is a freeform {"event": {...}} UDM object.
+type ParsedEvents struct {
+	Events []json.RawMessage `json:"events,omitempty"`
 }
 
 // RunParserResponse is the result of evaluating a parser against sample logs.
