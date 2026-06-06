@@ -562,6 +562,111 @@ func TestLiveReconcilePlaybookCategoryWriteSmoke(t *testing.T) {
 	})
 }
 
+// TestLiveReconcilePlaybookSaveSemantics verifies the load-bearing assumption of
+// the playbook reconcile Update path: that SavePlaybook UPDATES the named playbook
+// in place (minting a new uuid) rather than creating a duplicate. It duplicates a
+// DISABLED playbook into an inert throwaway, edits it, calls the exact SavePlaybook
+// path the engine uses, and asserts exactly one playbook carries the throwaway name.
+// All created playbooks are deleted on cleanup (set diff — robust to nesting and to
+// the save minting a new uuid).
+func TestLiveReconcilePlaybookSaveSemantics(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+
+	cards, err := lc.ListPlaybooks(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := map[string]bool{}
+	var srcID string
+	for _, c := range cards {
+		before[c.Identifier] = true
+		if srcID == "" && !c.IsEnabled && c.Identifier != "" {
+			srcID = c.Identifier
+		}
+	}
+	if srcID == "" {
+		t.Skip("no disabled playbook to duplicate as a safe source")
+	}
+
+	src, err := lc.GetWorkflowFullInfo(ctx, srcID)
+	if err != nil {
+		t.Fatalf("get source: %v", err)
+	}
+	var sm map[string]any
+	if err := json.Unmarshal(src, &sm); err != nil {
+		t.Fatal(err)
+	}
+	label := smokeLabel("pbsave") // letters/digits/hyphens only -> valid playbook name
+	sm["name"] = label
+	sm["isEnabled"] = false
+	// Pass the map (not marshaled bytes): a []byte through `body any` would be
+	// base64-encoded by json.Marshal.
+	if _, err := lc.DuplicateWorkflow(ctx, sm); err != nil {
+		t.Fatalf("duplicate workflow: %v", err)
+	}
+
+	// Delete every playbook created during the test (anything not in the before set).
+	t.Cleanup(func() {
+		cs, err := lc.ListPlaybooks(ctx, nil)
+		if err != nil {
+			return
+		}
+		for _, c := range cs {
+			if c.Identifier == "" || before[c.Identifier] {
+				continue
+			}
+			full, ferr := lc.GetWorkflowFullInfo(ctx, c.Identifier)
+			if ferr != nil {
+				continue
+			}
+			var o map[string]any
+			if json.Unmarshal(full, &o) == nil {
+				if _, derr := lc.DeleteWorkflow(ctx, o); derr != nil {
+					t.Logf("cleanup: delete %q: %v", c.Identifier, derr)
+				}
+			}
+		}
+	})
+
+	// Edit the duplicate (fetched by NAME) and save it via the engine's SavePlaybook.
+	body, err := lc.GetPlaybookByName(ctx, label, false)
+	if err != nil {
+		t.Fatalf("get duplicate by name: %v", err)
+	}
+	var pb map[string]any
+	_ = json.Unmarshal(body, &pb)
+	pb["description"] = "secopsctl save-semantics check"
+	edited, _ := json.Marshal(pb)
+	if _, err := lc.SavePlaybook(ctx, edited); err != nil {
+		t.Fatalf("SavePlaybook: %v", err)
+	}
+
+	// THE VERIFICATION: update-by-name, not duplicate.
+	cs, err := lc.ListPlaybooks(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, c := range cs {
+		if c.Name == label {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("SavePlaybook produced %d playbooks named %q (want 1): it DUPLICATES rather than updating by name — the playbook reconcile Update path would multiply playbooks; do not push playbooks until resolved", n, label)
+	}
+	got, err := lc.GetPlaybookByName(ctx, label, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gm map[string]any
+	_ = json.Unmarshal(got, &gm)
+	if gm["description"] != "secopsctl save-semantics check" {
+		t.Errorf("edit not applied after save: description=%v", gm["description"])
+	}
+}
+
 // findAny returns any one live object from a surface (a clone template).
 func findAny(ctx context.Context, s reconcile.Surface) (reconcile.Object, bool) {
 	res, err := s.List(ctx)
