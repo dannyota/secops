@@ -27,6 +27,12 @@ const (
 	DirSOARSocRoles      = "soc_roles"
 	DirSOARIdp           = "idp"
 	DirSOARVisualFams    = "visual_families"
+	DirSOARSla           = "sla_definitions"
+	DirSOARCaseStages    = "case_stages"
+	DirSOARCaseTags      = "case_tags"
+	DirSOARRootCauses    = "close_root_causes"
+	DirSOARBlacklists    = "blacklists"
+	DirSOARPlaybookCats  = "playbook_categories"
 )
 
 // connectorSnapshot is the diff-friendly YAML written per connector instance.

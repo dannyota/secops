@@ -35,8 +35,20 @@ func Pull(ctx context.Context, s Surface, dir string, w io.Writer) (int, error) 
 	if err != nil {
 		return 0, err
 	}
+	// Disambiguate colliding slugs: filenames must be unique within a directory,
+	// but some surfaces have non-unique display names (e.g. duplicate "Other"
+	// close-reasons). Suffix every member of a colliding name-group with its
+	// server id. Matching is by ServerID (not slug), so this only affects the
+	// filename — and it is deterministic/order-independent.
+	counts := make(map[string]int, len(res.Objects))
+	for _, o := range res.Objects {
+		counts[o.Slug]++
+	}
 	written := 0
 	for _, o := range res.Objects {
+		if counts[o.Slug] > 1 && o.ServerID != "" {
+			o.Slug = o.Slug + "_" + fileSafe(o.ServerID)
+		}
 		if err := s.Write(dir, o); err != nil {
 			return written, err
 		}
@@ -300,6 +312,19 @@ func defaultBanner(w io.Writer, action string) {
 	fmt.Fprintf(w, "!! Action: %s\n", action)
 	fmt.Fprintln(w, bar)
 	fmt.Fprintln(w)
+}
+
+// fileSafe makes a server id safe as a filename suffix (ints and UUIDs already
+// are; this guards anything else).
+func fileSafe(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '.', r == '-', r == '_':
+			return r
+		default:
+			return '_'
+		}
+	}, s)
 }
 
 func writePullState(dir string, st pullState) error {

@@ -252,6 +252,38 @@ func TestPullThenPrune(t *testing.T) {
 	}
 }
 
+func TestPullDisambiguatesCollidingSlugs(t *testing.T) {
+	srv := newFakeServer()
+	srv.put("id-1", "dup", nil) // two records with the same name -> same slug
+	srv.put("id-2", "dup", nil)
+	s := fakeSurface(srv, Capabilities{})
+	dir := t.TempDir()
+
+	if _, err := Pull(context.Background(), s, dir, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	// Both records must land in distinct files (not collapse to one).
+	entries, _ := filepath.Glob(filepath.Join(dir, "*.json"))
+	n := 0
+	for _, e := range entries {
+		if !strings.HasPrefix(filepath.Base(e), ".") {
+			n++
+		}
+	}
+	if n != 2 {
+		t.Fatalf("colliding names should write 2 files, got %d", n)
+	}
+	// And the snapshot must still round-trip clean (matching is by ServerID).
+	plan, _, err := BuildPlan(context.Background(), s, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Empty() {
+		t.Errorf("colliding-name round-trip not clean: +%d ~%d -%d",
+			len(plan.Creates()), len(plan.Updates()), len(plan.Deletes()))
+	}
+}
+
 func TestPushDryRunMakesNoChange(t *testing.T) {
 	srv := newFakeServer()
 	srv.put("srv-1", "alpha", nil)

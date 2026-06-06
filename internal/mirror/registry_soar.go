@@ -34,6 +34,12 @@ var soarSurfaceDefs = []soarSurfaceDef{
 	{"soc-roles", socRolesSurface},
 	{"idp", idpSurface},
 	{"visual-families", visualFamiliesSurface},
+	{"sla-definitions", slaDefinitionsSurface},
+	{"case-stages", caseStagesSurface},
+	{"case-tags", caseTagsSurface},
+	{"close-root-causes", closeRootCausesSurface},
+	{"blacklists", blacklistsSurface},
+	{"playbook-categories", playbookCategoriesSurface},
 }
 
 // SOARSurfaceNames returns the engine-backed SOAR surface names, sorted.
@@ -144,6 +150,95 @@ func visualFamiliesSurface(lc *legacy.Client) reconcile.Surface {
 		list:       lc.ListVisualFamilies,
 		create:     lc.AddOrUpdateVisualFamily,
 		update:     lc.AddOrUpdateVisualFamily,
+	})
+}
+
+// The following case/playbook config surfaces were spec'd by a swagger-grounded
+// workflow (each confirmed a SINGLE-record upsert via the request body schema, not
+// a batch array) and the signatures verified by hand. All are NoDelete (their
+// removes take a body, not a clean id) — additive. case-stages / case-tags need a
+// paged selector on the list read; their responses wrap records in objectsList,
+// which decodeRawList unwraps.
+
+// slaDefinitionsSurface: SLA definitions (flat array; id + value).
+func slaDefinitionsSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "sla-definitions", dir: DirSOARSla,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "value",
+		caps:   reconcile.Capabilities{NoDelete: true},
+		list:   lc.GetSlaDefinitionsRecords,
+		create: lc.AddSlaDefinitionsRecord,
+		update: lc.AddSlaDefinitionsRecord,
+	})
+}
+
+// caseStagesSurface: case stage definitions (wrapped objectsList; id + name).
+func caseStagesSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "case-stages", dir: DirSOARCaseStages,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "name",
+		caps: reconcile.Capabilities{NoDelete: true},
+		list: func(ctx context.Context) (json.RawMessage, error) {
+			return lc.GetCaseStageDefinitionRecords(ctx, allRecordsSelector)
+		},
+		create: lc.AddCaseStageDefinitionRecord,
+		update: lc.AddCaseStageDefinitionRecord,
+	})
+}
+
+// caseTagsSurface: case tag definitions (wrapped objectsList; id + name).
+func caseTagsSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "case-tags", dir: DirSOARCaseTags,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "name",
+		caps: reconcile.Capabilities{NoDelete: true},
+		list: func(ctx context.Context) (json.RawMessage, error) {
+			return lc.GetTagDefinitionsRecords(ctx, allRecordsSelector)
+		},
+		create: lc.AddTagDefinitionsRecords,
+		update: lc.AddTagDefinitionsRecords,
+	})
+}
+
+// closeRootCausesSurface: case close root-causes (flat array; id + rootCause).
+func closeRootCausesSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "close-root-causes", dir: DirSOARRootCauses,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "rootCause",
+		caps:   reconcile.Capabilities{NoDelete: true},
+		list:   lc.GetRootCauseCloseRecords,
+		create: lc.AddOrUpdateRootCauseClose,
+		update: lc.AddOrUpdateRootCauseClose,
+	})
+}
+
+// blacklistsSurface: model block-list entries (flat array; id + entityIdentifier).
+func blacklistsSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "blacklists", dir: DirSOARBlacklists,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "entityIdentifier",
+		caps:   reconcile.Capabilities{NoDelete: true},
+		list:   lc.GetAllModelBlockRecords,
+		create: lc.AddOrUpdateModelBlockRecords,
+		update: lc.AddOrUpdateModelBlockRecords,
+	})
+}
+
+// playbookCategoriesSurface: playbook (workflow) categories (flat array; id + name).
+func playbookCategoriesSurface(lc *legacy.Client) reconcile.Surface {
+	return jsonSurface(jsonSurfaceSpec{
+		name: "playbook-categories", dir: DirSOARPlaybookCats,
+		product: reconcile.ProductSOAR,
+		idField: "id", nameField: "name",
+		caps:   reconcile.Capabilities{NoDelete: true},
+		list:   lc.ListWorkflowCategories,
+		create: lc.AddOrUpdatePlaybookCategory,
+		update: lc.AddOrUpdatePlaybookCategory,
 	})
 }
 
