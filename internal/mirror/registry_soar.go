@@ -87,9 +87,9 @@ func webhooksSurface(lc *legacy.Client) reconcile.Surface {
 
 // The surfaces below were spec'd by a swagger-grounded workflow and the method
 // signatures verified by hand. All are ADDITIVE (NoDelete) for now: their deletes
-// take a body selector (not a clean id) or are RBAC/SSO-sensitive, and no path is
-// write-validated against a live tenant yet — pull + diff is the safe value; the
-// guarded write awaits a live smoke. idField "id" is stripped from the diff and
+// take a body selector (not a clean id) or are RBAC/SSO-sensitive, and the write
+// path is not yet smoke-validated — pull + diff is the safe value; the guarded
+// write awaits a smoke. idField "id" is stripped from the diff and
 // carried in _server; the live record's id flows back on update via DeepMerge.
 
 // trackingListsSurface: tracked entities (flat array; id + entityIdentifier).

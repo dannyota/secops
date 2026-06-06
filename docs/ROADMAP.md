@@ -1,10 +1,12 @@
 # secopsctl / Go SDK — Roadmap
 
 `secopsctl` is both a CLI and an importable, unofficial Go SDK for Google SecOps
-(`danny.vn/secops/chronicle`). This roadmap tracks what is built and what is
-planned. The guiding rule: **design cleanly, port the parity slice first, then
-finish the surface** — improving on the official Python wrapper where it is weak
-(see the `// DEVIATION:` markers in code).
+(`danny.vn/secops/chronicle`). This roadmap is the **forward plan and
+sequencing**; **live build/validation status lives in [CATALOG.md](CATALOG.md)** —
+this doc deliberately does not re-track maturity (it would drift). The guiding
+rule: **design cleanly, port the parity slice first, then finish the surface** —
+improving on the official Python wrapper where it is weak (see the `// DEVIATION:`
+markers in code).
 
 ## Package map
 
@@ -19,12 +21,13 @@ danny.vn/secops
 └── cmd/secopsctl main
 ```
 
-Future SecOps products are **sibling packages** so `chronicle` stays focused:
-`danny.vn/secops/soar`, `/sentinelone`, `/notify`.
+Future SecOps products are **sibling packages** so `chronicle` stays focused —
+today that is `danny.vn/secops/soar`. (Third-party EDR and chat/notification
+integrations are explicit non-goals; see below.)
 
 ---
 
-## Wave 1 — parity with the legacy Python tool ✅ (current)
+## Wave 1 — parity with the legacy Python tool *(shipped — status in CATALOG)*
 
 Feature parity with the original `secopstips`:
 
@@ -52,11 +55,14 @@ CLI: `info`, `pull <target>`, `push <target>` (dry-run-guarded), `query udm`.
 
 ---
 
-## Wave 2 — finish the `secops-wrapper` (v0.44.x) surface
+## Wave 2 — finish the `secops-wrapper` (v0.44.x) surface *(mostly landed)*
 
-Each item becomes a `chronicle/*.go` file (names reserved in `doc.go`) plus, where
-it makes sense, a CLI verb. Read the matching `third_party/secops-wrapper/src/secops/chronicle/*.py`
-when implementing.
+Most of this surface has **already landed as `chronicle/*.go` files** (`case` ·
+`alert` · `entity` · `ingest` · `stats` · `nl_search` · `gemini` · `data_export` ·
+`investigations` · `watchlist` · `retrohunt` · `rule_exclusion` · the `*_write.go`
+writers · …); the remaining gap is **CLI verbs over the already-built SDK** plus the
+few unbuilt files below. Per-file status is in [CATALOG.md](CATALOG.md). Read the
+matching `third_party/secops-wrapper/src/secops/chronicle/*.py` when implementing.
 
 - **Rule writes & lifecycle** (`rules.go`/`rule_exclusion.go`/`rule_retrohunt.go`):
   UpdateRule (etag), DeleteRule, enable/alerting toggles, retrohunts
@@ -89,18 +95,18 @@ helper for very large lists.
 Kept generic and tenant-neutral. **Full design:
 [`docs/SOAR-DESIGN.md`](SOAR-DESIGN.md)** — read it before implementing.
 
-- **SOAR (`soar/`)** — one host, one AppKey, **no ADC**, split into three tiers so
-  legacy is a clean delete when modern APIs land (the governing principle —
-  *quarantine legacy, never mix it with the durable modern code*):
-  - ✅ **Modern** v1alpha native (the keeper): integrations · connectors · jobs ·
-    alertGroupingRules · moduleSettings · cases.
-  - 🟠 **Bridge** `soar/legacy/playbooks.go` — `legacyPlaybooks:legacy*`; remove
-    when native v1alpha playbook CRUD ships. Gotchas: UUID rotates on save (re-resolve
-    by name), int→str coercion, name charset, whole-body replace.
-  - 🗑 **Legacy** `soar/legacy/` — Siemplify external API (`/api/external/v1`):
-    cases-queue bulk-close, comment/tag/priority, playbook export/import; remove
-    when v1alpha bulk-case + playbook endpoints ship.
-  - `modern → soar/internal/transport ← legacy` (modern never imports legacy).
+- **SOAR (`soar/`)** — one host, one AppKey, **no ADC**. The **AppKey legacy external
+  API (`/api/external/v1`) is the reliable, most-complete surface** and backs the
+  reconcile engine (14 surfaces) + the `soar case` verbs; the **modern v1alpha
+  methods are new, pull/patch-only, and 500 intermittently**. The tiers:
+  - **Legacy AppKey** `soar/legacy/` — the durable, broad SDK the engine runs on
+    (reliable). *Not* a quarantine; see [SOAR-DESIGN.md](SOAR-DESIGN.md).
+  - **Bridge** `legacyPlaybooks:legacy*` — v1alpha host, legacy op names; the one
+    genuinely delete-when-native-ships piece. Gotchas: UUID rotates on save
+    (re-resolve by name), int→str coercion, name charset, whole-body replace.
+  - **Modern** v1alpha native — integrations · connectors · jobs · grouping ·
+    cases; pull + patch only today (flaky), not the primary build path.
+  - `soar (modern) → soar/internal/transport ← soar/legacy` (modern never imports legacy).
 - **Legacy SIEM** `chronicle/legacy.go` (ADC) — `legacyFindRawLogs`,
   `legacyBatchGetCases` (SOAR integer-id ⇄ SIEM uuid map); quarantined file.
 - **Connectors & cron jobs**: connector/job instance configs pulled/patched via the
@@ -143,8 +149,103 @@ noise like Homepage, CommandCenter, Agents, Reports, Dashboards):
 
 **Discipline (Wave-3 testing):** smoke-test live with the AppKey; **read endpoints
 broadly** (safe), **write endpoints minimally** with create → verify → **delete only
-what we created** (the live tenant is production). **Do NOT `git push` until the
-user confirms.**
+what we created** (every write hits a live production instance). **Do NOT `git push`
+until the user confirms.**
+
+---
+
+## The path to the final secopsctl — forward waves (4+)
+
+**Definition of done.** An operator runs *all* of Google SecOps as code and triages
+live data from the terminal: full config-as-code (every reconcilable surface, both
+products) with safe pull → diff → push + prune + drift-detection; full operational
+triage (query → guarded act) for cases/alerts over the **reliable** path; reliable
+against Google's flaky new APIs; secure (secret-at-rest, leak guard, no token on
+disk); and operable (CI, releases, completions, docs). Each wave ends **validated**
+(read round-trips clean; a gated write-smoke ran on an inert throwaway) with its
+CATALOG rows moved forward and design docs updated in the same change.
+
+**Waves are done strictly in order** — one wave fully built **and validated** (its
+CATALOG rows moved forward, its design docs updated) before the next begins. The
+number *is* the sequence. Per-wave: **Goal · Scope · Exit · Docs.** Live status per
+surface lives in [CATALOG.md](CATALOG.md).
+
+### Wave 4 — Case + alert triage (SOAR AppKey — the reliable lane)  *(next)*
+- **Goal.** Finish the daily triage workflow on the path that is reliable. Small,
+  unblocked, high-value — the SDK already exists, this is CLI plumbing + validation.
+  (The SIEM-native cases collection is the flaky secondary view; this wave uses the
+  reliable SOAR AppKey lane.)
+- **Scope.** Wire the missing **reads** on the AppKey lane: `soar case list`
+  (`ListCaseCards`; `--status`/`--limit`/`--json`) and `soar case get <id>`
+  (`GetCaseFullDetails` → the case **and its alerts**). Complete the query → review →
+  act loop over the verbs already built (`soar case` mutates + `soar push bulk-close`).
+- **Exit.** Live read-validated; act verbs dry-run-validated (live mutate on a
+  throwaway-safe case only).
+- **Docs.** SOAR-DESIGN, SIEM-DESIGN (the cases-are-one-case bridge), CATALOG.
+
+### Wave 5 — SIEM config plane onto the engine
+- **Goal.** Turn SIEM config-as-code from one surface into the whole plane.
+- **Scope.** Wire `data_tables` → `feeds` → `parsers` → `dashboards` → `curated`
+  (read + enable/disable) onto the shared reconcile engine; add a SIEM write-smoke
+  harness (`SECOPS_SIEM_SMOKE` / `_WRITE`). `data_tables` first — its
+  `ReplaceDataTableRows` is a wholesale destroy-and-replace, exactly what the
+  dry-run guard is for. Resolve the `feeds` `assetNamespace`(read)/`namespace`(write)
+  mismatch with a live smoke before wiring it; `parsers` are immutable (Create+Delete).
+- **Exit.** Each surface pulls clean + a gated write-smoke passes; CATALOG → ✅.
+- **Docs.** SIEM-DESIGN (plan → built), CATALOG, ARCHITECTURE §3.
+
+### Wave 6 — Rules as code (finish the one bespoke surface)
+- **Goal.** Full rule lifecycle as code (rules stay bespoke: YARA-L source + a
+  deployment state machine, not one canonical body).
+- **Scope.** Over the existing `rules_write`/`rule_exclusion`/`retrohunt`/`rule_results`
+  SDK: update (etag), enable/alerting toggles, retrohunts, exclusions, list
+  detections/errors, search rule alerts. New `push rules-update` etc.
+- **Exit.** Live read-validated + a gated write-smoke on a throwaway rule.
+- **Docs.** SIEM-DESIGN, CATALOG.
+
+### Wave 7 — SOAR completion
+- **Goal.** Close SOAR to full config-as-code.
+- **Scope.** Finish the remaining write-smokes + enable `--prune` where a clean
+  delete-by-id exists; **ontology** raw lane (entity mappings/relations, export/import
+  bundles); `connectors`/`jobs`/`integrations` full reconcile (beyond pull+patch);
+  dynamic-case config; remaining settings surfaces.
+- **Exit.** SOAR CATALOG rows ✅ or documented read-only-by-choice; ontology covered.
+- **Docs.** SOAR-DESIGN, CATALOG.
+
+### Wave 8 — SIEM-native operational view (the unified SecOps surface)
+- **Goal.** The first-class Chronicle view of cases/alerts/events — lights up as
+  Google's new APIs stabilize; built now behind a clean-error-on-500 guard. Sequenced
+  after the reliable surfaces because its backend is the flaky one.
+- **Scope.** `cases` act/bulk (v1beta), `alerts list/get/update/bulk`, `stats`,
+  `search nl`, `entity summarize`, `iocs list`; reviewed-`--ids` + `--filter`
+  dry-run-first + `--limit` caps. Per-endpoint version pinned + tracked in
+  ARCHITECTURE §6.
+- **Exit.** Reads validated where the API answers; mutations gated; 500s fail clean.
+- **Docs.** SIEM-DESIGN, ARCHITECTURE §6, CATALOG.
+
+### Wave 9 — Reliability & safety hardening
+- **Goal.** Production-grade trust.
+- **Scope.** Per-endpoint version-pinning audit (the §6 map kept current);
+  **drift-detection mode** (`pull` + diff + report, no push — a CI gate); etag/conflict
+  everywhere; request-id surfaced on every error; pagination/`--as-list`; **config
+  secret-at-rest** (Windows DPAPI / macOS Keychain / Linux libsecret) decrypted
+  in-process, **with cross-OS tests**.
+- **Exit.** Secret-at-rest shipped + tested on 3 OSes; drift mode runnable in CI.
+- **Docs.** ARCHITECTURE, ROADMAP.
+
+### Wave 10 — Distribution & operability
+- **Goal.** Easy to install and run anywhere.
+- **Scope.** CI (build/test/lint/`govulncheck`/`semgrep`); release binaries
+  (goreleaser); `secopsctl version`; shell completions; man pages; `doctor`
+  enhancements; packaging (brew/scoop).
+- **Exit.** A tagged release with signed binaries; CI green on PRs.
+- **Docs.** README, ROADMAP.
+
+### Wave 11 — Automation & scheduling *(stretch)*
+- **Goal.** Tenant-neutral scheduled automation scaffolding.
+- **Scope.** Generic scheduled runners (case-hygiene jobs); the LLM-driven automation
+  notes in `tips/`; scheduled drift reports.
+- **Docs.** ROADMAP, `tips/`.
 
 ---
 

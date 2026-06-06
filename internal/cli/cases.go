@@ -78,7 +78,7 @@ func newCasesListCmd() *cobra.Command {
 	f.StringVar(&expand, "expand", "", "expand fields, e.g. tags,products")
 	f.IntVar(&pageSize, "page-size", 0, "per-page cap (server default if 0)")
 	f.IntVar(&limit, "limit", 100, "max cases to return (0 = no cap)")
-	f.BoolVar(&asJSON, "json", false, "emit raw JSON (pipe into `cases bulk --ids @-`)")
+	f.BoolVar(&asJSON, "json", false, "emit raw JSON (one object per case, for scripting)")
 	return cmd
 }
 

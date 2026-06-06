@@ -68,11 +68,23 @@ this plane is about the *operator model* and *safety*, not new API code.
 | **cases (SIEM, UUID)** | `ListCases` / `SearchCases` (filter) · `GetCase` · `GetCases` | `PatchCase` (+etag/updateMask) · `MergeCases` · `BulkClose/Assign/AddTag/ChangePriority/ChangeStage/Reopen` | per-item + subset |
 | **entities / IoCs** | `SummarizeEntity` · `ListIoCs` · `FetchAssociatedInvestigations` | — | enrichment — read-only |
 
-> **Two case worlds.** SIEM cases are **UUIDs** (this plane). SOAR cases are
-> **integers** (`soar case`, already shipped). They are different objects; bridge
-> via `legacyBatchGetCases` (`soarPlatformInfo.caseId`) only when correlating.
-> Keep the commands distinct: `secopsctl cases …` (SIEM UUID) vs `secopsctl soar
-> case …` (SOAR int).
+> **SIEM cases and SOAR cases are TWO VIEWS OF THE SAME CASE — not two systems.**
+> Google SecOps = Chronicle (SIEM) + Siemplify (SOAR) merged; cases originate in
+> the SOAR case-management engine and are surfaced natively in the SIEM. The proof
+> is in the wire: a case carries **both** ids and `legacyBatchGetCases` returns
+> `soarPlatformInfo.caseId` — the bridge between them.
+>
+> | | SOAR case (Siemplify) | SIEM case (Chronicle/SecOps) |
+> |---|---|---|
+> | id | integer (e.g. `234`) | UUID (resource name) |
+> | api · auth | `/api/external/v1/cases` · AppKey | v1beta `cases` + v1alpha `legacy:legacyListCases` · ADC |
+> | role | the engine — alerts→case, playbooks, tasks, queue, stages, close | the first-class SecOps cases surface (get/list/patch/merge/bulk) — the convergence layer |
+> | CLI | `soar case <verb>` | `cases …` |
+> | today | mature, **reliable** | newer, **flaky** (v1beta 500 / v1alpha 404 observed) |
+>
+> They stay **separate command trees** (different id, api, reliability), bridged by
+> `soarPlatformInfo.caseId` only when correlating. The SIEM-UUID api is the
+> forward-looking unified one; the SOAR-integer api is what works today.
 
 ### The query model
 
@@ -134,6 +146,10 @@ as a config `push`.
 
 ### Command tree
 
+*Designed shape. **Built today:** `query udm`, `cases list/get/search`. Everything
+else here (incl. `alerts …`, `cases <verb>`, `cases bulk`) is the planned model, not
+yet wired — authoritative per-command status is in [CATALOG.md](CATALOG.md).*
+
 ```
 secopsctl query udm | search nl | stats | iocs list | entity summarize     # read
 secopsctl alerts  list | get | update | bulk <close|verdict|priority|comment>
@@ -159,6 +175,13 @@ secopsctl cases   list | get | search | comment | assign | tag | priority | stag
   *export* of a query result to JSON is fine — it's a report, not a mirror.)
 
 ## First implementation wave — SIEM **cases** (operational)
+
+> **Two case paths, one case.** The *SIEM-native* cases collection below (v1beta) is
+> new and returns intermittent 5xx; the **reliable, complete path for case operations
+> is the SOAR AppKey API** — `soar case <verb>` plus the `soar case list`/`get` reads
+> (`ListCaseCards` / `GetCaseFullDetails`, which also returns the case's **alerts**).
+> Wire the SOAR reads first; the SIEM-native `cases`/`alerts` commands here are the
+> unified view for when that collection stabilizes.
 
 Decided: the subset-act model is **both** paths (reviewed-`--ids` preferred,
 `--filter` gated dry-run-first + `--limit`-capped), and the first wave is **case

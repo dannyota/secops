@@ -1,15 +1,20 @@
 # secopsctl
 
-Operate **Google SecOps (Chronicle SIEM)** as code — for *any* tenant.
+Operate **Google SecOps (Chronicle SIEM + Siemplify SOAR)** as code — for *any* tenant.
 
 `secopsctl` is a single-binary Go CLI **and** an importable, unofficial Go SDK
-for Google SecOps, built around the **pull → review → push** detection-as-code
-loop:
+for Google SecOps. Two products, two planes, one CLI:
 
-- **pull** the live instance (rules, reference lists, data tables, dashboards,
-  curated-rule-set deployment state, feeds, parsers) into plain local files,
-- **review** the change as a `git diff`,
-- **push** the reviewed change back to the live instance under guard rails.
+- **Control plane — config as code.** **pull** live config (SIEM rules, reference
+  lists, data tables, dashboards, curated rule sets, feeds, parsers; SOAR
+  webhooks, environments, networks, playbooks, and more) into plain local files →
+  **review** the `git diff` → **push** the reviewed change back, reconciled by one
+  product-neutral engine.
+- **Operational plane — triage.** **query** live data and **act** on it (cases,
+  alerts) the way an analyst does — guarded, never reconciled from a file.
+
+See **[`docs/README.md`](docs/README.md)** for the model in one screen and
+**[`docs/CATALOG.md`](docs/CATALOG.md)** for what's built and how mature it is.
 
 It is **tenant-neutral**: there are no project numbers, customer IDs, or
 hostnames baked into the code. Everything tenant-specific comes from one config
@@ -95,11 +100,17 @@ secopsctl [--config PATH] [--json] <command> ...
 |---|---|
 | `info` | Print the configured instance (sanity-check identifiers; AppKey redacted). |
 | `config` (alias `init`) | Set up the config in `~/.secopsctl/instance.yaml` via a single-screen form (edit all fields, AppKey hidden, Save/Cancel), or takes flags / `--non-interactive`. |
-| `pull <target> [--filter EXPR] [--out DIR]` | Read-only pull of live state into local files. Targets: `rules`, `reference_lists`, `data_tables`, `dashboards`, `curated`, `curated_rules`, `feeds`, `parsers`, `all`. `--filter` applies to `curated_rules`. |
-| `push <target> [--dry-run \| --yes]` | **Mutating, live deploy.** `rules-create` (create rules from `*.yaral` with no companion YAML), `rules-disable` (disable locally-tracked enabled rules). Defaults to `--dry-run`. |
+| `doctor` | Read-only live smoke test of config + connectivity. |
+| `pull <target> [--filter EXPR] [--out DIR]` | Read-only pull of live SIEM config into local files. Targets: `rules`, `reference_lists`, `data_tables`, `dashboards`, `curated`, `curated_rules`, `feeds`, `parsers`, `all`. `--filter` applies to `curated_rules`. |
+| `push <target> [--dry-run \| --yes] [--prune]` | **Mutating, live deploy.** `rules-create` / `rules-disable`, plus engine-reconciled SIEM config surfaces (e.g. `reference_lists`). Defaults to `--dry-run`. |
 | `query udm <filter> [--hours N] [--from TS] [--to TS] [--limit N] [--json]` | Ad-hoc UDM event search. |
+| `soar pull <surface> [--out DIR]` | Read-only snapshot of SOAR config (webhooks, environments, networks, playbooks, connectors, jobs, …). |
+| `soar push <surface> [--prune] [--dry-run \| --yes]` | **Mutating, live deploy.** Reconcile local SOAR config files to live (create/update; `--prune` to delete). |
+| `soar case <verb> …` | Per-case triage verbs (assign / rename / stage / tag / close / merge, …). |
+| `soar legacy call <op>` | Raw passthrough to the Siemplify external API for batch/bundle endpoints. |
 
-Example UDM filters live in [`examples/queries/`](examples/queries/).
+Example UDM filters live in [`examples/queries/`](examples/queries/). The full
+command/surface list and its maturity is in [`docs/CATALOG.md`](docs/CATALOG.md).
 
 ## Use as a Go SDK
 
@@ -129,6 +140,18 @@ func main() {
 ```
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the SDK surface and what's planned.
+
+## Documentation
+
+The [`docs/`](docs/) directory is the design + status contract for the project:
+
+| Doc | What it is |
+|---|---|
+| [`docs/README.md`](docs/README.md) | The map: the model in one screen + index |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How it works — engine, lanes, planes, auth, reliability, API-version map |
+| [`docs/CATALOG.md`](docs/CATALOG.md) | Status matrix (designed / built / validated) for every surface — the tracker |
+| [`docs/SOAR-DESIGN.md`](docs/SOAR-DESIGN.md) · [`docs/SIEM-DESIGN.md`](docs/SIEM-DESIGN.md) | Per-product specifics |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | The forward plan — waves toward the finished tool |
 
 ## Tips
 

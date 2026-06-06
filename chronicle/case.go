@@ -30,7 +30,11 @@ import (
 // UUID form. We keep both as strings end-to-end so no precision is lost and the
 // caller passes whatever the instance hands back.
 
-// Case API versions. The wrapper selects these explicitly per call.
+// Case API versions, pinned per endpoint family. SecOps uses different versions
+// across v1 / v1alpha / v1beta and the new ones 500 intermittently, so each family
+// pins the version that currently works — not a global default, not a user knob.
+// When an endpoint moves, change the const and update the version map in
+// docs/ARCHITECTURE.md §6.
 const (
 	caseAPIVersionLegacy = "v1alpha" // legacy SOAR search / batch reads
 	caseAPIVersion       = "v1beta"  // first-class cases collection + bulk actions

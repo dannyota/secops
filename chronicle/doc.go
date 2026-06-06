@@ -15,24 +15,23 @@
 //   - One generic paginator (paginate) handles nextPageToken everywhere.
 //   - Auth is split and lazy (see package danny.vn/secops/auth).
 //
-// # Implemented surface (Wave 1 — parity with the legacy tool)
+// # Implemented surface
 //
-//	rules.go       ListRules, GetRule, ValidateRule, CreateRule,
-//	               ListRuleDeployments, UpdateRuleDeployment
-//	reflists.go    ListReferenceLists (FULL view)
-//	datatables.go  ListDataTables, ListDataTableRows
-//	dashboards.go  ListNativeDashboards, ExportDashboard
-//	curated.go     curated rule-set categories / sets / deployments,
-//	               ListFeaturedContentRules
-//	feeds.go       ListFeeds
-//	parsers.go     ListParsers (per log type)
-//	search.go      SearchUDM
+// Wave 1 (parity with the legacy tool): rules.go, reflists.go, datatables.go,
+// dashboards.go, curated.go, feeds.go, parsers.go, search.go.
 //
-// # Reserved for later waves (see docs/ROADMAP.md)
+// Beyond parity (Wave 2, mostly landed): the *_write.go writers (rules,
+// reflists, datatables, feeds, parsers, dashboards), case.go, alert.go,
+// entity.go, investigations.go, ingest.go, data_export.go, stats.go,
+// nl_search.go, gemini.go, watchlist.go, retrohunt.go, rule_exclusion.go,
+// rule_results.go, parser_extension.go, log_pipeline.go, log_search.go,
+// log_meta.go, legacy.go (the SOAR-int ⇄ SIEM-uuid case bridge).
 //
-// Wave 2 finishes the secops-wrapper surface: entity.go (summarize_entity,
-// IoCs), rule writes + retrohunts + exclusions + detections/errors, cases.go &
-// alerts.go (+ bulk ops), reference-list/data-table/feed/parser/dashboard
-// writes, ingest.go (ingest_log/ingest_udm), forwarders.go, log_pipeline.go,
-// data_export.go, watchlists.go, stats.go, nl_search.go, gemini.go.
+// Per-file build/validation status lives in docs/CATALOG.md; the forward plan
+// and sequencing is docs/ROADMAP.md.
+//
+// # Not yet built
+//
+// Forwarders and log-type classify/describe; and the CLI verbs over the
+// already-built operational SDK (alerts/cases act, stats, nl-search).
 package chronicle
