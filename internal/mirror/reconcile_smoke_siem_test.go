@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"danny.vn/secops/auth"
 	"danny.vn/secops/chronicle"
@@ -257,6 +258,177 @@ func TestLiveReconcileDashboardWriteSmoke(t *testing.T) {
 	if _, gerr := c.GetDashboard(ctx, lastSegment(serverID), false); gerr == nil {
 		t.Errorf("dashboard still present after delete")
 	}
+}
+
+// TestLiveRulesLifecycleWriteSmoke exercises the rule lifecycle pushes on an
+// inert throwaway rule: create (PushRulesCreate) → update its YARA-L text
+// (PushRulesUpdate, etag-guarded) → disable its deployment (PushRulesDeploy) →
+// delete. The rule matches a nonexistent host, so it produces no detections even
+// while briefly enabled; DeleteRule cleans it up even on failure.
+func TestLiveRulesLifecycleWriteSmoke(t *testing.T) {
+	c, ctx := liveChronicleClient(t)
+	requireSIEMSmokeWrite(t)
+
+	name := strings.ReplaceAll(smokeLabel("rule"), "-", "_") // YARA-L name: no hyphens
+	slug := Slugify(name)
+	dir := t.TempDir()
+	yaral := filepath.Join(dir, slug+".yaral")
+	yaml := filepath.Join(dir, slug+".yaml")
+
+	ruleText := func(desc string) string {
+		return fmt.Sprintf(`rule %s {
+  meta:
+    author = "secopsctl-smoketest"
+    description = %q
+  events:
+    $e.principal.hostname = "secopsctl-smoketest-nonexistent-zzzzzz"
+  condition:
+    $e
+}
+`, name, desc)
+	}
+
+	// New .yaral, no companion → PushRulesCreate creates + enables (inert) + tracks.
+	if err := os.WriteFile(yaral, []byte(ruleText("inert smoke-test rule; safe to delete")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cleaned := false
+	t.Cleanup(func() {
+		if cleaned {
+			return
+		}
+		if comp, err := readRuleCompanion(yaml); err == nil && comp.RuleID != "" {
+			if derr := c.DeleteRule(ctx, comp.RuleID, true); derr != nil {
+				t.Logf("cleanup: delete rule %q: %v", comp.RuleID, derr)
+			}
+		}
+	})
+
+	if _, err := PushRulesCreate(ctx, c, dir, false, true, io.Discard); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	comp, err := readRuleCompanion(yaml)
+	if err != nil || comp.RuleID == "" {
+		t.Fatalf("create did not record a companion with a rule_id: %v", err)
+	}
+	ruleID := comp.RuleID
+
+	// Update the YARA-L text → PushRulesUpdate (etag round-trip).
+	if err := os.WriteFile(yaral, []byte(ruleText("inert smoke-test rule (edited); safe to delete")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	n, err := PushRulesUpdate(ctx, c, dir, false, true, io.Discard)
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("update changed %d rules, want 1", n)
+	}
+	full, err := c.GetRule(ctx, ruleID)
+	if err != nil {
+		t.Fatalf("get after update: %v", err)
+	}
+	if !strings.Contains(full.Text, "(edited)") {
+		t.Errorf("update not applied live (text has no '(edited)')")
+	}
+
+	// Disable the deployment via PushRulesDeploy (set the companion enabled=false).
+	comp, _ = readRuleCompanion(yaml)
+	comp.Deployment.Enabled = false
+	if err := comp.write(yaml); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PushRulesDeploy(ctx, c, dir, false, true, io.Discard); err != nil {
+		t.Fatalf("deploy: %v", err)
+	}
+	if dep, err := c.GetRuleDeployment(ctx, ruleID); err != nil {
+		t.Fatalf("get deployment: %v", err)
+	} else if dep.Enabled {
+		t.Errorf("deploy did not disable the rule (still enabled)")
+	}
+
+	// Delete + confirm gone.
+	if err := c.DeleteRule(ctx, ruleID, true); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	cleaned = true
+	if _, err := c.GetRule(ctx, ruleID); err == nil {
+		t.Errorf("rule still present after delete")
+	}
+}
+
+// TestLiveRetrohuntCreateWriteSmoke validates the retrohunt create path (the SDK
+// call `rules retrohunt create` wraps) on an inert throwaway rule that matches a
+// nonexistent host — so the retrohunt scans history but produces no detections.
+// The throwaway rule is deleted on cleanup (which also removes its retrohunt).
+func TestLiveRetrohuntCreateWriteSmoke(t *testing.T) {
+	c, ctx := liveChronicleClient(t)
+	requireSIEMSmokeWrite(t)
+
+	name := strings.ReplaceAll(smokeLabel("retro"), "-", "_")
+	text := fmt.Sprintf(`rule %s {
+  meta:
+    author = "secopsctl-smoketest"
+    description = "inert retrohunt smoke; matches a nonexistent host; safe to delete"
+  events:
+    $e.principal.hostname = "secopsctl-smoketest-nonexistent-zzzzzz"
+  condition:
+    $e
+}
+`, name)
+
+	rule, err := c.CreateRule(ctx, text)
+	if err != nil {
+		t.Fatalf("create rule: %v", err)
+	}
+	ruleID := rule.RuleID()
+	deleted := false
+	t.Cleanup(func() {
+		if deleted {
+			return
+		}
+		if derr := c.DeleteRule(ctx, ruleID, true); derr != nil {
+			t.Logf("cleanup: delete rule %q: %v", ruleID, derr)
+		}
+	})
+
+	// Create a retrohunt over the last hour (minimal scan).
+	end := time.Now().UTC()
+	start := end.Add(-1 * time.Hour)
+	rh, err := c.CreateRetrohunt(ctx, ruleID, start, end)
+	if err != nil {
+		t.Fatalf("create retrohunt: %v", err)
+	}
+	rhID := lastSegment(rh.Name)
+	if rhID == "" {
+		t.Fatalf("retrohunt has no name: %+v", rh)
+	}
+
+	// It must appear in the list and be gettable.
+	rhs, err := c.ListRetrohunts(ctx, ruleID)
+	if err != nil {
+		t.Fatalf("list retrohunts: %v", err)
+	}
+	found := false
+	for i := range rhs {
+		if lastSegment(rhs[i].Name) == rhID {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("created retrohunt %q not in list", rhID)
+	}
+	if got, gerr := c.GetRetrohunt(ctx, ruleID, rhID); gerr != nil {
+		t.Errorf("get retrohunt: %v", gerr)
+	} else if got.State == "" {
+		t.Errorf("retrohunt has no state")
+	}
+
+	if err := c.DeleteRule(ctx, ruleID, true); err != nil {
+		t.Fatalf("delete rule: %v", err)
+	}
+	deleted = true
 }
 
 // writeSmokeDataTableFiles writes the `<slug>.yaml` + `<slug>.csv` for a new

@@ -55,7 +55,7 @@ product-neutral engine is `internal/mirror/reconcile`; live write-smokes are gat
 
 | Surface | Lane | Read | Write | Notes |
 |---|---|---|---|---|
-| `rules` | bespoke | 🔨 | 🔨 | YARA-L source + deployment state machine (two resources) — `push rules-create/disable`; not a single canonical body |
+| `rules` | bespoke | ✅ | ✅ | YARA-L source + deployment state machine (two resources), not a single canonical body. `push rules-create` · `rules-update` (etag-guarded text update) · `rules-deploy` (reconcile enabled/alerting/frequency) · `rules-disable`. Operational `rules detections/errors/alerts <id>` + `rules retrohunt list/get/create`. Read live-validated; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create→update→deploy→delete, self-cleaning) |
 | `reference_lists` | reconcile | ✅ | 🔨 | typed, `.txt`+`.yaml`; NoDelete; engine = product-neutral |
 | `data_tables` | reconcile | ✅ | ✅ | `.csv`+`.yaml` on the engine; `push data_tables` (create/update). Columns immutable after create; rows are wholesale destroy-and-replace (`ReplaceDataTableRows`). Not prune-eligible (whole-table delete is high-blast). Write smoke `TestLiveReconcileDataTableWriteSmoke` passed (create→update desc→replace rows→delete) |
 | `feeds` | reconcile | ✅ | 🔨 | `.yaml` on the engine; `push feeds`. Secrets redacted on pull, overlaid on update (real secret preserved; create refuses a masked body); `details` replaced wholesale on PATCH. The `assetNamespace`(read) vs `namespace`(write) mismatch is **resolved** — the API uses `assetNamespace` (write side fixed); server keys (`lastV2MigrationAttemptTime`/`stsMigrationReadiness`) stripped; feed state is a runtime toggle, out of canonical. Not prune-eligible (delete stops ingestion). Read live-validated; write smoke gated |

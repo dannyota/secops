@@ -23,7 +23,7 @@ var (
 
 func init() {
 	engine := mirror.SIEMSurfaceNames()
-	valid := append([]string{"rules-create", "rules-disable"}, engine...)
+	valid := append([]string{"rules-create", "rules-update", "rules-deploy", "rules-disable"}, engine...)
 
 	pushCmd := &cobra.Command{
 		Use:   "push <target>",
@@ -32,6 +32,8 @@ func init() {
 			"actually apply (or confirm interactively).\n\n" +
 			"Targets:\n" +
 			"  rules-create     create live rules from *.yaral with no companion *.yaml\n" +
+			"  rules-update     update live YARA-L text where a tracked *.yaral changed (etag-guarded)\n" +
+			"  rules-deploy     reconcile each tracked rule's deployment (enabled/alerting/frequency)\n" +
 			"  rules-disable    disable locally-tracked rules with deployment.enabled=true\n" +
 			"  " + strings.Join(engine, ", ") + "   reconcile local files to live (create/update; --prune to delete)",
 		Args:      cobra.ExactArgs(1),
@@ -103,11 +105,15 @@ func runPush(cmd *cobra.Command, args []string) error {
 	switch target {
 	case "rules-create":
 		_, err = mirror.PushRulesCreate(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
+	case "rules-update":
+		_, err = mirror.PushRulesUpdate(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
+	case "rules-deploy":
+		_, err = mirror.PushRulesDeploy(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
 	case "rules-disable":
 		_, err = mirror.PushRulesDisable(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
 	default:
 		return fmt.Errorf("unknown push target %q (want one of: %s)",
-			target, strings.Join(append([]string{"rules-create", "rules-disable"}, mirror.SIEMSurfaceNames()...), ", "))
+			target, strings.Join(append([]string{"rules-create", "rules-update", "rules-deploy", "rules-disable"}, mirror.SIEMSurfaceNames()...), ", "))
 	}
 	return err
 }

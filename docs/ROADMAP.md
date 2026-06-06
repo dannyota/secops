@@ -194,7 +194,7 @@ surface lives in [CATALOG.md](CATALOG.md).
 - **Exit.** Each surface pulls clean + a gated write-smoke passes; CATALOG → ✅.
 - **Docs.** SIEM-DESIGN (plan → built), CATALOG, ARCHITECTURE §3.
 
-### Wave 6 — Rules as code (finish the one bespoke surface)  *(next)*
+### Wave 6 — Rules as code (finish the one bespoke surface)  *(done — `rules-update`/`rules-deploy` + `rules` detections/errors/alerts/retrohunt; lifecycle write-smoke passed)*
 - **Goal.** Full rule lifecycle as code (rules stay bespoke: YARA-L source + a
   deployment state machine, not one canonical body).
 - **Scope.** Over the existing `rules_write`/`rule_exclusion`/`retrohunt`/`rule_results`
@@ -203,7 +203,7 @@ surface lives in [CATALOG.md](CATALOG.md).
 - **Exit.** Live read-validated + a gated write-smoke on a throwaway rule.
 - **Docs.** SIEM-DESIGN, CATALOG.
 
-### Wave 7 — SOAR completion
+### Wave 7 — SOAR completion  *(next)*
 - **Goal.** Close SOAR to full config-as-code.
 - **Scope.** Finish the remaining write-smokes + enable `--prune` where a clean
   delete-by-id exists; **ontology** raw lane (entity mappings/relations, export/import
