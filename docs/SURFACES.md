@@ -42,12 +42,13 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | custom rules (CRUD + revisions) | reconcile | ✅ | — |
-| rule deployments (enable/alerting/freq) | reconcile | ✅ | deployment `archived` field ⬜ (med) |
-| rule validation (`verifyRuleText`) | imperative | ✅ | `legacyRunTestRule` dry-run-against-data ⬜ (high) |
+| rule deployments (enable/alerting/freq/archived) | reconcile | ✅ | — (Wave 9 added `archived` + `ArchiveRule`) |
+| rule validation (`verifyRuleText`) + dry-run (`legacyRunTestRule`) | imperative | ✅ `RunTestRule` (Wave 9) | live-run validation pending approval |
 | detections / errors | operational | ✅ | `legacySearchCuratedDetections` ⬜ (med) |
 | retrohunts | imperative | ✅ | — |
 | rule exclusions (`findingsRefinements`) | reconcile | ✅ | — |
-| curated rule sets / categories / deployments | imperative | 🔨 list + per-deployment patch | `…:batchUpdate` deployments ⬜ (high) · `listCuratedRules`/`getCuratedRule` ⬜ (high) · single GETs ⬜ (low) |
+| curated rule sets / categories / deployments | imperative | ✅ list + per-deployment patch + `:batchUpdate` (Wave 9, write live-validated via unused-ruleset toggle) | single GETs ⬜ (low) |
+| curated rules (`curatedRules`) | operational (read) | ✅ list/get (Wave 9, `ti`-style read via `curated rules`) | — |
 
 ### Data, lists & ingestion
 | Family | Lane | Status | Gaps |
@@ -57,7 +58,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | feeds (+ service account) | reconcile | ✅ | `feedSourceTypeSchemas`/`logTypeSchemas` discovery ⬜ (med) · `importPushLogs` ⬜ (low) |
 | parsers / parser extensions | reconcile + imperative | ✅ | — |
 | log types | read | 🔨 list | `getLogTypeSetting`/`updateLogTypeSetting` ⬜ (med) · event-type suggestions ⬜ (low) |
-| forwarders / collectors | reconcile | ⬜ | full CRUD + collectors ⬜ (med) |
+| forwarders / collectors | reconcile | ✅ forwarder CRUD write-validated (Wave 12, throwaway create→update→delete); collectors list/get | reconcile-surface wiring ⬜; `feedSourceTypeSchemas`/`logTypeSetting` ⬜ (deferred) |
 | ingestion (`logs`/`events`/`entities:import`) | imperative | ✅ | — |
 
 ### Entities, Threat Intel & investigation
@@ -65,8 +66,8 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 |---|---|---|---|
 | entities (`:summarizeEntity`) | operational | ✅ | `:searchEntities` / `:findEntity*` graph RPCs ⬜ (med) |
 | IoC enterprise search (`legacySearchEnterpriseWideIoCs`) | operational | ✅ | — |
-| **Threat Intelligence** (`threatCollections`) | operational (read) | ⬜ | `list`/`get` ⬜ (high) · `fetchRelated`/`fetchEntityMetadata`/`fetchIocMatchMetadata` ⬜ (med) |
-| **IoCs** modern (`iocs`) | operational (read) | ⬜ | `:find` ⬜ (high) · `get`/`batchGet`/`fetchRelated` ⬜ (med) |
+| **Threat Intelligence** (`threatCollections`) | operational (read) | ✅ list/get (`chronicle/ti.go`, `ti collections`/`collection`) | `:fetchRelated`/`:fetchEntityMetadata`/`:fetchIocMatchMetadata` ⬜ (med) |
+| **IoCs** modern (`iocs`) | operational (read) | ✅ `FindIoCs` (typed `fieldAndValue` lookup) live-validated · `GetIoC`/`BatchGetIoCs` | `fetchRelated`/`getIocState`/`updateIocState` ⬜ |
 | `iocAssociations` | operational (read) | ⬜ | get/batchGet/fetchRelated ⬜ (low) |
 | UDM search (`:udmSearch`, `:translateUdmQuery`, `:validateQuery`, `:findUdmFieldValues`, NL) | operational | ✅ | — |
 | investigations | operational | ✅ | — |
@@ -83,14 +84,19 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | dashboards (native) | reconcile | ✅ | — |
-| **data-access labels** (`dataAccessLabels`) | reconcile | ⬜ | full CRUD ⬜ (high) |
-| **data-access scopes** (`dataAccessScopes`) | reconcile | ⬜ | full CRUD ⬜ (high) |
-| **risk config** (`:getRiskConfig`/`:updateRiskConfig`) | imperative | ⬜ | get/update ⬜ (high) |
+| **data-access labels** (`dataAccessLabels`) | reconcile | 🔨 SDK CRUD (Wave 10); list read-validated | reconcile-surface wiring + write validation ⬜ (no objects on tenant; write needs approval) |
+| **data-access scopes** (`dataAccessScopes`) | reconcile | 🔨 SDK CRUD (Wave 10); list read-validated | reconcile-surface wiring + write validation ⬜ |
+| **risk config** (`{instance}/riskConfig`) | imperative | ✅ `GetRiskConfig` live-validated (singleton sub-resource, returns defaults); `UpdateRiskConfig` built | path is the singleton `{instance}/riskConfig` (GET/PATCH), not a colon verb |
 | BigQuery export config | imperative | ⬜ | get/update ⬜ (low) |
-| Content Hub — featured content rules | read | ✅ | — |
-| **Content Hub — `marketplaceIntegrations`** | imperative | ⬜ | `list`/`get`/`install`/`uninstall` ⬜ (high) |
-| **Content Hub — `contentHub.contentPacks`** | imperative / raw | ⬜ | list/get/add/delete/deploy ⬜ (med) |
+| Content Hub — featured content rules | read | ✅ | — (this one IS on the chronicle ADC host) |
 | Content Hub — featured native dashboards | imperative | ⬜ | `list`/`install` ⬜ (med) |
+
+> **Content Hub is served on the SOAR host, not chronicle.googleapis.com.**
+> `marketplaceIntegrations` and `contentHub/contentPacks` answer on
+> `*.siemplify-soar.com` (AppKey) using the v1alpha resource format — the
+> chronicle ADC host returns HTTP 500 for them. So they live on the **SOAR-modern
+> plane** (`soar/marketplace.go`), see that table below — NOT the SIEM plane. (See
+> the CLAUDE.md rule on this.)
 | `instances.get` | read | ⬜ | (low) |
 
 > **`marketplaceIntegrations` is the durable twin of the legacy `/store` install
@@ -128,13 +134,16 @@ method when the legacy API has no equivalent (e.g. per-connector-definition dele
 |---|---|---|
 | integrations catalog (list/get/delete) | ✅ | `updateCustomIntegration`, `:export`/`:download` ⬜ (low) |
 | connector **definitions** (list/get/delete) | ✅ | create/patch ⬜ (med) |
-| connector **instances** (list/get/patch) | 🔨 | create/delete ⬜ (high) · `:runOnDemand` ⬜ (med) |
+| connector **instances** (list/get/patch + `:runOnDemand` Wave 14) | 🔨 | create/delete ⬜ |
 | job **definitions** (list) | 🔨 | get/create/patch/delete ⬜ (med) |
-| job **instances** (list/get/patch) | 🔨 | create/delete ⬜ (med) · `:runOnDemand` ⬜ (med) |
-| alert grouping rules (list/get/patch) | 🔨 | create/delete ⬜ (high) |
+| job **instances** (list/get/patch + `:runOnDemand` Wave 14) | 🔨 | create/delete ⬜ |
+| alert grouping rules (list/get/patch + create/delete Wave 14) | ✅ SDK lifecycle; list read-validated | live-write pending |
 | module settings | ✅ | — |
-| cases (list) | ⛔ | the rest is served on the legacy lane (v1alpha cases flaky) |
-| environments / soc-roles / custom-lists / case-definitions / data-access | ⬜ | served on legacy today; modern CRUD deferred until v1alpha stabilizes |
+| **Content Hub — `marketplaceIntegrations`** | ✅ list/get + install/uninstall (read-validated: 405 packs) | `soar/marketplace.go` — the durable twin of legacy `/store`, the only place uninstall exists |
+| **Content Hub — `contentHub/contentPacks`** | ✅ list (read-validated: 59 packs) | add/delete/deploy ⬜ |
+| cases (list) | ✅ **modern by default** (`soar case list`, auto-fallback to legacy; `--legacy` forces legacy) | verbs/writes stay legacy until modern verbs pass a write-smoke; `--status` filtered client-side on modern |
+| environments · socRoles · customLists · caseStage/Close/Tag/QueueDefinitions | ✅ modern read coverage (`soar/config_surfaces.go`, live-validated) | reconcile lane still runs on legacy (works); re-pointing it to v1alpha-with-fallback is optional/per-surface |
+| data-access (scopes/labels) | — | 404 on SOAR host — these are SIEM-plane (chronicle ADC host), see SIEM table |
 
 ---
 

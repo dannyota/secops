@@ -70,6 +70,15 @@ this plane is about the *operator model* and *safety*, not new API code.
 | **alerts** | `GetAlerts` (list) · `GetAlert` · `ListDetections` · `SearchRuleAlerts` | `UpdateAlert` · `BulkUpdateAlerts` (status / verdict / priority / reason / comment) | per-item + subset |
 | **cases** (one case; reliable path = SOAR AppKey `soar case`, see below) | `ListCases` / `SearchCases` · `GetCase` (Chronicle UUID API — same case, flaky) | `PatchCase` · `MergeCases` · `BulkClose/Assign/AddTag/ChangePriority/ChangeStage/Reopen` | per-item + subset |
 | **entities / IoCs** | `SummarizeEntity` · `ListIoCs` · `FetchAssociatedInvestigations` | — | enrichment — read-only |
+| **threat intel** | `ListThreatCollections` · `GetThreatCollection` (`ti collections`/`collection`) | — | Mandiant-sourced — **read-only** (no write path) |
+
+> **Threat Intelligence** (`threatCollections`) is a read-only operational surface:
+> the Google/Mandiant campaigns, reports, actors, malware and vulnerabilities the
+> tenant is matched against. The list takes a `collection_type:` filter
+> (campaign/report/…), an `orderBy`, and is `--limit`-capped; get is by short id
+> (e.g. `report--26-10031441`). It uses the regional host and the project **number**
+> in the resource name. There is no TI write path — custom intel is ingested as
+> normal logs + reference lists, and Applied-TI detections ship as curated rule sets.
 
 > **There is ONE case — two APIs reach it, not two case systems.** Google SecOps
 > = Chronicle (SIEM) + Siemplify (SOAR) merged, so a case is a **single record**

@@ -302,7 +302,23 @@ surfaces come after, behind clean-error-on-500 guards (Chronicle UUID operationa
 then SOAR v1alpha lifecycle), with the reliable lanes staying the default. Cross-cutting
 hardening, distribution, and automation close out.
 
-### Wave 8 — Threat Intelligence (SIEM read)
+### Live v1alpha surface status *(probed 2026-06-07; `soar/v1alpha_probe_test.go`, `chronicle/probe_live_test.go`)*
+
+What each modern v1alpha surface returns **right now**, by host. This drives the
+Wave 13 upgrade. "Works" = a live read returned 2xx (not yet a reliability
+guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
+
+| Surface | SIEM host (chronicle, ADC) | SOAR host (siemplify, AppKey) | Note |
+|---|---|---|---|
+| threatCollections · curatedRules · iocs:find · riskConfig · dataAccessLabels · dataAccessScopes · forwarders | ✅ works | (n/a) | SIEM-plane; iocs:find needs the `fieldAndValue` body, riskConfig is `{instance}/riskConfig` |
+| marketplaceIntegrations · contentHub/contentPacks | ⛔ **500** | ✅ works (405 / 59) | Content Hub is **SOAR-host**, not chronicle |
+| cases | (UUID API flaky) | ✅ works (69 KB) | upgrade candidate |
+| alertGroupingRules | (n/a) | ✅ works | already modern |
+| environments · socRoles · customLists · caseStage/Close/Tag/QueueDefinitions | (n/a) | ✅ works | on legacy reconcile lane today |
+| dataAccessLabels · dataAccessScopes | ✅ works | ⛔ 404 | SIEM-plane only |
+| playbooks · workflows | (n/a) | ⛔ 404 | legacy-only, no v1alpha |
+
+### Wave 8 — Threat Intelligence (SIEM read)  *(in progress — `threatCollections` list/get done + read-validated; `iocs:find` pending)*
 - **Goal.** Mandiant / Applied Threat Intelligence as code — read the campaigns,
   reports, actors, malware and IoCs the tenant is matched against. Read-only (TI is
   Google/Mandiant-sourced — there is no write path), so low-risk and high-signal —
@@ -313,7 +329,7 @@ hardening, distribution, and automation close out.
 - **Exit.** Live read round-trip on `threatCollections` + `iocs:find`; CATALOG ✅.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 9 — Curated-rules-as-code completion
+### Wave 9 — Curated-rules-as-code completion  *(reads validated; `batchUpdate` write live-validated via an unused-ruleset enable→disable toggle)*
 - **Goal.** Make curated (Google-managed) detections fully diff-and-push-able.
 - **Scope.** `curatedRuleSetDeployments:batchUpdate` (the atomic write primitive for
   a desired-state curated-deployment file); `listCuratedRules`/`getCuratedRule`;
@@ -323,7 +339,7 @@ hardening, distribution, and automation close out.
   read-validated; CATALOG ✅.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 10 — SIEM RBAC & data governance
+### Wave 10 — SIEM RBAC & data governance  *(SDK CRUD built — lists read-validated; data-access reconcile wiring + writes pending; `riskConfig` get live-validated (path corrected to `{instance}/riskConfig`))*
 - **Goal.** Manage access control as code — the highest-value SIEM config still
   missing.
 - **Scope.** `dataAccessLabels` + `dataAccessScopes` full CRUD on the reconcile
@@ -333,7 +349,7 @@ hardening, distribution, and automation close out.
   risk-config read/write validated.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 11 — Content Hub (SIEM modern)
+### Wave 11 — Content Hub (modern, **SOAR host**)  *(✅ read-validated — Content Hub is served on `*.siemplify-soar.com` (AppKey, v1alpha), NOT chronicle.googleapis.com; `marketplaceIntegrations` (405) + `contentHub/contentPacks` (59) live via `soar/marketplace.go`; install/uninstall built)*
 - **Goal.** Manage installable content on the durable SIEM-plane API — the twin of
   the legacy `/store` install path, and the only place an **uninstall** exists.
 - **Scope.** `marketplaceIntegrations` list/get/install/uninstall; `contentHub.
@@ -342,7 +358,7 @@ hardening, distribution, and automation close out.
 - **Exit.** Read-validated; a gated install→uninstall smoke on a throwaway pack.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 12 — SIEM ingestion completion
+### Wave 12 — SIEM ingestion completion  *(forwarder CRUD write-validated live; collectors read; reconcile wiring + schema-discovery/logTypeSetting deferred)*
 - **Goal.** Ingestion config-as-code beyond feeds/parsers.
 - **Scope.** `forwarders` + `forwarders.collectors` full CRUD (reconcile);
   `feedSourceTypeSchemas`/`logTypeSchemas` discovery (validate feed YAML before
@@ -351,13 +367,51 @@ hardening, distribution, and automation close out.
   drives feed validation.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 13 — Chronicle (UUID) operational API + remaining SIEM operational
+### Wave 13 — Make modern the default in the CLI; `--legacy` to force legacy *(in progress)*
+- **Goal.** `secopsctl` uses the **modern v1alpha API by DEFAULT** for each surface
+  that has been validated, auto-falling back to the reliable legacy AppKey path on
+  error; a **`--legacy` flag forces the legacy path only** (skip modern). **Keep both
+  SDK tiers** — legacy stays importable and is both the auto-fallback and the
+  `--legacy` target. Per the project policy in CLAUDE.md.
+- **Three phases, applied per surface (don't flip a surface's default until it
+  passes phase 1):**
+  1. **Validate** — a live modern read, and for writes a gated write-smoke on the
+     modern path. A single 200 is a *candidate*; a passing smoke *promotes* it.
+  2. **Flip default to modern** — the command calls modern first and **auto-falls
+     back to legacy** on transport error / 5xx (and 404 host-mismatch). Remove the
+     interim opt-in `--modern` flag (e.g. on `soar case list`) once modern is the
+     default — it becomes the standard behavior.
+  3. **`--legacy` escape hatch** — a **global persistent flag** (alongside `--json`)
+     that forces the legacy AppKey path only, skipping modern — for when v1alpha is
+     flaky, for parity checks, or to pin a known-good path. A shared
+     `preferModern(modernFn, legacyFn)` helper centralizes the try-modern /
+     fallback / `--legacy`-short-circuit logic so every surface behaves identically.
+- **Surfaces + state:**
+  - **cases** — modern read validated (interim `soar case list --modern`); flip to
+    default + honor `--legacy`. Case *verbs/writes* stay legacy until the modern
+    verbs pass a write-smoke (modern case verbs are the historically flaky ones).
+  - **Content Hub / alertGroupingRules / integrations / connectors / jobs** — no
+    legacy equivalent (or modern is already the path); default is modern already.
+  - **environments · socRoles · customLists · caseStage/Close/Tag/QueueDefinitions** —
+    modern reads validated; the reconcile lane still runs on legacy → flip to modern
+    with legacy fallback (optional / lower priority; legacy engine already works).
+- **Done so far:** the global **`--legacy`** flag + shared **`preferModern`** helper;
+  **`soar case list` flipped to modern-by-default** with legacy auto-fallback
+  (`--modern` opt-in removed; `--status` filtered client-side; live-validated incl.
+  `--legacy`); Content Hub CLI (`soar marketplace`); modern read coverage for the
+  config surfaces. **Remaining:** flip the config-surface reconcile lane (optional);
+  promote case verbs once their modern write-smoke passes.
+- **Exit.** Validated surfaces are modern-by-default with working legacy auto-fallback;
+  `--legacy` forces legacy everywhere; SURFACES tracks the per-surface default;
+  legacy SDK retained.
+- **Docs.** SURFACES (per-surface host/version/default), CATALOG, ARCHITECTURE §6/§7.
+
+### Wave 14 — Chronicle (UUID) operational API + remaining SIEM operational  *(modern cases reachable on the SOAR host (`soar case list`, v1alpha); the chronicle-host UUID cases collection 500s on all of v1/v1beta/v1alpha (confirmed) — flaky alternate, not needed. `watchlists list/get` CLI wired (v1, read-validated); `alerts` read remaining (needs a snapshot query))*
 - **Goal.** Reach cases/alerts/events through Chronicle's newer **UUID API** — the
   **same** cases the SOAR AppKey lane already operates, not a separate system —
   lighting it up if/when those endpoints stabilize, behind a clean-error-on-500
-  guard. Sequenced **late** (among the last feature waves) because its backend is the
-  flaky one; the reliable case path stays the SOAR AppKey lane. Also wire the
-  remaining SIEM operational surfaces.
+  guard. Reliability-gated; the reliable case path stays the SOAR AppKey lane. Also
+  wire the remaining SIEM operational surfaces.
 - **Scope.** `cases` act/bulk (v1beta, the UUID API onto the same case),
   `alerts list/get/update/bulk`, `stats`, `search nl`, `entity summarize`,
   `iocs list`; wire `watchlists`/`forwarders`/`log_pipelines` (SDK present);
@@ -372,7 +426,7 @@ hardening, distribution, and automation close out.
   validated or documented why not; mutations gated; 500s fail clean.
 - **Docs.** SIEM-DESIGN, ARCHITECTURE §6, CATALOG.
 
-### Wave 14 — SOAR v1alpha lifecycle *(reliability-gated)*
+### Wave 15 — SOAR v1alpha lifecycle *(reliability-gated)*  *(SDK built — alertGroupingRules create/delete + connector/job instance runOnDemand; live-write pending (v1alpha flaky), legacy lane stays default)*
 - **Goal.** Close the modern-SOAR lifecycle gaps the legacy lane can't cover — only
   where the legacy API has no equivalent, and only once the v1alpha endpoints stop
   500ing.
@@ -383,17 +437,21 @@ hardening, distribution, and automation close out.
   and the legacy path remains the documented default.
 - **Docs.** SOAR-DESIGN, SURFACES, ARCHITECTURE §6, CATALOG.
 
-### Wave 15 — Reliability & safety hardening
+### Wave 16 — Reliability & safety hardening
 - **Goal.** Production-grade trust.
-- **Scope.** Per-endpoint version-pinning audit (the §6 map kept current);
-  **drift-detection mode** (`pull` + diff + report, no push — a CI gate); etag/conflict
+- **Scope.** Per-endpoint version-pinning audit (the §6 map kept current) —
+  probe **every** surface across v1 > v1beta > v1alpha (`chronicle/version_probe_live_test.go`)
+  and re-pin each to the newest that works, **re-validating writes** on the new
+  version before flipping (the major existing surfaces — rules / reference_lists /
+  data_tables / feeds — already read OK on v1, but their write-smokes ran on v1alpha,
+  so re-validate then re-pin to v1); **drift-detection mode** (`pull` + diff + report, no push — a CI gate); etag/conflict
   everywhere; request-id surfaced on every error; pagination/`--as-list`; **config
   secret-at-rest** (Windows DPAPI / macOS Keychain / Linux libsecret) decrypted
   in-process, **with cross-OS tests**.
 - **Exit.** Secret-at-rest shipped + tested on 3 OSes; drift mode runnable in CI.
 - **Docs.** ARCHITECTURE, ROADMAP.
 
-### Wave 16 — Distribution & operability
+### Wave 17 — Distribution & operability
 - **Goal.** Easy to install and run anywhere.
 - **Scope.** CI (build/test/lint/`govulncheck`/`semgrep`); release binaries
   (goreleaser); `secopsctl version`; shell completions; man pages; `doctor`
@@ -401,7 +459,7 @@ hardening, distribution, and automation close out.
 - **Exit.** A tagged release with signed binaries; CI green on PRs.
 - **Docs.** README, ROADMAP.
 
-### Wave 17 — Automation & scheduling *(stretch)*
+### Wave 18 — Automation & scheduling *(stretch)*
 - **Goal.** Tenant-neutral scheduled automation scaffolding.
 - **Scope.** Generic scheduled runners (case-hygiene jobs); the LLM-driven automation
   notes in `tips/`; scheduled drift reports.

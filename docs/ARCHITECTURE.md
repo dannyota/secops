@@ -128,13 +128,16 @@ responding, change the const to the version that works and update this table.
 | Endpoint family | Version | Status | Notes |
 |---|---|---|---|
 | SIEM config + reads — rules · reference_lists · data_tables · feeds · parsers · dashboards · search · entity | `v1alpha` | ✅ | `DefaultAPIVersion`; doctor + pulls confirm |
-| Chronicle **cases** (UUID) API — get/list/patch/merge/bulk | `v1beta` | ⛔ | the **same case** as the SOAR AppKey row below, via Chronicle's newer API; v1 / v1alpha / v1beta all 500 or hang intermittently (server-side) — **not** the working case path. Operational case work uses the reliable SOAR AppKey row below; one case, two APIs |
+| Chronicle **cases** (UUID) API on the **chronicle host** — get/list/patch/merge/bulk | `v1beta` | ⛔ | the chronicle.googleapis.com cases collection **500s on all of v1/v1beta/v1alpha** (confirmed 2026-06-07, server-side) — not the working path. The **modern cases that DO work are on the SOAR host** (`soar.ListCases`, v1alpha — see `soar case list --modern`); operational case work uses the reliable SOAR AppKey lane. One case, multiple APIs |
 | SIEM legacy case reads — `legacy:legacyListCases` · `legacyBatchGetCases` | `v1alpha` | ⛔ | `legacyListCases` 404; `legacyBatchGetCases` is the SOAR-int ⇄ SIEM-uuid bridge |
 | SOAR legacy — `/api/external/v1/…` (**cases** · connectors · jobs · settings · playbooks bridge) | external `v1` · AppKey | ✅ | the reliable path — **incl. the working operational case lane** (`GetCaseCardsByRequest`, `GetCaseFullDetails` → alerts, `ExecuteBulkCloseCase`, `ChangeCasePriority`) |
-| SOAR modern — integrations · connectors · jobs · grouping | `v1alpha` | 🔨 | pull + patch; integration/connector-definition management |
-| SIEM Threat Intel — `threatCollections` · `iocs` · `iocAssociations` | `v1alpha` | ⬜ | planned read surface (Mandiant-sourced; read-only) |
-| SIEM Content Hub — `marketplaceIntegrations` · `contentHub.*` | `v1alpha` | ⬜ | SIEM-plane install/uninstall (durable twin of the legacy `/store` path) |
-| SIEM governance — `dataAccessLabels` · `dataAccessScopes` · `:getRiskConfig` | `v1alpha` | ⬜ | planned RBAC/data-governance reconcile |
+| SOAR modern — integrations · connectors · jobs · grouping · cases · Content Hub · environments · socRoles · customLists · case*Definitions | `v1alpha` only | 🔨 | **SOAR host serves v1alpha ONLY** — v1/v1beta 404 for every surface (probed 2026-06-07). The v1>v1beta>v1alpha preference is a **chronicle-host** concern; the SOAR host stays v1alpha |
+| SIEM Threat Intel — `threatCollections` · `iocs` | **`v1`** | ✅ | prefer v1>v1beta>v1alpha; all three answer → pinned v1 (`tiAPIVersion`). threatCollections uses project **number** |
+| SIEM operational — `watchlists` (read) | **`v1`** | ✅ | all three answer → pinned v1 (`watchlistsAPIVersion`); `watchlists list/get` CLI |
+| SIEM governance — `riskConfig` · `dataAccessLabels` · `dataAccessScopes` | **`v1`** | ✅ | all three versions answer → pinned v1 (`rbacAPIVersion`); riskConfig is `{instance}/riskConfig` |
+| SIEM ingestion — `forwarders` · `forwarders.collectors` | **`v1beta`** | ✅ | v1 **404s** → pinned v1beta (`forwardersAPIVersion`) |
+| SIEM detection — `curatedRules` | `v1alpha` | ✅ | v1/v1beta **404** → only v1alpha works |
+| **SOAR** Content Hub — `marketplaceIntegrations` · `contentHub.contentPacks` | `v1alpha` (SOAR host) | ✅ | served on `*.siemplify-soar.com` (AppKey), NOT chronicle (which 500s); `soar/marketplace.go` |
 
 Principle: **test → hard-code the working version per family → record it here.** No
 per-user version flag; the SDK ships the version that works, and this table tracks
