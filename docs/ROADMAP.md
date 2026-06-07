@@ -453,7 +453,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 `announcements`), deprecated legacy plumbing (`legacySdk`, `legacyPublisher`,
 `legacySystemMetadata`), and get-only diagnostics (`dataTableOperationErrors`).
 
-### Wave 16 — Case fields & logic as code *(SOAR/AppKey, full CRUD; high value)*
+### Wave 16 — Case fields & logic as code *(SOAR/AppKey, full CRUD; high value)*  *(done — `customFields`, `calculatedFieldDefinitions`, `propertySchemaDefinitions` wired with full CRUD (`soar/case_data_surfaces.go`, shared collection helpers); reads validated + create→get→delete **write-validated** by `TestLiveCaseDataWriteSmoke` (incl. the calc dependency chain: target Free-Text field → calc → teardown). Shapes from the v1alpha REST docs: customFields `scopes`="Case"/"Alert" (FREE_TEXT needs no options; "All" 500s); calc needs `calculationType=SET_VALUE`/`outputType=TEXT`/`targetField=CaseCustom.<field>`/`formulaExpression="…"`.)*
 - **Goal.** Bring case/alert customization under config-as-code on the reliable SOAR host.
 - **Scope.** `customFields` (case/alert custom-field **schemas** — type/scope/option
   values); `calculatedFieldDefinitions` (formula-driven **derived fields**:
