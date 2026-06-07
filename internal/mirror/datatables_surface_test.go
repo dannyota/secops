@@ -33,7 +33,7 @@ func sampleDataTable(t *testing.T) chronicle.DataTable {
 
 // liveObject reproduces what dataTableLiveObject builds (without a live client):
 // the canonical from the live spec plus the faithful Raw write-model.
-func liveObject(t *testing.T, tbl chronicle.DataTable, rows [][]string) (canon []byte, raw []byte) {
+func liveObject(t *testing.T, tbl chronicle.DataTable, rows [][]string) (canon, raw []byte) {
 	t.Helper()
 	c, err := canonicalDataTable(dataTableSpec{
 		DisplayName: tbl.DisplayName,

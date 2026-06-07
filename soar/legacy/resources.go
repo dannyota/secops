@@ -35,6 +35,6 @@ func (c *Client) ResourceGetCaseFullDetailsById(ctx context.Context, parentID st
 
 // ResourceGetEntityInsightsById returns the entity insights identified by
 // insightsId within the given case.
-func (c *Client) ResourceGetEntityInsightsById(ctx context.Context, caseID int, insightsID int) (RawJSON, error) {
+func (c *Client) ResourceGetEntityInsightsById(ctx context.Context, caseID, insightsID int) (RawJSON, error) {
 	return c.externalGet(ctx, "/resources/GetEntityInsightsById/"+strconv.Itoa(caseID)+"/"+strconv.Itoa(insightsID))
 }

@@ -39,8 +39,10 @@ func TestEmitCuratedRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"en=true", "al=false", "precise", "AWS - IAM",
-		"--category CAT --ruleset RS --precision precise", "1 deployment(s)"} {
+	for _, want := range []string{
+		"en=true", "al=false", "precise", "AWS - IAM",
+		"--category CAT --ruleset RS --precision precise", "1 deployment(s)",
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q in:\n%s", want, out)
 		}

@@ -101,7 +101,8 @@ func TestLiveConfigSurfaceWriteSmoke(t *testing.T) {
 	full := func(name string,
 		create func(context.Context, any) (json.RawMessage, error),
 		get func(context.Context, string) (json.RawMessage, error),
-		del func(context.Context, string) error, body map[string]any) {
+		del func(context.Context, string) error, body map[string]any,
+	) {
 		created, err := create(ctx, body)
 		if err != nil {
 			t.Errorf("[%s] create failed (no 500 expected): %v", name, err)

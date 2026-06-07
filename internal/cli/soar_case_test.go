@@ -53,22 +53,46 @@ func TestCaseVerbBodies(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{"assign", newCaseAssignCmd(), []string{"--id", "7", "--user", "analyst1"},
-			[]string{`"caseId": 7`, `"userId": "analyst1"`}},
-		{"rename", newCaseRenameCmd(), []string{"--id", "7", "--title", "renamed"},
-			[]string{`"caseId": 7`, `"title": "renamed"`}},
-		{"stage", newCaseStageCmd(), []string{"--id", "7", "--stage", "Triage"},
-			[]string{`"stage": "Triage"`}},
-		{"tag", newCaseTagCmd(false), []string{"--id", "5", "--tag", "phishing", "--alert", "A1"},
-			[]string{`"tag": "phishing"`, `"alertIdentifier": "A1"`}},
-		{"describe", newCaseDescribeCmd(), []string{"--id", "7", "--description", "d"},
-			[]string{`"description": "d"`}},
-		{"importance", newCaseImportanceCmd(), []string{"--id", "7", "--important=false"},
-			[]string{`"isImportant": false`}},
-		{"close", newCaseCloseCmd(), []string{"--id", "9", "--reason", "Malicious", "--root-cause", "RC", "--comment", "done"},
-			[]string{`"caseId": 9`, `"reason": "Malicious"`, `"rootCause": "RC"`, `"comment": "done"`}},
-		{"merge", newCaseMergeCmd(), []string{"--ids", "1,2", "--into", "3"},
-			[]string{`"casesIds"`, `"caseToMergeWith": 3`}},
+		{
+			"assign", newCaseAssignCmd(),
+			[]string{"--id", "7", "--user", "analyst1"},
+			[]string{`"caseId": 7`, `"userId": "analyst1"`},
+		},
+		{
+			"rename", newCaseRenameCmd(),
+			[]string{"--id", "7", "--title", "renamed"},
+			[]string{`"caseId": 7`, `"title": "renamed"`},
+		},
+		{
+			"stage", newCaseStageCmd(),
+			[]string{"--id", "7", "--stage", "Triage"},
+			[]string{`"stage": "Triage"`},
+		},
+		{
+			"tag", newCaseTagCmd(false),
+			[]string{"--id", "5", "--tag", "phishing", "--alert", "A1"},
+			[]string{`"tag": "phishing"`, `"alertIdentifier": "A1"`},
+		},
+		{
+			"describe", newCaseDescribeCmd(),
+			[]string{"--id", "7", "--description", "d"},
+			[]string{`"description": "d"`},
+		},
+		{
+			"importance", newCaseImportanceCmd(),
+			[]string{"--id", "7", "--important=false"},
+			[]string{`"isImportant": false`},
+		},
+		{
+			"close", newCaseCloseCmd(),
+			[]string{"--id", "9", "--reason", "Malicious", "--root-cause", "RC", "--comment", "done"},
+			[]string{`"caseId": 9`, `"reason": "Malicious"`, `"rootCause": "RC"`, `"comment": "done"`},
+		},
+		{
+			"merge", newCaseMergeCmd(),
+			[]string{"--ids", "1,2", "--into", "3"},
+			[]string{`"casesIds"`, `"caseToMergeWith": 3`},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -175,7 +175,7 @@ func (c *Client) caseDo(ctx context.Context, method, absURL string, body, out an
 
 // GetCase fetches a single case by id (UUID) or full resource name. expand
 // (e.g. "tags,products") may be empty.
-func (c *Client) GetCase(ctx context.Context, id string, expand string) (*Case, error) {
+func (c *Client) GetCase(ctx context.Context, id, expand string) (*Case, error) {
 	var opts []requestOption
 	if expand != "" {
 		opts = append(opts, withQuery(url.Values{"expand": {expand}}))
@@ -404,7 +404,7 @@ func (c *Client) bulkAction(ctx context.Context, method string, body any) error 
 }
 
 // BulkAddTag adds tags to multiple cases (cases:executeBulkAddTag).
-func (c *Client) BulkAddTag(ctx context.Context, caseIDs []string, tags []string) error {
+func (c *Client) BulkAddTag(ctx context.Context, caseIDs, tags []string) error {
 	body := struct {
 		CasesIDs []string `json:"casesIds"`
 		Tags     []string `json:"tags"`

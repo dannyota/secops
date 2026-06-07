@@ -137,12 +137,15 @@ func (c *Client) deleteInCollection(ctx context.Context, resource, id string) er
 func (c *Client) CreateEnvironment(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "environments", body)
 }
+
 func (c *Client) GetEnvironment(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "environments", id)
 }
+
 func (c *Client) UpdateEnvironment(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "environments", id, body, updateMask...)
 }
+
 func (c *Client) DeleteEnvironment(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "environments", id)
 }
@@ -151,12 +154,15 @@ func (c *Client) DeleteEnvironment(ctx context.Context, id string) error {
 func (c *Client) CreateSocRole(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "socRoles", body)
 }
+
 func (c *Client) GetSocRole(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "socRoles", id)
 }
+
 func (c *Client) UpdateSocRole(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "socRoles", id, body, updateMask...)
 }
+
 func (c *Client) DeleteSocRole(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "socRoles", id)
 }
@@ -165,12 +171,15 @@ func (c *Client) DeleteSocRole(ctx context.Context, id string) error {
 func (c *Client) CreateCustomList(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "customLists", body)
 }
+
 func (c *Client) GetCustomList(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "customLists", id)
 }
+
 func (c *Client) UpdateCustomList(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "customLists", id, body, updateMask...)
 }
+
 func (c *Client) DeleteCustomList(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "customLists", id)
 }
@@ -179,6 +188,7 @@ func (c *Client) DeleteCustomList(ctx context.Context, id string) error {
 func (c *Client) CreateCaseStageDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "caseStageDefinitions", body)
 }
+
 func (c *Client) DeleteCaseStageDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "caseStageDefinitions", id)
 }
@@ -187,6 +197,7 @@ func (c *Client) DeleteCaseStageDefinition(ctx context.Context, id string) error
 func (c *Client) CreateCaseCloseDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "caseCloseDefinitions", body)
 }
+
 func (c *Client) DeleteCaseCloseDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "caseCloseDefinitions", id)
 }
@@ -195,9 +206,11 @@ func (c *Client) DeleteCaseCloseDefinition(ctx context.Context, id string) error
 func (c *Client) CreateCaseTagDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "caseTagDefinitions", body)
 }
+
 func (c *Client) GetCaseTagDefinition(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "caseTagDefinitions", id)
 }
+
 func (c *Client) DeleteCaseTagDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "caseTagDefinitions", id)
 }

@@ -55,10 +55,15 @@ linters:
           - unparam
 
 formatters:
+  # `golangci-lint fmt ./...` applies these; CI's lint job verifies them.
   enable:
+    - gofumpt # stricter superset of gofmt — consistent, Google-leaning formatting
     - gofmt
     - goimports
   settings:
+    gofumpt:
+      extra-rules: true
     goimports:
+      # Import ordering: std, third-party, then this module last.
       local-prefixes:
         - danny.vn/secops

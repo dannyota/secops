@@ -215,7 +215,8 @@ type RawLogSearchPage struct {
 // want aggregations or manual paging are not forced through the accumulate-all
 // SearchRawLogs path.
 func (c *Client) SearchRawLogsPage(ctx context.Context, query string, logTypes []string, start, end time.Time,
-	pageSize, maxAggregationsPerField int, caseSensitive bool, snapshotQuery, pageToken string) (*RawLogSearchPage, error) {
+	pageSize, maxAggregationsPerField int, caseSensitive bool, snapshotQuery, pageToken string,
+) (*RawLogSearchPage, error) {
 	if query == "" {
 		return nil, fmt.Errorf("chronicle: SearchRawLogsPage requires a non-empty query")
 	}

@@ -100,8 +100,10 @@ func TestEmitSOARCaseCards(t *testing.T) {
 		t.Fatalf("emitSOARCaseCards: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"101", "Suspicious login", "High", "OPEN", "Triage", "analyst1",
-		"102", "Port scan", "Low", "CLOSED", "(of 7 total)"} {
+	for _, want := range []string{
+		"101", "Suspicious login", "High", "OPEN", "Triage", "analyst1",
+		"102", "Port scan", "Low", "CLOSED", "(of 7 total)",
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("table missing %q in:\n%s", want, out)
 		}
@@ -150,9 +152,11 @@ func TestEmitSOARCaseFull(t *testing.T) {
 		t.Fatalf("emitSOARCaseFull: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"Case 555", "Credential theft", "Critical", "OPEN", "Triage",
+	for _, want := range []string{
+		"Case 555", "Credential theft", "Critical", "OPEN", "Triage",
 		"analyst2", "Default Environment", "exfil attempt", "Alerts (2)",
-		"--alert ALERT-A", "Brute force", "High", "--alert ALERT-B", "Impossible travel"} {
+		"--alert ALERT-A", "Brute force", "High", "--alert ALERT-B", "Impossible travel",
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("detail view missing %q in:\n%s", want, out)
 		}

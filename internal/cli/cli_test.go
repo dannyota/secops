@@ -13,12 +13,18 @@ func TestUDMSummarySnakeCase(t *testing.T) {
 		event       string
 		when, etype string
 	}{
-		{"camel nested", `{"udm":{"metadata":{"eventTimestamp":"2026-01-01T00:00:00Z","eventType":"USER_LOGIN"}}}`,
-			"2026-01-01T00:00:00Z", "USER_LOGIN"},
-		{"snake nested", `{"udm":{"metadata":{"event_timestamp":"2026-02-02T00:00:00Z","event_type":"NETWORK_DNS"}}}`,
-			"2026-02-02T00:00:00Z", "NETWORK_DNS"},
-		{"snake top-level", `{"metadata":{"event_timestamp":"2026-03-03T00:00:00Z","event_type":"FILE_OPEN"}}`,
-			"2026-03-03T00:00:00Z", "FILE_OPEN"},
+		{
+			"camel nested", `{"udm":{"metadata":{"eventTimestamp":"2026-01-01T00:00:00Z","eventType":"USER_LOGIN"}}}`,
+			"2026-01-01T00:00:00Z", "USER_LOGIN",
+		},
+		{
+			"snake nested", `{"udm":{"metadata":{"event_timestamp":"2026-02-02T00:00:00Z","event_type":"NETWORK_DNS"}}}`,
+			"2026-02-02T00:00:00Z", "NETWORK_DNS",
+		},
+		{
+			"snake top-level", `{"metadata":{"event_timestamp":"2026-03-03T00:00:00Z","event_type":"FILE_OPEN"}}`,
+			"2026-03-03T00:00:00Z", "FILE_OPEN",
+		},
 		{"missing", `{"udm":{}}`, "?", "?"},
 	}
 	for _, tc := range cases {

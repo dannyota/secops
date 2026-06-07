@@ -26,15 +26,19 @@ import (
 func (c *Client) ListSlaDefinitions(ctx context.Context) ([]json.RawMessage, error) {
 	return c.listCollection(ctx, "slaDefinitions")
 }
+
 func (c *Client) CreateSlaDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "slaDefinitions", body)
 }
+
 func (c *Client) GetSlaDefinition(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "slaDefinitions", id)
 }
+
 func (c *Client) UpdateSlaDefinition(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "slaDefinitions", id, body, updateMask...)
 }
+
 func (c *Client) DeleteSlaDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "slaDefinitions", id)
 }
@@ -45,15 +49,19 @@ func (c *Client) DeleteSlaDefinition(ctx context.Context, id string) error {
 func (c *Client) ListSoarNetworks(ctx context.Context) ([]json.RawMessage, error) {
 	return c.listCollection(ctx, "soarNetworks")
 }
+
 func (c *Client) CreateSoarNetwork(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "soarNetworks", body)
 }
+
 func (c *Client) GetSoarNetwork(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "soarNetworks", id)
 }
+
 func (c *Client) UpdateSoarNetwork(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "soarNetworks", id, body, updateMask...)
 }
+
 func (c *Client) DeleteSoarNetwork(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "soarNetworks", id)
 }
@@ -67,12 +75,15 @@ func (c *Client) DeleteSoarNetwork(ctx context.Context, id string) error {
 func (c *Client) ListEntitiesBlocklists(ctx context.Context) ([]json.RawMessage, error) {
 	return c.listCollection(ctx, "entitiesBlocklists")
 }
+
 func (c *Client) CreateEntitiesBlocklist(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "entitiesBlocklists", body)
 }
+
 func (c *Client) GetEntitiesBlocklist(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "entitiesBlocklists", id)
 }
+
 func (c *Client) DeleteEntitiesBlocklist(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "entitiesBlocklists", id)
 }
