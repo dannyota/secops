@@ -140,6 +140,8 @@ responding, change the const to the version that works and update this table.
 | SIEM governance — `riskConfig` · `dataAccessLabels` · `dataAccessScopes` | **`v1`** | ✅ | all three versions answer → pinned v1 (`rbacAPIVersion`); riskConfig is `{instance}/riskConfig` |
 | SIEM ingestion — `forwarders` · `forwarders.collectors` | **`v1beta`** | ✅ | v1 **404s** → pinned v1beta (`forwardersAPIVersion`) |
 | SIEM detection — `curatedRules` | `v1alpha` | ✅ | v1/v1beta **404** → only v1alpha works |
+| SIEM analytics — `entityRiskScores` (query) · `investigations` (TIN, + steps/comments) | `v1alpha` | ✅ | ride `DefaultAPIVersion`; read-only (Gemini TIN; `:trigger` write gated) |
+| SIEM analytics — `bigQueryExport` (get) · `coverageDetails` (list, MITRE) | **`v1`** | ✅ | v1 + v1alpha answer → pinned v1 (`bigQueryExportAPIVersion` / `coverageAPIVersion`); reads (provision/update gated) |
 | **SOAR** Content Hub — `marketplaceIntegrations` · `contentHub.contentPacks` | `v1alpha` (SOAR host) | ✅ | served on `*.siemplify-soar.com` (AppKey), NOT chronicle (which 500s); `soar/marketplace.go` |
 
 Principle: **test → hard-code the working version per family → record it here.** No

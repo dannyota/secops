@@ -103,6 +103,8 @@ func TestChronicleAPIVersionsGolden(t *testing.T) {
 		"governance":      "v1",
 		"watchlists":      "v1",
 		"forwarders":      "v1beta",
+		"bigquery_export": "v1",
+		"coverage":        "v1",
 		// alternate, unused chronicle-host cases path (500s at every version)
 		"cases_chronicle_alt": "v1beta",
 	}

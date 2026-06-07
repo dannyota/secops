@@ -464,7 +464,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   as `[]`, the proven pattern).
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
-### Wave 17 — Flagship analytics & AI reads *(SIEM/ADC, read-mostly; high value)*
+### Wave 17 — Flagship analytics & AI reads *(SIEM/ADC, read-mostly; high value)*  *(done — `chronicle/analytics.go`: investigation **steps/comments** reads (atop the existing investigations list/get/trigger), `entityRiskScores:query`, `bigQueryExport` get, `coverageDetails` list (MITRE). Live-validated (`TestLiveAnalyticsRead`): investigations 250 / steps / entityRiskScores 301 / coverageDetails 5 answer; investigationComments (501) + bigQueryExport (400, not provisioned) are wired and return clean typed errors (Pre-GA / feature-gated). v1 pins for bigQueryExport + coverageDetails (`bigQueryExportAPIVersion`/`coverageAPIVersion`, golden + §6 updated); investigations/risk ride v1alpha. Writes (`:trigger`/`:provision`/`update`) intentionally not wired.)*
 - **Goal.** Surface SecOps' newest analytics + Gemini features as safe, committable reads.
 - **Scope.** `investigations` — the **Gemini Triage & Investigation Agent (TIN)**:
   read get/list/`investigationSteps`/`investigationComments`; the `:trigger` write

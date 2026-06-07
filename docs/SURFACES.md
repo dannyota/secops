@@ -101,7 +101,10 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | **data-access labels** (`dataAccessLabels`) | imperative | ✅ SDK CRUD; create→get→delete write-validated (self-cleaning smoke) | imperative, NOT reconcile: create→list lags + create-despite-error break diffing; CLI ⬜ |
 | **data-access scopes** (`dataAccessScopes`) | imperative | ✅ SDK CRUD; create→get→delete write-validated (throwaway unassigned scope) | imperative (same quirks as labels); CLI ⬜ |
 | **risk config** (`{instance}/riskConfig`) | imperative | ✅ `GetRiskConfig` + idempotent `UpdateRiskConfig` write-validated (singleton sub-resource) | path is the singleton `{instance}/riskConfig` (GET/PATCH), not a colon verb; CLI ⬜ |
-| BigQuery export config | imperative | ⬜ | get/update ⬜ (low) |
+| **BigQuery export** (`{instance}/bigQueryExport`) | imperative (read) | ✅ `GetBigQueryExport` wired (pinned **v1**); returns a clean typed error when not provisioned (Enterprise Plus / Pre-GA) | `provision`/`update` ⬜ (gated writes) |
+| **entity risk scores** (`entityRiskScores:query`) | operational (read) | ✅ `QueryEntityRiskScores` (filter/orderBy), read-validated (301) | behavioral risk (0–1000); v1alpha |
+| **investigations / TIN** (+ `investigationSteps`/`investigationComments`) | operational (read) | ✅ list/get/steps read-validated (250 / steps); `investigationComments` 501 on this tenant; trigger gated | the Gemini Triage & Investigation Agent; `chronicle/investigations.go` + `analytics.go` |
+| **coverage details** (`coverageDetails`) | operational (read) | ✅ `ListCoverageDetails` read-validated (MITRE ATT&CK per rule × threat-collection), pinned **v1** | the API view of "emerging threats" coverage |
 | Content Hub — featured content rules | read | ✅ | on the chronicle ADC host (distinct from the SOAR-host marketplace below) |
 | Content Hub — featured native dashboards | imperative | ⬜ | `list`/`install` ⬜ (med) |
 | `instances.get` | read | ⬜ | (low) |

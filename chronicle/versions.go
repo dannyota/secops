@@ -14,10 +14,12 @@ package chronicle
 // the two agree, and docs/ARCHITECTURE.md §6 mirrors it. When an endpoint moves,
 // change it HERE (and re-run the version probe).
 const (
-	tiAPIVersion         = "v1"     // threatCollections + modern IoCs (all three answer → newest)
-	rbacAPIVersion       = "v1"     // dataAccessLabels/Scopes + riskConfig (newest that answers)
-	watchlistsAPIVersion = "v1"     // entity watchlists, reads and writes (all three answer → newest)
-	forwardersAPIVersion = "v1beta" // forwarders + collectors (v1 404s)
+	tiAPIVersion             = "v1"     // threatCollections + modern IoCs (all three answer → newest)
+	rbacAPIVersion           = "v1"     // dataAccessLabels/Scopes + riskConfig (newest that answers)
+	watchlistsAPIVersion     = "v1"     // entity watchlists, reads and writes (all three answer → newest)
+	forwardersAPIVersion     = "v1beta" // forwarders + collectors (v1 404s)
+	bigQueryExportAPIVersion = "v1"     // Advanced BigQuery Export get/update (v1 + v1alpha answer → newest)
+	coverageAPIVersion       = "v1"     // MITRE coverageDetails list (v1 + v1alpha answer → newest)
 )
 
 // APIVersions maps every Chronicle-host surface family to the API version it is
@@ -37,10 +39,12 @@ var APIVersions = map[string]string{
 	"alerts":          DefaultAPIVersion,
 	"curated_rules":   DefaultAPIVersion, // v1alpha ONLY here (v1/v1beta 404)
 	// Pinned per surface (newest that answers).
-	"threat_intel": tiAPIVersion,
-	"governance":   rbacAPIVersion,
-	"watchlists":   watchlistsAPIVersion,
-	"forwarders":   forwardersAPIVersion,
+	"threat_intel":    tiAPIVersion,
+	"governance":      rbacAPIVersion,
+	"watchlists":      watchlistsAPIVersion,
+	"forwarders":      forwardersAPIVersion,
+	"bigquery_export": bigQueryExportAPIVersion,
+	"coverage":        coverageAPIVersion,
 	// Alternate, unused Chronicle-host cases path: 500s at every version, so the
 	// v1beta segment is not a working pin (see case.go). The working case path is
 	// on the SOAR host (soar.ListCases).
