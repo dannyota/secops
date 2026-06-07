@@ -33,6 +33,7 @@ var siemSurfaceDefs = []siemSurfaceDef{
 	{"scheduled_reports", scheduledReportsSurface},
 	{"datataps", dataTapsSurface},
 	{"error_notifications", errorNotificationsSurface},
+	{"federation_groups", federationGroupsSurface},
 }
 
 // SIEMSurfaceNames returns the engine-backed SIEM surface names, sorted.

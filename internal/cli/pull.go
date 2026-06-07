@@ -94,6 +94,13 @@ var pullOrder = []pullTarget{
 		}
 		return reconcile.Pull(baseContext(), s, out, os.Stdout)
 	}},
+	{"federation_groups", mirror.DirFederation, func(c *chronicle.Client, out, _ string) (int, error) {
+		s, ok := mirror.BuildSIEMSurface("federation_groups", c)
+		if !ok {
+			return 0, fmt.Errorf("federation_groups surface not registered")
+		}
+		return reconcile.Pull(baseContext(), s, out, os.Stdout)
+	}},
 }
 
 // targetByName indexes pullOrder for the explicit single-target dispatch.

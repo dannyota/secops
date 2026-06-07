@@ -103,6 +103,8 @@ func TestChronicleAPIVersionsGolden(t *testing.T) {
 		"datataps":            "v1alpha",
 		"error_notifications": "v1alpha",
 		"enrichment_controls": "v1alpha",
+		"federation_groups":   "v1alpha",
+		"tenants":             "v1alpha",
 		"curated_rules":       "v1alpha", // v1alpha ONLY (v1/v1beta 404)
 		"threat_intel":        "v1",
 		"governance":          "v1",

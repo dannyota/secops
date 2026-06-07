@@ -507,7 +507,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   Monitoring prerequisites documented.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 20 — MSSP & federation *(mixed plane; multi-tenant only)*
+### Wave 20 — MSSP & federation *(mixed plane; multi-tenant only)*  *(built — `federationGroups` (chronicle reconcile) + `tenants`/`multitenantDirectory` (chronicle reads, `chronicle/federation.go`); `idp-mappings` (`legacySoarIdpMappingGroups`) turned out to be a **two-host surface** — it 500s on the chronicle host but answers on the **SOAR host** (AppKey), so it was moved to the SOAR plane (`soar/idp_mappings.go`) and is **read-validated** there (3 groups + external providers). On this single-tenant instance `federationGroups`/`tenants` are 403 (feature/partner-gated); **multitenantDirectory is read-validated**. Writes (federation groups, IdP mappings) touch live access — built, gated, not live-written.)*
 - **Goal.** Multi-tenant / access-mapping config-as-code (meaningful only on
   MSSP / multi-tenant deployments).
 - **Scope.** `federationGroups` (group subtenant instances — SIEM/ADC, full CRUD);

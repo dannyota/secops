@@ -145,6 +145,12 @@ func buildSurfaceFamilies() []SurfaceFamily {
 		siemFamily("datataps", "datataps", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/datataps.go"),
 		siemFamily("error_notifications", "error_notifications", AreaSIEM, LaneReconcile, StatusBuilt, "chronicle/error_notifications.go"),
 		siemFamily("enrichment_controls", "enrichment_controls", AreaSIEM, LaneImperative, StatusBuilt, "chronicle/enrichment_controls.go"),
+		siemFamily("federation_groups", "federation_groups", AreaSIEM, LaneReconcile, StatusBuilt, "chronicle/federation.go"),
+		siemFamily("tenants", "tenants", AreaSIEM, LaneOperational, StatusBuilt, "chronicle/federation.go"),
+		// IdP mapping groups are a SOAR-host (AppKey) surface despite the docs filing
+		// them under the chronicle instance path — they 500 on chronicle, answer on
+		// siemplify-soar. So they live on the SOAR plane, not SIEM.
+		soarModern("idp-mappings", AreaSOAR, LaneImperative, StatusValidated, "soar/idp_mappings.go"),
 		siemFamily("curated_rules", "curated_rules", AreaSIEM, LaneImperative, StatusValidated, "chronicle/curated_rules.go"),
 		siemFamily("forwarders", "forwarders", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/forwarders.go"),
 		siemFamily("governance", "governance", AreaSIEM, LaneImperative, StatusBuilt, "chronicle/rbac.go"),

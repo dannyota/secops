@@ -76,6 +76,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | `dataTaps` (UDM → Pub/Sub) | reconcile | ✅ **write-validated** (`TestLiveReconcileDataTapWriteSmoke`, create→update→delete) | PATCH 501 → update = delete+recreate; supersedes the Backstory endpoint (same chronicle host); needs a Pub/Sub topic + publisher grant for a live tap |
 | `errorNotificationConfigs` | reconcile (full CRUD) | 🔨 surface wired + offline-tested; **feature-gated 403** | zero-ingest / size-threshold / normalization-delay → Cloud Monitoring channels |
 | `enrichmentControls` | imperative | 🔨 SDK wired + read-attempted; **feature-gated 403** | no patch (records accumulate) + `:disable` verb → imperative, not reconcile |
+| `federationGroups` · `tenants` · `multitenantDirectory` (MSSP) | reconcile · read | 🔨 federationGroups reconcile + tenants/directory reads; multitenantDirectory **read-validated**, federationGroups/tenants **403** on a single tenant | multi-tenant only; `chronicle/federation.go` |
 | ingestion (`logs`/`events`/`entities:import`) | imperative | ✅ | — |
 
 ### Entities, Threat Intel & investigation
@@ -182,6 +183,7 @@ stays on the legacy lane, which is reliable. So far that means:
 | `caseQueueFilters` | 🔨 read-confirmed live (siemplify-soar v1alpha) | the case-queue resource is `caseQueueFilters`, not `caseQueueDefinitions` (which 404s); SDK not built |
 | cases — **modern verbs** (`patch`/`merge`/`addTag`/`executeBulk*`/`pauseSla`…) | 🔨 documented on the `cases` collection; not yet write-validated | the 9 legacy mutate-verbs are the proven path; modern verbs need a gated write-smoke before flipping |
 | case data — `customFields` · `calculatedFieldDefinitions` · `propertySchemaDefinitions` | ✅ **full CRUD write-validated** (create→get→delete, `TestLiveCaseDataWriteSmoke`); `soar/case_data_surfaces.go` | customFields `scopes`="Case"/"Alert" (FREE_TEXT needs no options; "All" 500s); calc `SET_VALUE`/`TEXT`/`targetField=CaseCustom.<field>`/`formulaExpression="…"` and depends on a Free-Text custom field |
+| `legacySoarIdpMappingGroups` (IdP → roles/perms/envs) | ✅ **read-validated** (3 groups + external providers); full CRUD SDK in `soar/idp_mappings.go` | **two-host surface** — the docs file it under the chronicle instance path, but it **500s on chronicle**, answers on the SOAR host (AppKey). Writes touch live access |
 | data-access (scopes/labels) · **federationGroups** | — | **SIEM-plane** (chronicle ADC host): data-access 404s on SOAR; `federationGroups` carries no "migrated-SOAR" marker and 404s on the SOAR host → it lives on chronicle/ADC, see SIEM table |
 
 ---
