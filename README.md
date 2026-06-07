@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://secops.danny.vn"><img src="docs/assets/og.png" alt="secopsctl — operate Google SecOps as code" width="600"></a>
+<a href="https://secops.danny.vn"><img src="docs/assets/banner.png" alt="secopsctl — operate Google SecOps as code" width="600"></a>
 
 # secopsctl
 
