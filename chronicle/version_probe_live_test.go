@@ -19,8 +19,10 @@ func TestProbeVersions(t *testing.T) {
 	liveChronicle(t) // gate: skips unless SECOPS_SIEM_SMOKE=1 (+ ADC)
 	inst, _ := config.Load("")
 	mk := func(ver string) *chronicle.Client {
-		s := inst.Settings()
-		s.BaseURL = fmt.Sprintf("https://%s-chronicle.googleapis.com/%s", inst.Region, ver)
+		s := inst.Settings() // respects instance.yaml (force_ipv4, base_url, region…)
+		if i := strings.LastIndex(s.BaseURL, "/"); i >= 0 {
+			s.BaseURL = s.BaseURL[:i+1] + ver // swap only the version segment
+		}
 		cl, _ := chronicle.NewClient(s, auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4)))
 		return cl
 	}
