@@ -548,6 +548,22 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   notes in `tips/`; scheduled drift reports.
 - **Docs.** ROADMAP, `tips/`.
 
+### Wave 24 — Admin & settings management *(SOAR-legacy; raw-lane → typed)*
+- **Goal.** Promote useful settings/admin external-API ops — today reachable only via
+  the generic `soar legacy call` passthrough — to typed, guarded commands. These live
+  under `/api/external/v1` (AppKey) and are frequently **absent from the swagger**
+  (snapshot omits them), so each is confirmed against the real UI request before
+  wrapping.
+- **Scope.** **API-key lifecycle**: `settings/GetApiKeys` (list — **metadata only**:
+  name / permission-group / created / last-used; **no secret value**), create
+  (`GenerateApiKey` — the key value is returned **once on create**: display it, never
+  persist — House Rule 4), revoke/delete. Plus other config-as-code-shaped settings /
+  admin singletons surfaced the same way; skip any whose *list/read* payload carries a
+  secret. Each verb GET-read-safe or gated-on-write.
+- **Exit.** Typed read for api-key metadata; create/revoke gated; the create-time key
+  value is shown once and never written to disk/git.
+- **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
+
 ---
 
 ## Non-goals
