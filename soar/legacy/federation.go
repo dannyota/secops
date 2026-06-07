@@ -2,8 +2,7 @@
 //
 // Federation links a SOAR instance into a multi-platform topology: it enumerates
 // the federated platforms and surfaces their cases through the local instance.
-// These endpoints predate the modern federation model and are kept here until it
-// covers them.
+// This is the reliable external-API path for SOAR federation.
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage and writes take a freeform body (the caller supplies/decodes

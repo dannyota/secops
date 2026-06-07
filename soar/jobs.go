@@ -44,7 +44,7 @@ func jobInstancePath(integration, jobID, instanceID string) string {
 func (c *Client) ListJobInstances(ctx context.Context, integration, jobID string) ([]JobInstance, error) {
 	base := fmt.Sprintf("integrations/%s/jobs/%s/jobInstances", integration, jobID)
 	var all []JobInstance
-	err := transport.PaginateV1Alpha(50, func(token string) (string, error) {
+	err := transport.PaginateV1Alpha(listMaxPages, func(token string) (string, error) {
 		q := url.Values{}
 		if token != "" {
 			q.Set("pageToken", token)

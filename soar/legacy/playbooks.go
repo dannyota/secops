@@ -1,9 +1,11 @@
-// BRIDGE tier: SOAR playbooks via legacy operation names on the v1alpha host.
+// BRIDGE tier: SOAR playbooks on the SOAR-host v1alpha API (New-generation), via
+// legacy-named operations.
 //
-// These endpoints live under the v1alpha tenant path but carry the
-// legacyPlaybooks:legacy* operation names — a thin bridge over the not-yet-
-// native playbook surface. They are quarantined here so the whole bridge can be
-// deleted once native v1alpha playbook CRUD ships.
+// These endpoints live under the v1alpha tenant path (the siemplify domain, AppKey
+// — NOT the Siemplify external /api/external/v1 API) but carry the
+// legacyPlaybooks:legacy* operation names: a thin bridge over the not-yet-native
+// playbook surface, used until native v1alpha playbook CRUD ships. It lives in this
+// package only for proximity to the other playbook code.
 //
 // Playbook payloads are large, deeply nested, and freeform, so a Playbook is
 // just json.RawMessage. The only place we reach into the body is to coerce the

@@ -8,7 +8,7 @@ import (
 	"danny.vn/secops/soar/legacy"
 )
 
-// Wave-7 operational-config SOAR surfaces on the reliable legacy AppKey path:
+// Operational-config SOAR surfaces on the reliable legacy AppKey path:
 // connectors (ingestion sources) and jobs (scheduled automation) — the config the
 // modern v1alpha pull+patch covered only partially — plus form-dynamic-parameters
 // (close-case form fields). They ride the same reconcile engine + jsonSurface

@@ -4,8 +4,7 @@
 // Case overviews render a case's alerts, entities, and configurable widgets into
 // the templated layout shown in the SOAR case view; predefined widgets expose the
 // built-in case widget catalog. These endpoints back that view and the templates
-// that drive it. They predate the modern case model and are kept here until it
-// covers them.
+// that drive it. This is the reliable external-API path for case overviews.
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage and writes take a freeform body (the caller supplies/decodes

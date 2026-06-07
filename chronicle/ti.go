@@ -15,9 +15,7 @@ import (
 	"strings"
 )
 
-// tiAPIVersion pins Threat-Intel + modern-IoC calls to v1 (per v1>v1beta>v1alpha;
-// all three answer, so the newest is used).
-const tiAPIVersion = "v1"
+// tiAPIVersion (Threat-Intel + modern IoCs) is pinned in versions.go.
 
 // Threat-collection type tokens used in the `collection_type:` filter. The set is
 // open (the server may add more); these are the common ones.

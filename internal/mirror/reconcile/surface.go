@@ -18,7 +18,7 @@ func (p Product) String() string {
 	return "siem"
 }
 
-// Capabilities declares what one Lane-1 surface supports, so the engine can
+// Capabilities declares what one reconcile-lane surface supports, so the engine can
 // adapt the push semantics without inspecting payloads.
 type Capabilities struct {
 	// NoDelete: the surface has no delete operation. Live-only objects are always

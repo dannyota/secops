@@ -13,9 +13,7 @@ import (
 // project_id instance path. See resource.go for why the form is explicit per
 // endpoint.
 
-// watchlistsAPIVersion pins watchlist reads to v1 (all three answer → newest;
-// writes stay on the client default until re-validated on v1).
-const watchlistsAPIVersion = "v1"
+// watchlistsAPIVersion (entity watchlists, reads and writes) is pinned in versions.go.
 
 // Watchlist is a named set of entities whose risk scores are weighted by
 // MultiplyingFactor — used to elevate (or suppress) the risk of assets/users an
@@ -111,7 +109,7 @@ func (c *Client) CreateWatchlist(ctx context.Context, name, displayName, descrip
 		EntityPopulationMechanism: json.RawMessage(`{"manual":{}}`),
 	}
 	var w Watchlist
-	if err := c.post(ctx, c.resourcePath("watchlists", false), body, &w); err != nil {
+	if err := c.post(ctx, c.resourcePath("watchlists", false), body, &w, withVersion(watchlistsAPIVersion)); err != nil {
 		return nil, err
 	}
 	return &w, nil
@@ -188,7 +186,7 @@ func (c *Client) UpdateWatchlist(ctx context.Context, id string, upd WatchlistUp
 
 	q := url.Values{"updateMask": {strings.Join(mask, ",")}}
 	var w Watchlist
-	if err := c.patch(ctx, c.resourcePath("watchlists/"+id, false), body, &w, withQuery(q)); err != nil {
+	if err := c.patch(ctx, c.resourcePath("watchlists/"+id, false), body, &w, withQuery(q), withVersion(watchlistsAPIVersion)); err != nil {
 		return nil, err
 	}
 	return &w, nil
@@ -198,7 +196,7 @@ func (c *Client) UpdateWatchlist(ctx context.Context, id string, upd WatchlistUp
 // still assigned to the watchlist are deleted along with it; when false the API
 // rejects deletion of a non-empty watchlist.
 func (c *Client) DeleteWatchlist(ctx context.Context, id string, force bool) error {
-	var opts []requestOption
+	opts := []requestOption{withVersion(watchlistsAPIVersion)}
 	if force {
 		opts = append(opts, withQuery(url.Values{"force": {"true"}}))
 	}

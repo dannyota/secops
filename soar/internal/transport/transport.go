@@ -1,10 +1,9 @@
 // Package transport is the shared, durable HTTP plumbing for the Google SecOps
 // SOAR API.
 //
-// Both the modern v1alpha client (danny.vn/secops/soar) and the quarantined
-// legacy client (danny.vn/secops/soar/legacy) build on it, so the legacy
-// subpackage can be deleted wholesale without touching the modern code. SOAR
-// authenticates with the AppKey header — never ADC.
+// Both the modern v1alpha client (danny.vn/secops/soar) and the external-API
+// client (danny.vn/secops/soar/legacy) build on it. SOAR authenticates with the
+// AppKey header — never ADC.
 //
 // Two request styles share one transport:
 //
@@ -119,9 +118,10 @@ func Query(q url.Values) Option { return func(s *spec) { s.query = q } }
 // UpdateMask sets the updateMask query parameter (v1alpha PATCH sparse updates).
 func UpdateMask(fields ...string) Option { return func(s *spec) { s.updateMask = fields } }
 
-// Version overrides the API version for this request (e.g. "v1", "v1beta").
-// Default is APIVersion (v1alpha). Project policy is to prefer v1 > v1beta >
-// v1alpha per surface — pass the version validated for that surface.
+// Version overrides the API version for this request. The SOAR host serves
+// v1alpha ONLY (v1/v1beta 404), so this is rarely needed here — it exists for
+// symmetry with the transport's request options. The v1 > v1beta > v1alpha
+// version ladder is a chronicle-host concern, not a SOAR-host one.
 func Version(v string) Option { return func(s *spec) { s.version = v } }
 
 // V1Alpha executes a SOAR v1alpha-style request (default version v1alpha; override

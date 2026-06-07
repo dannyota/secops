@@ -15,7 +15,7 @@ import (
 // large page is sufficient; a multi-page read can be added if a tenant exceeds it.
 var allRecordsSelector = map[string]any{"searchTerm": "", "requestedPage": 0, "pageSize": 10000}
 
-// SOAR Lane-1 config surfaces: clean per-object CUD endpoints exposed as
+// SOAR reconcile-lane config surfaces: clean per-object CUD endpoints exposed as
 // config-as-code through the reconcile engine. The fan-out adds entries here —
 // each is one jsonSurfaceSpec, no bespoke puller. Batch upserts (AddOrUpdate*),
 // export/import bundles, and selector-only reads do NOT belong here; they are
@@ -41,7 +41,7 @@ var soarSurfaceDefs = []soarSurfaceDef{
 	{"blacklists", blacklistsSurface},
 	{"playbook-categories", playbookCategoriesSurface},
 	{"playbooks", playbooksSurface},
-	// Wave-7 operational config (defined in soar_operational_surfaces.go).
+	// Operational config surfaces (defined in soar_operational_surfaces.go).
 	{"connectors", connectorsSurface},
 	{"jobs", jobsSurface},
 }

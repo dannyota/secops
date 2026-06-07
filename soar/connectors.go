@@ -58,7 +58,7 @@ func connectorInstancePath(integration, connectorID, instanceID string) string {
 func (c *Client) ListConnectorInstances(ctx context.Context, integration, connectorID string) ([]ConnectorInstance, error) {
 	base := fmt.Sprintf("integrations/%s/connectors/%s/connectorInstances", integration, connectorID)
 	var all []ConnectorInstance
-	err := transport.PaginateV1Alpha(50, func(token string) (string, error) {
+	err := transport.PaginateV1Alpha(listMaxPages, func(token string) (string, error) {
 		q := url.Values{}
 		if token != "" {
 			q.Set("pageToken", token)

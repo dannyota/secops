@@ -4,8 +4,7 @@
 // Case chat is the per-case messaging thread: analysts post messages, pin and
 // unpin them, and exchange attachments. These endpoints read the thread (with
 // pagination and search), post new messages, toggle pins, and fetch attachment
-// bytes/previews. They predate the modern case API and are kept here until it
-// covers them.
+// bytes/previews. This is the reliable external-API path for case chat.
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage and writes take a freeform body (the caller supplies/decodes

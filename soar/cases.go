@@ -49,10 +49,9 @@ func (p *listCasesPage) records() []json.RawMessage {
 // DEVIATION: raw case JSON is returned because the v1alpha case schema is large
 // and still moving; typed accessors (see Case) can layer on later.
 func (c *Client) ListCases(ctx context.Context, pageSize int) ([]json.RawMessage, error) {
-	const maxPages = 50
 	var out []json.RawMessage
 
-	err := transport.PaginateV1Alpha(maxPages, func(token string) (string, error) {
+	err := transport.PaginateV1Alpha(listMaxPages, func(token string) (string, error) {
 		q := url.Values{}
 		if pageSize > 0 {
 			q.Set("pageSize", strconv.Itoa(pageSize))

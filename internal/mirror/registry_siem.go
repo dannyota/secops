@@ -11,7 +11,7 @@ import (
 	"danny.vn/secops/internal/mirror/reconcile"
 )
 
-// SIEM Lane-1 config surfaces: typed Chronicle resources exposed as
+// SIEM reconcile-lane config surfaces: typed Chronicle resources exposed as
 // config-as-code through the SAME reconcile engine the SOAR side uses — proving
 // the engine is product-neutral (it imports no SDK; the closures here do). The
 // fan-out adds data_tables / feeds / parsers here one at a time; rules stay

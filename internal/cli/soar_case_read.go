@@ -93,7 +93,7 @@ func newCaseListCmd() *cobra.Command {
 			if pageSize <= 0 {
 				pageSize = 100
 			}
-			return preferModern(
+			return preferModern("soar case list",
 				func() error { return runModernCaseList(pageSize, status, asJSON) },
 				func() error {
 					lc, err := newSOARLegacyClient()

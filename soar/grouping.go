@@ -14,10 +14,6 @@ import (
 	"danny.vn/secops/soar/internal/transport"
 )
 
-// groupingMaxPages caps {items,nextPageToken} pagination for grouping/setting
-// lists; tenants have at most a handful of pages of either.
-const groupingMaxPages = 50
-
 // AlertGroupingRule describes how inbound alerts are grouped into cases. Raw
 // retains the full server object for fields not modeled here.
 type AlertGroupingRule struct {
@@ -79,7 +75,7 @@ type moduleSettingPropertiesPage struct {
 // ListAlertGroupingRules returns every alert-grouping rule on the instance.
 func (c *Client) ListAlertGroupingRules(ctx context.Context) ([]AlertGroupingRule, error) {
 	var rules []AlertGroupingRule
-	err := transport.PaginateV1Alpha(groupingMaxPages, func(token string) (string, error) {
+	err := transport.PaginateV1Alpha(listMaxPages, func(token string) (string, error) {
 		var page alertGroupingRulesPage
 		if err := c.t.V1Alpha(ctx, "GET", "alertGroupingRules", nil, &page, pageTokenOpt(token)); err != nil {
 			return "", err
@@ -149,7 +145,7 @@ func (c *Client) GetModuleSettings(ctx context.Context, name string) (json.RawMe
 // settings. Every Value is a string regardless of its logical type.
 func (c *Client) ListModuleSettingProperties(ctx context.Context, name string) ([]ModuleSettingProperty, error) {
 	var props []ModuleSettingProperty
-	err := transport.PaginateV1Alpha(groupingMaxPages, func(token string) (string, error) {
+	err := transport.PaginateV1Alpha(listMaxPages, func(token string) (string, error) {
 		var page moduleSettingPropertiesPage
 		if err := c.t.V1Alpha(ctx, "GET", "moduleSettings/"+name+"/properties", nil, &page, pageTokenOpt(token)); err != nil {
 			return "", err

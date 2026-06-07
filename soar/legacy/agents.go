@@ -3,8 +3,7 @@
 // Agents are the remote execution nodes (and their publishers) that run
 // integrations, connectors, and jobs in a customer's own network. These
 // endpoints enumerate, configure, and deploy agents and the publishers that
-// distribute to them. They predate the modern v1alpha model and are kept here
-// until it covers them.
+// distribute to them. This is the reliable external-API path for SOAR agents.
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage and writes take a freeform body (the caller supplies/decodes

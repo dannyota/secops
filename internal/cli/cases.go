@@ -14,11 +14,12 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
-// The `cases` command is the SIEM operational plane: query and triage live cases
-// (SIEM cases are UUIDs — distinct from SOAR integer-id cases under `soar case`).
-// Reads are free; every mutation is a guarded production action (dry-run default,
-// --yes to apply), with bulk acting on a reviewed --ids set or a --filter that is
-// dry-run-first and --limit-capped. See docs/SIEM-DESIGN.md.
+// The `cases` command reaches a case on the Chronicle host by UUID (ADC). This is
+// the ALTERNATE path: the chronicle.googleapis.com cases collection currently
+// HTTP-500s at every API version, so for case work prefer `soar case` — the same
+// case on the SOAR host, where it works (modern v1alpha list + the reliable AppKey
+// verbs). Kept here as the typed alternate-path reader; reads are free. There is
+// one case reachable by several APIs, not two case systems. See docs/SIEM-DESIGN.md.
 
 func init() {
 	rootCmd.AddCommand(newCasesCmd())
@@ -27,9 +28,10 @@ func init() {
 func newCasesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cases <verb>",
-		Short: "Query and triage live SIEM cases (UUID-keyed; distinct from `soar case`)",
-		Long: "Operational SIEM case workflow: list/search/get to query, then act per-item\n" +
-			"or on a subset. Mutations are guarded (dry-run by default, --yes to apply).",
+		Short: "Read a case on the Chronicle host by UUID — alternate path; prefer `soar case`",
+		Long: "Reach a case on the Chronicle host (chronicle.googleapis.com, ADC) by UUID.\n" +
+			"This collection currently 500s at every API version, so for case work use\n" +
+			"`soar case` — the same case on the SOAR host, where it works. Reads only here.",
 	}
 	cmd.AddCommand(
 		newCasesListCmd(),
@@ -52,7 +54,7 @@ func newCasesListCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List cases (v1beta collection), newest-first by default",
+		Short: "List cases on the Chronicle host (alternate path; 500s today — prefer `soar case list`)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()
@@ -121,7 +123,7 @@ func newCasesSearchCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "search",
-		Short: "Legacy time-windowed case search (v1alpha); returns the raw page",
+		Short: "Time-windowed case search via the chronicle legacy: RPC (legacyListCases 404s today)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()

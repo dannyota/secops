@@ -13,16 +13,22 @@ import (
 	"time"
 )
 
-// Case operations mirror the official wrapper's chronicle/case.py. Every URL is
-// built from the string project_id (numeric=false), matching the wrapper, which
-// constructs instance_id from project_id for all of these endpoints.
+// Case operations here target the Chronicle-host UUID cases collection on
+// chronicle.googleapis.com (ADC). This is the ALTERNATE, currently-UNUSED path to
+// a case: the first-class cases collection (get / list / patch / merge and the
+// executeBulk* actions) HTTP-500s at every API version (v1/v1beta/v1alpha),
+// server-side. The WORKING path for case operations is the SOAR host — see
+// soar.ListCases (siemplify v1alpha) and the soar/legacy case verbs (the reliable
+// AppKey path). There is one case reachable by several APIs, not several case
+// systems; the SOAR-integer ⇄ SIEM-UUID link is exposed by legacy:legacyBatchGetCases
+// (BatchGetCases in legacy.go), the one Chronicle-host case read that does answer.
 //
-// The wrapper spreads cases across two API versions: the SOAR-era "legacy"
-// search/batch reads live under v1alpha, while the first-class cases collection
-// (get / list / patch / merge and the executeBulk* actions) lives under v1beta.
-// Our Client.baseURL is pinned to DefaultAPIVersion (v1alpha); caseURL below
-// rewrites the version segment per call so we can reach both without a second
-// client.
+// These methods are kept as the typed alternate-path surface (so an importer can
+// still reach the collection if the host revives it) and to host the working
+// batch-get bridge; do not reach for them as the case operating path.
+//
+// Every URL is built from the string project_id (numeric=false). caseURL rewrites
+// the version segment per call (the client base is pinned to DefaultAPIVersion).
 //
 // DEVIATION: a SIEM case id is a UUID, but the underlying SOAR APIs historically
 // keyed cases by integer id. The bulk/merge endpoints (executeBulk*, cases:merge)
@@ -30,14 +36,15 @@ import (
 // UUID form. We keep both as strings end-to-end so no precision is lost and the
 // caller passes whatever the instance hands back.
 
-// Case API versions, pinned per endpoint family. SecOps uses different versions
-// across v1 / v1alpha / v1beta and the new ones 500 intermittently, so each family
-// pins the version that currently works — not a global default, not a user knob.
-// When an endpoint moves, change the const and update the version map in
-// docs/ARCHITECTURE.md §6.
+// Case API version segments for the Chronicle-host cases collection. The
+// first-class collection (caseAPIVersion) 500s at every version today — v1beta is
+// only the path segment these alternate-path calls target, NOT a validated working
+// pin; the working case path is on the SOAR host (soar.ListCases). caseAPIVersionLegacy
+// carries the legacy: RPC reads (legacyBatchGetCases is the live SOAR⇄SIEM bridge;
+// legacyListCases 404s). See docs/ARCHITECTURE.md §6.
 const (
-	caseAPIVersionLegacy = "v1alpha" // legacy SOAR search / batch reads
-	caseAPIVersion       = "v1beta"  // first-class cases collection + bulk actions
+	caseAPIVersionLegacy = "v1alpha" // chronicle legacy: RPC reads (batchGet bridge works; listCases 404s)
+	caseAPIVersion       = "v1beta"  // first-class cases collection path segment — 500s at every version (unused alternate)
 )
 
 // CasePriority is a case priority level. Values mirror the wrapper's

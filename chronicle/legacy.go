@@ -1,4 +1,8 @@
-// Legacy SIEM endpoints — quarantined; remove when v1alpha equivalents land.
+// Chronicle "legacy:" RPC verbs. Despite the name, these are MODERN chronicle
+// v1alpha endpoints (New-generation, chronicle.googleapis.com / ADC) that merely
+// carry a "legacy" path segment — NOT the Siemplify external /api/external/v1
+// API (that capital-L Legacy generation lives in soar/legacy/). FindRawLogs and
+// BatchGetCases (the SOAR-int ⇄ SIEM-uuid case bridge) are the live verbs here.
 package chronicle
 
 import (

@@ -14,8 +14,7 @@ import (
 	"strings"
 )
 
-// forwardersAPIVersion pins forwarder/collector calls to v1beta (v1 404s here).
-const forwardersAPIVersion = "v1beta"
+// forwardersAPIVersion (forwarders + collectors) is pinned in versions.go.
 
 // ForwarderID returns the trailing id segment of the forwarder's resource name.
 func (f *Forwarder) ForwarderID() string { return lastSegment(f.Name) }

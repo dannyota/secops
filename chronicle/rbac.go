@@ -20,8 +20,7 @@ import (
 	"strings"
 )
 
-// rbacAPIVersion pins data-access + risk-config calls to v1 (newest that answers).
-const rbacAPIVersion = "v1"
+// rbacAPIVersion (data-access + risk-config) is pinned in versions.go.
 
 // DataAccessLabel tags data for access control (by UDM query / ingestion label).
 type DataAccessLabel struct {

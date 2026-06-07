@@ -3,8 +3,8 @@
 // Permission groups model role-based access in SOAR: each group bundles a set of
 // capabilities and, optionally, per-environment status. These endpoints list the
 // group cards/types, fetch and duplicate individual groups, and create, update,
-// or delete them. They predate the modern access-control model and are kept here
-// until it covers them.
+// or delete them. This is the reliable external-API path for SOAR access-control
+// groups.
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage and writes take a freeform body (the caller supplies/decodes

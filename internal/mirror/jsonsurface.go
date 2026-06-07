@@ -13,7 +13,7 @@ import (
 )
 
 // jsonSurface adapts a RawJSON per-object SOAR endpoint to a reconcile.Surface.
-// It is the cheap fan-out: a new Lane-1 SOAR surface = one jsonSurfaceSpec wired
+// It is the cheap fan-out: a new reconcile-lane SOAR surface = one jsonSurfaceSpec wired
 // to the legacy SDK methods, no bespoke puller. ONLY clean per-object surfaces
 // (stable id, read-shape round-trips to write-shape, delete-by-id) belong here;
 // batch upserts, export/import bundles, and selector-only reads do not.

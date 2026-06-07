@@ -1,10 +1,11 @@
 // LEGACY tier: the Siemplify external API (/api/external/v1) case surface.
 //
-// These endpoints predate the modern v1alpha alert/case model and are kept here
-// only until native v1alpha bulk-case endpoints ship. Every method here speaks
-// the offset-style external API via c.t.External and returns json.RawMessage for
-// the deeply-nested, schema-unstable case payloads (the caller decodes only the
-// fields it needs).
+// This is the broad, reliable case path — the SOAR case verbs and bulk operations
+// run on it, and it is the fallback when a modern v1alpha case call 500s. It stays
+// importable; it is not slated for removal. Every method here speaks the
+// offset-style external API via c.t.External and returns json.RawMessage for the
+// deeply-nested, schema-unstable case payloads (the caller decodes only the fields
+// it needs).
 //
 // DUAL CASE-ID GOTCHA: SOAR exposes two unrelated case identifiers. The modern
 // v1alpha surface uses the *alert/case resource name* (a string), while this

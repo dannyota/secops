@@ -1,8 +1,8 @@
 // LEGACY tier: the Siemplify external API (/api/external/v1) Reports surface.
 //
 // These endpoints manage advanced report templates, the widgets they contain,
-// and the schedules that generate and share them. They predate the modern
-// reporting model and are kept here until it covers them.
+// and the schedules that generate and share them. This is the reliable
+// external-API path for SOAR reporting.
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage and writes take a freeform body (the caller supplies/decodes

@@ -3,8 +3,8 @@
 // CommandCenter is the SOAR "War Room": the live-incident collaboration space
 // where responders coordinate around an incident — chat channels, facts,
 // decisions, assessments, tasks, severity scoring, and the generated incident
-// report. These endpoints all live under /warroom/ and predate the modern
-// case-collaboration model; they are kept here until it covers them.
+// report. These endpoints all live under /warroom/ — the reliable external-API
+// path for War Room collaboration.
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage and writes take a freeform body (the caller supplies/decodes

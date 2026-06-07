@@ -57,7 +57,10 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
 	var client *chronicle.Client
 	step("auth (OAuth)", func() (string, error) {
-		probe, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://chronicle.googleapis.com/", nil)
+		// A throwaway request object only to mint+attach the token (never sent);
+		// host is derived from the configured region, not hard-coded.
+		probeURL := fmt.Sprintf("https://%s-chronicle.googleapis.com/", inst.Region)
+		probe, _ := http.NewRequestWithContext(ctx, http.MethodGet, probeURL, nil)
 		if err := creds.Apply(probe); err != nil {
 			return "", err
 		}

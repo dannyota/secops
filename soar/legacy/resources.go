@@ -2,8 +2,7 @@
 //
 // These endpoints fetch shared "resource" artifacts by id — action results, full
 // case details, and entity insights — plus an audit-actions CSV export. They are
-// read-only GETs that predate the modern v1alpha resource model and are kept here
-// until it covers them.
+// read-only GETs — the reliable external-API path for these shared resources.
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage (the caller decodes only the fields it needs). All methods speak

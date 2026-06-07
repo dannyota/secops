@@ -4,8 +4,7 @@
 // widgets: the homepage case list/count plus the user-curated panels —
 // attachments, contacts, links, notes, and RSS feeds. Each panel is a small CRUD
 // surface (list-by-request, get/delete by integer id, create via POST, update via
-// PUT). They predate the modern v1alpha model and are kept here until it covers
-// them.
+// PUT). This is the reliable external-API path for the homepage widgets.
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage and writes take a freeform body (the caller supplies/decodes

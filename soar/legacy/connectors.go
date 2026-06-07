@@ -2,8 +2,10 @@
 //
 // Connectors are the ingestion sources that feed alerts into SOAR. These
 // endpoints manage connector *instances* (configured connectors) and expose the
-// connector *definitions* (templates) available in the tenant. They predate the
-// modern v1alpha connector model and are kept here until it covers them.
+// connector *definitions* (templates) available in the tenant. Connector
+// instances are operated config-as-code on this reliable external-API path (the
+// reconcile engine runs here); the modern v1alpha connector surface is used only
+// for what it adds (e.g. per-definition delete).
 //
 // Shapes are the deeply-nested, schema-unstable legacy payloads, so reads return
 // json.RawMessage and writes take a freeform body (the caller supplies/decodes
