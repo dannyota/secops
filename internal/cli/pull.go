@@ -80,6 +80,20 @@ var pullOrder = []pullTarget{
 		}
 		return reconcile.Pull(baseContext(), s, out, os.Stdout)
 	}},
+	{"datataps", mirror.DirDataTaps, func(c *chronicle.Client, out, _ string) (int, error) {
+		s, ok := mirror.BuildSIEMSurface("datataps", c)
+		if !ok {
+			return 0, fmt.Errorf("datataps surface not registered")
+		}
+		return reconcile.Pull(baseContext(), s, out, os.Stdout)
+	}},
+	{"error_notifications", mirror.DirErrorNotifs, func(c *chronicle.Client, out, _ string) (int, error) {
+		s, ok := mirror.BuildSIEMSurface("error_notifications", c)
+		if !ok {
+			return 0, fmt.Errorf("error_notifications surface not registered")
+		}
+		return reconcile.Pull(baseContext(), s, out, os.Stdout)
+	}},
 }
 
 // targetByName indexes pullOrder for the explicit single-target dispatch.

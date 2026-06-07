@@ -27,19 +27,22 @@ const (
 // docs/ARCHITECTURE.md §6.
 var APIVersions = map[string]string{
 	// Ride the v1alpha default (DefaultAPIVersion).
-	"rules":              DefaultAPIVersion,
-	"reference_lists":    DefaultAPIVersion,
-	"data_tables":        DefaultAPIVersion,
-	"feeds":              DefaultAPIVersion,
-	"parsers":            DefaultAPIVersion,
-	"dashboards":         DefaultAPIVersion,
-	"rule_exclusions":    DefaultAPIVersion,
-	"search":             DefaultAPIVersion,
-	"entities":           DefaultAPIVersion,
-	"alerts":             DefaultAPIVersion,
-	"metric_definitions": DefaultAPIVersion,
-	"scheduled_reports":  DefaultAPIVersion,
-	"curated_rules":      DefaultAPIVersion, // v1alpha ONLY here (v1/v1beta 404)
+	"rules":               DefaultAPIVersion,
+	"reference_lists":     DefaultAPIVersion,
+	"data_tables":         DefaultAPIVersion,
+	"feeds":               DefaultAPIVersion,
+	"parsers":             DefaultAPIVersion,
+	"dashboards":          DefaultAPIVersion,
+	"rule_exclusions":     DefaultAPIVersion,
+	"search":              DefaultAPIVersion,
+	"entities":            DefaultAPIVersion,
+	"alerts":              DefaultAPIVersion,
+	"metric_definitions":  DefaultAPIVersion,
+	"scheduled_reports":   DefaultAPIVersion,
+	"datataps":            DefaultAPIVersion,
+	"error_notifications": DefaultAPIVersion,
+	"enrichment_controls": DefaultAPIVersion,
+	"curated_rules":       DefaultAPIVersion, // v1alpha ONLY here (v1/v1beta 404)
 	// Pinned per surface (newest that answers).
 	"threat_intel":    tiAPIVersion,
 	"governance":      rbacAPIVersion,

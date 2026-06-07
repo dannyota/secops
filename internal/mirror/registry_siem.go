@@ -31,6 +31,8 @@ var siemSurfaceDefs = []siemSurfaceDef{
 	{"rule_exclusions", ruleExclusionsSurface},
 	{"metric_definitions", metricDefinitionsSurface},
 	{"scheduled_reports", scheduledReportsSurface},
+	{"datataps", dataTapsSurface},
+	{"error_notifications", errorNotificationsSurface},
 }
 
 // SIEMSurfaceNames returns the engine-backed SIEM surface names, sorted.

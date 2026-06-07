@@ -73,6 +73,9 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | forwarders / collectors | reconcile | ✅ **reconcile surface wired + engine write-smoke** (`TestLiveReconcileForwarderWriteSmoke`, create→update→delete); collectors list/get | per-collector CUD ⬜ (collectors are a nested resource) |
 | `metricDefinitions` (custom SOC metrics) | reconcile (additive) | 🔨 surface wired + offline-tested; **feature-gated 403 on the tenant** (not enabled/GA), so not live-validated | textDefinition is YARA-L 2.0, immutable; patch is state-only; no delete API |
 | `dashboardScheduledReports` | reconcile (full CRUD) | 🔨 surface wired + offline-tested; **reads live-validated** (list 200), create-report backend **500s** server-side | imperative `trigger`/`duplicate`/`fetchHistory` in the SDK; dashboard reduced to a `{name}` ref |
+| `dataTaps` (UDM → Pub/Sub) | reconcile | ✅ **write-validated** (`TestLiveReconcileDataTapWriteSmoke`, create→update→delete) | PATCH 501 → update = delete+recreate; supersedes the Backstory endpoint (same chronicle host); needs a Pub/Sub topic + publisher grant for a live tap |
+| `errorNotificationConfigs` | reconcile (full CRUD) | 🔨 surface wired + offline-tested; **feature-gated 403** | zero-ingest / size-threshold / normalization-delay → Cloud Monitoring channels |
+| `enrichmentControls` | imperative | 🔨 SDK wired + read-attempted; **feature-gated 403** | no patch (records accumulate) + `:disable` verb → imperative, not reconcile |
 | ingestion (`logs`/`events`/`entities:import`) | imperative | ✅ | — |
 
 ### Entities, Threat Intel & investigation

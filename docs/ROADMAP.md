@@ -491,15 +491,19 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   gated write-smokes.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 19 — Enrichment & ingestion governance *(SIEM)*
+### Wave 19 — Enrichment & ingestion governance *(SIEM)*  *(built — all three on the modern chronicle v1alpha host (the Backstory `dataTaps` endpoint is superseded — no separate client needed). **`dataTaps` is write-validated** (`TestLiveReconcileDataTapWriteSmoke`: create→update→delete on an inert tap); its PATCH is **501 UNIMPLEMENTED**, so the reconcile update is done as **delete-old + create-new** (`UpdateDataTap` kept for when PATCH lands). `errorNotificationConfigs` (reconcile, full CRUD) and `enrichmentControls` (imperative — no patch, accumulating records, `:disable` verb) are built + offline-tested but **feature-gated 403** on the tenant, so not live-validated. No tenant residue (checked create-despite-error).)*
 - **Goal.** Config-as-code for data-enrichment and ingestion-health.
-- **Scope.** `enrichmentControls` (enrichment on/off per log type / enrichment type —
-  stable **v1**, clean reconcile); `errorNotificationConfigs` (ingestion-health alerts:
-  zero-ingest / size-threshold / normalization-delay → Cloud Monitoring channels);
-  `dataTaps` (stream UDM events → Pub/Sub; full CRUD — **lives on the legacy Backstory
-  host** `backstory.googleapis.com`, so it needs its own client base URL + scope, not
-  the v1alpha instances path).
-- **Exit.** Reconcile + gated write-smokes; dataTaps behind its own client; Pub/Sub +
+- **Scope (as built).** `enrichmentControls` (turn off enrichment per log type /
+  enrichment type — **imperative**, not reconcile: no patch, a create appends a
+  time-ranged record, `:disable` closes the latest); `errorNotificationConfigs`
+  (ingestion-health alerts: zero-ingest / size-threshold / normalization-delay →
+  Cloud Monitoring channels — reconcile, full CRUD); `dataTaps` (stream UDM events →
+  Pub/Sub; full CRUD on the **modern chronicle v1alpha instances path** — the legacy
+  Backstory `backstory.googleapis.com/v1/dataTaps` endpoint is superseded, so **no
+  separate client/scope is needed**; PATCH is 501-unimplemented → update = delete +
+  recreate). All three ride `v1alpha` (re-probe `enrichmentControls`/`errorNotificationConfigs`
+  for a higher pin once the feature is enabled — both 403 on the validation tenant).
+- **Exit.** Reconcile + gated write-smokes (dataTaps write-validated); Pub/Sub +
   Monitoring prerequisites documented.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
