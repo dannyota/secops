@@ -433,7 +433,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   validated or documented why not; mutations gated; 500s fail clean.
 - **Docs.** SIEM-DESIGN, ARCHITECTURE §6, CATALOG.
 
-### Wave 15 — SOAR v1alpha lifecycle *(reliability-gated)*  *(SDK built — alertGroupingRules create/delete + connector/job instance runOnDemand; live-write pending (v1alpha flaky), legacy lane stays default)*
+### Wave 15 — SOAR v1alpha lifecycle *(reliability-gated)*  *(SDK built; reads live-validated — alertGroupingRules list/get, connector/job instances list/get round-trip (`TestLiveWave15LifecycleRead`). Live reads surfaced two decode bugs now fixed: alertGroupingRules `id` is a JSON number, and a connector instance's `parameters` is a descriptor array — both decode tolerant of the older shapes. Writes (create/delete + `:runOnDemand`) stay live-write pending: v1alpha is flaky and `:runOnDemand` has uncleanable side effects; the legacy lane stays the default.)*
 - **Goal.** Close the modern-SOAR lifecycle gaps the legacy lane can't cover — only
   where the legacy API has no equivalent, and only once the v1alpha endpoints stop
   500ing.

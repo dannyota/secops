@@ -8,6 +8,7 @@
 package soar
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 
@@ -18,14 +19,16 @@ import (
 // retains the full server object for fields not modeled here.
 type AlertGroupingRule struct {
 	Name         string          `json:"name,omitempty"`         // full resource name
-	ID           string          `json:"id,omitempty"`           // server identifier
+	ID           string          `json:"-"`                      // server id (numeric or string in the payload)
 	Category     string          `json:"category,omitempty"`     // rule category
 	GroupingType string          `json:"groupingType,omitempty"` // how alerts are coalesced
 	EntityType   []string        `json:"entityType,omitempty"`   // entity types the rule keys on
 	Raw          json.RawMessage `json:"-"`                      // full server payload
 }
 
-// UnmarshalJSON keeps the typed fields and the complete payload in sync.
+// UnmarshalJSON keeps the typed fields and the complete payload in sync. The
+// v1alpha payload returns id as a JSON number; an older shape used a string —
+// accept either and normalize to a string.
 func (r *AlertGroupingRule) UnmarshalJSON(data []byte) error {
 	type alias AlertGroupingRule
 	var a alias
@@ -33,6 +36,12 @@ func (r *AlertGroupingRule) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*r = AlertGroupingRule(a)
+	var idh struct {
+		ID json.RawMessage `json:"id"`
+	}
+	if json.Unmarshal(data, &idh) == nil && len(idh.ID) > 0 {
+		r.ID = string(bytes.Trim(idh.ID, `"`))
+	}
 	r.Raw = append(r.Raw[:0], data...)
 	return nil
 }

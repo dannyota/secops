@@ -9,6 +9,7 @@
 package soar
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,9 +18,31 @@ import (
 	"danny.vn/secops/soar/internal/transport"
 )
 
-// ConnectorInstance is a configured connector poller. Parameters is the flat
-// settings bag SOAR returns entirely as strings; Raw preserves the full server
-// payload (schema metadata, per-parameter descriptors) the typed fields omit.
+// ConnectorParameter is one connector-instance parameter. The live v1alpha
+// payload returns parameters as an array of these descriptors; Key() addresses a
+// parameter by DisplayName (live) or Name (older shape). Value is always a string
+// (secrets read back masked).
+type ConnectorParameter struct {
+	Name        string `json:"name,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
+	Value       string `json:"value"`
+	Type        string `json:"type,omitempty"`
+	Mode        string `json:"mode,omitempty"`
+	Mandatory   bool   `json:"mandatory,omitempty"`
+	Advanced    bool   `json:"advanced,omitempty"`
+}
+
+// Key returns the parameter's addressing key: DisplayName when set, else Name.
+func (p ConnectorParameter) Key() string {
+	if p.DisplayName != "" {
+		return p.DisplayName
+	}
+	return p.Name
+}
+
+// ConnectorInstance is a configured connector poller. Parameters is the ordered
+// list of parameter descriptors; Raw preserves the full server payload (schema
+// metadata, statistics) the typed fields omit.
 type ConnectorInstance struct {
 	Name        string `json:"name,omitempty"`
 	DisplayName string `json:"displayName,omitempty"`
@@ -27,16 +50,18 @@ type ConnectorInstance struct {
 	// enabled=false or intervalSeconds=0 must serialize the zero value, or the
 	// server (which reads the body field-by-field per updateMask) silently
 	// no-ops the change.
-	Enabled          bool              `json:"enabled"`
-	IntervalSeconds  int               `json:"intervalSeconds"`
-	Parameters       map[string]string `json:"parameters,omitempty"`
-	AllowList        []string          `json:"allowList,omitempty"`
-	ProductFieldName string            `json:"productFieldName,omitempty"`
-	EventFieldName   string            `json:"eventFieldName,omitempty"`
-	Raw              json.RawMessage   `json:"-"`
+	Enabled          bool                 `json:"enabled"`
+	IntervalSeconds  int                  `json:"intervalSeconds"`
+	Parameters       []ConnectorParameter `json:"-"` // decoded tolerantly (array or older map)
+	AllowList        []string             `json:"allowList,omitempty"`
+	ProductFieldName string               `json:"productFieldName,omitempty"`
+	EventFieldName   string               `json:"eventFieldName,omitempty"`
+	Raw              json.RawMessage      `json:"-"`
 }
 
-// UnmarshalJSON decodes the typed fields and retains the full payload in Raw.
+// UnmarshalJSON decodes the typed fields, parses parameters tolerant of both the
+// live array-of-descriptors and an older flat {name:value} map, and retains the
+// full payload in Raw.
 func (ci *ConnectorInstance) UnmarshalJSON(data []byte) error {
 	type alias ConnectorInstance
 	var a alias
@@ -44,7 +69,40 @@ func (ci *ConnectorInstance) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*ci = ConnectorInstance(a)
+	ci.Parameters = decodeConnectorParams(data)
 	ci.Raw = append(json.RawMessage(nil), data...)
+	return nil
+}
+
+// decodeConnectorParams reads the "parameters" field tolerant of both shapes: the
+// live array of descriptor objects, and an older flat {name:value} map.
+func decodeConnectorParams(data []byte) []ConnectorParameter {
+	var holder struct {
+		Params json.RawMessage `json:"parameters"`
+	}
+	if json.Unmarshal(data, &holder) != nil {
+		return nil
+	}
+	t := bytes.TrimSpace(holder.Params)
+	if len(t) == 0 {
+		return nil
+	}
+	switch t[0] {
+	case '[':
+		var arr []ConnectorParameter
+		if json.Unmarshal(t, &arr) == nil {
+			return arr
+		}
+	case '{':
+		var m map[string]string
+		if json.Unmarshal(t, &m) == nil {
+			out := make([]ConnectorParameter, 0, len(m))
+			for k, v := range m {
+				out = append(out, ConnectorParameter{Name: k, Value: v})
+			}
+			return out
+		}
+	}
 	return nil
 }
 
