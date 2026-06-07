@@ -271,13 +271,50 @@ func TestJSONSurfaceCreateRefusesExistingID(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf strings.Builder
-	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err != nil {
-		t.Fatal(err)
+	// The refused create is a failed mutation, so Push surfaces an error.
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, &buf); err == nil {
+		t.Fatal("expected Push to error on the refused create")
 	}
 	if got := f.objs["w1"]["name"]; got != "original" {
 		t.Errorf("create-collision overwrote the live object: name=%v", got)
 	}
 	if !strings.Contains(buf.String(), "already exists live") {
 		t.Errorf("expected a collision refusal, got:\n%s", buf.String())
+	}
+}
+
+// TestJSONSurfaceCreateResolvesNewNamesake: when a live object already shares the
+// new object's display name, the post-create re-resolve must bind to the NEWLY
+// created id (not the pre-existing namesake), so the operator's file gets its own
+// server id and a second push is a clean no-op.
+func TestJSONSurfaceCreateResolvesNewNamesake(t *testing.T) {
+	f := newFakeAPI()
+	// A pre-existing object that happens to share the display name we're creating.
+	f.objs["old"] = map[string]any{"identifier": "old", "name": "Dupe", "url": "http://old"}
+	s := fakeWebhookSurface(f)
+	dir := t.TempDir()
+	ctx := context.Background()
+
+	newPath := filepath.Join(dir, "dupe.json")
+	if err := os.WriteFile(newPath, []byte(`{"name":"Dupe","url":"http://new"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reconcile.Push(ctx, s, dir, reconcile.PushOpts{AssumeYes: true}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	// The file must have been bound to the new id, not "old".
+	id, _ := serverBlock(json.RawMessage(readFile(t, newPath)))
+	if id == "old" || id == "" {
+		t.Fatalf("create bound to the wrong id %q (should be the newly created object)", id)
+	}
+	// A second push must neither re-create nor update the file — proof it tracks
+	// the right live object. (The pre-existing namesake remains an orphan, which is
+	// a prune-only delete, so the plan itself is not Empty.)
+	plan, _, err := reconcile.BuildPlan(ctx, s, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(plan.Creates()) + len(plan.Updates()); n != 0 {
+		t.Errorf("second push should be clean, got creates=%d updates=%d", len(plan.Creates()), len(plan.Updates()))
 	}
 }

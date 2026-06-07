@@ -215,6 +215,14 @@ func feedsUpdate(c *chronicle.Client) func(context.Context, reconcile.Object, re
 		if err != nil {
 			return reconcile.Object{}, err
 		}
+		// Scalar markers are kept-from-live by the skip above, but a marker nested
+		// in an array survives the wholesale array replace — refuse rather than
+		// overwrite the live secret with the mask.
+		if reconcile.ContainsValue(merged, redactedMarker) {
+			return reconcile.Object{}, fmt.Errorf(
+				"refusing to update %q: merged body still contains a redaction marker (%s); supply the real secret before pushing",
+				local.Slug, redactedMarker)
+		}
 		spec, err := decodeFeedSpec(merged)
 		if err != nil {
 			return reconcile.Object{}, err

@@ -201,14 +201,30 @@ func (spec jsonSurfaceSpec) createObject(ctx context.Context, local reconcile.Ob
 			"refusing to create %q: body still contains a redaction marker (%s); supply the real value first",
 			local.Slug, redactedMarker)
 	}
+	name := jsonField(local.Canonical, spec.nameField)
+	// Snapshot the live collection ONCE: it serves the id-exists guard below AND
+	// records the ids that already carry this display name, so the post-create
+	// re-resolve can tell the new object apart from a pre-existing namesake.
+	before, err := spec.listItems(ctx)
+	if err != nil {
+		return reconcile.Object{}, err
+	}
 	// Guard against an upsert-keyed-by-id surface (e.g. connectors' SaveConnector):
 	// a file that still carries an existing live id is an UPDATE, not a create —
 	// creating it would overwrite that live object. Refuse and tell the operator.
 	if id := jsonField(local.Canonical, spec.idField); id != "" {
-		if exists, err := spec.idExistsLive(ctx, id); err == nil && exists {
-			return reconcile.Object{}, fmt.Errorf(
-				"refusing to create %q: %s %q already exists live — keep its _server block to update it, or assign a new %s",
-				local.Slug, spec.idField, id, spec.idField)
+		for _, it := range before {
+			if jsonField(it, spec.idField) == id {
+				return reconcile.Object{}, fmt.Errorf(
+					"refusing to create %q: %s %q already exists live — keep its _server block to update it, or assign a new %s",
+					local.Slug, spec.idField, id, spec.idField)
+			}
+		}
+	}
+	beforeNameIDs := map[string]bool{}
+	for _, it := range before {
+		if jsonField(it, spec.nameField) == name {
+			beforeNameIDs[jsonField(it, spec.idField)] = true
 		}
 	}
 	var body any
@@ -218,8 +234,9 @@ func (spec jsonSurfaceSpec) createObject(ctx context.Context, local reconcile.Ob
 	if _, err := spec.create(ctx, spec.wrap(body)); err != nil {
 		return reconcile.Object{}, err
 	}
-	// The create API may not echo a usable id; re-resolve by display name.
-	return spec.resolveByName(ctx, jsonField(local.Canonical, spec.nameField))
+	// The create API may not echo a usable id; re-resolve by display name,
+	// preferring the match whose id is new since the pre-create snapshot.
+	return spec.resolveNewByName(ctx, name, beforeNameIDs)
 }
 
 func (spec jsonSurfaceSpec) updateObject(ctx context.Context, local, live reconcile.Object) (reconcile.Object, error) {
@@ -229,6 +246,14 @@ func (spec jsonSurfaceSpec) updateObject(ctx context.Context, local, live reconc
 	})
 	if err != nil {
 		return reconcile.Object{}, err
+	}
+	// DeepMerge's scalar skip preserves live secrets for scalar fields, but an
+	// array replaces live wholesale, so a marker nested inside an array survives
+	// the merge. Refuse rather than overwrite the live secret with the mask.
+	if reconcile.ContainsValue(merged, redactedMarker) {
+		return reconcile.Object{}, fmt.Errorf(
+			"refusing to update %q: merged body still contains a redaction marker (%s) — likely a secret nested in an array; supply the real value before pushing",
+			local.Slug, redactedMarker)
 	}
 	var body any
 	if err := json.Unmarshal(merged, &body); err != nil {
@@ -260,49 +285,52 @@ func (spec jsonSurfaceSpec) wrap(body any) any {
 	return map[string]any{spec.wrapKey: body}
 }
 
-// idExistsLive reports whether any live object already has the given id.
-func (spec jsonSurfaceSpec) idExistsLive(ctx context.Context, id string) (bool, error) {
+// listItems lists the live collection and decodes it to per-object records.
+func (spec jsonSurfaceSpec) listItems(ctx context.Context) ([]json.RawMessage, error) {
 	raw, err := spec.list(ctx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	items, err := decodeRawList(raw)
-	if err != nil {
-		return false, err
-	}
-	for _, it := range items {
-		if jsonField(it, spec.idField) == id {
-			return true, nil
-		}
-	}
-	return false, nil
+	return decodeRawList(raw)
 }
 
-// resolveByName lists and returns the object whose nameField matches name,
-// fetching the full body when getOne is set. Used after a create to capture the
-// server-assigned id.
-func (spec jsonSurfaceSpec) resolveByName(ctx context.Context, name string) (reconcile.Object, error) {
-	raw, err := spec.list(ctx)
+// resolveNewByName re-lists after a create and returns the object whose nameField
+// matches name. When several share the name, it prefers the one whose id is NOT in
+// beforeNameIDs (the pre-create snapshot) — that is the object just created —
+// falling back to the first match if none look new (e.g. the id wasn't echoed).
+func (spec jsonSurfaceSpec) resolveNewByName(ctx context.Context, name string, beforeNameIDs map[string]bool) (reconcile.Object, error) {
+	items, err := spec.listItems(ctx)
 	if err != nil {
 		return reconcile.Object{}, err
 	}
-	items, err := decodeRawList(raw)
-	if err != nil {
-		return reconcile.Object{}, err
-	}
-	for _, it := range items {
+	var fallback *json.RawMessage
+	for i, it := range items {
 		if jsonField(it, spec.nameField) != name {
 			continue
 		}
-		full := it
-		if id := jsonField(it, spec.idField); spec.getOne != nil && id != "" {
-			if g, gerr := spec.getOne(ctx, id); gerr == nil {
-				full = g
-			}
+		if !beforeNameIDs[jsonField(it, spec.idField)] {
+			return spec.fetchAndBuild(ctx, it)
 		}
-		return spec.buildObject(full)
+		if fallback == nil {
+			fallback = &items[i]
+		}
+	}
+	if fallback != nil {
+		return spec.fetchAndBuild(ctx, *fallback)
 	}
 	return reconcile.Object{}, fmt.Errorf("%s: created %q not found on re-list", spec.name, name)
+}
+
+// fetchAndBuild resolves a list item to a full engine object, fetching the full
+// body by id when getOne is set (otherwise the list item is used as-is).
+func (spec jsonSurfaceSpec) fetchAndBuild(ctx context.Context, it json.RawMessage) (reconcile.Object, error) {
+	full := it
+	if id := jsonField(it, spec.idField); spec.getOne != nil && id != "" {
+		if g, gerr := spec.getOne(ctx, id); gerr == nil {
+			full = g
+		}
+	}
+	return spec.buildObject(full)
 }
 
 // decodeRawList accepts either a bare JSON array or an object wrapping the

@@ -141,6 +141,7 @@ type Summary struct {
 	Updated        int
 	Deleted        int
 	Unchanged      int
+	Failed         int
 	SkippedDeletes []PlanItem
 	SkipReason     string
 }
@@ -195,6 +196,7 @@ func Push(ctx context.Context, s Surface, dir string, opts PushOpts, w io.Writer
 		echo, cerr := s.Create(ctx, *it.Local)
 		if cerr != nil {
 			fmt.Fprintf(w, "  FAIL create %s: %v\n", it.Slug, cerr)
+			sum.Failed++
 			continue
 		}
 		refreshLocal(s, dir, it, echo, w)
@@ -209,6 +211,7 @@ func Push(ctx context.Context, s Surface, dir string, opts PushOpts, w io.Writer
 		echo, uerr := s.Update(ctx, *it.Local, *it.Live)
 		if uerr != nil {
 			fmt.Fprintf(w, "  FAIL update %s: %v\n", it.Slug, uerr)
+			sum.Failed++
 			continue
 		}
 		refreshLocal(s, dir, it, echo, w)
@@ -221,6 +224,7 @@ func Push(ctx context.Context, s Surface, dir string, opts PushOpts, w io.Writer
 		for _, it := range deletes {
 			if derr := s.Delete(ctx, *it.Live); derr != nil {
 				fmt.Fprintf(w, "  FAIL delete %s: %v\n", it.Slug, derr)
+				sum.Failed++
 				continue
 			}
 			sum.Deleted++
@@ -235,6 +239,11 @@ func Push(ctx context.Context, s Surface, dir string, opts PushOpts, w io.Writer
 		sum.Created, sum.Updated, sum.Deleted, sum.Unchanged)
 	if len(sum.SkippedDeletes) > 0 {
 		finalSummary(w, sum.SkippedDeletes, canPrune, reason)
+	}
+	if sum.Failed > 0 {
+		applied := sum.Created + sum.Updated + sum.Deleted
+		return sum, fmt.Errorf("%s push: %d mutation(s) failed (%d applied) — see FAIL lines above",
+			s.Name, sum.Failed, applied)
 	}
 	return sum, nil
 }
