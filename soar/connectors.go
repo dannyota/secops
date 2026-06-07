@@ -69,41 +69,49 @@ func (ci *ConnectorInstance) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*ci = ConnectorInstance(a)
-	ci.Parameters = decodeConnectorParams(data)
+	params, err := decodeConnectorParams(data)
+	if err != nil {
+		return err
+	}
+	ci.Parameters = params
 	ci.Raw = append(json.RawMessage(nil), data...)
 	return nil
 }
 
 // decodeConnectorParams reads the "parameters" field tolerant of both shapes: the
-// live array of descriptor objects, and an older flat {name:value} map.
-func decodeConnectorParams(data []byte) []ConnectorParameter {
+// live array of descriptor objects, and an older flat {name:value} map. A present
+// but unparseable value is an error, not a silently-empty parameter set (which
+// would drop the connector's config on the floor).
+func decodeConnectorParams(data []byte) ([]ConnectorParameter, error) {
 	var holder struct {
 		Params json.RawMessage `json:"parameters"`
 	}
-	if json.Unmarshal(data, &holder) != nil {
-		return nil
+	if err := json.Unmarshal(data, &holder); err != nil {
+		return nil, err
 	}
 	t := bytes.TrimSpace(holder.Params)
 	if len(t) == 0 {
-		return nil
+		return nil, nil
 	}
 	switch t[0] {
 	case '[':
 		var arr []ConnectorParameter
-		if json.Unmarshal(t, &arr) == nil {
-			return arr
+		if err := json.Unmarshal(t, &arr); err != nil {
+			return nil, fmt.Errorf("connector parameters (array form): %w", err)
 		}
+		return arr, nil
 	case '{':
 		var m map[string]string
-		if json.Unmarshal(t, &m) == nil {
-			out := make([]ConnectorParameter, 0, len(m))
-			for k, v := range m {
-				out = append(out, ConnectorParameter{Name: k, Value: v})
-			}
-			return out
+		if err := json.Unmarshal(t, &m); err != nil {
+			return nil, fmt.Errorf("connector parameters (map form): %w", err)
 		}
+		out := make([]ConnectorParameter, 0, len(m))
+		for k, v := range m {
+			out = append(out, ConnectorParameter{Name: k, Value: v})
+		}
+		return out, nil
 	}
-	return nil
+	return nil, fmt.Errorf("connector parameters: unexpected JSON %s", string(t))
 }
 
 func connectorInstancePath(integration, connectorID, instanceID string) string {

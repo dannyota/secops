@@ -19,7 +19,8 @@ import (
 
 // listCollection GETs a v1alpha collection by resource name, returning each record
 // raw. The list envelope keys its array under the resource name (the v1alpha
-// convention, e.g. {"socRoles":[…],"nextPageToken":…}); pagination is followed.
+// convention, e.g. {"socRoles":[…],"nextPageToken":…}), but some surfaces report
+// the generic "items" key instead, so both are accepted; pagination is followed.
 func (c *Client) listCollection(ctx context.Context, resource string) ([]json.RawMessage, error) {
 	var all []json.RawMessage
 	err := transport.PaginateV1Alpha(listMaxPages, func(token string) (string, error) {
@@ -27,7 +28,11 @@ func (c *Client) listCollection(ctx context.Context, resource string) ([]json.Ra
 		if err := c.t.V1Alpha(ctx, "GET", resource, nil, &env, pageTokenOpt(token)); err != nil {
 			return "", err
 		}
-		if items, ok := env[resource]; ok && len(items) > 0 {
+		items := env[resource]
+		if len(items) == 0 {
+			items = env["items"] // generic v1alpha collection-key fallback
+		}
+		if len(items) > 0 {
 			var page []json.RawMessage
 			if err := json.Unmarshal(items, &page); err != nil {
 				return "", err

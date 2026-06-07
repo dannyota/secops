@@ -283,6 +283,11 @@ func cloneOrNew(q url.Values) url.Values {
 
 // PaginateV1Alpha drives Google-style {items,nextPageToken} pagination: fetch is
 // called with the current page token ("" first) and returns the nextPageToken.
+//
+// maxPages is a safety backstop, not a "first N pages" feature: callers pass a
+// generous cap meaning "list everything". If the cap is hit while a non-empty
+// token remains, the listing is truncated, so an error is returned rather than
+// silently presenting a partial result as complete.
 func PaginateV1Alpha(maxPages int, fetch func(pageToken string) (next string, err error)) error {
 	token := ""
 	for range maxPages {
@@ -295,5 +300,5 @@ func PaginateV1Alpha(maxPages int, fetch func(pageToken string) (next string, er
 		}
 		token = next
 	}
-	return nil
+	return fmt.Errorf("transport: pagination stopped at the %d-page cap with more results remaining; narrow the query", maxPages)
 }

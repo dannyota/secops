@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"danny.vn/secops/soar/internal/transport"
 )
@@ -265,15 +264,10 @@ func playbookName(body json.RawMessage) (string, bool) {
 	return m.Name, true
 }
 
-// invalidNameChars are the characters SOAR rejects in a playbook display name.
-const invalidNameChars = ".()[]:/"
-
-// validatePlaybookName allows only letters, digits, space, hyphen, and
-// underscore. It explicitly rejects . ( ) [ ] : / which break the SOAR save.
+// validatePlaybookName allows only letters, digits, space, hyphen, and underscore
+// — the set SOAR accepts. Everything else (including . ( ) [ ] : / which break the
+// save) is rejected by the allowlist.
 func validatePlaybookName(name string) error {
-	if strings.ContainsAny(name, invalidNameChars) {
-		return fmt.Errorf("legacy: invalid playbook name %q: must not contain any of %q", name, invalidNameChars)
-	}
 	for _, r := range name {
 		switch {
 		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':

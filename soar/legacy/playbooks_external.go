@@ -10,6 +10,7 @@ package legacy
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 )
 
 // ListEnabledPlaybooks returns the enabled playbook "WF cards" (the lightweight
@@ -31,7 +32,7 @@ func (c *Client) ListEnabledPlaybooks(ctx context.Context) (json.RawMessage, err
 // GET /playbooks/ExportWorkflowWithBlocksByIdentifier/<identifier>.
 func (c *Client) ExportPlaybook(ctx context.Context, identifier string) (json.RawMessage, error) {
 	var out json.RawMessage
-	if err := c.t.External(ctx, "GET", "/playbooks/ExportWorkflowWithBlocksByIdentifier/"+identifier, nil, &out); err != nil {
+	if err := c.t.External(ctx, "GET", "/playbooks/ExportWorkflowWithBlocksByIdentifier/"+url.PathEscape(identifier), nil, &out); err != nil {
 		return nil, err
 	}
 	return out, nil

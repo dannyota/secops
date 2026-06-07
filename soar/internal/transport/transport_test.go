@@ -81,3 +81,38 @@ func TestIdempotentMethod(t *testing.T) {
 		}
 	}
 }
+
+// TestPaginateV1AlphaTruncation: when the page cap is hit while a token remains,
+// the listing is truncated, so PaginateV1Alpha returns an error rather than
+// silently presenting a partial result as complete. A run that drains the token
+// before the cap returns nil.
+func TestPaginateV1AlphaTruncation(t *testing.T) {
+	// Always returns a non-empty token → never drains within the cap.
+	calls := 0
+	err := PaginateV1Alpha(3, func(string) (string, error) {
+		calls++
+		return "more", nil
+	})
+	if err == nil {
+		t.Error("expected a truncation error when the page cap is exhausted with a token remaining")
+	}
+	if calls != 3 {
+		t.Errorf("fetched %d pages, want exactly the 3-page cap", calls)
+	}
+
+	// Drains on the 2nd page → completes cleanly.
+	calls = 0
+	err = PaginateV1Alpha(5, func(string) (string, error) {
+		calls++
+		if calls == 2 {
+			return "", nil
+		}
+		return "more", nil
+	})
+	if err != nil {
+		t.Errorf("unexpected error on a complete listing: %v", err)
+	}
+	if calls != 2 {
+		t.Errorf("fetched %d pages, want 2 (stopped when the token drained)", calls)
+	}
+}
