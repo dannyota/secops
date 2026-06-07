@@ -108,3 +108,12 @@ func (c *Client) EnableRule(ctx context.Context, ruleID string, enabled bool) (*
 func (c *Client) SetRuleAlerting(ctx context.Context, ruleID string, alerting bool) (*RuleDeployment, error) {
 	return c.UpdateRuleDeployment(ctx, ruleID, RuleDeploymentUpdate{Alerting: &alerting})
 }
+
+// ArchiveRule archives (archived=true) or unarchives (archived=false) a rule's
+// deployment. The server rejects `archived` combined with any other field
+// ("cannot set archived to true if any other update_mask fields are set") and
+// disables the rule on archive itself, so this sends `archived` ALONE.
+// Convenience over UpdateRuleDeployment.
+func (c *Client) ArchiveRule(ctx context.Context, ruleID string, archived bool) (*RuleDeployment, error) {
+	return c.UpdateRuleDeployment(ctx, ruleID, RuleDeploymentUpdate{Archived: &archived})
+}

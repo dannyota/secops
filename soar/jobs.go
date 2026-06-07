@@ -112,6 +112,18 @@ func (c *Client) UpdateJobInstance(ctx context.Context, integration, jobID, inst
 	return decodeJobInstance(raw)
 }
 
+// RunJobInstanceOnDemand runs a scheduled job instance immediately rather than
+// waiting for its cron — mirrors RunConnectorInstanceOnDemand. LIVE MUTATION.
+// (Modern SOAR v1alpha — may 500 intermittently.)
+func (c *Client) RunJobInstanceOnDemand(ctx context.Context, integration, jobID, instanceID string) (json.RawMessage, error) {
+	var out json.RawMessage
+	res := jobInstancePath(integration, jobID, instanceID) + ":runOnDemand"
+	if err := c.t.V1Alpha(ctx, http.MethodPost, res, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // decodeJobInstance unmarshals a server payload into a JobInstance, retaining
 // the original JSON in Raw.
 func decodeJobInstance(raw json.RawMessage) (*JobInstance, error) {

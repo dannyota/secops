@@ -124,3 +124,16 @@ func (c *Client) FetchLatestConnectorDefinition(ctx context.Context, integration
 	}
 	return out, nil
 }
+
+// RunConnectorInstanceOnDemand triggers a configured connector to poll now,
+// rather than waiting for its schedule — the operational complement to the
+// list/get/patch instance ops (e.g. to validate a connector change after a push).
+// LIVE MUTATION. (Modern SOAR v1alpha — may 500 intermittently.)
+func (c *Client) RunConnectorInstanceOnDemand(ctx context.Context, integration, connectorID, instanceID string) (json.RawMessage, error) {
+	var out json.RawMessage
+	resource := connectorInstancePath(integration, connectorID, instanceID) + ":runOnDemand"
+	if err := c.t.V1Alpha(ctx, "POST", resource, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

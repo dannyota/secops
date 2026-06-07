@@ -98,15 +98,16 @@ func New(s Settings, creds auth.Credentials, httpClient *http.Client) *Transport
 // Settings returns a copy of the instance settings.
 func (t *Transport) SettingsCopy() Settings { return t.settings }
 
-// instancePath is the v1alpha tenant resource prefix.
-func (t *Transport) instancePath() string {
+// instancePath is the tenant resource prefix at the given API version.
+func (t *Transport) instancePath(version string) string {
 	return fmt.Sprintf("/%s/projects/%s/locations/%s/instances/%s",
-		APIVersion, t.settings.ProjectNumber, t.settings.Region, t.settings.CustomerID)
+		version, t.settings.ProjectNumber, t.settings.Region, t.settings.CustomerID)
 }
 
 type spec struct {
 	query      url.Values
 	updateMask []string
+	version    string
 }
 
 // Option customizes a single request.
@@ -118,19 +119,29 @@ func Query(q url.Values) Option { return func(s *spec) { s.query = q } }
 // UpdateMask sets the updateMask query parameter (v1alpha PATCH sparse updates).
 func UpdateMask(fields ...string) Option { return func(s *spec) { s.updateMask = fields } }
 
-// V1Alpha executes a v1alpha SOAR request. resource is appended to the instance
-// path (leading slash optional). format=camel and the x-goog-api-version header
-// are always set; updateMask is added when provided. body (if non-nil) is JSON
-// marshaled; out (if non-nil) is JSON decoded.
+// Version overrides the API version for this request (e.g. "v1", "v1beta").
+// Default is APIVersion (v1alpha). Project policy is to prefer v1 > v1beta >
+// v1alpha per surface — pass the version validated for that surface.
+func Version(v string) Option { return func(s *spec) { s.version = v } }
+
+// V1Alpha executes a SOAR v1alpha-style request (default version v1alpha; override
+// with Version()). resource is appended to the instance path (leading slash
+// optional). format=camel and the x-goog-api-version header are always set;
+// updateMask is added when provided. body (if non-nil) is JSON marshaled; out (if
+// non-nil) is JSON decoded.
 func (t *Transport) V1Alpha(ctx context.Context, method, resource string, body, out any, opts ...Option) error {
 	sp := apply(opts)
+	version := sp.version
+	if version == "" {
+		version = APIVersion
+	}
 	q := cloneOrNew(sp.query)
 	q.Set("format", "camel")
 	if len(sp.updateMask) > 0 {
 		q.Set("updateMask", strings.Join(sp.updateMask, ","))
 	}
-	full := t.base + t.instancePath() + "/" + strings.TrimLeft(resource, "/") + "?" + q.Encode()
-	return t.do(ctx, method, full, body, out, map[string]string{"x-goog-api-version": APIVersion})
+	full := t.base + t.instancePath(version) + "/" + strings.TrimLeft(resource, "/") + "?" + q.Encode()
+	return t.do(ctx, method, full, body, out, map[string]string{"x-goog-api-version": version})
 }
 
 // External executes a legacy Siemplify external-API request. path is appended to

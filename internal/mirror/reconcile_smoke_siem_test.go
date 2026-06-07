@@ -348,6 +348,19 @@ func TestLiveRulesLifecycleWriteSmoke(t *testing.T) {
 		t.Errorf("deploy did not disable the rule (still enabled)")
 	}
 
+	// Archive then unarchive the deployment (Wave 9 archived field). Archiving
+	// implies disabling; unarchive leaves it disabled.
+	if dep, err := c.ArchiveRule(ctx, ruleID, true); err != nil {
+		t.Fatalf("archive: %v", err)
+	} else if !dep.Archived {
+		t.Errorf("archive did not set archived=true")
+	}
+	if dep, err := c.ArchiveRule(ctx, ruleID, false); err != nil {
+		t.Fatalf("unarchive: %v", err)
+	} else if dep.Archived {
+		t.Errorf("unarchive did not clear archived")
+	}
+
 	// Delete + confirm gone.
 	if err := c.DeleteRule(ctx, ruleID, true); err != nil {
 		t.Fatalf("delete: %v", err)

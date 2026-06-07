@@ -117,6 +117,24 @@ func (c *Client) UpdateAlertGroupingRule(ctx context.Context, id string, body an
 	return &rule, nil
 }
 
+// CreateAlertGroupingRule creates an alert-grouping rule from body (the new rule
+// as a struct or map). Completes the rule lifecycle (list/get/patch/delete) so a
+// new rule can be pushed from git rather than hand-created in the UI first.
+// LIVE MUTATION. (Modern SOAR v1alpha — may 500 intermittently.)
+func (c *Client) CreateAlertGroupingRule(ctx context.Context, body any) (*AlertGroupingRule, error) {
+	var rule AlertGroupingRule
+	if err := c.t.V1Alpha(ctx, "POST", "alertGroupingRules", body, &rule); err != nil {
+		return nil, err
+	}
+	return &rule, nil
+}
+
+// DeleteAlertGroupingRule deletes an alert-grouping rule by id — needed for the
+// --prune side of a reconcile loop. LIVE MUTATION.
+func (c *Client) DeleteAlertGroupingRule(ctx context.Context, id string) error {
+	return c.t.V1Alpha(ctx, "DELETE", "alertGroupingRules/"+id, nil, nil)
+}
+
 // GetModuleSettings returns the raw settings object for a named module. The
 // shape is module-specific, so it is returned undecoded.
 func (c *Client) GetModuleSettings(ctx context.Context, name string) (json.RawMessage, error) {

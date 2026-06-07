@@ -13,6 +13,10 @@ import (
 // project_id instance path. See resource.go for why the form is explicit per
 // endpoint.
 
+// watchlistsAPIVersion pins watchlist reads to v1 (all three answer → newest;
+// writes stay on the client default until re-validated on v1).
+const watchlistsAPIVersion = "v1"
+
 // Watchlist is a named set of entities whose risk scores are weighted by
 // MultiplyingFactor — used to elevate (or suppress) the risk of assets/users an
 // analyst is tracking.
@@ -63,7 +67,7 @@ func (c *Client) ListWatchlists(ctx context.Context, pageSize int) ([]Watchlist,
 			Watchlists    []Watchlist `json:"watchlists"`
 			NextPageToken string      `json:"nextPageToken"`
 		}
-		var opts []requestOption
+		opts := []requestOption{withVersion(watchlistsAPIVersion)}
 		if len(q) > 0 {
 			opts = append(opts, withQuery(q))
 		}
@@ -80,7 +84,7 @@ func (c *Client) ListWatchlists(ctx context.Context, pageSize int) ([]Watchlist,
 // resource name).
 func (c *Client) GetWatchlist(ctx context.Context, id string) (*Watchlist, error) {
 	var w Watchlist
-	if err := c.get(ctx, c.resourcePath("watchlists/"+id, false), &w); err != nil {
+	if err := c.get(ctx, c.resourcePath("watchlists/"+id, false), &w, withVersion(watchlistsAPIVersion)); err != nil {
 		return nil, err
 	}
 	return &w, nil

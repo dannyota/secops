@@ -95,7 +95,8 @@ var retryStatuses = map[int]bool{429: true, 500: true, 502: true, 503: true, 504
 const maxRetries = 4
 
 type requestSpec struct {
-	query url.Values
+	query   url.Values
+	version string
 }
 
 type requestOption func(*requestSpec)
@@ -103,6 +104,20 @@ type requestOption func(*requestSpec)
 // withQuery attaches URL query parameters to a request.
 func withQuery(q url.Values) requestOption {
 	return func(s *requestSpec) { s.query = q }
+}
+
+// withVersion pins this request to a specific API version (e.g. "v1", "v1beta"),
+// overriding the client's default (DefaultAPIVersion). Project policy is to prefer
+// the newest version that works per surface: v1 > v1beta > v1alpha. Each surface
+// passes its validated version; DefaultAPIVersion is the fallback for the rest.
+//
+// It rewrites the trailing "/<DefaultAPIVersion>" segment of the base URL, so it is
+// a no-op when a caller supplies a custom Settings.BaseURL that doesn't end in
+// "/<DefaultAPIVersion>" (the request then uses that base's version). All normal
+// callers use the default base; the version probes set a per-version BaseURL on
+// purpose instead.
+func withVersion(v string) requestOption {
+	return func(s *requestSpec) { s.version = v }
 }
 
 // do executes method against path (relative to baseURL; leading slash optional),
@@ -115,7 +130,13 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any, opt
 		o(spec)
 	}
 
-	full := c.baseURL + "/" + strings.TrimLeft(path, "/")
+	base := c.baseURL
+	if spec.version != "" {
+		if def := "/" + DefaultAPIVersion; strings.HasSuffix(base, def) {
+			base = base[:len(base)-len(def)] + "/" + spec.version
+		}
+	}
+	full := base + "/" + strings.TrimLeft(path, "/")
 	if len(spec.query) > 0 {
 		full += "?" + spec.query.Encode()
 	}

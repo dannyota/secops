@@ -177,6 +177,7 @@ type RuleDeployment struct {
 	Name           string `json:"name,omitempty"`
 	Enabled        bool   `json:"enabled,omitempty"`
 	Alerting       bool   `json:"alerting,omitempty"`
+	Archived       bool   `json:"archived,omitempty"`
 	RunFrequency   string `json:"runFrequency,omitempty"`
 	ExecutionState string `json:"executionState,omitempty"`
 }
@@ -224,6 +225,7 @@ func (c *Client) ListRuleDeployments(ctx context.Context) ([]RuleDeployment, err
 type RuleDeploymentUpdate struct {
 	Enabled      *bool  // nil leaves enabled unchanged
 	Alerting     *bool  // nil leaves alerting unchanged
+	Archived     *bool  // nil leaves archive state unchanged. MUST be sent alone — the server rejects `archived` combined with any other field, and disables the rule on archive itself
 	RunFrequency string // "" leaves run frequency unchanged ("LIVE"/"HOURLY"/"DAILY")
 }
 
@@ -237,6 +239,7 @@ func (c *Client) UpdateRuleDeployment(ctx context.Context, ruleID string, upd Ru
 	body := struct {
 		Enabled      *bool  `json:"enabled,omitempty"`
 		Alerting     *bool  `json:"alerting,omitempty"`
+		Archived     *bool  `json:"archived,omitempty"`
 		RunFrequency string `json:"runFrequency,omitempty"`
 	}{}
 	var mask []string
@@ -247,6 +250,10 @@ func (c *Client) UpdateRuleDeployment(ctx context.Context, ruleID string, upd Ru
 	if upd.Alerting != nil {
 		body.Alerting = upd.Alerting
 		mask = append(mask, "alerting")
+	}
+	if upd.Archived != nil {
+		body.Archived = upd.Archived
+		mask = append(mask, "archived")
 	}
 	if upd.RunFrequency != "" {
 		body.RunFrequency = upd.RunFrequency

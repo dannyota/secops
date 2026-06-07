@@ -79,6 +79,65 @@ func (c *Client) UpdateCuratedRuleSetDeployment(ctx context.Context, categoryID,
 	return &dep, nil
 }
 
+// CuratedDeploymentChange is one entry in a batch curated-deployment update: the
+// (category, rule set, precision) to target and the enabled/alerting state to set.
+type CuratedDeploymentChange struct {
+	CategoryID string
+	RuleSetID  string
+	Precision  string
+	Enabled    bool
+	Alerting   bool
+}
+
+// BatchUpdateCuratedRuleSetDeployments sets enabled/alerting on many curated
+// rule-set deployments in one atomic call — the write primitive for reconciling a
+// whole curated-deployment desired-state file (vs N single PATCHes). LIVE MUTATION.
+//
+// Endpoint: POST {instance}/curatedRuleSetCategories/-/curatedRuleSets/-/
+// curatedRuleSetDeployments:batchUpdate, body {parent, requests:[{
+// curatedRuleSetDeployment:{name,enabled,alerting}, updateMask:{paths}}]} — each
+// name is the full deployment resource name. Project-ID form (numeric=false),
+// matching the single-deployment PATCH.
+func (c *Client) BatchUpdateCuratedRuleSetDeployments(ctx context.Context, changes []CuratedDeploymentChange) ([]CuratedRuleSetDeployment, error) {
+	type fieldMask struct {
+		Paths []string `json:"paths"`
+	}
+	type reqItem struct {
+		Deployment CuratedRuleSetDeployment `json:"curatedRuleSetDeployment"`
+		UpdateMask fieldMask                `json:"updateMask"`
+	}
+	items := make([]reqItem, 0, len(changes))
+	for _, ch := range changes {
+		if err := validateCuratedPrecision(ch.Precision); err != nil {
+			return nil, err
+		}
+		items = append(items, reqItem{
+			Deployment: CuratedRuleSetDeployment{
+				Name:     c.resourcePath(curatedDeploymentPath(ch.CategoryID, ch.RuleSetID, ch.Precision), false),
+				Enabled:  ch.Enabled,
+				Alerting: ch.Alerting,
+			},
+			UpdateMask: fieldMask{Paths: []string{"enabled", "alerting"}},
+		})
+	}
+	body := struct {
+		Parent   string    `json:"parent"`
+		Requests []reqItem `json:"requests"`
+	}{
+		Parent:   c.resourcePath("curatedRuleSetCategories/-/curatedRuleSets/-", false),
+		Requests: items,
+	}
+
+	var resp struct {
+		Deployments []CuratedRuleSetDeployment `json:"curatedRuleSetDeployments"`
+	}
+	sub := "curatedRuleSetCategories/-/curatedRuleSets/-/curatedRuleSetDeployments:batchUpdate"
+	if err := c.post(ctx, c.resourcePath(sub, false), body, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Deployments, nil
+}
+
 // EnableCuratedRuleSet enables (enabled=true) or disables (enabled=false) a
 // curated rule-set deployment. Convenience over UpdateCuratedRuleSetDeployment.
 func (c *Client) EnableCuratedRuleSet(ctx context.Context, categoryID, ruleSetID, precision string, enabled bool) (*CuratedRuleSetDeployment, error) {
