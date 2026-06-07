@@ -44,6 +44,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("secopsctl doctor")
+	fmt.Printf("  %-13s    %s\n", "version", versionLine())
 
 	inst, err := loadInstance()
 	if err != nil {

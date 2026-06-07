@@ -538,7 +538,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Exit.** Secret-at-rest shipped + tested on 3 OSes; drift mode runnable in CI.
 - **Docs.** ARCHITECTURE, ROADMAP.
 
-### Wave 22 — Distribution & operability
+### Wave 22 — Distribution & operability  *(built — `secopsctl version [--json]` (ldflags-stamped, with a `debug.ReadBuildInfo` VCS fallback so even an un-stamped `go install` reports a commit) + `--version`; `doctor` prints the version line; **CI** workflow (`.github/workflows/ci.yml`: build·vet·test / golangci-lint / govulncheck / semgrep-OSS); **release** workflow (`.github/workflows/release.yml`) + **goreleaser** (`.goreleaser.yaml`, schema v2) producing cross-OS/arch archives, checksums, and a **cosign keyless** checksum signature; shell completions ship via cobra's built-in `completion`; README install/verify section. Cross-compile verified for linux/darwin/windows × amd64/arm64. Remaining (need maintainer infra/action, not code): cut the first `vX.Y.Z` **tag** to fire the release (the exit's "tagged signed release"); brew/scoop taps; man-page generation deferred (avoids a go-md2man dep — `--help` covers usage).)*
 - **Goal.** Easy to install and run anywhere.
 - **Scope.** CI (build/test/lint/`govulncheck`/`semgrep`); release binaries
   (goreleaser); `secopsctl version`; shell completions; man pages; `doctor`

@@ -1,0 +1,66 @@
+# goreleaser config (schema v2). A tag push (v*) runs .github/workflows/release.yml,
+# which invokes `goreleaser release --clean` to build cross-platform binaries,
+# checksum them, and cosign-sign the checksums (keyless, via the GitHub OIDC token).
+version: 2
+
+project_name: secopsctl
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: secopsctl
+    main: ./cmd/secopsctl
+    binary: secopsctl
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X danny.vn/secops/internal/cli.version={{ .Version }}
+      - -X danny.vn/secops/internal/cli.commit={{ .FullCommit }}
+      - -X danny.vn/secops/internal/cli.date={{ .Date }}
+
+archives:
+  - id: secopsctl
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+# Keyless cosign signature of the checksums file (verifiable with
+# `cosign verify-blob --certificate checksums.txt.pem --signature checksums.txt.sig checksums.txt`).
+# Requires cosign on the runner + id-token: write (both set in release.yml).
+signs:
+  - cmd: cosign
+    signature: ${artifact}.sig
+    certificate: ${artifact}.pem
+    args:
+      - sign-blob
+      - --output-signature=${signature}
+      - --output-certificate=${certificate}
+      - ${artifact}
+      - --yes
+    artifacts: checksum
+    output: true
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+release:
+  draft: false
+  prerelease: auto

@@ -41,6 +41,20 @@ go install danny.vn/secops/cmd/secopsctl@latest
 
 Requires Go ≥ 1.26. One static binary — no runtime, no SDK install.
 
+Or grab a prebuilt, checksummed, cosign-signed binary from the
+[Releases](https://github.com/dannyota/secops/releases) page (linux/macOS/windows,
+amd64/arm64). Verify the checksums signature with:
+
+```bash
+cosign verify-blob --certificate checksums.txt.pem --signature checksums.txt.sig \
+  --certificate-identity-regexp 'https://github.com/dannyota/secops/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
+```
+
+`secopsctl version [--json]` reports the build (version, commit, date) — stamped on
+a release build and otherwise filled from the toolchain-embedded VCS info.
+Shell completions: `secopsctl completion <bash|zsh|fish|powershell>`.
+
 ## Authenticate
 
 Two surfaces, two credentials, resolved lazily (so `--help`, `info`, and `config`
