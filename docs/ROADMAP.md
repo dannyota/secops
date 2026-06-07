@@ -558,7 +558,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   SOAR orchestrates; secopsctl gates the config"). The wave number is retained as a
   tombstone so the committed sequence does not shift.
 
-### Wave 24 — Admin & settings management *(SOAR-legacy; raw-lane → typed)*
+### Wave 24 — Admin & settings management *(SOAR-legacy; raw-lane → typed)*  *(built — **API-key metadata read** promoted to a typed, guarded command: `soar settings api-keys [list]` → `legacy.ListAPIKeys` (`GET /settings/GetApiKeys` — absent from the swagger, confirmed live: GET, not POST). It returns metadata only (id / name / permission-group / SOC-role / environments / created); the secret is **never surfaced** — the list endpoint masks it and the typed `APIKey` drops the field entirely (House Rule 4). Read live-validated (`TestLiveListAPIKeys`) + the no-secret invariant offline (`TestAPIKeyDecodeDropsSecret`). **Create/revoke deferred:** none of `/settings/{Generate,Add,Create,Revoke,Delete}ApiKey` resolves on the external API (all 404), so the create/revoke verbs need the real console request to confirm before wrapping — a create returns the key once, to be shown and never persisted.)*
 - **Goal.** Promote useful settings/admin external-API ops — today reachable only via
   the generic `soar legacy call` passthrough — to typed, guarded commands. These live
   under `/api/external/v1` (AppKey) and are frequently **absent from the swagger**

@@ -132,8 +132,10 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 (+ the 9 mutate verbs, bulk), playbooks/workflows, connectors, jobs, environments,
 soc-roles, SLA/case-stages/tags/close-root-causes, networks/tracking-lists/block-lists,
 ontology, webhooks, store/Content-Hub install, settings singletons, agents, reports,
-homepage, permissions, federation. Lanes: reconcile (per-object config), raw (batch/
-bundle/selector via `soar legacy call`), imperative (case verbs, settings, store).
+homepage, permissions, federation, **API-key metadata** (`GetApiKeys` — typed
+read-only, no secret; swagger-absent, confirmed live). Lanes: reconcile (per-object
+config), raw (batch/bundle/selector via `soar legacy call`), imperative (case verbs,
+settings, store).
 
 | Status | Detail |
 |---|---|

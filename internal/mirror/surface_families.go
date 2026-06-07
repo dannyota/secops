@@ -183,6 +183,7 @@ func buildSurfaceFamilies() []SurfaceFamily {
 		// --- SOAR: other operational / imperative / raw ---------------------
 		soarModern("grouping", AreaSOAR, LaneRaw, StatusBuilt, "soar/grouping.go"),
 		soarLegacy("settings", LaneImperative, StatusBuilt, "soar/legacy/settings.go"),
+		soarLegacy("api-keys", LaneOperational, StatusValidated, "soar/legacy/settings_api_keys.go"),
 		soarLegacy("legacy-call", LaneRaw, StatusValidated, "soar/legacy"),
 	}
 
