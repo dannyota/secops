@@ -158,7 +158,7 @@ stays on the legacy lane, which is reliable. So far that means:
 | connector **instances** (list/get/patch + `:runOnDemand`) | ✅ list+get read-validated (instance GET decodes the `parameters` descriptor array) | create/delete + `:runOnDemand` SDK-built, live-write pending |
 | job **definitions** (list) | 🔨 | get/create/patch/delete ⬜ (med) |
 | job **instances** (list/get/patch + `:runOnDemand`) | ✅ list read-validated | create/delete + `:runOnDemand` SDK-built, live-write pending |
-| alert grouping rules (list/get/patch + create/delete) | ✅ SDK lifecycle; list+get read-validated (numeric `id` decoded) | create/delete live-write pending (gated smoke) |
+| alert grouping rules (list/get/patch + create/delete) | ✅ **full lifecycle write-validated** — create→get→delete on a self-cleaning inert throwaway (`TestLiveAlertGroupingRuleWriteSmoke`); numeric `id` decoded | — |
 | module settings | ✅ | — |
 | **Content Hub — `marketplaceIntegrations`** | ✅ list/get + install/uninstall (install→uninstall round-trip live-validated, self-cleaning) | `soar/marketplace.go` — the durable twin of legacy `/store`, the only place uninstall exists; modern path is cleanly reversible |
 | **Content Hub — `contentHub/contentPacks`** | ✅ list (reads validated) | add/delete/deploy ⬜ |
