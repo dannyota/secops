@@ -546,11 +546,17 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Exit.** A tagged release with signed binaries; CI green on PRs.
 - **Docs.** README, ROADMAP.
 
-### Wave 23 — Automation & scheduling *(stretch)*
-- **Goal.** Tenant-neutral scheduled automation scaffolding.
-- **Scope.** Generic scheduled runners (case-hygiene jobs); the LLM-driven automation
-  notes in `tips/`; scheduled drift reports.
-- **Docs.** ROADMAP, `tips/`.
+### Wave 23 — Automation & scheduling *(removed — SOAR owns this)*
+- **Removed by design.** Operational, recurring automation (case hygiene,
+  enrichment, scheduled response) belongs in **SOAR playbooks and jobs**, which run
+  on the SOAR engine and which secopsctl already manages *as code* (Wave 7:
+  connectors / jobs reconcile; playbooks). Re-implementing generic scheduled runners
+  in the CLI would duplicate SOAR at the wrong layer. secopsctl's only unattended
+  role is read-mostly config hygiene — the `drift` gate (Wave 21) and ingest-health
+  pulls — run from existing CI/cron; no scheduler of its own. See
+  [tips/10-llm-and-automation.md](../tips/10-llm-and-automation.md) ("Automation:
+  SOAR orchestrates; secopsctl gates the config"). The wave number is retained as a
+  tombstone so the committed sequence does not shift.
 
 ### Wave 24 — Admin & settings management *(SOAR-legacy; raw-lane → typed)*
 - **Goal.** Promote useful settings/admin external-API ops — today reachable only via

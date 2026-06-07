@@ -74,43 +74,51 @@ run a UDM query and confirm your events actually carry that
 dead. An agent that "verifies enablement" by reading the dashboard will report
 green while detection coverage is zero. Verify against data, not against config.
 
-## Detection-as-code automation patterns
+## Automation: SOAR orchestrates; secopsctl gates the config
 
-The unattended work that pays off is the **safe read/close loops** — bounded,
-idempotent, reviewable. Keep the logic in the repo so changes go through
-`git diff`, and run it on a schedule (cron, a systemd timer, or a CI schedule).
+Recurring *operational* automation — case hygiene, enrichment, scheduled
+response — is **SOAR's job**, not the CLI's. It lives in SOAR **playbooks and
+jobs**, runs on the SOAR engine, and carries its own denylists and approvals.
+secopsctl's role is to manage that automation **as code**: pull → review → push
+the playbooks / jobs / connectors surfaces ([09-soar-operations.md](09-soar-operations.md))
+so the orchestration logic is itself version-controlled and code-reviewed. Don't
+reimplement a stale-case-close loop as a secopsctl cron script — that's a SOAR
+job, deployed like any other surface.
 
-Good candidates to automate:
+secopsctl's *own* unattended role is narrow and read-mostly:
 
+- **Config-drift detection** — run `secopsctl drift` on a CI/cron schedule. It is
+  read-only: it diffs the committed baseline against live and exits non-zero when
+  they diverge (an out-of-band UI edit, or an undeployed local change), so drift
+  surfaces in review instead of silently. Pair it with `pull` in CI.
 - **Ingest-health checks** — pull feeds on a schedule and alert on any
   `state: FAILED` ([08-feeds-parsers.md](08-feeds-parsers.md)). Read-only; safe to
   run often.
-- **Case hygiene** — close stale low-priority cases, close confirmed
-  false-positives, promote named-actor cases
-  ([09-soar-operations.md](09-soar-operations.md)). These are *mutating*, so they
-  earn their keep only with the two safety rules below.
 
-Two rules make a mutating loop safe to leave running:
+When a recurring *config-as-code* reconcile is genuinely the CLI's job (not
+security orchestration) — e.g. syncing a reference list from an upstream feed —
+keep its logic in the repo so it goes through `git diff`, and apply it with the
+same dry-run-then-`--yes` push a human uses. Two rules keep any standing
+mutation (a SOAR job or a config reconcile) safe to leave running:
 
-1. **A high-value denylist that nothing auto-closes** — beaconing, named APTs,
+1. **A high-value denylist that nothing auto-changes** — beaconing, named APTs,
    RATs, reverse shells, multi-tactic alerts. A future real detection in those
-   categories must survive any auto-close until a human looks. An automated
+   categories must survive any auto-action until a human looks. An automated
    (or LLM) verdict reflects past behavior; it is a second opinion, not a
    substitute for analyst review on those surfaces.
 2. **Bounded and idempotent** — priority/age ceilings, chunked bulk operations,
    re-runs that are no-ops once the desired state holds. Always dry-run first when
-   you change the patterns. These standing jobs are the only pre-authorized
-   recurring pushes; everything else still goes through the review gate.
+   you change the patterns.
 
-## Review in git; cron the safe loops
+## Review in git; let SOAR orchestrate
 
-The throughline: **everything reviewable lives in git, and only the proven-safe
-read/close loops run unattended.** An agent (or a human) proposes a change as a
-diff, the diff is reviewed, and it deploys via a dry-run-then-`--yes` push.
-Recurring automation is narrow, denylisted, idempotent, and scheduled from the
-repo so its logic is itself code-reviewed. New, novel, or destructive changes are
-never left to a schedule or an autonomous agent — they go through the human review
-gate every time.
+The throughline: **everything reviewable lives in git.** Config-as-code — the
+detections, lists, feeds, dashboards, *and the SOAR playbooks/jobs themselves* —
+is pulled, reviewed as a diff, and deployed via dry-run-then-`--yes`. Recurring
+security automation runs in **SOAR**, where it belongs; secopsctl keeps it honest
+by version-controlling its definition and by gating config drift (`drift`). New,
+novel, or destructive changes are never left to a schedule or an autonomous
+agent — they go through the human review gate every time.
 
 Cross-references: the loop and discipline
 ([01-secops-as-code.md](01-secops-as-code.md)), config-as-identity and `etag`
