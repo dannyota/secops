@@ -21,8 +21,21 @@ The two planes are independent: SOAR works with just an AppKey, no `gcloud`. See
 go install danny.vn/secops/cmd/secopsctl@latest
 ```
 
+If the `danny.vn/secops` vanity path can't be resolved (no network reach to
+`danny.vn`, proxy restrictions), build from source instead — see [Build from
+source](#build-from-source) below. The module path is `danny.vn/secops`, so the
+GitHub URL is not a `go install` substitute; the `git clone` route is the
+fallback.
+
 Installs the `secopsctl` binary to `$(go env GOPATH)/bin` — make sure that's on
-your `PATH`.
+your `PATH`. For example:
+
+```bash
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+Add that line to your shell profile (`~/.bashrc`, `~/.zshrc`, …) to make it
+persistent.
 
 ## Build from source
 

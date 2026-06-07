@@ -25,6 +25,16 @@ Set on any command:
 | `-v, --version` | Print version and exit. |
 | `-h, --help` | Help for any command. |
 
+`--json` is honored by the read commands: `info`, `query udm`, `alerts list`,
+`alerts get`, `iocs find`, `iocs get`, `ti collections`, `ti collection`,
+`watchlists list`, `watchlists get`, `curated list`, `curated rules`,
+`rules detections`, `rules errors`, `rules retrohunt list`,
+`rules retrohunt get`, `soar case list`, `soar case get`,
+`soar integration list`, `soar settings api-keys`, and `version`. It is **not**
+emitted by `doctor`, `drift`, `pull`, or `push` (SIEM and SOAR) — those print
+human-readable text only. (`rules alerts` always emits raw JSON, with or without
+the flag.)
+
 ## 🔒 SIEM — read-only
 
 ADC/OAuth auth (`gcloud auth application-default login`). See
@@ -88,6 +98,11 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar settings move-case-policy` | Read the cross-environment case-move policy. |
 | `soar legacy call <op> --read` | Escape hatch: call any Siemplify external-API op read-only (`/api/external/v1`). |
 
+`soar pull grouping` and `soar pull cases` are **snapshot-only** read targets:
+there is no matching `soar push grouping`/`push cases` and they are not part of
+`drift`, so the pull → diff → push loop does not close for them — use them to
+capture state for review, not to reconcile it.
+
 ## ⚠️ SOAR — guarded mutations
 
 Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
@@ -96,7 +111,8 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | Command | What it does |
 |---|---|
 | `soar push <surface>` | Reconcile local files to live (create/update; `--prune` to delete). Surfaces: `blacklists`, `case-stages`, `case-tags`, `close-root-causes`, `connectors`, `environments`, `idp`, `jobs`, `networks`, `playbook-categories`, `playbooks`, `sla-definitions`, `soc-roles`, `tracking-lists`, `visual-families`, `webhooks`. |
-| `soar push playbook` | Save a playbook definition (whole-body replace; mints a new version). |
+| `soar push playbooks` (plural) | Reconcile the **whole** playbooks directory: create/update every changed playbook, `--prune` to delete server-only ones. (One of the reconcile surfaces above.) |
+| `soar push playbook` (singular) | Imperative whole-body save of **one** playbook from `--file <playbook.json>`; mints a new version. Not a directory reconcile — use `playbooks` for the loop. |
 | `soar push bulk-close` | Bulk-close cases by id (`--ids`, `--reason` ∈ malicious\|not-malicious\|maintenance\|inconclusive\|unknown). |
 | `soar case assign` | Assign a case to a user (`--user`). |
 | `soar case tag` / `untag` | Tag / untag a case. |
@@ -171,6 +187,29 @@ secopsctl soar push webhooks --prune --yes # delete server-only objects (gated o
 
 ```bash
 secopsctl query udm 'metadata.event_type = "USER_LOGIN"' --hours 48 --limit 500 --json
+```
+
+**Escape hatch — call a legacy external-API op directly.** When a Siemplify
+`/api/external/v1` op has no first-class command, `soar legacy call` reaches it
+raw. GET is read-only; the legacy API uses POST for **both** reads and writes, so
+a POST must declare intent — `--read` for a read, or `--write --yes` for a
+mutation (which prints a live external-API banner; PUT/DELETE are treated as
+writes too). Op names and body shapes come
+from the SecOps Web UI Network tab (browser dev-tools); the bundled swagger under
+`third_party/` is git-ignored and not shipped. Many legacy reads expect an
+offset-paging body, `{"requestedPage": 0, "pageSize": 100}`.
+
+```bash
+# Read (GET): list installed integrations
+secopsctl soar legacy call integrations/GetInstalledIntegrations --read
+
+# Read (POST) with an offset-paging body
+printf '{"requestedPage": 0, "pageSize": 100}' > page.json
+secopsctl soar legacy call <list-op> --method POST --read --body page.json
+
+# Guarded write (POST): mutation — refused without --yes; --yes deploys live
+printf '{"caseId": 1234, "tag": "triaged"}' > req.json
+secopsctl soar legacy call <write-op> --method POST --write --body req.json --yes
 ```
 
 ## 🔗 See also

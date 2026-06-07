@@ -16,7 +16,7 @@ needs:
 | Property | What it gives an agent |
 |---|---|
 | **Deterministic flags, no hidden interactivity** | Every action is a flag, not a menu. The only prompt is the push confirmation, skippable with `--yes` — an agent never stalls on a prompt it can't see. |
-| **`--json` output** | Pass `--json` (e.g. on `query udm`) for machine-readable results. Parse the JSON; don't scrape pretty output. |
+| **`--json` on reads** | The global `--json` flag emits machine-readable JSON on the read commands that support it (`query udm`, `alerts`, `cases`, `iocs`, `ti`, `rules`, `watchlists`, `curated`, `info`, `version`, the `soar` read verbs). Parse that JSON instead of scraping pretty output. `pull`, `push`, `drift`, and `doctor` print human text, not JSON — for those, key on the exit code and the text (below). |
 | **`--help` on every command** | Introspect the surface (`secopsctl --help`, `secopsctl pull --help`, …) to discover targets and flags rather than guessing. |
 | **Lazy imports / offline-safe** | `--help` and `info` work with no auth or network, so an agent can explore the surface before any credential is in play. |
 | **Explicit read/write asymmetry** | `pull`/`query`/`drift` never mutate; only `push` does, and it says so loudly. |
@@ -27,8 +27,9 @@ Treat every mutation as a two-phase operation:
 
 1. **Preview.** Run the mutating command in its default `--dry-run` mode. The
    tool prints a `LIVE DEPLOY` banner and exactly what *would* change — which
-   rules get created, which get disabled, which cases close.
-2. **Decide, then deploy.** Parse the preview. If — and only if — it matches the
+   rules get created, which get disabled, which cases close. The preview is human
+   text, not JSON.
+2. **Decide, then deploy.** Read the preview text. If — and only if — it matches the
    intended change, re-run with `--yes`. If it touches anything unexpected,
    **stop and surface the preview** to a human.
 
@@ -80,9 +81,13 @@ job, deployed like any other surface.
 secopsctl's *own* unattended role is narrow and read-mostly:
 
 - **Config-drift detection** — run `secopsctl drift` on a CI/cron schedule. It is
-  read-only: it diffs the committed baseline against live and exits non-zero when
-  they diverge (an out-of-band UI edit, or an undeployed local change), so drift
-  surfaces in review instead of silently. Pair it with `pull` in CI.
+  read-only: it diffs the committed baseline against live and reports divergence
+  (an out-of-band UI edit, or an undeployed local change) as human text, then
+  **exits non-zero**. In automation, key on the **exit code**: `drift` exits 0 only
+  when local matches live; any non-zero exit means "investigate" — drift detected,
+  or a surface that could not be verified (an incomplete live list). It does not
+  emit a JSON body, so gate on the exit code plus the printed report, not on parsed
+  output. Pair it with `pull` in CI.
 - **Ingest-health checks** — pull feeds on a schedule and alert on any
   `state: FAILED` ([08-feeds-parsers.md](08-feeds-parsers.md)). Read-only; safe to
   run often.

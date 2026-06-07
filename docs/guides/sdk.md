@@ -165,6 +165,20 @@ func main() {
 		log.Fatal(err) // see the error note below
 	}
 	fmt.Printf("%d cases\n", len(cases))
+
+	// ListCasesOpts is the richer entry point: server-side filter/orderBy,
+	// field expansion, and a cap on total records. ListCases wraps it.
+	open, err := c.ListCasesOpts(ctx, soar.CaseListOptions{
+		PageSize: 50,
+		Filter:   "status = 'OPENED'",
+		OrderBy:  "updateTime desc",
+		Expand:   "products,tags,sla",
+		MaxItems: 200,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%d open cases\n", len(open))
 }
 ```
 
@@ -185,7 +199,21 @@ external API (`third_party/siemplify-swagger.json`). Prefer the typed `soar`
 `legacy` for bulk case ops and the full triage verbs.
 
 ```go
-c := legacy.NewClient(soarSettings, auth.SOARAppKey("YOUR_APP_KEY"), nil)
+import (
+	"context"
+
+	"danny.vn/secops/auth"
+	"danny.vn/secops/soar/legacy"
+)
+
+// legacy.Settings is the same type as soar.Settings (the tenant SOAR host + path).
+c := legacy.NewClient(legacy.Settings{
+	BaseURL:       "https://your-tenant.siemplify-soar.com", // required
+	ProjectNumber: "000000000000",
+	Region:        "us",
+	CustomerID:    "00000000-0000-0000-0000-000000000000",
+}, auth.SOARAppKey("YOUR_APP_KEY"), nil) // nil = default *http.Client
+
 raw, err := c.CloseCase(ctx, map[string]any{
 	"caseId":    12345,
 	"rootCause": "Maintenance",
@@ -197,10 +225,17 @@ raw, err := c.CloseCase(ctx, map[string]any{
 ```
 
 > **SOAR error handling.** A SOAR call returns an error carrying the HTTP
-> method/URL/status/body, but the concrete type lives in an internal package, so you
-> cannot `errors.As` it to an exported type the way you can with
-> `chronicle.APIError`. For now, inspect SOAR failures via `err.Error()` (it
-> includes the status and body).
+> method/URL/status/body, but the concrete type lives in an internal package, and
+> there is no exported SOAR error type or `IsNotFound` helper. You cannot
+> `errors.As` it the way you can with `chronicle.APIError`; instead inspect
+> `err.Error()`, which embeds the HTTP status (and body):
+
+```go
+_, err := c.GetCustomField(ctx, "does-not-exist")
+if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+	// not found — create it, or skip
+}
+```
 
 ## 📌 Notes
 

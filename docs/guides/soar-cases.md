@@ -58,6 +58,21 @@ secopsctl soar case merge --ids 12346,12347 --into 12345 --yes
 
 Run any verb without `--yes` first, read the preview, then re-run with `--yes`.
 
+### Discovering valid values
+
+`--tag`, `--stage`, and `--root-cause` expect values the tenant already defines.
+List them first so you pass an existing one:
+
+```bash
+secopsctl soar pull case-tags           # valid --tag values
+secopsctl soar pull case-stages         # valid --stage values
+secopsctl soar pull close-root-causes   # valid --root-cause values
+```
+
+`--user` on `assign` is a SOAR **user id**, not a name. `soar case get` prints the
+assignee's display name (not the id), and there is no in-CLI user directory — get
+the id from the SOAR UI.
+
 ## 🧹 Bulk-close a queue
 
 `soar case close` closes one case with a free-text reason. To close **many**
@@ -71,6 +86,11 @@ secopsctl soar push bulk-close --ids 12345,12346 --reason maintenance --yes     
 The reason is one of `malicious | not-malicious | maintenance | inconclusive |
 unknown` (typed enum, not free text). This is a guarded `soar push` surface — see
 [reconcile](reconcile.md) for the dry-run → review → `--yes` model.
+
+Note the close-reason difference between the two verbs: single-case `soar case
+close --reason` is **free text**, while `soar push bulk-close --reason` is the
+**fixed enum** above. For consistent reporting, prefer the enum vocabulary
+(`malicious`, `not-malicious`, …) even in the free-text single-case reason.
 
 ## 🔀 One case, two APIs
 

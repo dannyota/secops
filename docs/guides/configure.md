@@ -84,7 +84,8 @@ secopsctl pull rules
 
 ### SOAR auth (AppKey)
 
-The AppKey is long-lived and not mintable. Put it in the config file (hidden
+The AppKey is long-lived and not mintable. Generate it once in the SOAR UI
+(**Settings → Advanced → API Keys**), then put it in the config file (hidden
 prompt) or override at run time:
 
 ```bash
@@ -120,6 +121,11 @@ secopsctl does **not** read `.env`.
 3. `~/.secopsctl/instance.yaml` (the default)
 4. `./config/instance.yaml`
 5. `~/.config/secopsctl/instance.yaml`
+
+An explicit `--config` / `$SECOPSCTL_CONFIG` path that does **not** exist is
+silently skipped — resolution falls through to the next candidate rather than
+erroring. Run `secopsctl info` to confirm which file actually loaded before any
+deploy.
 
 ## Project number vs ID
 

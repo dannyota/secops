@@ -11,7 +11,10 @@ For surface status see [../design/catalog.md](../design/catalog.md).
 
 ## 📁 What lands on disk
 
-Each rule pulls to a pair of files under `<dataRoot>/rules/`:
+Each rule pulls to a pair of files under `<dataRoot>/rules/`. `<dataRoot>` is the
+current working directory by default: `pull rules` writes `./rules/` there (override
+with `--out`) and `push rules-*` reads `./rules/` from there (override with
+`--rules-dir`).
 
 | File | Holds | Edit it? |
 |---|---|---|
@@ -56,6 +59,10 @@ review surface.
 | `rules-update` | update live YARA-L text where a tracked `*.yaral` changed | etag |
 | `rules-deploy` | reconcile each tracked rule's deployment (enabled / alerting / frequency) from its `*.yaml` | — |
 | `rules-disable` | disable locally-tracked rules whose `deployment.enabled=true` | — |
+
+`rules-deploy` reads `deployment.runFrequency` from each rule's companion `.yaml`.
+The valid values are `LIVE`, `HOURLY`, and `DAILY`; the companion's
+`allowed_run_frequencies` list shows which of these the rule permits.
 
 ```bash
 secopsctl push rules-create --dry-run

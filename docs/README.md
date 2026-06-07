@@ -9,7 +9,7 @@ CLI and unofficial SDK. Two products, two planes, one loop.
 |---|---|---|
 | 🧭 **[guides/](guides/)** | using `secopsctl` | [Install](guides/install.md) → [Configure & auth](guides/configure.md) → [The loop](guides/the-loop.md) |
 | 📐 **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Catalog (status)](design/catalog.md) · [Roadmap](design/roadmap.md) |
-| 💡 **[tips/](tips/)** | the SecOps craft | [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [SOAR ops](tips/09-soar-operations.md) |
+| 💡 **[tips/](tips/)** | the SecOps craft | [All tips](tips/README.md) — [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [dashboards](tips/06-dashboards.md) · [feeds & parsers](tips/08-feeds-parsers.md) · [SOAR ops](tips/09-soar-operations.md) |
 
 New here? [Install](guides/install.md), then the [loop](guides/the-loop.md). Building it?
 [Architecture](design/architecture.md). Unfamiliar term? [Glossary](GLOSSARY.md).

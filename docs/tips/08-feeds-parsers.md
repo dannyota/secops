@@ -65,14 +65,34 @@ committed.** On `pull`, secret scalar fields are **redacted** with
 
 - A pulled feed YAML is safe to commit and review; it shows the *shape* of the
   config, not the secret values.
-- When a feed-push path exists, the real secret must be supplied at push time
-  from a secret store or environment variable — **never** read back from the
-  committed YAML (which only holds the redaction marker). Pushing the marker
-  would clobber the live credential.
+- On `push`, the real secret must be supplied at push time — on an **update**,
+  `push feeds` overlays your local edits onto the live (unredacted) feed, so any
+  scalar still holding the redaction marker keeps the live secret rather than
+  clobbering it. On a **create**, there is no live secret to fall back to, so a
+  body that still carries the marker is **refused** — you must replace the marker
+  with the real secret before pushing.
 
 Same discipline as everywhere else in the tool: auth comes from ADC or an env
 token, and no API key, password, or service-account JSON belongs in version
 control.
+
+### Editing a feed: pull → edit → `push feeds`
+
+`push feeds` reconciles the local feed YAML to live (create/update). The loop is
+the same as everywhere else — edit the YAML, dry-run, review, apply:
+
+```bash
+secopsctl pull feeds                 # refresh local state first
+# edit feeds/<feed>.yaml; supply the real secret in place of any ***REDACTED*** marker
+secopsctl push feeds --dry-run       # preview the diff (LIVE DEPLOY banner)
+secopsctl push feeds --yes           # apply for real
+```
+
+Feeds are **not prune-eligible**: deleting a feed stops ingestion, so a missing
+local file never deletes a live feed. To stop a feed, do it explicitly in the
+SecOps UI, not by removing the YAML. Credential failures (an expired key, a
+rotated password) are still fixed at the source or in the UI feed config, not by
+editing the redaction marker in the repo.
 
 ## Parsers
 
@@ -99,6 +119,35 @@ If a field your rules depend on isn't populated in UDM, the parser is where you
 look — but only a `CUSTOMER` parser is yours to change. For a prebuilt parser
 that's mis-mapping, the fix is a parser override / extension, not editing
 Google's source in place.
+
+### Editing a parser: versioned, immutable, create-new-version + activate
+
+Parsers are **versioned and immutable** — there is no in-place edit. `push
+parsers` does **not** patch the live parser; it **creates a new parser version**
+from your edited `.conf` and **activates** it. On `--yes`, live ingestion
+switches to the new version. The previous version is left **INACTIVE** so a
+rollback stays available, and the server mints a fresh parser id each time, so
+`parser_id` in the companion YAML is **volatile** — it is rewritten on the next
+`pull`. The loop:
+
+```bash
+secopsctl pull parsers               # refresh local state first
+# edit parsers/<LOG_TYPE>.conf
+secopsctl push parsers --dry-run     # preview the diff (LIVE DEPLOY banner)
+secopsctl push parsers --yes         # creates + activates a NEW version; live ingestion switches
+```
+
+Like feeds, parsers are **not prune-eligible**: a missing local file never
+deletes a live parser. (The active set is derived from your feeds' log types, so
+a transient gap can't drive a deletion either.)
+
+> **Caution: editing a prebuilt `.conf` creates a CUSTOMER override.** The
+> reconcile update does not distinguish `creator_source`. If you edit a Google
+> `PREBUILT` parser's `.conf` and push it, you create and activate a `CUSTOMER`
+> parser that overrides Google's — live ingestion switches to your copy. Track
+> prebuilt parsers to *see* the normalization you rely on, but don't edit a
+> prebuilt `.conf` you only mean to track. Always review the `git diff` before
+> `push parsers`.
 
 ### Large files — grep, don't open
 

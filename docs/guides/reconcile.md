@@ -47,6 +47,26 @@ Each surface snapshots one file per object, keyed by server id, with secrets red
 in order. Status per surface lives in [the catalog](../design/catalog.md) — don't infer
 it here.
 
+### On-disk layout
+
+A pull writes one file per object into a per-surface directory under the data root
+(`--out`, default cwd), and the matching push reads back from that same directory:
+
+- `secopsctl soar pull <surface>` → `<out>/soar/<surface>/` (e.g.
+  `<out>/soar/connectors/`, `<out>/soar/webhooks/`); `secopsctl soar push <surface>`
+  reads from there.
+- `secopsctl pull <surface>` (SIEM) → `<out>/<surface>/` (e.g. `<out>/reference_lists/`,
+  `<out>/feeds/`); `secopsctl push <surface>` reads from there.
+
+Edit the files in that directory between pull and push — the diff you commit is exactly
+what push deploys.
+
+> **Not every pull target is a reconcile surface.** `curated` and `curated_rules` are
+> **pull-only**: the rule sets are Google-managed, so there is no `push curated`. To
+> change a curated deployment, toggle its `enabled`/`alerting` state with
+> `secopsctl curated set` (a guarded live toggle), not a push. See
+> [curated rule sets](../tips/05-curated-rules.md).
+
 ## Prune: deleting server-only objects
 
 By default a push never deletes. Objects that exist live but have **no local file**
@@ -61,6 +81,21 @@ secopsctl soar push webhooks --prune --yes       # apply deletions (LIVE)
   carefully.
 - It is **gated on a complete pull**: prune refuses to run against a partial snapshot,
   so a half-finished pull can't be read as "delete the rest."
+
+Only **prune-eligible** surfaces honor `--prune`; everywhere else it is a no-op. The
+split:
+
+| Honors `--prune` (prune-eligible) | Ignores `--prune` (NoDelete) |
+|---|---|
+| SOAR: `webhooks` · `connectors` · `visual-families` · `networks` | every other SOAR reconcile surface (e.g. `environments`, `soc-roles`, `idp`, `playbooks`, `jobs`, `sla-definitions`, `case-stages`, `case-tags`, `blacklists`) |
+| SIEM: `forwarders` · `datataps` · `scheduled_reports` · `error_notifications` · `federation_groups` | SIEM: `feeds` · `parsers` · `reference_lists` · `metric_definitions` · `rule_exclusions` |
+
+On a **NoDelete** surface, `--prune` does nothing: orphans (live objects with no local
+file) are **reported, never deleted**. Those surfaces opt out because their delete is
+high-blast (removing a `feed` or `parser` stops ingestion; dropping an `environment`
+orphans its cases/alerts), RBAC/SSO-sensitive (`soc-roles`, `idp`), or takes a body
+selector rather than a clean by-id delete. To remove a NoDelete object, do it in the
+UI or via the raw lane below — not through `push --prune`.
 
 ```mermaid
 flowchart LR
@@ -88,6 +123,18 @@ To change a secret, replace the marker with the real value before pushing. To ke
 existing secret untouched, leave the field as it is — the update overlays your edits
 onto the live body, so a field you didn't touch keeps its server value.
 
+## When an op isn't reconcilable: the raw lane
+
+Reconcile and the per-entity imperative verbs (`soar case`, `soar integration`,
+`soar settings`) cover the modeled surfaces. For anything else — a batch upsert, an
+export/import bundle, a selector-bodied read, or any external-API op without a typed
+command — the **raw lane** keeps the same config-as-code loop: `secopsctl soar legacy
+call <op> --read --out file.json` pulls the live JSON, you edit it, then
+`secopsctl soar legacy call <op> --method POST --body file.json --write --yes` posts
+it back. The legacy API uses POST for both reads and writes, so a POST must declare
+`--read` or `--write`; `--write` (and any PUT/DELETE) prints the LIVE banner and
+requires `--yes`. See the three lanes in [the SOAR design](../design/soar.md).
+
 ## Drift: read-only divergence (CI gate)
 
 `secopsctl drift` compares committed local files to live state and reports divergence
@@ -103,6 +150,17 @@ secopsctl drift --out .                  # data root (default: cwd)
 Output marks each object: `+` local-only (would create), `~` changed, `-` live-only
 (would delete). It covers the same SIEM and SOAR engine surfaces as `push` — see
 `secopsctl drift --help` for the full target list.
+
+Two things to plan for in CI:
+
+- **`forwarders` is a `push`/`drift` target but not a `pull` target.** A `pull all`
+  never writes forwarder files, so a following `drift` reports every live forwarder as
+  drifted (`+`, local-only). Exclude it from the loop — name the surfaces you do pull,
+  e.g. `secopsctl drift reference_lists data_tables feeds parsers …` — or pull
+  forwarder files some other way before the gate.
+- **A no-argument `drift` spans both planes.** It checks every SIEM *and* SOAR engine
+  surface, so it needs both sets of credentials: SIEM (ADC/OAuth) and SOAR (AppKey).
+  To gate one plane only, pass that plane's surface names explicitly.
 
 ## See also
 

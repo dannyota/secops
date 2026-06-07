@@ -94,6 +94,31 @@ secopsctl drift reference_lists data_tables
 It reports local-only `+`, changed `~`, and live-only `-`, and never mutates.
 With no target it checks every engine surface; otherwise the named ones.
 
+### In CI
+
+The realistic gate authenticates both planes, refreshes the mirror, commits, and
+runs `drift` to fail the build on divergence.
+
+```bash
+# auth: SIEM via ADC, SOAR via AppKey (see configure.md)
+secopsctl pull all                      # SIEM mirror
+secopsctl soar pull all                 # SOAR mirror
+git add -A && git commit -m "snapshot live state"
+
+# fail the build on any non-zero exit
+secopsctl drift reference_lists data_tables parsers feeds dashboards
+```
+
+Exit-code contract: `drift` exits non-zero on divergence, when a surface cannot be
+verified (an incomplete live list), or on a config/auth error. Today all three
+share exit code `1`, so a CI job should treat **any** non-zero as "investigate"
+rather than distinguishing the cause from the code alone.
+
+`forwarders` is a drift surface but has no `pull forwarders` target, so `pull all`
+never writes local forwarder files — a bare `secopsctl drift` then flags
+`forwarders` as live-only drift. Name the surfaces you mirror explicitly (as above)
+to keep `forwarders` out of the drift set.
+
 ## Pull before edit
 
 Live UI edits happen out-of-band. Stale local state silently clobbers them on

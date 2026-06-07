@@ -26,6 +26,11 @@ create/update path, so the reconcile surface **skips them entirely** (not pulled
 never planned for write). Reach for `ListNativeDashboards` directly when you want
 the lightweight inventory including curated entries.
 
+On an instance with many dashboards, the per-dashboard `FULL` fetch can hit the
+rate limit and return `429`. If a full pull rate-limits, retry; or pull a subset
+by exporting only the dashboards you need with `ExportDashboard` /
+`GetDashboard(…, full=true)` so each run fetches fewer dashboards.
+
 ```mermaid
 flowchart TD
   L["ListNativeDashboards · BASIC"] --> T{type?}
@@ -56,7 +61,16 @@ plus a reserved `_server` identity block. Two things matter on push:
 - **Charts replace wholesale.** `definition.charts` is sent as a unit on update,
   not merged — a dropped chart in the JSON drops it live. Review the dry-run.
 - **`access` is immutable after create.** Changing `DASHBOARD_PRIVATE` ↔
-  `DASHBOARD_PUBLIC` in the JSON is rejected; recreate to change visibility.
+  `DASHBOARD_PUBLIC` in the JSON is rejected. To change visibility, copy the
+  dashboard into a new one with the desired access: the SDK exposes
+  `DuplicateDashboard(ctx, dashboardID, displayName, accessType, description)` as
+  the recreate-with-new-access primitive (SDK-only; no `push` subcommand).
+- **No dashboard-level etag.** A dashboard carries no top-level `etag`, so a
+  `push dashboards` cannot detect a concurrent live edit of dashboard-level fields
+  (`displayName`, `description`, `definition.{filters,charts}`) — it overwrites
+  with whatever is on disk. The only dashboard-level guard is `--dry-run` plus a
+  fresh `pull dashboards` immediately before you edit. (Individual chart and query
+  updates *do* round-trip per-element etags; the dashboard envelope does not.)
 
 Volatile keys (`createUserId`, `updateUserId`, `dashboardUserData`) are stripped
 from the diff basis, so per-user view state never shows up as a spurious change.
