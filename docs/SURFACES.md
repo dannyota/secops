@@ -15,16 +15,26 @@ lists are **SIEM-plane** and **control-plane**.) SecOps exposes three:
 
 | Plane | Host | Auth | Base path | SDK package | Reliability |
 |---|---|---|---|---|---|
-| **SIEM** | `chronicle.googleapis.com` (regional) | ADC / OAuth | `v1alpha/projects/{p}/locations/{l}/instances/{i}/…` | `chronicle/` | mostly stable |
+| **SIEM** | `chronicle.googleapis.com` (regional) | ADC / OAuth | `{v}/projects/{p}/locations/{l}/instances/{i}/…` | `chronicle/` | mostly stable |
 | **SOAR — legacy** | `{tenant}.siemplify-soar.com` | AppKey | `/api/external/v1/…` | `soar/legacy/` | **the reliable path** |
 | **SOAR — modern** | `{tenant}.siemplify-soar.com` | AppKey | `v1alpha/…/instances/{i}/…` | `soar/` | intermittent 500s |
 
+The chronicle host serves **v1 / v1beta / v1alpha**; we prefer **v1 > v1beta >
+v1alpha** and pin the highest version that answers **per surface** (`{v}` above —
+e.g. Threat Intel / watchlists / governance = v1, forwarders = v1beta,
+curatedRules = v1alpha; full map in [ARCHITECTURE.md](ARCHITECTURE.md) §6). The
+SOAR host serves **v1alpha only** (v1/v1beta 404), so the version ladder is a
+chronicle-host concern.
+
 Two rules keep the split honest:
 
-1. **A surface is placed by its host+auth, not by how it "feels."** The Content
-   Hub and `marketplaceIntegrations` install integrations, so they feel SOAR — but
-   they answer on `chronicle.googleapis.com` with ADC, so they are **SIEM-plane**.
-   Threat Intelligence likewise is SIEM-plane.
+1. **A surface is placed by its host+auth, not by how it "feels."** Threat
+   Intelligence reads like an external enrichment add-on, but `threatCollections`
+   answers on `chronicle.googleapis.com` with ADC, so it is **SIEM-plane**. The
+   Content Hub is the mirror-image trap: it uses the modern v1alpha resource shape,
+   so it *looks* SIEM — but `marketplaceIntegrations`/`contentPacks` answer on
+   `*.siemplify-soar.com` with the AppKey (the chronicle host 500s for them), so
+   they are **SOAR-modern plane**. Verify the host before placing.
 2. **Some resources exist on two hosts.** For tenants migrated to a customer-managed
    project, `integrations` / `connectors` / `jobs` answer on **both** the SOAR
    AppKey host and `chronicle.googleapis.com` v1alpha. We deliberately operate
@@ -88,20 +98,18 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | **data-access scopes** (`dataAccessScopes`) | reconcile | 🔨 SDK CRUD (Wave 10); list read-validated | reconcile-surface wiring + write validation ⬜ |
 | **risk config** (`{instance}/riskConfig`) | imperative | ✅ `GetRiskConfig` live-validated (singleton sub-resource, returns defaults); `UpdateRiskConfig` built | path is the singleton `{instance}/riskConfig` (GET/PATCH), not a colon verb |
 | BigQuery export config | imperative | ⬜ | get/update ⬜ (low) |
-| Content Hub — featured content rules | read | ✅ | — (this one IS on the chronicle ADC host) |
+| Content Hub — featured content rules | read | ✅ | on the chronicle ADC host (distinct from the SOAR-host marketplace below) |
 | Content Hub — featured native dashboards | imperative | ⬜ | `list`/`install` ⬜ (med) |
-
-> **Content Hub is served on the SOAR host, not chronicle.googleapis.com.**
-> `marketplaceIntegrations` and `contentHub/contentPacks` answer on
-> `*.siemplify-soar.com` (AppKey) using the v1alpha resource format — the
-> chronicle ADC host returns HTTP 500 for them. So they live on the **SOAR-modern
-> plane** (`soar/marketplace.go`), see that table below — NOT the SIEM plane. (See
-> the CLAUDE.md rule on this.)
 | `instances.get` | read | ⬜ | (low) |
 
-> **`marketplaceIntegrations` is the durable twin of the legacy `/store` install
-> path** the SOAR-legacy plane currently uses — and the only place an integration
-> **uninstall** exists. It is SIEM-plane (`chronicle.googleapis.com`).
+> **The installable Content Hub (`marketplaceIntegrations`, `contentHub/contentPacks`)
+> is on the SOAR host, not chronicle.** It answers on `*.siemplify-soar.com` (AppKey)
+> using the v1alpha resource shape — the chronicle ADC host returns HTTP 500 for it.
+> So it lives on the **SOAR-modern plane** (`soar/marketplace.go`); it is the durable
+> twin of the legacy `/store` install path and the only place an integration
+> **uninstall** exists. See that table below and the "Other features" rows in
+> [CATALOG.md](CATALOG.md). The SIEM-host *featured content* rows above are a
+> separate, chronicle-side surface. (See the CLAUDE.md rule on host placement.)
 
 ---
 
@@ -149,13 +157,15 @@ method when the legacy API has no equivalent (e.g. per-connector-definition dele
 
 ## How a family earns a home
 
-When adding any surface, fill one **registry entry** (see ARCHITECTURE §7) before
-writing code:
+When adding any surface, fill one **registry entry** in
+`internal/mirror/surface_families.go` (see ARCHITECTURE §7) before writing code:
 
 ```
-SurfaceFamily{ Name, Plane, Host, Auth, APIVersion, Lane, Status, SDKLocation }
+SurfaceFamily{ Name, Area, Plane, Host, Auth, Generation, APIVersion, Lane, Status, SDKLocation }
 ```
 
 The registry is the single source of truth that the CATALOG status matrix and the
-ARCHITECTURE §6 version table derive from — so the map, the docs, and the code can
-never silently drift.
+ARCHITECTURE §6 version table derive from. SIEM `APIVersion` is sourced from
+`chronicle.APIVersions` (`chronicle/versions.go`), and a drift-guard test
+(`surface_families_test.go`) asserts the registry, that map, and the §6 table all
+agree — so the map, the docs, and the code can never silently drift.

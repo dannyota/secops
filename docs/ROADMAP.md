@@ -223,30 +223,29 @@ live-write-validated. Status after closing them:
   **INACTIVE** version from a real active parser's source, asserts it never goes ACTIVE
   (so live ingestion is untouched) and that the borrowed log type's active parser is
   unchanged, then deletes the throwaway. Deliberately skips `activate` — the only
-  ingestion-affecting call. Found + fixed an SDK bug: the `RunParser` response decodes
-  `parsedEvents` as an object `{events:[{event:…}]}`, not a bare array.
+  ingestion-affecting call. The `RunParser` response decodes `parsedEvents` as an
+  object `{events:[{event:…}]}`, not a bare array.
 - **Wave 5 — `reference_lists`**: now ✅ — write live-validated. There is no delete (and
   no archive) API, so the smoke can't be a throwaway-and-delete; instead
   `TestLiveReconcileReferenceListWriteSmoke` reuses one fixed, clearly-labeled inert
   list and drives a create-or-reuse + one update each run (fresh description + entries
-  → always-present update, rerunnable, no accumulation). Found + fixed a
-  reconcile-identity bug: create echoes the project NUMBER in the returned resource
-  name while list echoes the project ID, so the SDK now normalizes both to the id form
-  (the engine keys identity on the name).
+  → always-present update, rerunnable, no accumulation). Reconcile identity is kept
+  stable: create echoes the project NUMBER in the returned resource name while list
+  echoes the project ID, so the SDK normalizes both to the id form (the engine keys
+  identity on the name).
 - **Wave 5 — `feeds`**: ✅ — write live-validated (incl. GCS V2 / Storage Transfer
   Service); short-`logType` expansion fixed; `FetchFeedServiceAccount` added.
 - **Wave 4 — `soar case` verbs + `bulk-close`**: now ✅ — live-validated end-to-end by
   `TestLiveSOARCaseVerbsWriteSmoke` (create two throwaway cases → rename/describe/
-  importance/priority/tag/untag/stage → merge → close). The blocking 500 was a
-  **server NPE on null collections**: the legacy server doesn't null-guard
-  `entities`/`playbooks`/`tags`, so omitting them threw a 500 *after* creating the
-  case (captured by diffing the real UI request — the UI sends those as `[]`). Two
-  fixes landed: `CreateManualCase` is now typed (`ManualCaseRequest`, returns the new
-  case id) and always sends those collections as `[]`; and the transport no longer
-  retries non-idempotent POSTs on 5xx (the retry was duplicating the half-created
-  case). `merge` needs the target id inside `casesIds` (the CLI adds it now); hard
-  delete (`RetentionDeleteCases`) is 403 for the AppKey role, so the smoke cleans up by
-  closing (re-run-tolerant; a retention grant would make it zero-residue).
+  importance/priority/tag/untag/stage → merge → close). The legacy server doesn't
+  null-guard `entities`/`playbooks`/`tags`, so omitting them returns a 500 *after*
+  creating the case (the UI sends those as `[]`). `CreateManualCase` is typed
+  (`ManualCaseRequest`, returns the new case id) and always sends those collections as
+  `[]`; the transport does not retry non-idempotent POSTs on 5xx (a retry would
+  duplicate the half-created case). `merge` needs the target id inside `casesIds` (the
+  CLI adds it); hard delete (`RetentionDeleteCases`) is 403 for the AppKey role, so the
+  smoke cleans up by closing (re-run-tolerant; a retention grant would make it
+  zero-residue).
 
 ### Wave 7 — SOAR completion  *(done — reads + connectors/jobs writes live-validated; form-dynamic-parameters deferred)*
 - **Goal.** Close SOAR to full config-as-code.
@@ -350,11 +349,13 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 11 — Content Hub (modern, **SOAR host**)  *(✅ read-validated — Content Hub is served on `*.siemplify-soar.com` (AppKey, v1alpha), NOT chronicle.googleapis.com; `marketplaceIntegrations` (405) + `contentHub/contentPacks` (59) live via `soar/marketplace.go`; install/uninstall built)*
-- **Goal.** Manage installable content on the durable SIEM-plane API — the twin of
+- **Goal.** Manage installable content on the durable SOAR-host API — the twin of
   the legacy `/store` install path, and the only place an **uninstall** exists.
 - **Scope.** `marketplaceIntegrations` list/get/install/uninstall; `contentHub.
-  contentPacks` list/get/add/delete; featured native dashboards install. SIEM plane,
-  `chronicle/content.go`. Imperative (install/uninstall) + raw where bundled.
+  contentPacks` list/get/add/delete. SOAR plane, `soar/marketplace.go`
+  (`*.siemplify-soar.com`, AppKey, v1alpha — the chronicle host 500s). Imperative
+  (install/uninstall) + raw where bundled. The separate chronicle-side *featured
+  content* surface stays distinct.
 - **Exit.** Read-validated; a gated install→uninstall smoke on a throwaway pack.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 

@@ -128,10 +128,10 @@ responding, change the const to the version that works and update this table.
 | Endpoint family | Version | Status | Notes |
 |---|---|---|---|
 | SIEM config + reads — rules · reference_lists · data_tables · feeds · parsers · dashboards · search · entity | `v1alpha` | ✅ | `DefaultAPIVersion`; doctor + pulls confirm |
-| Chronicle **cases** (UUID) API on the **chronicle host** — get/list/patch/merge/bulk | `v1beta` | ⛔ | the chronicle.googleapis.com cases collection **500s on all of v1/v1beta/v1alpha** (confirmed 2026-06-07, server-side) — not the working path. The **modern cases that DO work are on the SOAR host** (`soar.ListCases`, v1alpha — see `soar case list --modern`); operational case work uses the reliable SOAR AppKey lane. One case, multiple APIs |
-| SIEM legacy case reads — `legacy:legacyListCases` · `legacyBatchGetCases` | `v1alpha` | ⛔ | `legacyListCases` 404; `legacyBatchGetCases` is the SOAR-int ⇄ SIEM-uuid bridge |
+| Chronicle **cases** (UUID) API on the **chronicle host** — get/list/patch/merge/bulk | all (v1/v1beta/v1alpha) | ⛔ | **alternate, unused path** for the cases function. The chronicle.googleapis.com cases collection **500s at every version** (server-side), so no version is pinned. The **modern cases that DO work are on the SOAR host** (`soar.ListCases`, v1alpha — `soar case list` uses it by default); operational case work uses the SOAR AppKey lane. The cases function is **not** blocked — this `⛔` is only this dead chronicle path. One case, multiple APIs |
+| SIEM legacy case reads — `legacy:legacyListCases` · `legacyBatchGetCases` | `v1alpha` | ⛔ list · ✅ bridge | `legacyListCases` 404 (⛔, that one path only); `legacyBatchGetCases` is the working SOAR-int ⇄ SIEM-uuid bridge |
 | SOAR legacy — `/api/external/v1/…` (**cases** · connectors · jobs · settings · playbooks bridge) | external `v1` · AppKey | ✅ | the reliable path — **incl. the working operational case lane** (`GetCaseCardsByRequest`, `GetCaseFullDetails` → alerts, `ExecuteBulkCloseCase`, `ChangeCasePriority`) |
-| SOAR modern — integrations · connectors · jobs · grouping · cases · Content Hub · environments · socRoles · customLists · case*Definitions | `v1alpha` only | 🔨 | **SOAR host serves v1alpha ONLY** — v1/v1beta 404 for every surface (probed 2026-06-07). The v1>v1beta>v1alpha preference is a **chronicle-host** concern; the SOAR host stays v1alpha |
+| SOAR modern — integrations · connectors · jobs · grouping · cases · Content Hub · environments · socRoles · customLists · case*Definitions | `v1alpha` only | 🔨 (cases ✅) | **SOAR host serves v1alpha ONLY** — v1/v1beta 404 for every surface. **cases is live-validated** here (`soar.ListCases`, the default for `soar case list`); the rest are built. The v1>v1beta>v1alpha preference is a **chronicle-host** concern; the SOAR host stays v1alpha |
 | SIEM Threat Intel — `threatCollections` · `iocs` | **`v1`** | ✅ | prefer v1>v1beta>v1alpha; all three answer → pinned v1 (`tiAPIVersion`). threatCollections uses project **number** |
 | SIEM operational — `watchlists` (read) | **`v1`** | ✅ | all three answer → pinned v1 (`watchlistsAPIVersion`); `watchlists list/get` CLI |
 | SIEM governance — `riskConfig` · `dataAccessLabels` · `dataAccessScopes` | **`v1`** | ✅ | all three versions answer → pinned v1 (`rbacAPIVersion`); riskConfig is `{instance}/riskConfig` |
@@ -141,7 +141,10 @@ responding, change the const to the version that works and update this table.
 
 Principle: **test → hard-code the working version per family → record it here.** No
 per-user version flag; the SDK ships the version that works, and this table tracks
-which is which (and what's currently down).
+which is which (and what's currently down). The pins live in one place —
+`chronicle/versions.go` (`APIVersions`) — and a drift-guard test
+(`internal/mirror/surface_families_test.go`) fails if this table and that map
+disagree, so §6 and the code can't drift apart silently.
 
 ## 7. Surface taxonomy & registry
 
@@ -157,11 +160,13 @@ is the design behind it.
   A surface is one plane **and** one lane (e.g. SIEM reference lists = SIEM-plane +
   reconcile-lane + control-plane).
 
-**Place by host+auth, not by feel.** The Content Hub and `marketplaceIntegrations`
-install integrations, so they read as SOAR — but they answer on
-`chronicle.googleapis.com` with ADC, so they are **SIEM-plane**. Threat Intelligence
-is likewise SIEM-plane. Putting them in `chronicle/` keeps the auth and the package
-honest.
+**Place by host+auth, not by feel.** Verify the host before you place a surface.
+Threat Intelligence reads like an external enrichment add-on, but `threatCollections`
+answers on `chronicle.googleapis.com` with ADC — it is **SIEM-plane** (`chronicle/`).
+The Content Hub is the opposite trap: it uses the modern v1alpha resource shape, so it
+*looks* SIEM, but `marketplaceIntegrations`/`contentPacks` answer on the SOAR host
+(`*.siemplify-soar.com`, AppKey; the chronicle host 500s) — it is **SOAR-plane**
+(`soar/marketplace.go`). Host+auth, not the resource shape, decides the package.
 
 **One resource can live on two hosts.** For customer-managed-project tenants,
 `integrations` / `connectors` / `jobs` answer on **both** the SOAR AppKey host and
@@ -170,15 +175,20 @@ AppKey lane** (reliable) and reach for the modern path only for what the legacy 
 lacks (e.g. the per-connector-definition delete). Each dual-host family records the
 host it actually uses and why.
 
-**The registry is the spine.** Each family is one declarative entry:
+**The registry is the spine — and it is code.** Each family is one declarative
+entry in `internal/mirror/surface_families.go`:
 
 ```
-SurfaceFamily{ Name, Plane, Host, Auth, APIVersion, Lane, Status, SDKLocation }
+SurfaceFamily{ Name, Area, Plane, Host, Auth, Generation, APIVersion, Lane, Status, SDKLocation }
 ```
 
-It is the single source of truth that the §6 version table and the
-[CATALOG.md](CATALOG.md) status matrix derive from — so the map, the docs, and the
-code cannot silently drift. Adding a surface is: write the registry entry → verify
-the SDK signature against the spec by hand → wire the Surface/command → read-validate
-→ gated write-smoke (§5). Keep `chronicle/` and `soar/` flat with one file per
-family; the registry, not the package tree, carries the structure.
+`Area` is the by-function grouping in [CATALOG.md](CATALOG.md) (SIEM / SOAR / Other);
+`Generation` is the New-vs-Legacy axis. SIEM `APIVersion` is **sourced from**
+`chronicle.APIVersions` (`chronicle/versions.go`), so the registry can't disagree
+with the SDK's actual pins. A drift-guard test (`surface_families_test.go`) asserts
+the host↔auth↔plane↔generation↔version invariants, that **every reconcile surface has
+an entry**, and that `chronicle.APIVersions` matches the §6 table — so the map, the
+docs, and the code cannot silently drift. Adding a surface is: write the registry
+entry → verify the SDK signature against the spec by hand → wire the Surface/command
+→ read-validate → gated write-smoke (§5). Keep `chronicle/` and `soar/` flat with one
+file per family; the registry, not the package tree, carries the structure.

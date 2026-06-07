@@ -1,5 +1,10 @@
 # secopsctl docs
 
+> **New here?** Start at the [project README](../README.md) for install, auth, and
+> a 5-command quickstart, then the [task cookbook](USAGE.md) for end-to-end
+> workflows. Unfamiliar term? the [Glossary](GLOSSARY.md). The pages below are the
+> **design reference** — deeper than a user needs for everyday work.
+
 `secopsctl` operates **Google SecOps** (Chronicle SIEM + Siemplify SOAR) **as
 code** — the way Terraform operates cloud infra. Two products, two planes, one
 CLI. These docs are the contract: read them before changing the surface.
@@ -47,18 +52,22 @@ flowchart LR
 | **Control**<br/>`pull → push` | rules · reference_lists · data_tables · feeds · parsers · dashboards · curated\* | webhooks · environments · networks · idp · soc-roles · blacklists · case-stages · case-tags · playbooks · visual-families · … |
 | **Operational**<br/>`query → act` | events (read-only) · alerts · cases† | `soar case list`/`get` (read) · `soar case` (per-case verbs) · bulk-close |
 
-<sub>† There is **one** case, reachable by two APIs. secopsctl operates it on the reliable SOAR AppKey lane (`soar case`, under SOAR); the Chronicle UUID `cases` API reaches the *same* case but currently 500s, so it's not used. Not two case systems.</sub>
+<sub>† There is **one** case, reachable by two APIs on the SOAR (siemplify) domain: `soar case list` defaults to the New API (v1alpha) and auto-falls back to the reliable Legacy AppKey queue. The Chronicle-host UUID `cases` API reaches the *same* case but 500s at every version, so it's unused. Not two case systems.</sub>
 
-<sub>\* curated = Google-managed: read + enable/disable/alerting, not full CUD. The SOAR list is representative (14 surfaces total) — the authoritative set + live status is in [CATALOG.md](CATALOG.md).</sub>
+<sub>\* curated = Google-managed: read + enable/disable/alerting, not full CUD. The SOAR list is representative — the authoritative set + live status is in [CATALOG.md](CATALOG.md).</sub>
 
 ## How these docs are organized
 
 | Doc | What it is | Read it to… |
 |---|---|---|
+| **[../README.md](../README.md)** | Project landing — install, auth, quickstart | get running |
+| **[USAGE.md](USAGE.md)** | Task cookbook — copy-paste workflows | get a job done |
+| **[GLOSSARY.md](GLOSSARY.md)** | Plain-language term definitions | look up a word |
+| **[SDK.md](SDK.md)** | Go SDK guide (three clients, examples) | import the SDK |
 | **[README.md](README.md)** (this) | The map: model, diagram, index | get oriented |
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | The cross-cutting design — engine, lanes, planes, auth, safety, reliability | understand *how* it works (any surface) |
 | **[CATALOG.md](CATALOG.md)** | Every surface & command + a **status matrix** (designed / built / validated) | see *what exists* and its maturity — the tracker |
-| **[SURFACES.md](SURFACES.md)** | The API surface map: every family split by **plane** (SIEM / SOAR-legacy / SOAR-modern) with gaps | see *which API does what* and what's unbuilt |
+| **[SURFACES.md](SURFACES.md)** | The API surface map: every family by **plane** (SIEM / SOAR-legacy / SOAR-modern) with gaps | see *which API does what* and what's unbuilt |
 | **[SOAR-DESIGN.md](SOAR-DESIGN.md)** | SOAR specifics (3 tiers, gotchas, per-surface notes) | work on SOAR |
 | **[SIEM-DESIGN.md](SIEM-DESIGN.md)** | SIEM specifics (two planes, cases/alerts model) | work on SIEM |
 | **[ROADMAP.md](ROADMAP.md)** | Waves / sequencing | see what's next |

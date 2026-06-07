@@ -64,11 +64,11 @@ this plane is about the *operator model* and *safety*, not new API code.
 
 ### The three act surfaces (and one read-only)
 
-| Domain | Query (read) | Act (mutate) | Mutability |
+| Surface | Query (read) | Act (mutate) | Mutability |
 |---|---|---|---|
 | **events (UDM)** | `SearchUDM` / `NLSearch` / `GetStats` / `FindUDMFieldValues` | — | immutable telemetry — **read-only, never mutate** |
 | **alerts** | `GetAlerts` (list) · `GetAlert` · `ListDetections` · `SearchRuleAlerts` | `UpdateAlert` · `BulkUpdateAlerts` (status / verdict / priority / reason / comment) | per-item + subset |
-| **cases** (one case; reliable path = SOAR AppKey `soar case`, see below) | `ListCases` / `SearchCases` · `GetCase` (Chronicle UUID API — same case, flaky) | `PatchCase` · `MergeCases` · `BulkClose/Assign/AddTag/ChangePriority/ChangeStage/Reopen` | per-item + subset |
+| **cases** (one case; operated via `soar case`, see below) | `ListCases` / `SearchCases` · `GetCase` | `PatchCase` · `MergeCases` · `BulkClose/Assign/AddTag/ChangePriority/ChangeStage/Reopen` | per-item + subset |
 | **entities / IoCs** | `SummarizeEntity` · `ListIoCs` · `FetchAssociatedInvestigations` | — | enrichment — read-only |
 | **threat intel** | `ListThreatCollections` · `GetThreatCollection` (`ti collections`/`collection`) | — | Mandiant-sourced — **read-only** (no write path) |
 
@@ -80,24 +80,28 @@ this plane is about the *operator model* and *safety*, not new API code.
 > in the resource name. There is no TI write path — custom intel is ingested as
 > normal logs + reference lists, and Applied-TI detections ship as curated rule sets.
 
-> **There is ONE case — two APIs reach it, not two case systems.** Google SecOps
-> = Chronicle (SIEM) + Siemplify (SOAR) merged, so a case is a **single record**
-> reachable two ways. It is the same case on both: it carries two ids and
-> `legacyBatchGetCases` returns `soarPlatformInfo.caseId` linking them. secopsctl
-> operates cases on the **SOAR AppKey API because it is reliable and complete**;
-> the Chronicle API is the *same case* through a newer endpoint that currently
-> 500s/404s, so it is not used unless it stabilizes.
+> **There is ONE case, reached on multiple paths — not multiple case systems.**
+> Google SecOps = Chronicle (SIEM) + Siemplify (SOAR) merged, so a case is a
+> **single record** reachable several ways. It carries two ids and
+> `legacyBatchGetCases` returns `soarPlatformInfo.caseId` linking them. The cases
+> function is **live-validated**: `soar case list` defaults to the modern **New API
+> on the siemplify domain (v1alpha)** and auto-falls back to the broad, reliable
+> **Legacy** external API (`/api/external/v1`, AppKey) on error; `soar case <verb>`
+> and `get` run on Legacy. The **only** dead path is the chronicle-host UUID cases
+> collection (`chronicle.googleapis.com`, ADC), which 500s at every version — an
+> alternate, unused route to the same case, not the function's status.
 >
-> | | via SOAR AppKey API *(the path secopsctl uses)* | via Chronicle API *(same case, alternate)* |
-> |---|---|---|
-> | id | integer (e.g. `234`) | UUID (resource name) |
-> | api · auth | `/api/external/v1/cases` · AppKey | v1beta `cases` + v1alpha `legacy:legacyListCases` · ADC |
-> | today | mature, **reliable**, complete | newer, **flaky** (v1beta 500 / v1alpha 404 observed) |
-> | CLI | `soar case list`/`get` (read) · `soar case <verb>` (act) | — (would be `cases …` if/when it stabilizes) |
+> | | New API · siemplify *(default for `list`)* | Legacy external · siemplify *(reliable; verbs + fallback)* | chronicle-host UUID *(alternate, unused)* |
+> |---|---|---|---|
+> | id | integer (e.g. `234`) | integer (e.g. `234`) | UUID (resource name) |
+> | api · auth · version | modern `cases` · AppKey · **v1alpha** | `/api/external/v1/cases` · AppKey | v1/v1beta/v1alpha `cases` · ADC |
+> | today | **live-validated** | mature, **reliable**, complete | 500s at every version |
+> | CLI | `soar case list` (default) | `soar case list`/`get` · `soar case <verb>` | — |
 >
-> Same case, two ids — `soarPlatformInfo.caseId` bridges them only when you need to
-> correlate across the two APIs. The Chronicle UUID API is **not** a separate or
-> preferred surface; it is the same case via an API that does not work reliably yet.
+> Same case, two ids — `soarPlatformInfo.caseId` bridges them when you need to
+> correlate across paths. The chronicle-host UUID route is **not** a separate or
+> preferred surface; it is the same case via a path that does not answer, recorded
+> here as a note.
 
 ### The query model
 
@@ -189,13 +193,14 @@ secopsctl cases   list | get | search | comment | assign | tag | priority | stag
 
 ## First implementation wave — SIEM **cases** (operational)
 
-> **One case, two APIs.** The **reliable, complete path for all case operations is
-> the SOAR AppKey API** — `soar case <verb>` plus the `soar case list`/`get` reads
-> (`ListCaseCards` / `GetCaseFullDetails`, which also returns the case's **alerts**).
-> That loop is wired and is what to use. The Chronicle (UUID) `cases` collection
-> below (v1beta) reaches the **same case** through a newer API that returns
-> intermittent 5xx — it is not a separate or preferred surface, just an alternate
-> API to reach for if/when it stabilizes.
+> **One case, reached on multiple paths.** Case operations run on the siemplify
+> domain: `soar case list` defaults to the modern **New API (v1alpha, live-validated)**
+> with auto-fallback to the broad, reliable **Legacy** external API; `soar case <verb>`
+> plus the `soar case get` read (`GetCaseFullDetails`, which also returns the case's
+> **alerts**) run on Legacy. That loop is wired and is what to use. The chronicle-host
+> (UUID) `cases` collection below reaches the **same case** through `chronicle.googleapis.com`
+> (ADC) but 500s at every version — it is not a separate or preferred surface, just an
+> alternate route, recorded as a note.
 
 Decided: the subset-act model is **both** paths (reviewed-`--ids` preferred,
 `--filter` gated dry-run-first + `--limit`-capped), and the first wave is **case
@@ -238,5 +243,5 @@ available, this wave ships read + dry-run only.
 
 - No mutation of events (immutable telemetry) and no bulk **delete** of live data.
 - No mixing planes: config stays reconcile (files/git), operational stays
-  query/act (live). The dual SIEM-UUID / SOAR-int case worlds stay separate.
+  query/act (live).
 - No `--yes`-by-default anywhere; `--filter` bulk is always dry-run-first.

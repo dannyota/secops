@@ -21,76 +21,160 @@ product-neutral engine is `internal/mirror/reconcile`; live write-smokes are gat
 | 🔨 | **built** | code lands |
 | ✅ | **live-validated** | reads round-trip clean / a write smoke ran |
 | 🔒 | **read-only by choice** | write deliberately not run — RBAC/SSO/high-blast/routing |
-| ⛔ | **blocked** | Google API down |
-| — | **n/a** | — |
+| ⛔ | **blocked** | that API path is down server-side (500/404) |
+| — | **not used here** | secopsctl doesn't use that API generation for this function |
 
-## SOAR · control plane (reconcile)  — auth: AppKey (reliable)
+## How this catalog is sliced
 
-| Surface | Lane | Identity | Read | Write | Notes |
-|---|---|---|---|---|---|
-| `webhooks` | reconcile | `identifier` | ✅ | 🔨 | full CUD; create is license-capped (engine surfaces it, smoke skips) |
-| `environments` | reconcile | `id` | ✅ | 🔒 | NoDelete (segregation unit — high blast); writes guarded, not run |
-| `networks` | reconcile | `id` | ✅ | ✅ | write smoke (RFC5737 throwaway). **PruneEligible** (Wave 7): `DeleteNetwork(id)` is a clean by-id delete (record id == DELETE path id, confirmed by `TestLiveReconcileNetworkDeleteByIDSmoke`); low-blast enrichment data |
-| `tracking-lists` | reconcile | `id` | ✅ | ✅ | first write-loop proof (clone throwaway) |
-| `soc-roles` | reconcile | `id` | ✅ | ✅ | RBAC. Write **path** live-validated (Wave 7) via an inert throwaway role — create→rename→delete (no users assigned); `DeleteSocRole` takes `{socRoleId}`. **Operationally additive / engine-NoDelete** (delete via raw SDK only; `--prune` never deletes these) — reconcile RBAC with care |
-| `idp` | reconcile | `id`(uuid) | ✅ | ✅ | SSO; id-from-body update closure. Write **path** live-validated (Wave 7) via a throwaway mapping for a **fake group** (no real users) — create→rename→delete-by-id. **Operationally additive / engine-NoDelete** — reconcile SSO with care |
-| `visual-families` | reconcile | `id` | ✅ | ✅ | write smoke; validates the `wrapKey` envelope. **PruneEligible** (Wave 7): `DeleteFamilyData` is a clean by-id delete on an inert custom family |
-| `sla-definitions` | reconcile | `id` (name=`value`) | ✅ | ✅ | affects alert routing. Write **path** live-validated (Wave 7) via a throwaway "Case Priority = High" SLA — engine create→update→delete. Legacy `ApiSlaDefinition` int enums are documented in the **swagger schema `description`** fields: `valueType` (`ApiSlaProviderTypeEnum`) 2=AlertRuleGenerator/3=CaseStage/**4=CasePriority**/5=AlertPriority; `slaPeriodType`/`criticalPeriodType` (`ApiPeriodTypeEnum`) 0=Minutes/**1=Hours**/2=Days/3=Seconds; `alertType` (`ApiSlaAlertType`) **0=AllAlerts**/1=SpecificAlerts. For CasePriority the `value` round-trips as a JSON-array string (`["High"]`). (The v1alpha UI endpoint uses string enums; the legacy AppKey path is the reliable one.) **Operationally additive / engine-NoDelete** (delete via raw `RemoveSlaDefinitionRecords`) — routing surface, reconcile with care |
-| `case-stages` | reconcile | `id` | ✅ | ✅ | wrapped list. Write **path** live-validated (Wave 7) via an inert throwaway stage — create→reorder→delete (used by no case); `RemoveCaseStageDefinitionRecords` takes the full record. **Operationally additive / engine-NoDelete** — UI-pollution, reconcile with care |
-| `case-tags` | reconcile | `id` | ✅ | 🔨 | wrapped list; write smoke skips (no tag to clone) |
-| `close-root-causes` | reconcile | `id` | ✅ | ✅ | non-unique names → exercises the slug-collision fix |
-| `blacklists` | reconcile | `id` | ✅ | ✅ | model block-list; write smoke |
-| `playbook-categories` | reconcile | `id` | ✅ | ✅ | write smoke |
-| `playbooks` | reconcile (bespoke) | **name** | ✅ | ✅ | uuid rotates → key on name; whole-body save; SavePlaybook update-by-name **verified** |
-| `connectors` | reconcile | `identifier` | ✅ | ✅ | Wave 7: moved onto the reliable legacy AppKey engine (replaces the modern v1alpha pull+patch). **Full CUD** — create + whole-body update (`SaveConnector`) + delete-by-id (`DeleteConnector`, **PruneEligible**). `SaveConnector` is the upsert for both: the **create** path triggers when the body has **no `identifier`** (server assigns one); sending a client-assigned id routes to the *update* path (404 for an id that doesn't exist yet) — a new connector file naturally omits `identifier`, so engine create works (operator supplies the mandatory params). `ListConnectorCards` groups cards by integration (`[{integration, cards:[…]}]`), so the list closure **flattens** them. Secret params arrive server-masked (`***…`) and pass through unchanged on update. extraStrip = `version`/`isUpdateAvailable`/`loggingEnabledUntilUnixMs`/`isCustom` (the volatile server-managed fields on the `GetConnector` body). Covered by `TestLiveReconcileConnectorWriteSmoke` (throwaway DISABLED connector from a template → engine create → update → delete; iterates templates + fills mandatory params; self-cleaning) |
-| `jobs` | reconcile | `uniqueIdentifier` | ✅ | ✅ | Wave 7: legacy AppKey engine (replaces modern v1alpha pull+patch). pull + update (`SaveOrUpdateJob` whole-body upsert; the installed-job read item IS the write body); **NoDelete** (delete takes a body, not a clean id). extraStrip drops `version`/`lastRunStatus`/`lastRunTime`/`creator` (and `lastModificationTime`, now a global timekey). **Read + write live-validated** by `TestLiveReconcileJobWriteSmoke` (throwaway DISABLED job from a template → engine update → raw delete; self-cleaning) |
+By **function** (cases, rules, playbooks, …) — one row each — grouped into three
+areas: **SIEM**, **SOAR**, and cross-cutting **other features** (Threat Intel,
+Content Hub). A function can be served by **two API generations**, tracked in
+**two columns**, and each column records **status · domain · version**:
 
-## SOAR · imperative + raw
+- **New API** — Google's modern REST (`projects/…/instances/…` shape). The cell
+  reads `<status> <domain> · <version>`, e.g. `✅ chronicle · v1alpha` or
+  `✅ siemplify · v1alpha`. **Domain** is a property of the call, not the section —
+  the **same function can answer on either domain**. We prefer **v1 > v1beta >
+  v1alpha** and pin the version that works per surface (full per-endpoint map:
+  [ARCHITECTURE.md](ARCHITECTURE.md) §6).
+- **Legacy API** — the Siemplify **external** API (`/api/external/v1`, AppKey, on
+  the siemplify domain). SOAR-only; the broad, reliable path the reconcile engine
+  and the case verbs run on.
 
-| Surface | Lane | Status | Notes |
-|---|---|---|---|
-| `soar case list` / `get <id>` | operational read | ✅ | **the reliable operational read path** (AppKey), live read-validated. `list` (`ListCaseCards`; `--status`/`--limit`/`--json`) + `get <id>` (`GetCaseFullDetails` → case **and its alerts**, each with its `--alert` identifier for the mutate verbs); table or `--json`. Wave 13: `list` now defaults to the **modern v1alpha** cases API (SOAR host) with **auto-fallback to the legacy queue** on error; the global **`--legacy`** flag forces legacy-only. `--status` is applied client-side on the modern path (OPENED/CLOSED). Case verbs/writes stay legacy. Shared `preferModern` helper |
-| `soar case <verb>` (assign/rename/stage/tag/untag/describe/importance/close/merge) | imperative | ✅ | **the reliable operational case path** (AppKey). 9 mutate verbs; swagger-verified bodies + unit test; live-validated end-to-end by `TestLiveSOARCaseVerbsWriteSmoke` (create two throwaway cases → run every verb → merge → close). Built on a now-typed `CreateManualCase` (`ManualCaseRequest`, returns the new case id): the earlier 500 was a **server NPE on null collections** — the legacy server does not null-guard `entities`/`playbooks`/`tags`, so omitting them threw a post-creation 500 (the case was still created; the transport's retry-on-500, since fixed, then duplicated it). The SDK now always sends those as `[]`. `merge` requires the target id to be present in `casesIds` (the CLI now adds it automatically). `assignedUser` takes `@RoleName`. Hard delete (`RetentionDeleteCases`) is denied to the AppKey role (403), so the smoke cleans up by **closing** (re-run-tolerant, not zero-residue without a retention grant) |
-| `soar push bulk-close` | imperative | 🔨 | queue bulk-close (`ExecuteBulkCloseCase`, AppKey) — pre-existing |
-| `soar integration create` / `delete` | imperative | 🔨 | Wave 7: integration **instances** are not reconcilable (no update endpoint; create body doesn't round-trip from any read), so they are operated imperatively. `create --integration <id> --environment <env>` (new instance starts unconfigured/inert); `delete --integration <id> --environment <env> --id <instance>` (resolves the full instance object — delete takes a body — and warns if playbooks use it). Covered by `TestLiveIntegrationInstanceCRUD`; guarded |
-| integration **install** lifecycle (SDK only) | imperative/raw | 🔨 | Installing an integration PACKAGE (and the connector/job/action **definitions** it carries) is API-driven, separate from instances: `legacy.GetPackageDetails` + `legacy.DownloadAndInstallIntegration` (`/api/external/v1/store/…`, AppKey — **not in the swagger snapshot**, shape from the live Content-Hub request) install from the local store; the modern v1alpha `marketplaceIntegrations:install`/`:uninstall` is the documented twin. Whole-integration delete is v1alpha-only (`integrations.delete` → `soar.DeleteIntegration`) and limited to genuinely **custom** packs (`custom:true`); the per-tenant installed copies of marketplace packs carry a `__<uuid>` identifier suffix but are `custom:false`, so they are not whole-deletable (and must not be — they are the working installs). Not smoke-validated (install is not reversible via the external surface) |
-| `soar integration list` / `uninstall` | imperative (modern v1alpha) | ✅ | `list [--custom] [--json]` enumerates installed packs (`soar.ListIntegrations`); `uninstall --name <key>` deletes a **custom** pack (`soar.DeleteIntegration`, guarded). `soar.IsDeletableIntegration` = `custom:true` only — the guardrail that refuses commercial/installed packs. Read live-validated |
-| `soar integration connector list` / `delete` | imperative (modern v1alpha) | ✅ | Connector **definitions** (templates inside an integration; distinct from the configured connector *instances* in the reconcile table). `list --integration <key>` (`soar.ListConnectors`, flags `custom`); `delete --integration <key> --id <connId>` (`soar.DeleteConnectorDef` → v1alpha `integrations.connectors.delete`, guarded). Only `custom:true` definitions are deletable (commercial rejected) — the path that removes a duplicated **"Copy of …"** connector without touching the working stock definition. Read + delete live-validated end-to-end |
-| `soar marketplace list` / `get` / `contentpacks` | imperative (modern v1alpha) | ✅ | Wave 13: Content Hub reads on the SOAR host (`soar/marketplace.go`) — `list [--installed]` (405 integrations) + `get <id>` + `contentpacks` (59). Read-validated live. Install/uninstall SDK-only for now (heavy mutations) |
-| `soar settings case-assignment` / `move-case-policy` (`get`/`set`) | imperative | 🔨 | Wave 7: singleton case-routing policies (one record, no id/list/delete) → imperative get/set, not reconcile. `get` is read-only; `set <enum>` is guarded |
-| `form-dynamic-parameters` | (deferred) | 🔒 | Wave 7: investigated as a reconcile surface but **not wired** — the strict PUT update silently resets a parameter's `formType` to Invalid (dropping it out of its form) even with the integer-enum body the UI sends, so reconcile update is unsafe. Read-only via `soar legacy call settings/form-dynamic-parameters?formType=CloseCase` |
-| `soar legacy call <op>` | raw | ✅ | passthrough for integrations · ontology-mapping (selector read + batch upsert + body delete; the canonical raw-lane case) · environment-priorities · permissions/SSO (read-only by choice) · system/singleton settings · … (batch/bundle/selector) |
-| `soar pull/push grouping` | (modern) | 🔨 | pre-existing v1alpha pull + patch — not full reconcile. (`connectors`/`jobs` moved to the reconcile table above on the reliable AppKey path) |
+**The two domains** (both are just where the call goes):
+- **chronicle** = `chronicle.googleapis.com` (Google), regional, **ADC/OAuth**.
+  Serves v1 / v1beta / v1alpha.
+- **siemplify** = `*.siemplify-soar.com` (Siemplify), **AppKey**. The modern API
+  here is **v1alpha only** (v1/v1beta 404).
 
-## SIEM · control plane (reconcile)  — auth: ADC/OAuth token
+A `—` means secopsctl doesn't use that generation for the function. A function is
+**not** "blocked" just because one domain/version is down — the status is per
+column+domain; if any path serves it, the function works (e.g. **cases** works on
+siemplify v1alpha even though the chronicle-host UUID path 500s).
 
-| Surface | Lane | Read | Write | Notes |
+---
+
+## SIEM — Chronicle (`chronicle.googleapis.com`, ADC/OAuth)
+
+Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chronicle
+has no legacy external API.
+
+### Control plane — config as code (`pull` → `git diff` → `push`)
+
+| Function (CLI) | Lane | New API (status · domain · version) | Legacy | Notes |
 |---|---|---|---|---|
-| `rules` | bespoke | ✅ | ✅ | YARA-L source + deployment state machine (two resources), not a single canonical body. `push rules-create` · `rules-update` (etag-guarded text update) · `rules-deploy` (reconcile enabled/alerting/frequency/**archived**, Wave 9) · `rules-disable`. Operational `rules detections/errors/alerts <id>` + `rules retrohunt list/get/create`. Wave 9: `RunTestRule` (`legacyRunTestRule` dry-run against historical data) + `ArchiveRule`. Read live-validated; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create→update→deploy→archive→delete, self-cleaning) |
-| `reference_lists` | reconcile | ✅ | ✅ | typed, `.txt`+`.yaml`; NoDelete; engine = product-neutral. Resource-name **normalization**: create echoes the project NUMBER while list echoes the project ID — both are rewritten to the id form so reconcile identity (keyed on the name) stays stable. Read + write live-validated; write smoke `TestLiveReconcileReferenceListWriteSmoke` reuses one fixed inert list (no delete API → can't be a throwaway-and-delete) and drives a fresh create-or-reuse + one update each run (rerunnable, no accumulation) |
-| `data_tables` | reconcile | ✅ | ✅ | `.csv`+`.yaml` on the engine; `push data_tables` (create/update). Columns immutable after create; rows are wholesale destroy-and-replace (`ReplaceDataTableRows`). Not prune-eligible (whole-table delete is high-blast). Write smoke `TestLiveReconcileDataTableWriteSmoke` passed (create→update desc→replace rows→delete) |
-| `feeds` | reconcile | ✅ | ✅ | `.yaml` on the engine; `push feeds`. Secrets redacted on pull, overlaid on update (real secret preserved; create refuses a masked body); `details` replaced wholesale on PATCH. Fixes: `assetNamespace`(read) vs `namespace`(write) mismatch **resolved** (API uses `assetNamespace`); short `logType` now **expanded to the full resource name** on write (the API rejects a bare id), so feeds round-trip. Server keys stripped; feed state is a runtime toggle, out of canonical. Not prune-eligible (delete stops ingestion). **Read + write live-validated** (created live feeds incl. GCS V2 — `GOOGLE_CLOUD_STORAGE_V2`/`gcsV2Settings`, STS-backed) + gated CUD write-smoke `TestLiveReconcileFeedWriteSmoke` (inert HTTP throwaway, create→update→delete). `FetchFeedServiceAccount` (`feedServiceAccounts:fetchServiceAccountForCustomer`) added for the STS SA grant |
-| `parsers` | reconcile | ✅ | ✅ | `.conf`+`.yaml` on the engine; `push parsers`. Versioned/immutable → no server-side update: an edit is **create-new-version + activate** (parser id is volatile, written back on refresh); old version left inactive (rollback). Live set derived from feeds; not prune-eligible. Read + write live-validated; write smoke `TestLiveReconcileParserWriteSmoke` runs `RunParser` (pure inert validation, no server state) then creates a new **INACTIVE** version from a real active parser's source, asserts it never goes ACTIVE (live ingestion untouched), and deletes it. `RunParser` response shape fixed (`parsedEvents` is `{events:[…]}`, not a bare array) |
-| `dashboards` | reconcile | ✅ | ✅ | native dashboards (**CUSTOM only**; CURATED read-only/unmanaged) on the engine; `pull`/`push dashboards`. One `<slug>.json` (config + `_server` id), charts inline under `definition.charts` (replaced wholesale on update); `access` immutable after create. extraStrip drops `createUserId`/`updateUserId`/`dashboardUserData`; root `name` stripped (identity in ServerID). `pull` re-pointed from the export-envelope to the config shape. Read live-validated; write smoke (create→update→delete, closure-direct to avoid the heavy full-view list rate-limiting) |
-| `curated` / `curated_rules` | imperative (read+toggle) | ✅ | ✅ | Google-managed (no CUD) → `curated list` + guarded `curated set` toggling `enabled`/`alerting` per (category, rule set, precision). Wave 9: `curated rules` lists the individual curated rules (`ListCuratedRules`/`GetCuratedRule`, read-validated live, 187 rules) and `BatchUpdateCuratedRuleSetDeployments` is the atomic multi-deployment write primitive (built; live write pending approval). `chronicle/curated_write.go` (single PATCH + updateMask + batchUpdate) + `chronicle/curated_rules.go`. Imperative lane, not reconcile (fixed catalog, array batch body). Rule **exclusions** are the separate `rule_exclusions` surface below |
-| `rule_exclusions` | reconcile | ✅ | ✅ | findings refinements (display_name + type + UDM query) on the engine; `pull`/`push rule_exclusions`. Create + Update (PATCH, updateMask); **NoDelete** (no delete API → drift reported, never pruned), NoEtag. Deployment toggle (enabled/archived) out of the diff basis. Read + write live-validated (create→update→archive); the API has no hard delete — **archive** (deployment `archived=true`) is the teardown, the state several live exclusions already sit in |
-| `watchlists`, `forwarders`, `log_pipelines` | reconcile | — | 📐 | SDK present; wire where per-object CUD fits |
+| `rules` | bespoke | ✅ chronicle · v1alpha | — | YARA-L source + deployment state machine (two resources), not a single canonical body. `push rules-create` · `rules-update` (etag-guarded text update) · `rules-deploy` (reconcile enabled/alerting/frequency/**archived**) · `rules-disable`. Operational `rules detections/errors/alerts <id>` + `rules retrohunt list/get/create`. `RunTestRule` (dry-run vs historical data) + `ArchiveRule`. Read live-validated; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create→update→deploy→archive→delete, self-cleaning) |
+| `reference_lists` | reconcile | ✅ chronicle · v1alpha | — | typed, `.txt`+`.yaml`; NoDelete; product-neutral engine. Resource-name **normalization**: create echoes the project NUMBER while list echoes the project ID — both rewritten to the id form so reconcile identity (keyed on the name) stays stable. Write smoke `TestLiveReconcileReferenceListWriteSmoke` reuses one fixed inert list (no delete API) — fresh create-or-reuse + one update each run (rerunnable, no accumulation) |
+| `data_tables` | reconcile | ✅ chronicle · v1alpha | — | `.csv`+`.yaml` on the engine; `push data_tables` (create/update). Columns immutable after create; rows are wholesale destroy-and-replace (`ReplaceDataTableRows`). Not prune-eligible (whole-table delete is high-blast). Write smoke `TestLiveReconcileDataTableWriteSmoke` (create→update desc→replace rows→delete) |
+| `feeds` | reconcile | ✅ chronicle · v1alpha | — | `.yaml` on the engine; `push feeds`. Secrets redacted on pull, overlaid on update (real secret preserved; create refuses a masked body); `details` replaced wholesale on PATCH. `assetNamespace`(read) vs `namespace`(write) reconciled (API uses `assetNamespace`); short `logType` expanded to the full resource name on write. Feed state is a runtime toggle, out of canonical. Not prune-eligible (delete stops ingestion). Write smoke `TestLiveReconcileFeedWriteSmoke` (inert HTTP throwaway, create→update→delete); GCS V2 (`gcsV2Settings`, STS-backed) validated; `FetchFeedServiceAccount` for the STS SA grant |
+| `parsers` | reconcile | ✅ chronicle · v1alpha | — | `.conf`+`.yaml` on the engine; `push parsers`. Versioned/immutable → no server-side update: an edit is **create-new-version + activate** (parser id volatile, written back on refresh); old version left inactive (rollback). Not prune-eligible. Write smoke `TestLiveReconcileParserWriteSmoke` runs `RunParser` (pure inert validation) then creates a new **INACTIVE** version, asserts it never goes ACTIVE (live ingestion untouched), deletes it. `RunParser` response shape: `parsedEvents` is `{events:[…]}` |
+| `dashboards` | reconcile | ✅ chronicle · v1alpha | — | native dashboards (**CUSTOM only**; CURATED read-only/unmanaged); `pull`/`push dashboards`. One `<slug>.json` (config + `_server` id), charts inline under `definition.charts` (replaced wholesale on update); `access` immutable after create. extraStrip drops `createUserId`/`updateUserId`/`dashboardUserData`; root `name` stripped (identity in ServerID). Write smoke (create→update→delete, closure-direct to dodge full-view rate-limiting) |
+| `curated` / `curated_rules` | imperative (read+toggle) | ✅ chronicle · v1alpha | — | Google-managed (no CUD) → `curated list` + guarded `curated set` toggling `enabled`/`alerting` per (category, rule set, precision). `curated rules` lists individual curated rules (`ListCuratedRules`/`GetCuratedRule`, read-validated, 187 rules); `BatchUpdateCuratedRuleSetDeployments` is the atomic multi-deployment write primitive (built; live write pending approval). Imperative lane (fixed catalog, array batch body), not reconcile. (v1alpha is the **only** version that answers — v1/v1beta 404) |
+| `rule_exclusions` | reconcile | ✅ chronicle · v1alpha | — | findings refinements (display_name + type + UDM query); `pull`/`push rule_exclusions`. Create + Update (PATCH, updateMask); **NoDelete** (drift reported, never pruned), NoEtag. Deployment toggle (enabled/archived) out of the diff basis. Read + write live-validated (create→update→archive); the API has no hard delete — **archive** is the teardown |
+| `forwarders` | reconcile | 🔨 chronicle · v1beta | — | SDK present (`forwardersAPIVersion`; v1 **404s** → pinned v1beta); `forwarders` + `forwarders.collectors`. Wire where per-object CUD fits |
+| governance — `riskConfig` · `dataAccessLabels`/`Scopes` | imperative | 🔨 chronicle · v1 | — | SDK built (`chronicle/rbac.go`, `rbacAPIVersion`; all three versions answer → pinned v1). `riskConfig` is the singleton `{instance}/riskConfig` (GET/PATCH); labels/scopes are CRUD. No CLI wired yet |
 
-## SIEM · operational plane (query → act)
+### Operational plane — query → act (live data)
 
-| Domain | Query | Act | Status | Notes |
+> **Cases are a SOAR function** — see **SOAR → cases** below (working path:
+> siemplify · v1alpha). A `cases` CLI command reaches the *same* case on the
+> **chronicle** host by UUID (ADC), but that path 500s at every version, so prefer
+> `soar case`. Tracked in the cases row's notes, not as a separate blocked surface.
+
+| Function (CLI) | Lane | New API (status · domain · version) | Legacy | Notes |
 |---|---|---|---|---|
-| **events (UDM)** | `query udm` · `search nl` · `stats` | — | 🔨 query udm · 📐 rest | immutable telemetry — **read-only** |
-| **alerts** | `alerts list/get` | `alerts update/bulk` (verdict/priority/status/comment) | 📐 | standalone Chronicle alerts SDK built (`GetAlerts`/`UpdateAlert`/`BulkUpdateAlerts`). In practice operators read alerts as a **field of the case** via the reliable SOAR AppKey lane (`GetCaseFullDetails.alerts`). Live-test focus in Wave 13 |
-| **cases** (Chronicle UUID API) | `cases list/search/get` | (planned) | 🔨 read · ⛔ API | the **same case** as `soar case` (above) reached via the newer Chronicle API (UUID); it returns intermittent 5xx/404, so it is **not used**. One case, two APIs — all case work runs on the reliable SOAR AppKey lane (`soar case`), linked by `soarPlatformInfo.caseId`. Not a separate case system. See SOAR-DESIGN |
-| **entities / IoCs** | `entity summarize` · `iocs list` | — | 📐 | enrichment — read-only |
-| **watchlists** | `watchlists list` · `watchlists get <id>` | — | ✅ | Wave 14: SIEM entity watchlists, read-only, pinned **v1** (`watchlistsAPIVersion`); list read-validated |
-| **threat intel** | `ti collections` · `ti collection <id>` | — | ✅ | Wave 8: Mandiant `threatCollections` (campaigns/reports/actors/malware/vuln) — list (`collection_type:` filter + orderBy + `--limit`) + get-by-id, read round-trip live-validated (`chronicle/ti.go`, `TestLiveThreatCollectionsRead`). Read-only (upstream-sourced). Modern `iocs:find`/get still ⬜ (body to verify) |
+| **events (UDM)** | operational (read) | 🔨 chronicle · v1alpha (`query udm`) · 📐 rest | — | immutable telemetry — **read-only, never mutated**. `query udm` built; `search nl` / `stats` designed |
+| **alerts** | operational | 📐 chronicle · v1alpha | — | standalone Chronicle alerts SDK built (`GetAlerts`/`UpdateAlert`/`BulkUpdateAlerts`). In practice operators read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts` — see SOAR → cases). Live-test focus in Wave 14 |
+| **entities** | operational (read) | 📐 chronicle · v1alpha | — | `entity summarize` — enrichment, read-only |
+| **watchlists** | operational (read) | ✅ chronicle · v1 | — | SIEM entity watchlists; `watchlists list`/`get <id>`, read-validated, pinned **v1** (`watchlistsAPIVersion`; all three answer → v1) |
+
+---
+
+## SOAR — Siemplify (`*.siemplify-soar.com`, AppKey)
+
+Two API generations on this domain: **New** = modern v1alpha (same
+`projects/…/instances/…` shape as SIEM, **v1alpha only** — v1/v1beta 404);
+**Legacy** = the external `/api/external/v1` API — the broad, reliable path. The
+reconcile engine and the case verbs run on **Legacy**; secopsctl reaches for New
+only where it's validated and adds something Legacy lacks. `--legacy` forces Legacy.
+
+### Control plane — config as code (`soar pull` → `git diff` → `soar push`)
+
+All reconcile surfaces run on the **Legacy** engine (reliable). The modern v1alpha
+twin exists on the domain for most, but secopsctl doesn't use it (`—`).
+
+| Function | Lane | New API | Legacy (siemplify · external) | Notes |
+|---|---|---|---|---|
+| `webhooks` | reconcile | — | ✅ | full CUD; create is license-capped (engine surfaces it, smoke skips). **PruneEligible** |
+| `environments` | reconcile | — | 🔒 | NoDelete (segregation unit — high blast); writes guarded, not run |
+| `networks` | reconcile | — | ✅ | write smoke (RFC5737 throwaway). **PruneEligible**: `DeleteNetwork(id)` is a clean by-id delete (`TestLiveReconcileNetworkDeleteByIDSmoke`); low-blast enrichment data |
+| `tracking-lists` | reconcile | — | ✅ | first write-loop proof (clone throwaway) |
+| `soc-roles` | reconcile | — | ✅ | RBAC. Write **path** validated via an inert throwaway role — create→rename→delete (no users assigned); `DeleteSocRole` takes `{socRoleId}`. **Engine-NoDelete** (delete via raw SDK only; `--prune` never deletes these) — reconcile RBAC with care |
+| `idp` | reconcile | — | ✅ | SSO; id-from-body update closure. Write **path** validated via a throwaway mapping for a **fake group** (no real users) — create→rename→delete-by-id. **Engine-NoDelete** — reconcile SSO with care |
+| `visual-families` | reconcile | — | ✅ | write smoke; validates the `wrapKey` envelope. **PruneEligible**: `DeleteFamilyData` is a clean by-id delete on an inert custom family |
+| `sla-definitions` | reconcile | — | ✅ | affects alert routing. Write **path** validated via a throwaway "Case Priority = High" SLA. Legacy `ApiSlaDefinition` int enums are documented in the **swagger schema `description`** fields: `valueType` (`ApiSlaProviderTypeEnum`) 2=AlertRuleGenerator/3=CaseStage/**4=CasePriority**/5=AlertPriority; `slaPeriodType`/`criticalPeriodType` (`ApiPeriodTypeEnum`) 0=Minutes/**1=Hours**/2=Days/3=Seconds; `alertType` (`ApiSlaAlertType`) **0=AllAlerts**/1=SpecificAlerts. For CasePriority the `value` round-trips as a JSON-array string (`["High"]`). (The v1alpha twin uses string enums; Legacy is the reliable one.) **Engine-NoDelete** (delete via raw `RemoveSlaDefinitionRecords`) — routing surface, reconcile with care |
+| `case-stages` | reconcile | — | ✅ | wrapped list. Write **path** validated via an inert throwaway stage — create→reorder→delete (used by no case); `RemoveCaseStageDefinitionRecords` takes the full record. **Engine-NoDelete** — UI-pollution, reconcile with care |
+| `case-tags` | reconcile | — | 🔨 | wrapped list; write smoke skips (no tag to clone) |
+| `close-root-causes` | reconcile | — | ✅ | non-unique names → exercises the slug-collision fix |
+| `blacklists` | reconcile | — | ✅ | model block-list; write smoke |
+| `playbook-categories` | reconcile | — | ✅ | write smoke |
+| `playbooks` | reconcile (bespoke) | — | ✅ | uuid rotates → key on **name**; whole-body save; SavePlaybook update-by-name verified. (Playbooks/workflows exist **only** on Legacy — no New twin) |
+| `connectors` | reconcile | — | ✅ | moved onto the reliable Legacy engine (replaces a former modern v1alpha pull+patch). **Full CUD** — create + whole-body update (`SaveConnector`) + delete-by-id (`DeleteConnector`, **PruneEligible**). `SaveConnector` upserts both: **create** triggers when the body has **no `identifier`** (server assigns one); a client-assigned id routes to update (404 if absent) — a new connector file omits `identifier`, so engine create works. `ListConnectorCards` groups cards by integration, so the list closure **flattens** them. Secret params arrive server-masked and pass through unchanged on update. extraStrip = `version`/`isUpdateAvailable`/`loggingEnabledUntilUnixMs`/`isCustom`. `TestLiveReconcileConnectorWriteSmoke` (throwaway DISABLED connector → create → update → delete; self-cleaning) |
+| `jobs` | reconcile | — | ✅ | Legacy engine (replaces a former modern v1alpha pull+patch). pull + update (`SaveOrUpdateJob` whole-body upsert; the installed-job read item IS the write body); **NoDelete** (delete takes a body, not a clean id). extraStrip drops `version`/`lastRunStatus`/`lastRunTime`/`creator`. `TestLiveReconcileJobWriteSmoke` (throwaway DISABLED job → update → raw delete; self-cleaning) |
+| `grouping` | raw (modern) | 🔨 siemplify · v1alpha | — | pre-existing v1alpha pull + patch — not full reconcile |
+
+### Operational + imperative — query → act / per-entity verbs
+
+| Function (CLI) | Lane | New API (status · domain · version) | Legacy (siemplify · external) | Notes |
+|---|---|---|---|---|
+| `soar case list` / `get <id>` | operational read | ✅ siemplify · v1alpha (`list` default) | ✅ (`get`; `list` fallback) | **cases work on the New API** — `list` defaults to the modern v1alpha cases API on the siemplify domain (`soar.ListCases`, live-validated) and **auto-falls back to the Legacy queue** (`ListCaseCards`) on error; **`--legacy`** forces Legacy. `--status` filtered client-side on the modern path (OPENED/CLOSED). `get <id>` uses Legacy `GetCaseFullDetails` → case **and its alerts** (each with its `--alert` id for the verbs). Shared `preferModern` helper. **Alternate path (not used):** the same case is reachable on the **chronicle** host by UUID (ADC), but that collection 500s at v1/v1beta/v1alpha — the `cases` CLI routes there, so prefer `soar case`. `legacyBatchGetCases` bridges SOAR int id ⇄ SIEM UUID |
+| `soar case <verb>` (assign/rename/stage/tag/untag/describe/importance/close/merge) | imperative | — | ✅ | **the reliable operational case path**. 9 mutate verbs; swagger-verified bodies + unit test; live-validated end-to-end by `TestLiveSOARCaseVerbsWriteSmoke` (create two throwaway cases → run every verb → merge → close). Built on a typed `CreateManualCase` (`ManualCaseRequest`, returns the new case id) that always sends `entities`/`playbooks`/`tags` as `[]` (the server does not null-guard them). `merge` needs the target id in `casesIds` (CLI adds it). `assignedUser` takes `@RoleName`. Hard delete (`RetentionDeleteCases`) is denied to the AppKey role (403) → smoke cleans up by **closing** |
+| `soar push bulk-close` | imperative | — | 🔨 | queue bulk-close (`ExecuteBulkCloseCase`). Takes a **fixed reason enum** (malicious/not-malicious/maintenance/inconclusive/unknown), unlike single-case `close` (free string) |
+| `soar settings case-assignment` / `move-case-policy` (`get`/`set`) | imperative | — | 🔨 | singleton case-routing policies (one record, no id/list/delete) → imperative get/set, not reconcile. `get` read-only; `set <enum>` guarded |
+| `form-dynamic-parameters` | deferred | 🔒 siemplify · v1alpha (unsafe PUT) | 🔒 (read) | investigated as a reconcile surface but **not wired** — the strict PUT update silently resets a parameter's `formType` to Invalid (dropping it from its form) even with the int-enum body the UI sends. Read-only via `soar legacy call settings/form-dynamic-parameters?formType=CloseCase` |
+| `soar legacy call <op>` | raw | — | ✅ | passthrough for integrations · ontology-mapping (selector read + batch upsert + body delete; the canonical raw-lane case) · environment-priorities · permissions/SSO (read-only by choice) · system/singleton settings · … (batch/bundle/selector) |
+
+---
+
+## Other features — cross-cutting (domain varies per row)
+
+Grouped by feature, not by domain. The New-API cell names the domain because these
+span both Google (chronicle) and Siemplify (siemplify).
+
+### Threat Intelligence (Mandiant / Emerging Threats)
+
+| Function (CLI) | Lane | New API (status · domain · version) | Legacy | Notes |
+|---|---|---|---|---|
+| `ti collections` / `collection <id>` | operational read | ✅ chronicle · v1 | — | Mandiant `threatCollections` (campaigns/reports/actors/malware/vuln) — list (`collection_type:` filter + orderBy + `--limit`) + get-by-id, read round-trip live-validated (`chronicle/ti.go`, `TestLiveThreatCollectionsRead`). Read-only (upstream-sourced). Prefer v1 > v1beta > v1alpha; all three answer → pinned **v1** (`tiAPIVersion`); threatCollections uses the project **number** |
+| IoCs — `FindIoCs` / `GetIoC` / `BatchGetIoCs` (SDK) | operational read | 🔨 chronicle · v1 | — | modern IoC lookup, read-validated. `FindIoCs` resolves a value via the `fieldAndValue` body (`{value, valueType}`), pinned **v1**. An `iocs` CLI is not wired yet |
+
+### Content Hub & integrations
+
+Installing content (integration **packages** and the connector/job/action
+**definitions** they carry) and the marketplace catalog. Configured integration
+**instances** are environment-scoped and operated imperatively. All on the
+**siemplify** domain.
+
+| Function (CLI) | Lane | New API (status · domain · version) | Legacy (siemplify · external) | Notes |
+|---|---|---|---|---|
+| `soar marketplace list` / `get` / `contentpacks` | imperative read | ✅ siemplify · v1alpha | — | Content Hub reads (`soar/marketplace.go`) — `list [--installed]` (405 integrations) + `get <id>` + `contentpacks` (59). Read-validated. Install/uninstall is SDK-only for now (heavy mutations) |
+| `soar integration list` / `uninstall` | imperative | ✅ siemplify · v1alpha | — | `list [--custom] [--json]` enumerates installed packs (`soar.ListIntegrations`); `uninstall --name <key>` deletes a **custom** pack (`soar.DeleteIntegration`, guarded). `soar.IsDeletableIntegration` = `custom:true` only — refuses commercial/installed packs. Read live-validated |
+| `soar integration connector list` / `delete` | imperative | ✅ siemplify · v1alpha | — | connector **definitions** (templates inside a pack; distinct from the configured connector *instances* in the SOAR reconcile table). `list --integration <key>` (`soar.ListConnectors`); `delete --integration <key> --id <connId>` (`soar.DeleteConnectorDef`, guarded). Only `custom:true` definitions are deletable — removes a duplicated **"Copy of …"** connector without touching the stock one. Read + delete live-validated |
+| `soar integration create` / `delete` (instances) | imperative | — | 🔨 | integration **instances** are not reconcilable (no update endpoint; create body doesn't round-trip from any read) → imperative. `create --integration <id> --environment <env>` (new instance starts unconfigured/inert); `delete --integration <id> --environment <env> --id <instance>` (resolves the full object — delete takes a body — and warns if playbooks use it). `TestLiveIntegrationInstanceCRUD`; guarded |
+| integration **install** lifecycle (SDK only) | imperative/raw | 🔨 siemplify · v1alpha (`:install`/`:uninstall`) | 🔨 (`/store`) | install a pack + its connector/job/action **definitions**. Legacy `legacy.GetPackageDetails` + `legacy.DownloadAndInstallIntegration` (`/api/external/v1/store/…` — **not in the swagger snapshot**, shape from the live Content-Hub request) install from the local store; the v1alpha `marketplaceIntegrations:install`/`:uninstall` is the documented twin. Whole-integration delete is v1alpha-only (`integrations.delete`) and limited to genuinely **custom** packs (`custom:true`); per-tenant installed copies carry a `__<uuid>` suffix but are `custom:false`, so they are not whole-deletable. Not smoke-validated (install is not reversible via the external surface) |
+
+---
 
 ## How to keep this current
 
 When a surface advances: edit its row here **and** the relevant design doc in the
 **same commit**. A surface reaches `✅` only after a live read round-trips clean and
 (for writes) a gated smoke passed on an inert throwaway — see the build discipline
-in [ARCHITECTURE.md](ARCHITECTURE.md) §5. A `⛔` row records *what* is blocked and
-*why* (which API, which error) so it can be retried, not silently forgotten.
+in [ARCHITECTURE.md](ARCHITECTURE.md) §5.
+
+A `⛔` belongs to a **specific column + domain + version** that's down — never to a
+whole function. If the function works on *any* path (another domain or version),
+its row stays green and the dead path is a **note** (as with cases: ✅ on siemplify
+v1alpha; the chronicle-host UUID path 500s, noted, not blocking). When the working
+version of a New-API surface moves, change the pinned `const`, then update the
+cell's `domain · version` here and the §6 table in [ARCHITECTURE.md](ARCHITECTURE.md).

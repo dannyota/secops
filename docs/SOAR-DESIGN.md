@@ -28,7 +28,7 @@ reconcile):
 | Lane | Mechanism | SOAR surfaces |
 |---|---|---|
 | **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **16**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) · `connectors` (Wave 7) · `jobs` (Wave 7). (`form-dynamic-parameters` was investigated and deferred — its PUT update is unsafe; see CATALOG) |
-| **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar integration` · `soar settings` | cases: `list` (queue cards) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (modern v1alpha): `integration list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`) |
+| **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar integration` · `soar settings` | cases: `list` (New API — siemplify v1alpha, auto-falls back to the Legacy queue) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `integration list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`) |
 | **raw** (batch upserts / bundles / selector reads) | `soar legacy call <op>` | integrations (reads) · ontology-mapping (selector read + batch upsert + body delete) · environment-priorities · permissions · system/singleton settings · … |
 
 Commands:
@@ -56,13 +56,15 @@ lanes ride on. SOAR uses one host (`https://<tenant>.siemplify-soar.com`) with
 
 | Tier | Surface | Transport | Lifecycle |
 |---|---|---|---|
-| **Modern** ⚠ | v1alpha native: integrations · connectors · jobs · alertGroupingRules · moduleSettings · cases | `/v1alpha/projects/<num>/…/instances/<id>` + `?format=camel` + `x-goog-api-version` + `updateMask` | pull/patch-only · **500s intermittently** — not the build path today. **Connectors/jobs config-as-code moved off this tier onto the Legacy AppKey reconcile engine (Wave 7);** `alertGroupingRules`/`moduleSettings` stay here via `soar pull grouping` |
+| **Modern** (New API) | v1alpha native on the **siemplify** domain: integrations · connectors · jobs · alertGroupingRules · moduleSettings · cases | `/v1alpha/projects/<num>/…/instances/<id>` + `?format=camel` + `x-goog-api-version` + `updateMask` | siemplify serves **v1alpha only**. Validated where it adds something Legacy lacks — **cases `list`** runs here (`soar.ListCases`, auto-falls back to the Legacy queue) and the Content Hub / integration reads. **Connectors/jobs config-as-code runs on the Legacy AppKey reconcile engine (Wave 7);** `alertGroupingRules`/`moduleSettings` stay here via `soar pull grouping` |
 | **Bridge** 🟠 | `legacyPlaybooks:legacy*` (list/get/save/attach/stats) | v1alpha host, **legacy op names** | the one genuine *quarantine*: delete when native v1alpha **playbook CRUD** ships |
 | **Legacy AppKey** ✅ | Siemplify external API — the broad, reliable surface the **reconcile engine** runs on | `/api/external/v1/…` (offset paging) | **durable backbone**, not slated for removal |
 
 > **Which tier to trust:** the **Legacy AppKey** tier is reliable and complete and
-> backs the engine; the **Modern** v1alpha tier is new, pull/patch-only, and 500s
-> intermittently. Only the *Bridge* tier is genuinely delete-when-native.
+> backs the engine; the **Modern (New API)** v1alpha tier on the siemplify domain is
+> newer and used per-surface where it's validated and adds something Legacy lacks
+> (cases `list`, Content Hub / integration reads), falling back to Legacy on error.
+> Only the *Bridge* tier is genuinely delete-when-native.
 
 Plus one **legacy SIEM** pair on the Chronicle side (ADC auth, not SOAR):
 `legacy:legacyFindRawLogs` and `legacy:legacyBatchGetCases` (the SOAR-integer-id
