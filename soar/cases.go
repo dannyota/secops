@@ -41,20 +41,43 @@ func (p *listCasesPage) records() []json.RawMessage {
 	return p.Items
 }
 
-// ListCases returns every case as a raw JSON object, paging through the v1alpha
-// {cases|items, nextPageToken} response. pageSize bounds each request (a
-// non-positive value lets the server pick its default). Pagination is capped at
-// 50 pages.
+// CaseListOptions tunes ListCasesOpts; all fields are optional and map to the
+// v1alpha cases list query parameters (the same the SecOps web UI sends).
+type CaseListOptions struct {
+	PageSize int    // per-request page cap (<=0 lets the server choose)
+	Filter   string // server-side filter, e.g. "status = 'OPENED'"
+	OrderBy  string // sort, e.g. "updateTime desc"
+	Expand   string // comma-separated fields to inline, e.g. "products,tasks,tags,closureDetails,sla,alertsSla"
+}
+
+// ListCases returns every case as a raw JSON object (pageSize bounds each
+// request; <=0 lets the server choose). It is a thin wrapper over ListCasesOpts.
+func (c *Client) ListCases(ctx context.Context, pageSize int) ([]json.RawMessage, error) {
+	return c.ListCasesOpts(ctx, CaseListOptions{PageSize: pageSize})
+}
+
+// ListCasesOpts returns cases as raw JSON, paging through the v1alpha
+// {cases|items, nextPageToken} response, applying server-side filter/orderBy and
+// optional field expansion. Pagination is capped at 50 pages.
 //
 // DEVIATION: raw case JSON is returned because the v1alpha case schema is large
 // and still moving; typed accessors (see Case) can layer on later.
-func (c *Client) ListCases(ctx context.Context, pageSize int) ([]json.RawMessage, error) {
+func (c *Client) ListCasesOpts(ctx context.Context, opt CaseListOptions) ([]json.RawMessage, error) {
 	var out []json.RawMessage
 
 	err := transport.PaginateV1Alpha(listMaxPages, func(token string) (string, error) {
 		q := url.Values{}
-		if pageSize > 0 {
-			q.Set("pageSize", strconv.Itoa(pageSize))
+		if opt.PageSize > 0 {
+			q.Set("pageSize", strconv.Itoa(opt.PageSize))
+		}
+		if opt.Filter != "" {
+			q.Set("filter", opt.Filter)
+		}
+		if opt.OrderBy != "" {
+			q.Set("orderBy", opt.OrderBy)
+		}
+		if opt.Expand != "" {
+			q.Set("expand", opt.Expand)
 		}
 		if token != "" {
 			q.Set("pageToken", token)

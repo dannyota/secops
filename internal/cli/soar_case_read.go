@@ -122,17 +122,15 @@ func newCaseListCmd() *cobra.Command {
 }
 
 // runModernCaseList lists cases via the modern v1alpha API (SOAR host), fetching
-// before printing so a fetch error falls back cleanly. --status is applied
-// client-side (the modern Status is OPENED/CLOSED): open→OPENED, closed→CLOSED,
-// all→no filter.
+// before printing so a fetch error falls back cleanly. --status maps to the modern
+// Status (OPENED/CLOSED) and is pushed **server-side** via filter (open→OPENED,
+// closed→CLOSED, all→no filter); the same status is re-checked client-side as a
+// safety net in case the server ignores the filter. orderBy + expand mirror the
+// web UI's request for stable ordering and richer `--json` output.
 func runModernCaseList(pageSize int, status string, asJSON bool) error {
 	c, err := newSOARClient()
 	if err != nil {
 		return err
-	}
-	raws, err := c.ListCases(baseContext(), pageSize)
-	if err != nil {
-		return err // preferModern falls back to legacy
 	}
 	want := ""
 	switch status {
@@ -140,6 +138,18 @@ func runModernCaseList(pageSize int, status string, asJSON bool) error {
 		want = "OPENED"
 	case "closed":
 		want = "CLOSED"
+	}
+	opt := soar.CaseListOptions{
+		PageSize: pageSize,
+		OrderBy:  "updateTime desc",
+		Expand:   "products,tasks,tags,closureDetails,sla,alertsSla",
+	}
+	if want != "" {
+		opt.Filter = "status = '" + want + "'"
+	}
+	raws, err := c.ListCasesOpts(baseContext(), opt)
+	if err != nil {
+		return err // preferModern falls back to legacy
 	}
 	type row struct {
 		id, priority, stat, stage string
