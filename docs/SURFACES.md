@@ -98,8 +98,8 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | dashboards (native) | reconcile | ✅ | — |
-| **data-access labels** (`dataAccessLabels`) | reconcile | 🔨 SDK CRUD; list read-validated | reconcile-surface wiring + write validation ⬜ |
-| **data-access scopes** (`dataAccessScopes`) | reconcile | 🔨 SDK CRUD; list read-validated | reconcile-surface wiring + write validation ⬜ |
+| **data-access labels** (`dataAccessLabels`) | imperative | ✅ SDK CRUD; create→get→delete write-validated (self-cleaning smoke) | imperative, NOT reconcile: create→list lags + create-despite-error break diffing; CLI ⬜ |
+| **data-access scopes** (`dataAccessScopes`) | imperative | 🔨 SDK CRUD; list read-validated | write validation ⬜ (binds labels to a role — higher blast); CLI ⬜ |
 | **risk config** (`{instance}/riskConfig`) | imperative | ✅ `GetRiskConfig` live-validated (singleton sub-resource, returns defaults); `UpdateRiskConfig` built | path is the singleton `{instance}/riskConfig` (GET/PATCH), not a colon verb |
 | BigQuery export config | imperative | ⬜ | get/update ⬜ (low) |
 | Content Hub — featured content rules | read | ✅ | on the chronicle ADC host (distinct from the SOAR-host marketplace below) |

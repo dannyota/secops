@@ -339,12 +339,14 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   read-validated; CATALOG ✅.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 10 — SIEM RBAC & data governance  *(SDK CRUD built — lists read-validated; data-access reconcile wiring + writes pending; `riskConfig` get live-validated (path corrected to `{instance}/riskConfig`))*
+### Wave 10 — SIEM RBAC & data governance  *(in progress — `dataAccessLabels` CRUD write-validated (self-cleaning smoke); operated **imperatively, not reconcile** (create→list lag + create-despite-error break diffing); `dataAccessScopes` + `riskConfig` writes pending; `riskConfig` get live-validated at `{instance}/riskConfig`)*
 - **Goal.** Manage access control as code — the highest-value SIEM config still
   missing.
-- **Scope.** `dataAccessLabels` + `dataAccessScopes` full CRUD on the reconcile
-  engine; `instances:getRiskConfig`/`:updateRiskConfig` (imperative); BigQuery-export
-  config. SIEM plane, `chronicle/rbac.go`.
+- **Scope.** `dataAccessLabels` + `dataAccessScopes` full CRUD operated
+  **imperatively** (not the reconcile engine — the surface has create→list lag and
+  create-despite-error, which break desired-state diffing); `riskConfig`
+  get/update (imperative singleton); BigQuery-export config. SIEM plane,
+  `chronicle/rbac.go`.
 - **Exit.** Labels/scopes pull clean + a gated reconcile write-smoke on a throwaway;
   risk-config read/write validated.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
