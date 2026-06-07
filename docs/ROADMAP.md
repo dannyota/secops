@@ -444,57 +444,27 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   and the legacy path remains the documented default.
 - **Docs.** SOAR-DESIGN, SURFACES, ARCHITECTURE §6, CATALOG.
 
-### Wave 16 — Reliability & safety hardening
-- **Goal.** Production-grade trust.
-- **Scope.** Per-endpoint version-pinning audit (the §6 map kept current) — the pins
-  now live in one place (`chronicle/versions.go`, the `APIVersions` map) behind the
-  surface-family registry (`internal/mirror/surface_families.go`) and a drift-guard
-  test that fails if code, §6, and the registry disagree; the audit re-probes
-  **every** surface across v1 > v1beta > v1alpha (`chronicle/version_probe_live_test.go`)
-  and re-pin each to the newest that works, **re-validating writes** on the new
-  version before flipping (the major existing surfaces — rules / reference_lists /
-  data_tables / feeds — already read OK on v1, but their write-smokes ran on v1alpha,
-  so re-validate then re-pin to v1); **drift-detection mode** (`pull` + diff + report, no push — a CI gate); etag/conflict
-  everywhere; request-id surfaced on every error; pagination/`--as-list`; **config
-  secret-at-rest** (Windows DPAPI / macOS Keychain / Linux libsecret) decrypted
-  in-process, **with cross-OS tests**. A docs-first recheck refuted the blanket
-  "v1alpha SOAR writes 500" assumption: the official v1alpha REST docs document
-  create/patch/delete for the config surfaces, and create→get→delete is live-validated
-  on customLists/socRoles/caseTagDefinitions (environments create reachable, license-capped) —
-  so the per-surface **modern-flip** of the reconcile lane can proceed for these (a past
-  500 was usually a null-collection or wrong-host shape issue, not a broken endpoint).
-- **Exit.** Secret-at-rest shipped + tested on 3 OSes; drift mode runnable in CI.
-- **Docs.** ARCHITECTURE, ROADMAP.
-
-### Wave 17 — Distribution & operability
-- **Goal.** Easy to install and run anywhere.
-- **Scope.** CI (build/test/lint/`govulncheck`/`semgrep`); release binaries
-  (goreleaser); `secopsctl version`; shell completions; man pages; `doctor`
-  enhancements; packaging (brew/scoop).
-- **Exit.** A tagged release with signed binaries; CI green on PRs.
-- **Docs.** README, ROADMAP.
-
-### Wave 18 — Automation & scheduling *(stretch)*
-- **Goal.** Tenant-neutral scheduled automation scaffolding.
-- **Scope.** Generic scheduled runners (case-hygiene jobs); the LLM-driven automation
-  notes in `tips/`; scheduled drift reports.
-- **Docs.** ROADMAP, `tips/`.
-
----
-
-## Feature-expansion waves (from the v1alpha API coverage scan)
-
-These come from a docs-grounded gap scan (official Chronicle v1alpha REST via the
-`google-dev-knowledge` corpus) against current coverage. They are listed in
-priority order but are **not yet sequenced against Waves 16–18** — resequence on
-request. Each names its plane (**SIEM** = `chronicle`/ADC · **SOAR** =
-`siemplify-soar`/AppKey) since that sets auth + reliability; the SIEM/ADC ones need
-periodic ADC re-auth to validate live, the SOAR/AppKey ones do not. Deliberately
+Waves 16–20 are the feature expansion (from a docs-grounded v1alpha API coverage
+scan), sequenced ahead of the finishing waves (21–23) so the surface set is fuller
+before the reliability sweep and release. Each names its plane — **SIEM** =
+`chronicle`/ADC · **SOAR** = `siemplify-soar`/AppKey — which sets auth + reliability
+(SIEM/ADC needs periodic re-auth to validate live; SOAR/AppKey does not). Deliberately
 skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceSets`,
 `announcements`), deprecated legacy plumbing (`legacySdk`, `legacyPublisher`,
 `legacySystemMetadata`), and get-only diagnostics (`dataTableOperationErrors`).
 
-### Wave 19 — Flagship analytics & AI reads *(SIEM/ADC, read-mostly; high value)*
+### Wave 16 — Case fields & logic as code *(SOAR/AppKey, full CRUD; high value)*
+- **Goal.** Bring case/alert customization under config-as-code on the reliable SOAR host.
+- **Scope.** `customFields` (case/alert custom-field **schemas** — type/scope/option
+  values); `calculatedFieldDefinitions` (formula-driven **derived fields**:
+  IF/CONTAINS/LENGTH → a target free-text field; ship WITH customFields since the
+  formulas target them); `propertySchemaDefinitions` (display/grouping metadata for
+  event/enrichment fields). All full CRUD, instance-global, Pre-GA.
+- **Exit.** pull→diff→push reconcile + gated self-cleaning write-smokes (collections
+  as `[]`, the proven pattern).
+- **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
+
+### Wave 17 — Flagship analytics & AI reads *(SIEM/ADC, read-mostly; high value)*
 - **Goal.** Surface SecOps' newest analytics + Gemini features as safe, committable reads.
 - **Scope.** `investigations` — the **Gemini Triage & Investigation Agent (TIN)**:
   read get/list/`investigationSteps`/`investigationComments`; the `:trigger` write
@@ -510,18 +480,18 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   gating); any write gated + self-cleaning.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 20 — Case fields & logic as code *(SOAR/AppKey, full CRUD; high value)*
-- **Goal.** Bring case/alert customization under config-as-code on the reliable SOAR host.
-- **Scope.** `customFields` (case/alert custom-field **schemas** — type/scope/option
-  values); `calculatedFieldDefinitions` (formula-driven **derived fields**:
-  IF/CONTAINS/LENGTH → a target free-text field; ship WITH customFields since the
-  formulas target them); `propertySchemaDefinitions` (display/grouping metadata for
-  event/enrichment fields). All full CRUD, instance-global, Pre-GA.
-- **Exit.** pull→diff→push reconcile + gated self-cleaning write-smokes (collections
-  as `[]`, the proven pattern).
-- **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
+### Wave 18 — SOC metrics & scheduled reporting *(SIEM/ADC)*
+- **Goal.** Metrics-as-code + scheduled dashboard delivery.
+- **Scope.** `metricDefinitions` (custom SOC metrics whose `textDefinition` is
+  **YARA-L 2.0** — pulls/diffs/pushes like a rule; create/patch, no delete → additive
+  reconcile); `dashboardScheduledReports` (recurrence / recipients / format
+  CSV·PDF·PNG; full CRUD, complements the existing `dashboards` surface;
+  `trigger`/`fetchHistory` are imperative).
+- **Exit.** metricDefinitions additive reconcile + dashboardScheduledReports reconcile;
+  gated write-smokes.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 21 — Enrichment & ingestion governance *(SIEM)*
+### Wave 19 — Enrichment & ingestion governance *(SIEM)*
 - **Goal.** Config-as-code for data-enrichment and ingestion-health.
 - **Scope.** `enrichmentControls` (enrichment on/off per log type / enrichment type —
   stable **v1**, clean reconcile); `errorNotificationConfigs` (ingestion-health alerts:
@@ -533,18 +503,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   Monitoring prerequisites documented.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 22 — SOC metrics & scheduled reporting *(SIEM/ADC)*
-- **Goal.** Metrics-as-code + scheduled dashboard delivery.
-- **Scope.** `metricDefinitions` (custom SOC metrics whose `textDefinition` is
-  **YARA-L 2.0** — pulls/diffs/pushes like a rule; create/patch, no delete → additive
-  reconcile); `dashboardScheduledReports` (recurrence / recipients / format
-  CSV·PDF·PNG; full CRUD, complements the existing `dashboards` surface;
-  `trigger`/`fetchHistory` are imperative).
-- **Exit.** metricDefinitions additive reconcile + dashboardScheduledReports reconcile;
-  gated write-smokes.
-- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
-
-### Wave 23 — MSSP & federation *(mixed plane; multi-tenant only)*
+### Wave 20 — MSSP & federation *(mixed plane; multi-tenant only)*
 - **Goal.** Multi-tenant / access-mapping config-as-code (meaningful only on
   MSSP / multi-tenant deployments).
 - **Scope.** `federationGroups` (group subtenant instances — SIEM/ADC, full CRUD);
@@ -555,6 +514,39 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Exit.** Reconcile + gated write-smokes on throwaway groups/mappings (no real
   users); skip cleanly on a single-tenant instance.
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
+
+### Wave 21 — Reliability & safety hardening
+- **Goal.** Production-grade trust (the sweep over the full, expanded surface).
+- **Scope.** Per-endpoint version-pinning audit (the §6 map kept current) — the pins
+  now live in one place (`chronicle/versions.go`, the `APIVersions` map) behind the
+  surface-family registry (`internal/mirror/surface_families.go`) and a drift-guard
+  test that fails if code, §6, and the registry disagree; the audit re-probes
+  **every** surface across v1 > v1beta > v1alpha (`chronicle/version_probe_live_test.go`)
+  and re-pin each to the newest that works, **re-validating writes** on the new
+  version before flipping (the major existing surfaces — rules / reference_lists /
+  data_tables / feeds — already read OK on v1, but their write-smokes ran on v1alpha,
+  so re-validate then re-pin to v1); **drift-detection mode** (`pull` + diff + report, no push — a CI gate); etag/conflict
+  everywhere; request-id surfaced on every error; pagination/`--as-list`; **config
+  secret-at-rest** (Windows DPAPI / macOS Keychain / Linux libsecret) decrypted
+  in-process, **with cross-OS tests**. (etag/conflict handling is baked into each
+  feature wave above as it lands; this wave is the consolidating audit + the
+  secret-at-rest lift.)
+- **Exit.** Secret-at-rest shipped + tested on 3 OSes; drift mode runnable in CI.
+- **Docs.** ARCHITECTURE, ROADMAP.
+
+### Wave 22 — Distribution & operability
+- **Goal.** Easy to install and run anywhere.
+- **Scope.** CI (build/test/lint/`govulncheck`/`semgrep`); release binaries
+  (goreleaser); `secopsctl version`; shell completions; man pages; `doctor`
+  enhancements; packaging (brew/scoop).
+- **Exit.** A tagged release with signed binaries; CI green on PRs.
+- **Docs.** README, ROADMAP.
+
+### Wave 23 — Automation & scheduling *(stretch)*
+- **Goal.** Tenant-neutral scheduled automation scaffolding.
+- **Scope.** Generic scheduled runners (case-hygiene jobs); the LLM-driven automation
+  notes in `tips/`; scheduled drift reports.
+- **Docs.** ROADMAP, `tips/`.
 
 ---
 
