@@ -69,7 +69,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | data tables (+ rows) | reconcile | ✅ | async bulk-row ops, single-row reads ⬜ (low) |
 | feeds (+ service account) | reconcile | ✅ | `feedSourceTypeSchemas`/`logTypeSchemas` discovery ✅ read-validated (`chronicle/schemas.go`) · `importPushLogs` ⬜ (low) |
 | parsers / parser extensions | reconcile + imperative | ✅ | — |
-| log types | read | 🔨 list · `GetLogType`/`GetLogTypeSetting` built | `updateLogTypeSetting` ⬜ (med) · event-type suggestions ⬜ (low) |
+| log types | read | ✅ list · `GetLogTypeSetting` read-validated | per-log-type `logTypes.get` 404s "Method not found" (use list) · `updateLogTypeSetting` ⬜ (med) · event-type suggestions ⬜ (low) |
 | forwarders / collectors | reconcile | ✅ **reconcile surface wired + engine write-smoke** (`TestLiveReconcileForwarderWriteSmoke`, create→update→delete); collectors list/get | per-collector CUD ⬜ (collectors are a nested resource) |
 | ingestion (`logs`/`events`/`entities:import`) | imperative | ✅ | — |
 

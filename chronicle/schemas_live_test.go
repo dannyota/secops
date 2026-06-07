@@ -31,4 +31,29 @@ func TestLiveSchemaDiscoveryRead(t *testing.T) {
 		t.Fatalf("ListLogTypeSchemas(%q): %v", sourceType, err)
 	}
 	t.Logf("logTypeSchemas[%s]: %d", sourceType, len(logSchemas))
+	if len(logSchemas) == 0 {
+		return
+	}
+
+	// Exercise the single-resource reads on a real log type — the list endpoints
+	// don't cover them, and these are the live-vs-documented-shape risk.
+	lt := logSchemas[0].LogType
+	if lt == "" {
+		lt = logSchemas[0].ID
+	}
+	if lt == "" {
+		return
+	}
+	// The setting is a singleton that returns defaults (an empty/minimal body) for a
+	// log type with no custom setting — like riskConfig. Validate the call answers
+	// and decodes (a non-empty Raw), not that a custom setting exists.
+	setting, err := c.GetLogTypeSetting(ctx, lt)
+	switch {
+	case err != nil:
+		t.Errorf("GetLogTypeSetting(%q): %v", lt, err)
+	case len(setting.Raw) == 0:
+		t.Errorf("GetLogTypeSetting(%q) returned no body", lt)
+	default:
+		t.Logf("GetLogTypeSetting(%q): %d bytes", lt, len(setting.Raw))
+	}
 }

@@ -75,8 +75,8 @@ func (s *LogTypeSchema) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// LogType (name + displayName) is defined in log_meta.go alongside ListLogTypes;
-// GetLogType below fetches one by id.
+// LogType (name + displayName) is defined in log_meta.go alongside ListLogTypes,
+// which is how log types are enumerated (per-log-type GET is not available here).
 
 // LogTypeSetting is the per-log-type ingestion configuration (a singleton
 // sub-resource at {instance}/logTypes/{logType}/logTypeSetting). The stable
@@ -150,17 +150,9 @@ func (c *Client) ListLogTypeSchemas(ctx context.Context, feedSourceType string) 
 	return all, err
 }
 
-// GetLogType fetches one ingest log type by short id or full resource name.
-// Read-only.
-//
-// Endpoint: GET {instance}/logTypes/{logType}.
-func (c *Client) GetLogType(ctx context.Context, logType string) (*LogType, error) {
-	var out LogType
-	if err := c.get(ctx, c.resourcePath("logTypes/"+url.PathEscape(lastSegment(logType)), false), &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
+// Per-log-type GET (logTypes.get) is intentionally not provided: GET
+// {instance}/logTypes/{logType} answers 404 "Method not found" on this surface —
+// log types are enumerated via ListLogTypes (log_meta.go), not fetched singly.
 
 // GetLogTypeSetting fetches the per-log-type ingestion configuration. logType is
 // the short id or full resource name of a log type. Read-only.
