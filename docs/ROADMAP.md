@@ -329,7 +329,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Exit.** Live read round-trip on `threatCollections` + `iocs:find`; CATALOG ✅.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 9 — Curated-rules-as-code completion  *(reads validated — `ListCuratedRules`/`GetCuratedRule` (187 rules); `BatchUpdateCuratedRuleSetDeployments` built, live write pending approval)*
+### Wave 9 — Curated-rules-as-code completion  *(done — `ListCuratedRules`/`GetCuratedRule` (187 rules) read-validated; `BatchUpdateCuratedRuleSetDeployments` live-validated by a self-restoring toggle write-smoke (enable→verify→restore, alerting off))*
 - **Goal.** Make curated (Google-managed) detections fully diff-and-push-able.
 - **Scope.** `curatedRuleSetDeployments:batchUpdate` (the atomic write primitive for
   a desired-state curated-deployment file); `listCuratedRules`/`getCuratedRule`;
