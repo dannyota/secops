@@ -78,11 +78,11 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | entities (`:summarizeEntity`) | operational | ✅ | `:searchEntities` / `:findEntity*` graph RPCs ⬜ (med) |
-| IoC enterprise search (`legacySearchEnterpriseWideIoCs`) | operational | ✅ | — |
+| IoC enterprise search (`legacySearchEnterpriseWideIoCs`) | operational | ✅ read-validated (50 matches); association `regionCode` is an object, decoded either way | — |
 | **Threat Intelligence** (`threatCollections`) | operational (read) | ✅ list/get (`chronicle/ti.go`, `ti collections`/`collection`) | `:fetchRelated`/`:fetchEntityMetadata`/`:fetchIocMatchMetadata` ⬜ (med) |
 | **IoCs** modern (`iocs`) | operational (read) | ✅ `iocs find`/`get` CLI live-validated (`FindIoCs` typed `fieldAndValue` lookup · `GetIoC`/`BatchGetIoCs`) | `fetchRelated`/`getIocState`/`updateIocState` ⬜ |
 | `iocAssociations` | operational (read) | ⬜ | get/batchGet/fetchRelated ⬜ (low) |
-| UDM search (`:udmSearch`, `:translateUdmQuery`, `:validateQuery`, `:findUdmFieldValues`, NL) | operational | ✅ | — |
+| UDM search (`:udmSearch`, `:translateUdmQuery`, `:validateQuery`, `:findUdmFieldValues`, NL) | operational | ✅ read-validated; `validateQuery` derives validity from errorType/errorText (no `isValid` field); raw-log search decodes the streamed chunk array (`matches[]`, nested `logType`) | — |
 | investigations | operational | ✅ | — |
 | alerts (legacy get/fetch/update/bulk) | operational | ✅ `alerts list`/`get` read CLI live-validated; decode tolerant of both legacy-API shapes (array/object, wrapped/bare) | act (update/bulk feedback) built, gated |
 | data exports | imperative | ✅ | `:fetchServiceAccountForDataExport` ⬜ (med) |

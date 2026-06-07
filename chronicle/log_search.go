@@ -1,6 +1,7 @@
 package chronicle
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -34,19 +35,33 @@ type RawLog struct {
 	Data json.RawMessage `json:"-"`
 }
 
-// UnmarshalJSON keeps the full entry in Data while also lifting the common
-// logType/timestamp fields into their typed slots.
+// UnmarshalJSON keeps the full entry in Data while lifting logType into its typed
+// slot. logType is a nested object {"displayName":"…"} on a live match, but was a
+// bare string in the older shape — accept either. A live match carries no
+// top-level timestamp (the time lives inside the event), so Timestamp is lifted
+// only if present.
 func (r *RawLog) UnmarshalJSON(b []byte) error {
 	r.Data = append(r.Data[:0], b...)
 	var lifted struct {
-		LogType   string `json:"logType"`
-		Timestamp string `json:"timestamp"`
+		LogType   json.RawMessage `json:"logType"`
+		Timestamp string          `json:"timestamp"`
 	}
-	// Ignore decode errors for the lifted view: Data is the source of truth and
-	// a non-object entry should not fail the whole search.
+	// Ignore decode errors for the lifted view: Data is the source of truth and a
+	// non-object entry should not fail the whole search.
 	_ = json.Unmarshal(b, &lifted)
-	r.LogType = lifted.LogType
 	r.Timestamp = lifted.Timestamp
+	r.LogType = ""
+	if len(lifted.LogType) > 0 {
+		var s string
+		var obj struct {
+			DisplayName string `json:"displayName"`
+		}
+		if json.Unmarshal(lifted.LogType, &s) == nil {
+			r.LogType = s
+		} else if json.Unmarshal(lifted.LogType, &obj) == nil {
+			r.LogType = obj.DisplayName
+		}
+	}
 	return nil
 }
 
@@ -81,12 +96,57 @@ type rawLogSearchRequest struct {
 	LogTypes                []rawLogType    `json:"logTypes,omitempty"`
 }
 
-// rawLogSearchResponse is one page of :searchRawLogs results. Field names track
-// the alpha API; aggregations are kept raw because their shape is freeform.
+// rawLogSearchResponse is the merged result of one :searchRawLogs POST — a plain
+// carrier (no longer decoded from JSON directly; see decodeRawLogResponse).
 type rawLogSearchResponse struct {
-	RawLogs       []RawLog        `json:"rawLogs"`
-	Aggregations  json.RawMessage `json:"aggregations,omitempty"`
-	NextPageToken string          `json:"nextPageToken,omitempty"`
+	RawLogs       []RawLog
+	Aggregations  json.RawMessage
+	NextPageToken string
+}
+
+// rawLogChunk is one element of the server-streamed :searchRawLogs response. The
+// HTTP body is a JSON ARRAY of these chunks; matches live under "matches" (the
+// older shape used "rawLogs"), and aggregations are freeform.
+type rawLogChunk struct {
+	Matches       []RawLog        `json:"matches"`
+	RawLogs       []RawLog        `json:"rawLogs"` // older key, if present
+	Aggregations  json.RawMessage `json:"aggregations"`
+	NextPageToken string          `json:"nextPageToken"`
+}
+
+func (ch rawLogChunk) entries() []RawLog {
+	if len(ch.Matches) > 0 {
+		return ch.Matches
+	}
+	return ch.RawLogs
+}
+
+// decodeRawLogResponse handles both the live server-streamed JSON array of chunks
+// and the older single-object shape, returning the merged matches plus the last
+// non-empty aggregations and next-page token.
+func decodeRawLogResponse(raw json.RawMessage) (entries []RawLog, agg json.RawMessage, next string, err error) {
+	var chunks []rawLogChunk
+	if t := bytes.TrimSpace(raw); len(t) > 0 && t[0] == '[' {
+		if e := json.Unmarshal(raw, &chunks); e != nil {
+			return nil, nil, "", fmt.Errorf("chronicle: decode raw-log search: %w", e)
+		}
+	} else {
+		var one rawLogChunk
+		if e := json.Unmarshal(raw, &one); e != nil {
+			return nil, nil, "", fmt.Errorf("chronicle: decode raw-log search: %w", e)
+		}
+		chunks = []rawLogChunk{one}
+	}
+	for _, ch := range chunks {
+		entries = append(entries, ch.entries()...)
+		if len(ch.Aggregations) > 0 {
+			agg = ch.Aggregations
+		}
+		if ch.NextPageToken != "" {
+			next = ch.NextPageToken
+		}
+	}
+	return entries, agg, next, nil
 }
 
 // SearchRawLogs searches raw (unparsed) logs over [start, end) and returns all
@@ -183,15 +243,15 @@ func (c *Client) SearchRawLogsPage(ctx context.Context, query string, logTypes [
 	// path with no separating slash.
 	path := c.instancePath(false) + ":searchRawLogs"
 
-	var resp rawLogSearchResponse
-	if err := c.post(ctx, path, body, &resp); err != nil {
+	var raw json.RawMessage
+	if err := c.post(ctx, path, body, &raw); err != nil {
 		return nil, err
 	}
-	return &RawLogSearchPage{
-		RawLogs:       resp.RawLogs,
-		Aggregations:  resp.Aggregations,
-		NextPageToken: resp.NextPageToken,
-	}, nil
+	entries, agg, next, err := decodeRawLogResponse(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &RawLogSearchPage{RawLogs: entries, Aggregations: agg, NextPageToken: next}, nil
 }
 
 // searchRawLogsPage is the internal one-page fetch used by the accumulating
@@ -214,9 +274,13 @@ func (c *Client) searchRawLogsPage(ctx context.Context, query string, logTypes [
 	}
 
 	path := c.instancePath(false) + ":searchRawLogs"
-	var resp rawLogSearchResponse
-	if err := c.post(ctx, path, body, &resp); err != nil {
+	var raw json.RawMessage
+	if err := c.post(ctx, path, body, &raw); err != nil {
 		return nil, err
 	}
-	return &resp, nil
+	entries, agg, next, err := decodeRawLogResponse(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &rawLogSearchResponse{RawLogs: entries, Aggregations: agg, NextPageToken: next}, nil
 }

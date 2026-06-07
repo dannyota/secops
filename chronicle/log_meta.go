@@ -3,6 +3,7 @@ package chronicle
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"net/url"
 	"strconv"
 	"strings"
@@ -177,10 +178,49 @@ func (c *Client) FindUDMFieldValues(ctx context.Context, fieldPath, query string
 }
 
 // QueryValidation is the result of a UDM query syntax check (:validateQuery).
+//
+// The live server does not return an isValid/validationMessage pair: a valid query
+// yields just {"queryType":...}, and an invalid one adds errorType/errorText/
+// errorPosition. Validity is therefore derived (no error reported = valid). The
+// decode also still honors an explicit isValid/validationMessage if a server ever
+// sends that older shape.
 type QueryValidation struct {
-	IsValid           bool   `json:"isValid"`
-	QueryType         string `json:"queryType,omitempty"`         // e.g. QUERY_TYPE_UDM_QUERY, QUERY_TYPE_STATS_QUERY
-	ValidationMessage string `json:"validationMessage,omitempty"` // error detail when invalid
+	IsValid           bool            `json:"isValid"`
+	QueryType         string          `json:"queryType,omitempty"`         // e.g. QUERY_TYPE_UDM_QUERY, QUERY_TYPE_STATS_QUERY
+	ErrorType         string          `json:"errorType,omitempty"`         // e.g. INVALID_QUERY_TYPE (empty when valid)
+	ValidationMessage string          `json:"validationMessage,omitempty"` // the server's errorText, when invalid
+	ErrorPosition     json.RawMessage `json:"errorPosition,omitempty"`     // {startLine,startColumn,endLine,endColumn}
+}
+
+// UnmarshalJSON maps the live :validateQuery body (queryType / errorType /
+// errorText / errorPosition) onto the typed fields and derives IsValid, while
+// tolerating the older isValid/validationMessage shape.
+func (v *QueryValidation) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		QueryType         string          `json:"queryType"`
+		ErrorType         string          `json:"errorType"`
+		ErrorText         string          `json:"errorText"`
+		ErrorPosition     json.RawMessage `json:"errorPosition"`
+		IsValid           *bool           `json:"isValid"`           // older shape, if present
+		ValidationMessage string          `json:"validationMessage"` // older shape, if present
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	v.QueryType = raw.QueryType
+	v.ErrorType = raw.ErrorType
+	v.ErrorPosition = raw.ErrorPosition
+	v.ValidationMessage = raw.ErrorText
+	if v.ValidationMessage == "" {
+		v.ValidationMessage = raw.ValidationMessage
+	}
+	switch {
+	case raw.IsValid != nil:
+		v.IsValid = *raw.IsValid
+	default:
+		v.IsValid = raw.ErrorType == "" && raw.ErrorText == ""
+	}
+	return nil
 }
 
 // ValidateQuery checks UDM query syntax without running the search, returning

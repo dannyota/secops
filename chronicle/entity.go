@@ -349,8 +349,37 @@ func (c *Client) summarizeEntityByID(ctx context.Context, entityID string, start
 // attached to an IoC match.
 type IoCAssociation struct {
 	Name            string `json:"name,omitempty"`
+	AssociationID   string `json:"associationId,omitempty"`
 	AssociationType string `json:"associationType,omitempty"`
-	RegionCode      string `json:"regionCode,omitempty"`
+	RegionCode      string `json:"regionCode,omitempty"` // lifted region/country code
+}
+
+// UnmarshalJSON lifts regionCode from either shape: the live API sends an object
+// {"countryOrRegion":"…"}, while the older shape sent a bare string. Either way
+// RegionCode ends up as the code string.
+func (a *IoCAssociation) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		Name            string          `json:"name"`
+		AssociationID   string          `json:"associationId"`
+		AssociationType string          `json:"associationType"`
+		RegionCode      json.RawMessage `json:"regionCode"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	a.Name, a.AssociationID, a.AssociationType, a.RegionCode = raw.Name, raw.AssociationID, raw.AssociationType, ""
+	if len(raw.RegionCode) > 0 {
+		var s string
+		var obj struct {
+			CountryOrRegion string `json:"countryOrRegion"`
+		}
+		if json.Unmarshal(raw.RegionCode, &s) == nil {
+			a.RegionCode = s
+		} else if json.Unmarshal(raw.RegionCode, &obj) == nil {
+			a.RegionCode = obj.CountryOrRegion
+		}
+	}
+	return nil
 }
 
 // IoCMatch is one enterprise-wide indicator-of-compromise match.
@@ -373,6 +402,20 @@ type IoCMatch struct {
 	// fields the initial port guessed at; the only severity/category data the
 	// upstream confirms lives nested under FilterProperties (kept raw above).
 	Sources []string `json:"sources,omitempty"`
+	// Raw is the complete match object as returned, for fields not modeled above.
+	Raw json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON keeps the typed fields and retains the full match in Raw.
+func (m *IoCMatch) UnmarshalJSON(b []byte) error {
+	type alias IoCMatch // avoid recursing into this method
+	var a alias
+	if err := json.Unmarshal(b, &a); err != nil {
+		return err
+	}
+	*m = IoCMatch(a)
+	m.Raw = append(m.Raw[:0], b...)
+	return nil
 }
 
 // ListIoCs returns enterprise-wide IoC matches observed in [start, end].
