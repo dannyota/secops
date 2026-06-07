@@ -48,6 +48,7 @@ type CaseListOptions struct {
 	Filter   string // server-side filter, e.g. "status = 'OPENED'"
 	OrderBy  string // sort, e.g. "updateTime desc"
 	Expand   string // comma-separated fields to inline, e.g. "products,tasks,tags,closureDetails,sla,alertsSla"
+	MaxItems int    // stop once this many records are collected (<=0 = all pages)
 }
 
 // ListCases returns every case as a raw JSON object (pageSize bounds each
@@ -58,7 +59,8 @@ func (c *Client) ListCases(ctx context.Context, pageSize int) ([]json.RawMessage
 
 // ListCasesOpts returns cases as raw JSON, paging through the v1alpha
 // {cases|items, nextPageToken} response, applying server-side filter/orderBy and
-// optional field expansion. Pagination is capped at 50 pages.
+// optional field expansion. Pagination stops at opt.MaxItems (when set) and is
+// otherwise capped by the runaway backstop (listMaxPages).
 //
 // DEVIATION: raw case JSON is returned because the v1alpha case schema is large
 // and still moving; typed accessors (see Case) can layer on later.
@@ -88,10 +90,18 @@ func (c *Client) ListCasesOpts(ctx context.Context, opt CaseListOptions) ([]json
 			return "", err
 		}
 		out = append(out, page.records()...)
+		// Stop paging once enough records are collected — a bounded list (e.g. the
+		// --limit-capped `soar case list`) must not paginate the whole tenant.
+		if opt.MaxItems > 0 && len(out) >= opt.MaxItems {
+			return "", nil
+		}
 		return page.NextPageToken, nil
 	})
 	if err != nil {
 		return nil, err
+	}
+	if opt.MaxItems > 0 && len(out) > opt.MaxItems {
+		out = out[:opt.MaxItems]
 	}
 	return out, nil
 }

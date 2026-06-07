@@ -141,6 +141,7 @@ func runModernCaseList(pageSize int, status string, asJSON bool) error {
 	}
 	opt := soar.CaseListOptions{
 		PageSize: pageSize,
+		MaxItems: pageSize, // "first page" semantics — bound the fetch, don't page the whole tenant
 		OrderBy:  "updateTime desc",
 		Expand:   "products,tasks,tags,closureDetails,sla,alertsSla",
 	}

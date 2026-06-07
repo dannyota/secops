@@ -127,8 +127,13 @@ func (j *JobDef) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// listMaxPages caps {items,nextPageToken} pagination to avoid runaway loops.
-const listMaxPages = 50
+// listMaxPages caps {items,nextPageToken} pagination as a runaway-loop backstop,
+// not a data limit: it is set high enough that any legitimate finite collection
+// drains its token first, so hitting it (PaginateV1Alpha then errors) signals a
+// server returning a perpetual token — where failing beats looping or silently
+// truncating. Sized to cover the highest-volume surfaces (e.g. cases) at the
+// server's default page size.
+const listMaxPages = 1000
 
 // integrationsList is the v1alpha LIST envelope for integrations.
 type integrationsList struct {

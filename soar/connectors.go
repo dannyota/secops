@@ -90,7 +90,10 @@ func decodeConnectorParams(data []byte) ([]ConnectorParameter, error) {
 		return nil, err
 	}
 	t := bytes.TrimSpace(holder.Params)
-	if len(t) == 0 {
+	// Absent or explicit JSON null both mean "no parameters" — tolerate them so a
+	// single such record doesn't fail the whole list decode. Only a present,
+	// structured-but-unexpected value is an error.
+	if len(t) == 0 || string(t) == "null" {
 		return nil, nil
 	}
 	switch t[0] {

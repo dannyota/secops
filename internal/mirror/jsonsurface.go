@@ -294,10 +294,13 @@ func (spec jsonSurfaceSpec) listItems(ctx context.Context) ([]json.RawMessage, e
 	return decodeRawList(raw)
 }
 
-// resolveNewByName re-lists after a create and returns the object whose nameField
-// matches name. When several share the name, it prefers the one whose id is NOT in
-// beforeNameIDs (the pre-create snapshot) — that is the object just created —
-// falling back to the first match if none look new (e.g. the id wasn't echoed).
+// resolveNewByName re-lists after a create and returns the object just created,
+// identified by its display name. When a live namesake already existed, it binds
+// to the match whose id is NEW since the pre-create snapshot (beforeNameIDs) and
+// NEVER to a known pre-existing namesake — so create→list indexing lag yields a
+// clean "not yet visible" error rather than silently tracking the wrong object.
+// A name-match with no id in the list is identity-unknowable and used only as a
+// last-resort fallback (id-less surfaces).
 func (spec jsonSurfaceSpec) resolveNewByName(ctx context.Context, name string, beforeNameIDs map[string]bool) (reconcile.Object, error) {
 	items, err := spec.listItems(ctx)
 	if err != nil {
@@ -308,17 +311,21 @@ func (spec jsonSurfaceSpec) resolveNewByName(ctx context.Context, name string, b
 		if jsonField(it, spec.nameField) != name {
 			continue
 		}
-		if !beforeNameIDs[jsonField(it, spec.idField)] {
-			return spec.fetchAndBuild(ctx, it)
+		id := jsonField(it, spec.idField)
+		if id != "" {
+			if !beforeNameIDs[id] {
+				return spec.fetchAndBuild(ctx, it) // a new, identifiable object
+			}
+			continue // a known pre-existing namesake — never bind to it
 		}
 		if fallback == nil {
-			fallback = &items[i]
+			fallback = &items[i] // id-less: identity unknowable, keep as last resort
 		}
 	}
 	if fallback != nil {
 		return spec.fetchAndBuild(ctx, *fallback)
 	}
-	return reconcile.Object{}, fmt.Errorf("%s: created %q not found on re-list", spec.name, name)
+	return reconcile.Object{}, fmt.Errorf("%s: created %q not found on re-list (may be indexing lag — re-pull)", spec.name, name)
 }
 
 // fetchAndBuild resolves a list item to a full engine object, fetching the full

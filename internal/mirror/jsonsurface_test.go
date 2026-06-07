@@ -283,6 +283,23 @@ func TestJSONSurfaceCreateRefusesExistingID(t *testing.T) {
 	}
 }
 
+// TestResolveNewByNameSkipsPreexistingNamesake: when the re-list shows only a
+// pre-existing namesake (the freshly-created object isn't indexed yet), resolve
+// must NOT bind to that namesake's id — it returns a "not found yet" error so the
+// operator re-pulls, rather than silently tracking the wrong live object.
+func TestResolveNewByNameSkipsPreexistingNamesake(t *testing.T) {
+	spec := jsonSurfaceSpec{
+		name: "fakehooks", idField: "identifier", nameField: "name",
+		list: func(context.Context) (json.RawMessage, error) {
+			return json.RawMessage(`[{"identifier":"old","name":"Dupe"}]`), nil
+		},
+	}
+	_, err := spec.resolveNewByName(context.Background(), "Dupe", map[string]bool{"old": true})
+	if err == nil {
+		t.Fatal("expected a not-found error, not a bind to the pre-existing namesake")
+	}
+}
+
 // TestJSONSurfaceCreateResolvesNewNamesake: when a live object already shares the
 // new object's display name, the post-create re-resolve must bind to the NEWLY
 // created id (not the pre-existing namesake), so the operator's file gets its own

@@ -365,9 +365,7 @@ func newSOARLegacyCallCmd() *cobra.Command {
 			if method == "" {
 				method = "GET"
 			}
-			if write && readOnly {
-				return fmt.Errorf("--read and --write are mutually exclusive")
-			}
+			// (--read and --write are mutually exclusive — enforced by cobra below.)
 
 			var payload any
 			if body != "" {
