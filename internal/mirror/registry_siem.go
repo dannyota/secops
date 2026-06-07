@@ -26,6 +26,7 @@ var siemSurfaceDefs = []siemSurfaceDef{
 	{"data_tables", dataTablesSurface},
 	{"parsers", parsersSurface},
 	{"feeds", feedsSurface},
+	{"forwarders", forwardersSurface},
 	{"dashboards", dashboardsSurface},
 	{"rule_exclusions", ruleExclusionsSurface},
 }

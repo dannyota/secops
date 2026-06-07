@@ -20,6 +20,7 @@ const (
 	DirFeeds      = "feeds"
 	DirParsers    = "parsers"
 	DirRuleExcl   = "rule_exclusions"
+	DirForwarders = "forwarders"
 )
 
 var slugRE = regexp.MustCompile(`[^A-Za-z0-9._-]+`)

@@ -67,10 +67,10 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 |---|---|---|---|
 | reference lists | reconcile | ✅ | (API has no delete) |
 | data tables (+ rows) | reconcile | ✅ | async bulk-row ops, single-row reads ⬜ (low) |
-| feeds (+ service account) | reconcile | ✅ | `feedSourceTypeSchemas`/`logTypeSchemas` discovery ⬜ (med) · `importPushLogs` ⬜ (low) |
+| feeds (+ service account) | reconcile | ✅ | `feedSourceTypeSchemas`/`logTypeSchemas` discovery ✅ read-validated (`chronicle/schemas.go`) · `importPushLogs` ⬜ (low) |
 | parsers / parser extensions | reconcile + imperative | ✅ | — |
-| log types | read | 🔨 list | `getLogTypeSetting`/`updateLogTypeSetting` ⬜ (med) · event-type suggestions ⬜ (low) |
-| forwarders / collectors | reconcile | ✅ forwarder CRUD write-validated (throwaway create→update→delete); collectors list/get | reconcile-surface wiring ⬜; `feedSourceTypeSchemas`/`logTypeSetting` ⬜ (deferred) |
+| log types | read | 🔨 list · `GetLogType`/`GetLogTypeSetting` built | `updateLogTypeSetting` ⬜ (med) · event-type suggestions ⬜ (low) |
+| forwarders / collectors | reconcile | ✅ **reconcile surface wired + engine write-smoke** (`TestLiveReconcileForwarderWriteSmoke`, create→update→delete); collectors list/get | per-collector CUD ⬜ (collectors are a nested resource) |
 | ingestion (`logs`/`events`/`entities:import`) | imperative | ✅ | — |
 
 ### Entities, Threat Intel & investigation

@@ -362,7 +362,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Exit.** Read-validated; a gated install→uninstall smoke on a throwaway pack.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 12 — SIEM ingestion completion  *(forwarder CRUD write-validated live; collectors read; reconcile wiring + schema-discovery/logTypeSetting deferred)*
+### Wave 12 — SIEM ingestion completion  *(done — forwarders wired as a reconcile surface + engine write-smoke (create→update→delete) live-validated; collectors read; schema discovery (`feedSourceTypeSchemas`/`logTypeSchemas`) read-validated (`chronicle/schemas.go`) as the basis for feed-YAML validation; `GetLogType`/`GetLogTypeSetting` built)*
 - **Goal.** Ingestion config-as-code beyond feeds/parsers.
 - **Scope.** `forwarders` + `forwarders.collectors` full CRUD (reconcile);
   `feedSourceTypeSchemas`/`logTypeSchemas` discovery (validate feed YAML before
