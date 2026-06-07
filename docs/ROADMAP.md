@@ -482,6 +482,82 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 
 ---
 
+## Feature-expansion waves (from the v1alpha API coverage scan)
+
+These come from a docs-grounded gap scan (official Chronicle v1alpha REST via the
+`google-dev-knowledge` corpus) against current coverage. They are listed in
+priority order but are **not yet sequenced against Waves 16–18** — resequence on
+request. Each names its plane (**SIEM** = `chronicle`/ADC · **SOAR** =
+`siemplify-soar`/AppKey) since that sets auth + reliability; the SIEM/ADC ones need
+periodic ADC re-auth to validate live, the SOAR/AppKey ones do not. Deliberately
+skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceSets`,
+`announcements`), deprecated legacy plumbing (`legacySdk`, `legacyPublisher`,
+`legacySystemMetadata`), and get-only diagnostics (`dataTableOperationErrors`).
+
+### Wave 19 — Flagship analytics & AI reads *(SIEM/ADC, read-mostly; high value)*
+- **Goal.** Surface SecOps' newest analytics + Gemini features as safe, committable reads.
+- **Scope.** `investigations` — the **Gemini Triage & Investigation Agent (TIN)**:
+  read get/list/`investigationSteps`/`investigationComments`; the `:trigger` write
+  gated. `entityRiskScores:query` — behavioral **risk scores** (0–1000, deltas,
+  windows), read-only. `bigQueryExport` — **Advanced BigQuery Export** get (status);
+  `update`/`:provision` gated (Enterprise Plus + Pre-GA → clean-error on gating).
+  `coverageDetails` — **MITRE ATT&CK coverage** per rule × threat-collection
+  (read; the closest API proxy to the "Emerging Threats coverage" view). Optional
+  AI writes: `legacyPlaybooks:legacyAiGenerate` (Gemini playbook generation, SOAR
+  plane) and `cases.caseAlerts:createRecommendationLongRunning`/`fetchRecommendation`
+  (AI alert recommendations, long-running).
+- **Exit.** Reads validated where the API answers (clean-error on Enterprise+/Pre-GA
+  gating); any write gated + self-cleaning.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 20 — Case fields & logic as code *(SOAR/AppKey, full CRUD; high value)*
+- **Goal.** Bring case/alert customization under config-as-code on the reliable SOAR host.
+- **Scope.** `customFields` (case/alert custom-field **schemas** — type/scope/option
+  values); `calculatedFieldDefinitions` (formula-driven **derived fields**:
+  IF/CONTAINS/LENGTH → a target free-text field; ship WITH customFields since the
+  formulas target them); `propertySchemaDefinitions` (display/grouping metadata for
+  event/enrichment fields). All full CRUD, instance-global, Pre-GA.
+- **Exit.** pull→diff→push reconcile + gated self-cleaning write-smokes (collections
+  as `[]`, the proven pattern).
+- **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
+
+### Wave 21 — Enrichment & ingestion governance *(SIEM)*
+- **Goal.** Config-as-code for data-enrichment and ingestion-health.
+- **Scope.** `enrichmentControls` (enrichment on/off per log type / enrichment type —
+  stable **v1**, clean reconcile); `errorNotificationConfigs` (ingestion-health alerts:
+  zero-ingest / size-threshold / normalization-delay → Cloud Monitoring channels);
+  `dataTaps` (stream UDM events → Pub/Sub; full CRUD — **lives on the legacy Backstory
+  host** `backstory.googleapis.com`, so it needs its own client base URL + scope, not
+  the v1alpha instances path).
+- **Exit.** Reconcile + gated write-smokes; dataTaps behind its own client; Pub/Sub +
+  Monitoring prerequisites documented.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 22 — SOC metrics & scheduled reporting *(SIEM/ADC)*
+- **Goal.** Metrics-as-code + scheduled dashboard delivery.
+- **Scope.** `metricDefinitions` (custom SOC metrics whose `textDefinition` is
+  **YARA-L 2.0** — pulls/diffs/pushes like a rule; create/patch, no delete → additive
+  reconcile); `dashboardScheduledReports` (recurrence / recipients / format
+  CSV·PDF·PNG; full CRUD, complements the existing `dashboards` surface;
+  `trigger`/`fetchHistory` are imperative).
+- **Exit.** metricDefinitions additive reconcile + dashboardScheduledReports reconcile;
+  gated write-smokes.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 23 — MSSP & federation *(mixed plane; multi-tenant only)*
+- **Goal.** Multi-tenant / access-mapping config-as-code (meaningful only on
+  MSSP / multi-tenant deployments).
+- **Scope.** `federationGroups` (group subtenant instances — SIEM/ADC, full CRUD);
+  `legacySoarIdpMappingGroups` (IdP/SAML group → SOC-role / permission-group /
+  environment mappings — SOAR/AppKey, full CRUD + batchUpdate; pairs with the wrapped
+  `socRoles`); `tenants` (partner / subtenant enumeration). Writes touch live access —
+  extra care.
+- **Exit.** Reconcile + gated write-smokes on throwaway groups/mappings (no real
+  users); skip cleanly on a single-tenant instance.
+- **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
+
+---
+
 ## Non-goals
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).
   A pre-commit leak guard (`.githooks/pre-commit`) enforces this; when porting
