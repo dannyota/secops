@@ -98,8 +98,12 @@ func (c *Client) GetDataAccessLabel(ctx context.Context, id string) (*DataAccess
 	return &out, nil
 }
 
-// CreateDataAccessLabel creates a label with the given id and body (displayName /
-// description / definition). The id becomes the trailing name segment. LIVE MUTATION.
+// CreateDataAccessLabel creates a label with the given id and body. The body must
+// carry a `udmQuery` (the label's definition — the data it covers); `description`
+// is optional. The id becomes the label's resource id and its name (the server
+// ignores a body `displayName`). This surface can return an error yet still persist
+// the label, and create→list has indexing lag — so track throwaways by exact id,
+// not via a list. LIVE MUTATION.
 func (c *Client) CreateDataAccessLabel(ctx context.Context, id string, body any) (*DataAccessLabel, error) {
 	var out DataAccessLabel
 	q := url.Values{"dataAccessLabelId": {id}}
@@ -160,8 +164,11 @@ func (c *Client) GetDataAccessScope(ctx context.Context, id string) (*DataAccess
 	return &out, nil
 }
 
-// CreateDataAccessScope creates a scope with the given id and body (displayName /
-// description / allowed-and-denied labels). LIVE MUTATION.
+// CreateDataAccessScope creates a scope with the given id and body. The body sets
+// `allowAll` (bool) plus `allowedDataAccessLabels` / `deniedDataAccessLabels`, each
+// a list of `{"dataAccessLabel": "<labelId>"}` referencing labels by their short id
+// (not the full resource name). A new scope is bound to no role, so it grants no
+// access until assigned. LIVE MUTATION.
 func (c *Client) CreateDataAccessScope(ctx context.Context, id string, body any) (*DataAccessScope, error) {
 	var out DataAccessScope
 	q := url.Values{"dataAccessScopeId": {id}}

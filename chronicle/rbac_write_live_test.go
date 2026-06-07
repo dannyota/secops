@@ -64,3 +64,101 @@ func TestLiveDataAccessLabelWriteSmoke(t *testing.T) {
 		t.Errorf("expected not-found after delete, got: %v", err)
 	}
 }
+
+// TestLiveRiskConfigWriteSmoke validates UpdateRiskConfig idempotently: it reads
+// the current entity-risk-scoring config and writes back the SAME score values,
+// then re-reads and asserts nothing changed. Scoring is unchanged (no-op values);
+// note this materializes an explicit risk-config record equal to the defaults.
+// Gated on SECOPS_SIEM_SMOKE=1 + SECOPS_SIEM_SMOKE_WRITE=1.
+func TestLiveRiskConfigWriteSmoke(t *testing.T) {
+	c, ctx := liveChronicle(t)
+	if os.Getenv("SECOPS_SIEM_SMOKE_WRITE") != "1" {
+		t.Skip("set SECOPS_SIEM_SMOKE_WRITE=1 to run (idempotent same-value risk-config write)")
+	}
+	cur, err := c.GetRiskConfig(ctx)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	// Write back exactly the current score values — a no-op for scoring.
+	same := chronicle.RiskConfig{
+		DefaultDetectionRiskScore:     cur.DefaultDetectionRiskScore,
+		DefaultAlertRiskScore:         cur.DefaultAlertRiskScore,
+		DefaultWeightingFactor:        cur.DefaultWeightingFactor,
+		DefaultClosedAlertCoefficient: cur.DefaultClosedAlertCoefficient,
+	}
+	if _, err := c.UpdateRiskConfig(ctx, same); err != nil {
+		t.Fatalf("update (same-value): %v", err)
+	}
+	after, err := c.GetRiskConfig(ctx)
+	if err != nil {
+		t.Fatalf("re-get: %v", err)
+	}
+	eq := func(a, b *float64) bool {
+		if a == nil || b == nil {
+			return a == b
+		}
+		return *a == *b
+	}
+	if !eq(cur.DefaultDetectionRiskScore, after.DefaultDetectionRiskScore) ||
+		!eq(cur.DefaultAlertRiskScore, after.DefaultAlertRiskScore) ||
+		!eq(cur.DefaultWeightingFactor, after.DefaultWeightingFactor) ||
+		!eq(cur.DefaultClosedAlertCoefficient, after.DefaultClosedAlertCoefficient) {
+		t.Errorf("risk config score values changed after an idempotent write")
+	}
+}
+
+// TestLiveDataAccessScopeWriteSmoke validates the data-access scope write path on
+// a throwaway, UNASSIGNED scope: it creates a throwaway label, a scope that allows
+// that label, then reads back and deletes both (by exact id). An unassigned scope
+// is granted to no user/role, so it changes no one's access. Same quirk-handling as
+// the label smoke (unique ids, delete by exact id). Gated on SECOPS_SIEM_SMOKE=1 +
+// SECOPS_SIEM_SMOKE_WRITE=1.
+func TestLiveDataAccessScopeWriteSmoke(t *testing.T) {
+	c, ctx := liveChronicle(t)
+	if os.Getenv("SECOPS_SIEM_SMOKE_WRITE") != "1" {
+		t.Skip("set SECOPS_SIEM_SMOKE_WRITE=1 to run (creates + deletes a throwaway scope + label)")
+	}
+
+	stamp := time.Now().UnixNano()
+	labelID := fmt.Sprintf("secopsctl-smoke-%d", stamp)
+	scopeID := fmt.Sprintf("secopsctl-smoke-scope-%d", stamp)
+	t.Cleanup(func() {
+		_ = c.DeleteDataAccessScope(ctx, scopeID)
+		_ = c.DeleteDataAccessLabel(ctx, labelID)
+	})
+
+	label, err := c.CreateDataAccessLabel(ctx, labelID, map[string]any{
+		"description": "secopsctl scope-smoke label; safe to delete",
+		"udmQuery":    `metadata.vendor_name = "secopsctl-smoke-never-matches"`,
+	})
+	if err != nil {
+		t.Fatalf("create label: %v", err)
+	}
+
+	_ = label
+	scope, err := c.CreateDataAccessScope(ctx, scopeID, map[string]any{
+		"displayName":             scopeID,
+		"description":             "secopsctl write-smoke; unassigned, safe to delete",
+		"allowAll":                false,
+		"allowedDataAccessLabels": []map[string]any{{"dataAccessLabel": labelID}},
+	})
+	if err != nil {
+		t.Fatalf("create scope: %v", err)
+	}
+	if scope.ID != scopeID {
+		t.Errorf("created scope id=%q, want %q", scope.ID, scopeID)
+	}
+
+	if _, err := c.GetDataAccessScope(ctx, scopeID); err != nil {
+		t.Fatalf("get scope: %v", err)
+	}
+	if err := c.DeleteDataAccessScope(ctx, scopeID); err != nil {
+		t.Fatalf("delete scope: %v", err)
+	}
+	if _, err := c.GetDataAccessScope(ctx, scopeID); !chronicle.IsNotFound(err) {
+		t.Errorf("expected scope not-found after delete, got: %v", err)
+	}
+	if err := c.DeleteDataAccessLabel(ctx, labelID); err != nil {
+		t.Fatalf("delete label: %v", err)
+	}
+}

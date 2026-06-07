@@ -339,7 +339,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   read-validated; CATALOG ✅.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 10 — SIEM RBAC & data governance  *(in progress — `dataAccessLabels` CRUD write-validated (self-cleaning smoke); operated **imperatively, not reconcile** (create→list lag + create-despite-error break diffing); `dataAccessScopes` + `riskConfig` writes pending; `riskConfig` get live-validated at `{instance}/riskConfig`)*
+### Wave 10 — SIEM RBAC & data governance  *(done — `dataAccessLabels` + `dataAccessScopes` CRUD and `riskConfig` get + idempotent update all write-validated by self-cleaning smokes; operated **imperatively, not reconcile** (create→list lag + create-despite-error break diffing). No CLI yet — SDK only)*
 - **Goal.** Manage access control as code — the highest-value SIEM config still
   missing.
 - **Scope.** `dataAccessLabels` + `dataAccessScopes` full CRUD operated
