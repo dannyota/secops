@@ -371,7 +371,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   drives feed validation.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 13 — Make modern the default in the CLI; `--legacy` to force legacy *(in progress)*
+### Wave 13 — Make modern the default in the CLI; `--legacy` to force legacy *(done — mechanism complete: global `--legacy`, the shared `preferModern` dispatch, `soar case list` modern-by-default with legacy auto-fallback, interim `--modern` flags removed; the remaining per-surface flips are deferred by design — see below)*
 - **Goal.** `secopsctl` uses the **modern v1alpha API by DEFAULT** for each surface
   that has been validated, auto-falling back to the reliable legacy AppKey path on
   error; a **`--legacy` flag forces the legacy path only** (skip modern). **Keep both
@@ -403,8 +403,11 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   **`soar case list` flipped to modern-by-default** with legacy auto-fallback
   (`--modern` opt-in removed; `--status` filtered client-side; live-validated incl.
   `--legacy`); Content Hub CLI (`soar marketplace`); modern read coverage for the
-  config surfaces. **Remaining:** flip the config-surface reconcile lane (optional);
-  promote case verbs once their modern write-smoke passes.
+  config surfaces. **Deferred by design:** the config-surface reconcile lane stays on
+  the reliable legacy engine (modern v1alpha is the flaky tier — flip to
+  modern-with-fallback only if a concrete need arises); case *verbs* stay legacy
+  until their modern write-smoke passes. A new dual-generation surface adopts
+  `preferModern` as it validates — the standing per-surface policy, not a blocker.
 - **Exit.** Validated surfaces are modern-by-default with working legacy auto-fallback;
   `--legacy` forces legacy everywhere; SURFACES tracks the per-surface default;
   legacy SDK retained.
