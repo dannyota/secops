@@ -140,6 +140,8 @@ func buildSurfaceFamilies() []SurfaceFamily {
 		siemFamily("parsers", "parsers", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/parsers.go"),
 		siemFamily("dashboards", "dashboards", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/dashboards.go"),
 		siemFamily("rule_exclusions", "rule_exclusions", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/rule_exclusion.go"),
+		siemFamily("metric_definitions", "metric_definitions", AreaSIEM, LaneReconcile, StatusBuilt, "chronicle/metrics.go"),
+		siemFamily("scheduled_reports", "scheduled_reports", AreaSIEM, LaneReconcile, StatusBuilt, "chronicle/scheduled_reports.go"),
 		siemFamily("curated_rules", "curated_rules", AreaSIEM, LaneImperative, StatusValidated, "chronicle/curated_rules.go"),
 		siemFamily("forwarders", "forwarders", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/forwarders.go"),
 		siemFamily("governance", "governance", AreaSIEM, LaneImperative, StatusBuilt, "chronicle/rbac.go"),

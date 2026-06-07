@@ -12,15 +12,17 @@ import (
 
 // On-disk subdirectory names, one per artifact type.
 const (
-	DirRules      = "rules"
-	DirRefLists   = "reference_lists"
-	DirDataTables = "data_tables"
-	DirDashboards = "dashboards"
-	DirCurated    = "curated"
-	DirFeeds      = "feeds"
-	DirParsers    = "parsers"
-	DirRuleExcl   = "rule_exclusions"
-	DirForwarders = "forwarders"
+	DirRules            = "rules"
+	DirRefLists         = "reference_lists"
+	DirDataTables       = "data_tables"
+	DirDashboards       = "dashboards"
+	DirCurated          = "curated"
+	DirFeeds            = "feeds"
+	DirParsers          = "parsers"
+	DirRuleExcl         = "rule_exclusions"
+	DirForwarders       = "forwarders"
+	DirMetrics          = "metric_definitions"
+	DirScheduledReports = "scheduled_reports"
 )
 
 var slugRE = regexp.MustCompile(`[^A-Za-z0-9._-]+`)

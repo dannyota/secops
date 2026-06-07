@@ -29,6 +29,8 @@ var siemSurfaceDefs = []siemSurfaceDef{
 	{"forwarders", forwardersSurface},
 	{"dashboards", dashboardsSurface},
 	{"rule_exclusions", ruleExclusionsSurface},
+	{"metric_definitions", metricDefinitionsSurface},
+	{"scheduled_reports", scheduledReportsSurface},
 }
 
 // SIEMSurfaceNames returns the engine-backed SIEM surface names, sorted.

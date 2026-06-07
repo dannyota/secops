@@ -71,6 +71,8 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | parsers / parser extensions | reconcile + imperative | ✅ | — |
 | log types | read | ✅ list · `GetLogTypeSetting` read-validated · `GetLogType` wired (documented v1alpha) | per-log-type `logTypes.get` is a documented method but 404s "Method not found" on instances that don't enable it (verified across v1/v1beta/v1alpha and both hosts) — enumerate with `ListLogTypes` · `updateLogTypeSetting` ⬜ (med) · event-type suggestions ⬜ (low) |
 | forwarders / collectors | reconcile | ✅ **reconcile surface wired + engine write-smoke** (`TestLiveReconcileForwarderWriteSmoke`, create→update→delete); collectors list/get | per-collector CUD ⬜ (collectors are a nested resource) |
+| `metricDefinitions` (custom SOC metrics) | reconcile (additive) | 🔨 surface wired + offline-tested; **feature-gated 403 on the tenant** (not enabled/GA), so not live-validated | textDefinition is YARA-L 2.0, immutable; patch is state-only; no delete API |
+| `dashboardScheduledReports` | reconcile (full CRUD) | 🔨 surface wired + offline-tested; **reads live-validated** (list 200), create-report backend **500s** server-side | imperative `trigger`/`duplicate`/`fetchHistory` in the SDK; dashboard reduced to a `{name}` ref |
 | ingestion (`logs`/`events`/`entities:import`) | imperative | ✅ | — |
 
 ### Entities, Threat Intel & investigation

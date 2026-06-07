@@ -64,6 +64,22 @@ var pullOrder = []pullTarget{
 		}
 		return reconcile.Pull(baseContext(), s, out, os.Stdout)
 	}},
+	{"metric_definitions", mirror.DirMetrics, func(c *chronicle.Client, out, _ string) (int, error) {
+		// No legacy puller — pull through the engine surface.
+		s, ok := mirror.BuildSIEMSurface("metric_definitions", c)
+		if !ok {
+			return 0, fmt.Errorf("metric_definitions surface not registered")
+		}
+		return reconcile.Pull(baseContext(), s, out, os.Stdout)
+	}},
+	{"scheduled_reports", mirror.DirScheduledReports, func(c *chronicle.Client, out, _ string) (int, error) {
+		// No legacy puller — pull through the engine surface.
+		s, ok := mirror.BuildSIEMSurface("scheduled_reports", c)
+		if !ok {
+			return 0, fmt.Errorf("scheduled_reports surface not registered")
+		}
+		return reconcile.Pull(baseContext(), s, out, os.Stdout)
+	}},
 }
 
 // targetByName indexes pullOrder for the explicit single-target dispatch.

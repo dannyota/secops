@@ -88,23 +88,25 @@ func TestSurfaceFamiliesConsistent(t *testing.T) {
 // drift" guarantee the registry is supposed to provide.
 func TestChronicleAPIVersionsGolden(t *testing.T) {
 	want := map[string]string{
-		"rules":           "v1alpha",
-		"reference_lists": "v1alpha",
-		"data_tables":     "v1alpha",
-		"feeds":           "v1alpha",
-		"parsers":         "v1alpha",
-		"dashboards":      "v1alpha",
-		"rule_exclusions": "v1alpha",
-		"search":          "v1alpha",
-		"entities":        "v1alpha",
-		"alerts":          "v1alpha",
-		"curated_rules":   "v1alpha", // v1alpha ONLY (v1/v1beta 404)
-		"threat_intel":    "v1",
-		"governance":      "v1",
-		"watchlists":      "v1",
-		"forwarders":      "v1beta",
-		"bigquery_export": "v1",
-		"coverage":        "v1",
+		"rules":              "v1alpha",
+		"reference_lists":    "v1alpha",
+		"data_tables":        "v1alpha",
+		"feeds":              "v1alpha",
+		"parsers":            "v1alpha",
+		"dashboards":         "v1alpha",
+		"rule_exclusions":    "v1alpha",
+		"search":             "v1alpha",
+		"entities":           "v1alpha",
+		"alerts":             "v1alpha",
+		"metric_definitions": "v1alpha",
+		"scheduled_reports":  "v1alpha",
+		"curated_rules":      "v1alpha", // v1alpha ONLY (v1/v1beta 404)
+		"threat_intel":       "v1",
+		"governance":         "v1",
+		"watchlists":         "v1",
+		"forwarders":         "v1beta",
+		"bigquery_export":    "v1",
+		"coverage":           "v1",
 		// alternate, unused chronicle-host cases path (500s at every version)
 		"cases_chronicle_alt": "v1beta",
 	}

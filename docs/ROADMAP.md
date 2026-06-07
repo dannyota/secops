@@ -480,7 +480,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   gating); any write gated + self-cleaning.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 18 — SOC metrics & scheduled reporting *(SIEM/ADC)*
+### Wave 18 — SOC metrics & scheduled reporting *(SIEM/ADC)*  *(built — both surfaces on the engine + offline-tested; `metricDefinitions` is **feature-gated 403** on the tenant (not enabled/GA — Chronicle admin still blocked), so read/write are not live-validated here; `dashboardScheduledReports` **reads are live-validated** (list 200) but the create-report backend **500s "failed to fetch native dashboard details"** server-side (the `{name}` dashboard-ref shape is accepted; verified for existing+new dashboards, both project forms), so the gated write-smoke skips on that 500. No tenant residue (checked for create-despite-error). `metricDefinitions` has create/get/list/patch only — no delete (confirmed against the full method listing); textDefinition is immutable, patch is state-only.)*
 - **Goal.** Metrics-as-code + scheduled dashboard delivery.
 - **Scope.** `metricDefinitions` (custom SOC metrics whose `textDefinition` is
   **YARA-L 2.0** — pulls/diffs/pushes like a rule; create/patch, no delete → additive
