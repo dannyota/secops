@@ -239,7 +239,7 @@ func (c *Client) doRequest(ctx context.Context, method, full string, body, out a
 			return nil
 		}
 
-		apiErr := &APIError{Method: method, URL: full, Status: resp.StatusCode, Body: string(data)}
+		apiErr := &APIError{Method: method, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: requestIDFromHeader(resp.Header)}
 		if retryable(method, resp.StatusCode, false) && attempt < maxRetries {
 			lastErr = apiErr
 			continue

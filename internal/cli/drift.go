@@ -1,0 +1,126 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"danny.vn/secops/internal/mirror"
+)
+
+// newDriftCmd builds the read-only drift gate: it compares the committed local
+// files to live state across the reconcile surfaces and reports divergence,
+// exiting non-zero when any surface has drifted. Intended for CI (pull → commit →
+// drift). It never mutates the tenant.
+func newDriftCmd() *cobra.Command {
+	var out string
+	siem := mirror.SIEMSurfaceNames()
+	soar := mirror.SOARSurfaceNames()
+	all := append(append([]string{}, siem...), soar...)
+
+	cmd := &cobra.Command{
+		Use:   "drift [target...]",
+		Short: "Read-only: report how live state has drifted from local files (CI gate)",
+		Long: "Compare committed local files to live state across the reconcile surfaces\n" +
+			"and report divergence (local-only +, changed ~, live-only -). Never mutates.\n" +
+			"Exits non-zero when any surface has drifted — run it after `pull` in CI.\n\n" +
+			"With no target, checks every engine surface; otherwise the named ones.\n" +
+			"Targets: " + strings.Join(all, ", "),
+		ValidArgs: all,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := baseContext()
+			root := mirror.DataRoot(out)
+
+			wantSIEM, wantSOAR, unknown := selectDriftTargets(args, siem, soar)
+			if len(unknown) > 0 {
+				// Never silently skip a requested target — a typo'd surface would
+				// otherwise let the gate pass without checking what the caller meant.
+				return fmt.Errorf("drift: unknown target(s): %s\nvalid: %s",
+					strings.Join(unknown, ", "), strings.Join(all, ", "))
+			}
+
+			var targets []mirror.DriftTarget
+			if len(wantSIEM) > 0 {
+				c, err := newChronicleClient()
+				if err != nil {
+					return fmt.Errorf("drift: build SIEM client: %w", err)
+				}
+				for _, name := range wantSIEM {
+					s, ok := mirror.BuildSIEMSurface(name, c)
+					if !ok {
+						return fmt.Errorf("drift: SIEM surface %q not registered", name)
+					}
+					targets = append(targets, mirror.DriftTarget{Surface: s, Dir: filepath.Join(root, s.Dir)})
+				}
+			}
+			if len(wantSOAR) > 0 {
+				lc, err := newSOARLegacyClient()
+				if err != nil {
+					return fmt.Errorf("drift: build SOAR client: %w", err)
+				}
+				for _, name := range wantSOAR {
+					s, ok := mirror.BuildSOARSurface(name, lc)
+					if !ok {
+						return fmt.Errorf("drift: SOAR surface %q not registered", name)
+					}
+					targets = append(targets, mirror.DriftTarget{Surface: s, Dir: filepath.Join(root, mirror.DirSOAR, s.Dir)})
+				}
+			}
+			if len(targets) == 0 {
+				return fmt.Errorf("drift: no matching reconcile surfaces")
+			}
+
+			fmt.Fprintf(os.Stdout, "Drift check (%d surface(s)) — local vs live:\n", len(targets))
+			rep := mirror.Drift(ctx, targets, os.Stdout)
+
+			drifted, indet := 0, 0
+			for _, it := range rep.Items {
+				switch {
+				case it.Drifted():
+					drifted++
+				case it.Indeterminate():
+					indet++
+				}
+			}
+			switch {
+			case drifted > 0 && indet > 0:
+				return fmt.Errorf("drift detected in %d surface(s); %d could not be verified — review, then `pull`/`push`", drifted, indet)
+			case drifted > 0:
+				return fmt.Errorf("drift detected in %d surface(s) — review and `pull`/`push` to reconcile", drifted)
+			case indet > 0:
+				return fmt.Errorf("could not verify %d surface(s) (live list incomplete) — re-run", indet)
+			}
+			fmt.Fprintln(os.Stdout, "\nNo drift — local matches live.")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&out, "out", "", "data root directory (default: cwd)")
+	return cmd
+}
+
+// selectDriftTargets splits the requested targets into SIEM and SOAR sets. No args
+// means "all" on both planes; otherwise each arg is matched to its plane, and any
+// arg matching neither is returned in `unknown` so the caller can refuse it (never
+// silently skip a requested target).
+func selectDriftTargets(args, siem, soar []string) (wantSIEM, wantSOAR, unknown []string) {
+	if len(args) == 0 {
+		return siem, soar, nil
+	}
+	for _, a := range args {
+		switch {
+		case slices.Contains(siem, a):
+			wantSIEM = append(wantSIEM, a)
+		case slices.Contains(soar, a):
+			wantSOAR = append(wantSOAR, a)
+		default:
+			unknown = append(unknown, a)
+		}
+	}
+	return wantSIEM, wantSOAR, unknown
+}
+
+func init() { rootCmd.AddCommand(newDriftCmd()) }

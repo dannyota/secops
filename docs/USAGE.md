@@ -314,6 +314,7 @@ secopsctl soar marketplace contentpacks
 | Check resolved config | `secopsctl info` |
 | Prove connectivity | `secopsctl doctor` |
 | Pull SIEM config | `secopsctl pull <rules\|reference_lists\|…\|all>` |
+| Detect drift (CI gate) | `secopsctl drift [<target>…]` (read-only; non-zero exit on drift) |
 | Edit a rule | edit `rules/<slug>.yaral` → `push rules-update --dry-run` → `--yes` |
 | New rule | bare `.yaral` → `push rules-create --dry-run` → `--yes` |
 | Hunt events | `secopsctl query udm '<filter>' --hours N` |

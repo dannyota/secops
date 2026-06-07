@@ -45,10 +45,11 @@ type Settings struct {
 
 // Error is a non-2xx response from the SOAR API.
 type Error struct {
-	Method string
-	URL    string
-	Status int
-	Body   string
+	Method    string
+	URL       string
+	Status    int
+	Body      string
+	RequestID string // server request id (for support escalation), when present
 }
 
 func (e *Error) Error() string {
@@ -57,7 +58,24 @@ func (e *Error) Error() string {
 	if len(body) > max {
 		body = body[:max] + "…(truncated)"
 	}
-	return fmt.Sprintf("soar: %s %s -> HTTP %d: %s", e.Method, e.URL, e.Status, body)
+	rid := ""
+	if e.RequestID != "" {
+		rid = " [request-id: " + e.RequestID + "]"
+	}
+	return fmt.Sprintf("soar: %s %s -> HTTP %d%s: %s", e.Method, e.URL, e.Status, rid, body)
+}
+
+// requestIDHeaders are the response headers that may carry a server request id.
+var requestIDHeaders = []string{"X-Goog-Request-Id", "X-Request-Id", "X-Cloud-Trace-Context"}
+
+// requestIDFromHeader returns the first request-id header present, or "".
+func requestIDFromHeader(h http.Header) string {
+	for _, k := range requestIDHeaders {
+		if v := h.Get(k); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // Transport executes authenticated SOAR requests. Safe for concurrent use.
@@ -255,7 +273,7 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 			return nil
 		}
 
-		apiErr := &Error{Method: method, URL: full, Status: resp.StatusCode, Body: string(data)}
+		apiErr := &Error{Method: method, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: requestIDFromHeader(resp.Header)}
 		if attempt < maxRetries && retryable(method, resp.StatusCode, false) {
 			lastErr = apiErr
 			continue

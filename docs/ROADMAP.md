@@ -519,7 +519,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   users); skip cleanly on a single-tenant instance.
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
-### Wave 21 — Reliability & safety hardening
+### Wave 21 — Reliability & safety hardening  *(partial — **drift-detection mode** shipped (`secopsctl drift`, the read-only CI gate: pull→commit→drift; reconcilable divergence fails, incomplete listings are "indeterminate" not phantom drift, NoDelete live-only objects are "untracked"/pull-to-adopt) and **request-id surfaced on every error** (`*APIError`/SOAR `Error` carry the server request id from the response headers). **Deferred by decision:** the live version-pin re-probe audit (pins are already validated per-surface + guarded by the golden drift test) and **config secret-at-rest** (the AppKey stays a git-ignored `0600` file — on a headless Linux server the OS keychain (DPAPI/Keychain/libsecret) is usually unavailable, so it would fall back to the same plaintext file).)*
 - **Goal.** Production-grade trust (the sweep over the full, expanded surface).
 - **Scope.** Per-endpoint version-pinning audit (the §6 map kept current) — the pins
   now live in one place (`chronicle/versions.go`, the `APIVersions` map) behind the
