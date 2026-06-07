@@ -32,7 +32,7 @@ flowchart LR
   files[("local files · git")]
   live -- "pull · List → Write" --> files
   files -- "LoadDir" --> plan
-  live -- "List" --> plan{{"diff (by ServerID,<br/>canonical bytes)"}}
+  live -- "List" --> plan{"diff (by ServerID,<br/>canonical bytes)"}
   plan -- "local-only" --> c["Create"]
   plan -- "id matches,<br/>canonical differs" --> u["Update (overlay)"]
   plan -- "live-only" --> d["Delete · --prune only"]

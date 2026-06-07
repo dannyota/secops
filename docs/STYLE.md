@@ -46,6 +46,14 @@ Diagrams are **part of the doc↔code contract**: a diagram must match what the 
 does (the planes, the lanes, the surfaces, the auth). When the code changes, update
 the diagram in the same change. A wrong diagram is a bug.
 
+**Mermaid on the Jekyll site — avoid `{{ }}` and `{% %}`.** Jekyll runs Liquid over
+the page *before* the browser sees it, and Liquid eats `{{ … }}` (output) and
+`{% … %}` (tags). Mermaid's **hexagon node** `id{{"label"}}` therefore renders fine
+on GitHub but is silently stripped to garbage on the site. Use a rhombus/decision
+node `id{"label"}` (single braces) or a rectangle instead — never `{{ }}`. Keep
+`<br/>` for line breaks (not `\n`) and escape literal angle brackets in labels as
+`&lt;`/`&gt;`.
+
 ## 🔗 Doc ↔ code consistency
 
 - Every command, flag, and path shown must exist in the code (verify against

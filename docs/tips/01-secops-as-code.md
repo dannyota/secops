@@ -16,7 +16,7 @@ has no tenant identifiers baked in.
 ```mermaid
 flowchart LR
   live[("live instance")] -- "pull · read-only" --> files[("local files · git")]
-  files -- "git diff · review" --> review{{"approve the diff"}}
+  files -- "git diff · review" --> review{"approve the diff"}
   review -- "push · LIVE DEPLOY" --> live
   live -. "re-pull · sync metadata" .-> files
 ```
