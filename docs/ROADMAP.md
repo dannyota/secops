@@ -362,7 +362,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Exit.** Read-validated; a gated install→uninstall smoke on a throwaway pack.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 12 — SIEM ingestion completion  *(done — forwarders wired as a reconcile surface + engine write-smoke (create→update→delete) live-validated; collectors read; schema discovery (`feedSourceTypeSchemas`/`logTypeSchemas` + `GetLogTypeSetting`) read-validated (`chronicle/schemas.go`) as the basis for feed-YAML validation; per-log-type `logTypes.get` not wired — 404 "Method not found", log types are listed)*
+### Wave 12 — SIEM ingestion completion  *(done — forwarders wired as a reconcile surface + engine write-smoke (create→update→delete) live-validated; collectors read; schema discovery (`feedSourceTypeSchemas`/`logTypeSchemas` + `GetLogTypeSetting`) read-validated (`chronicle/schemas.go`) as the basis for feed-YAML validation; per-log-type `logTypes.get` wired as a documented v1alpha method (`GetLogType`), though it 404s "Method not found" on instances that don't enable it — across all versions and both hosts — so log types are enumerated via `ListLogTypes`)*
 - **Goal.** Ingestion config-as-code beyond feeds/parsers.
 - **Scope.** `forwarders` + `forwarders.collectors` full CRUD (reconcile);
   `feedSourceTypeSchemas`/`logTypeSchemas` discovery (validate feed YAML before

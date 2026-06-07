@@ -76,7 +76,8 @@ func (s *LogTypeSchema) UnmarshalJSON(data []byte) error {
 }
 
 // LogType (name + displayName) is defined in log_meta.go alongside ListLogTypes,
-// which is how log types are enumerated (per-log-type GET is not available here).
+// which is how log types are enumerated; GetLogType (below) is the documented
+// per-log-type GET, available on instances that enable it.
 
 // LogTypeSetting is the per-log-type ingestion configuration (a singleton
 // sub-resource at {instance}/logTypes/{logType}/logTypeSetting). The stable
@@ -150,9 +151,22 @@ func (c *Client) ListLogTypeSchemas(ctx context.Context, feedSourceType string) 
 	return all, err
 }
 
-// Per-log-type GET (logTypes.get) is intentionally not provided: GET
-// {instance}/logTypes/{logType} answers 404 "Method not found" on this surface —
-// log types are enumerated via ListLogTypes (log_meta.go), not fetched singly.
+// GetLogType fetches one ingest log type by short id or full resource name.
+// Read-only.
+//
+// Endpoint: GET {instance}/logTypes/{logType} — a documented v1alpha method
+// (project ID form, matching the working ListLogTypes). Some instances do not
+// enable it: it can answer 404 "Method not found" across all versions
+// (v1/v1beta/v1alpha) and both hosts (chronicle and siemplify-soar) while the
+// collection LIST still works — in that case enumerate with ListLogTypes. Kept
+// because it is a real documented method (available on instances that enable it).
+func (c *Client) GetLogType(ctx context.Context, logType string) (*LogType, error) {
+	var out LogType
+	if err := c.get(ctx, c.resourcePath("logTypes/"+url.PathEscape(lastSegment(logType)), false), &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
 
 // GetLogTypeSetting fetches the per-log-type ingestion configuration. logType is
 // the short id or full resource name of a log type. Read-only.
