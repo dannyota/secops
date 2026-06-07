@@ -17,11 +17,17 @@ import (
 
 // listRawCollection GETs a chronicle collection at sub, accumulating the array
 // under envelope key `key` and following nextPageToken (cap 50 pages). version=""
-// rides DefaultAPIVersion.
-func (c *Client) listRawCollection(ctx context.Context, sub, key string, pageSize int, version string) ([]json.RawMessage, error) {
+// rides DefaultAPIVersion; extra carries any additional query params (filter,
+// orderBy, …) merged into each page request.
+func (c *Client) listRawCollection(ctx context.Context, sub, key string, pageSize int, version string, extra url.Values) ([]json.RawMessage, error) {
 	var all []json.RawMessage
 	err := paginate(50, func(token string) (string, error) {
 		q := url.Values{}
+		for k, vs := range extra {
+			for _, v := range vs {
+				q.Add(k, v)
+			}
+		}
 		if pageSize > 0 {
 			q.Set("pageSize", strconv.Itoa(pageSize))
 		}
@@ -61,13 +67,13 @@ func (c *Client) listRawCollection(ctx context.Context, sub, key string, pageSiz
 // ListInvestigationSteps returns the Gemini-performed steps of an investigation. Read-only.
 func (c *Client) ListInvestigationSteps(ctx context.Context, investigationID string, pageSize int) ([]json.RawMessage, error) {
 	sub := "investigations/" + url.PathEscape(lastSegment(investigationID)) + "/investigationSteps"
-	return c.listRawCollection(ctx, sub, "investigationSteps", pageSize, "")
+	return c.listRawCollection(ctx, sub, "investigationSteps", pageSize, "", nil)
 }
 
 // ListInvestigationComments returns the comments on an investigation. Read-only.
 func (c *Client) ListInvestigationComments(ctx context.Context, investigationID string, pageSize int) ([]json.RawMessage, error) {
 	sub := "investigations/" + url.PathEscape(lastSegment(investigationID)) + "/investigationComments"
-	return c.listRawCollection(ctx, sub, "investigationComments", pageSize, "")
+	return c.listRawCollection(ctx, sub, "investigationComments", pageSize, "", nil)
 }
 
 // QueryEntityRiskScores returns entity risk scores (normalized 0–1000) for the
@@ -75,35 +81,14 @@ func (c *Client) ListInvestigationComments(ctx context.Context, investigationID 
 // syntax (e.g. `riskScore>=50`); orderBy e.g. "detectionsCount". Issues
 // GET {instance}/entityRiskScores:query with an empty body. Read-only (v1alpha).
 func (c *Client) QueryEntityRiskScores(ctx context.Context, filter, orderBy string, pageSize int) ([]json.RawMessage, error) {
-	var all []json.RawMessage
-	err := paginate(50, func(token string) (string, error) {
-		q := url.Values{}
-		if filter != "" {
-			q.Set("filter", filter)
-		}
-		if orderBy != "" {
-			q.Set("orderBy", orderBy)
-		}
-		if pageSize > 0 {
-			q.Set("pageSize", strconv.Itoa(pageSize))
-		}
-		if token != "" {
-			q.Set("pageToken", token)
-		}
-		var env struct {
-			EntityRiskScores []json.RawMessage `json:"entityRiskScores"`
-			NextPageToken    string            `json:"nextPageToken"`
-		}
-		if err := c.get(ctx, c.resourcePath("entityRiskScores:query", false), &env, withQuery(q)); err != nil {
-			return "", err
-		}
-		all = append(all, env.EntityRiskScores...)
-		return env.NextPageToken, nil
-	})
-	if err != nil {
-		return nil, err
+	extra := url.Values{}
+	if filter != "" {
+		extra.Set("filter", filter)
 	}
-	return all, nil
+	if orderBy != "" {
+		extra.Set("orderBy", orderBy)
+	}
+	return c.listRawCollection(ctx, "entityRiskScores:query", "entityRiskScores", pageSize, "", extra)
 }
 
 // GetBigQueryExport returns the Advanced BigQuery Export configuration singleton
@@ -122,5 +107,5 @@ func (c *Client) GetBigQueryExport(ctx context.Context) (json.RawMessage, error)
 // combination (raw) — the API-side view of detection/"emerging threats" coverage.
 // Read-only. Pinned v1.
 func (c *Client) ListCoverageDetails(ctx context.Context, pageSize int) ([]json.RawMessage, error) {
-	return c.listRawCollection(ctx, "coverageDetails", "coverageDetails", pageSize, coverageAPIVersion)
+	return c.listRawCollection(ctx, "coverageDetails", "coverageDetails", pageSize, coverageAPIVersion, nil)
 }
