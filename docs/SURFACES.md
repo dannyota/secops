@@ -49,6 +49,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 ## SIEM plane — `chronicle/` (ADC)
 
 ### Detection engine
+
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | custom rules (CRUD + revisions) | reconcile | ✅ | — |
@@ -61,6 +62,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | curated rules (`curatedRules`) | operational (read) | ✅ list/get (`curated rules`) | — |
 
 ### Data, lists & ingestion
+
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | reference lists | reconcile | ✅ | (API has no delete) |
@@ -72,12 +74,13 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | ingestion (`logs`/`events`/`entities:import`) | imperative | ✅ | — |
 
 ### Entities, Threat Intel & investigation
+
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | entities (`:summarizeEntity`) | operational | ✅ | `:searchEntities` / `:findEntity*` graph RPCs ⬜ (med) |
 | IoC enterprise search (`legacySearchEnterpriseWideIoCs`) | operational | ✅ | — |
 | **Threat Intelligence** (`threatCollections`) | operational (read) | ✅ list/get (`chronicle/ti.go`, `ti collections`/`collection`) | `:fetchRelated`/`:fetchEntityMetadata`/`:fetchIocMatchMetadata` ⬜ (med) |
-| **IoCs** modern (`iocs`) | operational (read) | ✅ `FindIoCs` (typed `fieldAndValue` lookup) live-validated · `GetIoC`/`BatchGetIoCs` | `fetchRelated`/`getIocState`/`updateIocState` ⬜ |
+| **IoCs** modern (`iocs`) | operational (read) | ✅ `iocs find`/`get` CLI live-validated (`FindIoCs` typed `fieldAndValue` lookup · `GetIoC`/`BatchGetIoCs`) | `fetchRelated`/`getIocState`/`updateIocState` ⬜ |
 | `iocAssociations` | operational (read) | ⬜ | get/batchGet/fetchRelated ⬜ (low) |
 | UDM search (`:udmSearch`, `:translateUdmQuery`, `:validateQuery`, `:findUdmFieldValues`, NL) | operational | ✅ | — |
 | investigations | operational | ✅ | — |
@@ -91,6 +94,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 > ingested through normal logs + reference lists.
 
 ### Admin, governance & Content Hub
+
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | dashboards (native) | reconcile | ✅ | — |

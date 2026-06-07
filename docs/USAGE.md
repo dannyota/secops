@@ -267,6 +267,12 @@ the marketplace content available.
 secopsctl ti collections --limit 20
 secopsctl ti collection <report-id>
 
+# Resolve an indicator (hash / domain / IP) to its IoC record — type is
+# auto-detected, or force it with --type. --json gives the full record + id.
+secopsctl iocs find example.com
+secopsctl iocs find <sha256> --type sha256
+secopsctl iocs get <ioc-id>          # id comes from `iocs find --json`
+
 # Content Hub (SOAR side) — installable integration packs and content packs.
 secopsctl soar marketplace list --installed
 secopsctl soar marketplace contentpacks

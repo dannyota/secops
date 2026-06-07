@@ -94,6 +94,7 @@ secopsctl [--config PATH] [--json] <command> ...
 | `curated list/rules/set` | Read + toggle Google-managed curated rule sets/rules. |
 | `cases list/get/search` | Reach a case on the **chronicle** host by UUID (ADC) — an alternate path that 500s at every version, so for case work prefer `soar case` (cases work on siemplify · v1alpha). |
 | `ti collections/collection` | Browse Mandiant threat-intel collections (read-only). |
+| `iocs find/get` | Resolve an indicator (hash/domain/IP) to its IoC record (read-only). |
 | `watchlists list/get` | Read SIEM entity watchlists. |
 | `soar pull <surface> [--out DIR]` | Read-only SOAR snapshot (webhooks, environments, playbooks, connectors, …). |
 | `soar push <surface> [--prune] [--dry-run \| --yes]` | **Live deploy.** Reconcile local SOAR files to live. |

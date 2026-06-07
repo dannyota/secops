@@ -155,7 +155,7 @@ span both Google (chronicle) and Siemplify (siemplify).
 | Function (CLI) | Lane | New API (status · domain · version) | Legacy | Notes |
 |---|---|---|---|---|
 | `ti collections` / `collection <id>` | operational read | ✅ chronicle · v1 | — | Mandiant `threatCollections` (campaigns/reports/actors/malware/vuln) — list (`collection_type:` filter + orderBy + `--limit`) + get-by-id, read round-trip live-validated (`chronicle/ti.go`, `TestLiveThreatCollectionsRead`). Read-only (upstream-sourced). Prefer v1 > v1beta > v1alpha; all three answer → pinned **v1** (`tiAPIVersion`); threatCollections uses the project **number** |
-| IoCs — `FindIoCs` / `GetIoC` / `BatchGetIoCs` (SDK) | operational read | 🔨 chronicle · v1 | — | modern IoC lookup, read-validated. `FindIoCs` resolves a value via the `fieldAndValue` body (`{value, valueType}`), pinned **v1**. An `iocs` CLI is not wired yet |
+| IoCs — `iocs find` / `iocs get` | operational read | ✅ chronicle · v1 | — | modern IoC lookup, read-validated. `iocs find <value>` resolves indicators via the `fieldAndValue` body (`{value, valueType}`, type auto-detected for hash/domain/IP or `--type`), pinned **v1**; `iocs get <id>` fetches one record. SDK `FindIoCs`/`GetIoC`/`BatchGetIoCs` (`chronicle/ti.go`) |
 
 ### Content Hub & integrations
 

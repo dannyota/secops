@@ -318,7 +318,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 | dataAccessLabels · dataAccessScopes | ✅ works | ⛔ 404 | SIEM-plane only |
 | playbooks · workflows | (n/a) | ⛔ 404 | legacy-only, no v1alpha |
 
-### Wave 8 — Threat Intelligence (SIEM read)  *(in progress — `threatCollections` list/get + `iocs:find`/get/batchGet SDK built and read-validated (`chronicle/ti.go`, pinned v1); `iocs` CLI not yet wired)*
+### Wave 8 — Threat Intelligence (SIEM read)  *(done — `threatCollections` list/get (`ti`) + the `iocs find`/`get` CLI, read-validated live (`chronicle/ti.go`, pinned v1). The enrichment RPCs `:fetchRelated`/`:fetchEntityMetadata`/`:fetchIocMatchMetadata` are deferred as optional gaps — see SURFACES)*
 - **Goal.** Mandiant / Applied Threat Intelligence as code — read the campaigns,
   reports, actors, malware and IoCs the tenant is matched against. Read-only (TI is
   Google/Mandiant-sourced — there is no write path), so low-risk and high-signal —
