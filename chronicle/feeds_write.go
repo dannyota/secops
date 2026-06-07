@@ -4,7 +4,6 @@ import (
 	"context"
 	"maps"
 	"net/url"
-	"path"
 	"strings"
 )
 
@@ -72,10 +71,10 @@ type feedSecret struct {
 }
 
 // feedID returns the trailing path segment of a feed name or ID, so callers may
-// pass either "fe_xxx" or the full "projects/.../feeds/fe_xxx" resource name
-// (mirrors feeds.py os.path.basename(feed_id)).
+// pass either "fe_xxx" or the full "projects/.../feeds/fe_xxx" resource name. The
+// trailing-slash trim keeps a name written with a stray "/" suffix resolvable.
 func feedID(id string) string {
-	return path.Base(strings.TrimRight(id, "/"))
+	return lastSegment(strings.TrimRight(id, "/"))
 }
 
 // CreateFeed creates a new ingestion feed. sourceType is the feedSourceType
@@ -139,10 +138,16 @@ func (c *Client) UpdateFeed(ctx context.Context, id, displayName, sourceType, lo
 		body.Details = d
 		mask = append(mask, "details")
 	}
-	var q []requestOption
-	if len(mask) > 0 {
-		q = append(q, withQuery(url.Values{"updateMask": {strings.Join(mask, ",")}}))
+	// A maskless PATCH would let the server interpret the (empty) body as a
+	// full-resource replace and blank the feed. Refuse rather than send nothing.
+	if len(mask) == 0 {
+		return nil, &APIError{
+			Method: "PATCH",
+			URL:    c.resourcePath("feeds/"+feedID(id), false),
+			Body:   "no feed fields provided to update",
+		}
 	}
+	q := []requestOption{withQuery(url.Values{"updateMask": {strings.Join(mask, ",")}})}
 	var f Feed
 	if err := c.patch(ctx, c.resourcePath("feeds/"+feedID(id), false), body, &f, q...); err != nil {
 		return nil, err

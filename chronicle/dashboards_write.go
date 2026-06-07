@@ -435,6 +435,15 @@ func (c *Client) EditChart(ctx context.Context, dashboardID string, in EditChart
 			Body:   "editChart requires a dashboardQuery and/or dashboardChart",
 		}
 	}
+	// An object carrying only name/etag (no editable field) yields an empty mask;
+	// posting editMask="" would update nothing yet still consume the etag. Refuse.
+	if len(mask) == 0 {
+		return nil, &APIError{
+			Method: "POST",
+			URL:    c.resourcePath("nativeDashboards/"+id+":editChart", false),
+			Body:   "editChart: no editable fields present (expected one of query/input or display_name/description/tile_type/visualization/drill_down_config/chart_datasource)",
+		}
+	}
 	body.EditMask = strings.Join(mask, ",")
 
 	var out json.RawMessage
