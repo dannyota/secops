@@ -24,7 +24,11 @@ AppKey header and never touches ADC. See `danny.vn/secops/auth`.
   **both** `ProjectID` and `ProjectNumber`: most endpoints use the string
   project ID, but curated rule-sets and parsers need the project **number**, so
   a client with only one set will 404 on those surfaces. `BaseURL` is optional
-  and defaults to `https://<Region>-chronicle.googleapis.com/v1alpha`.
+  and defaults to `https://<Region>-chronicle.googleapis.com/v1alpha`. Each
+  surface family is pinned to the newest API version that answers it (v1 > v1beta
+  > v1alpha); the SDK applies the pin internally. The pins are exported as
+  `chronicle.APIVersions` (a `map[string]string` keyed by family name) and
+  `chronicle.APIVersionFor(family)` if you need them programmatically.
 - **soar.Settings** — `BaseURL` is **required** and is your *tenant* SOAR host
   (e.g. `https://your-tenant.siemplify-soar.com`); there is no default. It also
   takes `ProjectNumber`, `Region`, and `CustomerID` for the v1alpha resource
@@ -107,9 +111,12 @@ if err != nil {
 updated, err := c.UpdateRule(ctx, r.RuleID(), newYaralText, r.Etag)
 ```
 
-> The retrying HTTP transport is built in: idempotent reads retry on 429/5xx
-> with capped backoff; **mutating POSTs are never retried on a 5xx** (a SOAR
-> write that 500s may already have applied server-side).
+> The retrying HTTP transport is built in: the Chronicle client retries on
+> 429/500/502/503/504 with capped exponential backoff (see `chronicle.IsNotFound`
+> for the genuine 404 case). The SOAR transport is method-aware — it retries 429
+> for any method but a 5xx **only** for idempotent verbs, never for a mutating
+> POST/PATCH (a SOAR write that 500s may already have applied server-side; see the
+> SOAR sections below).
 
 ### SOAR (modern v1alpha)
 
@@ -146,23 +153,33 @@ func main() {
 }
 ```
 
-### SOAR (legacy / escape hatch)
+> **Cases work on this path.** `soar.ListCases` reads the case queue on the
+> siemplify host (v1alpha) and is live-validated. (A separate chronicle-host
+> cases path exists but is unused — it 500s at every version; see
+> [`CATALOG.md`](CATALOG.md).) For full case details and the triage verbs, use the
+> `soar/legacy` client below.
+
+### SOAR (legacy external API)
 
 The `soar/legacy` package speaks the Siemplify external API
-(`/api/external/v1`), which is currently the most reliable path for case
-triage. Its methods take a free-form request body (`any`) and return raw JSON
+(`/api/external/v1`), the broad and reliable AppKey path for SOAR. It is a
+permanent part of the design — the reconcile engine and the case-triage verbs run
+on it, and it is the fallback when a modern v1alpha surface returns a 500. Its
+methods take a free-form request body (`any`) and return raw JSON
 (`json.RawMessage`); the request shapes come from the Siemplify external API
 (see `third_party/siemplify-swagger.json`). Prefer the typed `soar` (v1alpha)
-client where an equivalent method exists; reach for `legacy` for bulk case ops
-and the full triage verbs that v1alpha doesn't cover yet.
+client where an equivalent method exists and is validated; reach for `legacy` for
+bulk case ops and the full triage verbs.
 
 ```go
 c := legacy.NewClient(soarSettings, auth.SOARAppKey("YOUR_APP_KEY"), nil)
 raw, err := c.CloseCase(ctx, map[string]any{
-	"caseId":     12345,
-	"rootCause":  "Maintenance",
-	"reason":     0, // CloseReason enum (integer); see soar/legacy enums
-	"comment":    "handled out of band",
+	"caseId":    12345,
+	"rootCause": "Maintenance",
+	// CloseReason is an integer enum (the server's coding, not alphabetical);
+	// use the named constants from soar/legacy, e.g. legacy.CloseMaintenance.
+	"reason":  int(legacy.CloseMaintenance),
+	"comment": "handled out of band",
 })
 ```
 

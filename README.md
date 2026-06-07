@@ -112,9 +112,9 @@ credential; constructing one never touches the network (auth resolves lazily):
 
 | Package | Surface | Auth |
 |---|---|---|
-| `danny.vn/secops/chronicle` | Chronicle **SIEM** v1alpha | OAuth / ADC (`auth.OAuth`) |
+| `danny.vn/secops/chronicle` | Chronicle **SIEM** (modern REST; version pinned per surface — `chronicle/versions.go`) | OAuth / ADC (`auth.OAuth`) |
 | `danny.vn/secops/soar` | Modern **SOAR** v1alpha | AppKey (`auth.SOARAppKey`) |
-| `danny.vn/secops/soar/legacy` | Siemplify external API (reliable case path) | AppKey |
+| `danny.vn/secops/soar/legacy` | Siemplify external API — the broad, reliable path | AppKey |
 
 The `chronicle` SIEM client in ~10 lines:
 

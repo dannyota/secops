@@ -65,7 +65,7 @@ flowchart LR
 | **[GLOSSARY.md](GLOSSARY.md)** | Plain-language term definitions | look up a word |
 | **[SDK.md](SDK.md)** | Go SDK guide (three clients, examples) | import the SDK |
 | **[README.md](README.md)** (this) | The map: model, diagram, index | get oriented |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | The cross-cutting design — engine, lanes, planes, auth, safety, reliability | understand *how* it works (any surface) |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | The cross-cutting design — engine, lanes, planes, auth, safety, reliability, the per-surface version pins (§6) and the surface-family registry (§7) | understand *how* it works (any surface) |
 | **[CATALOG.md](CATALOG.md)** | Every surface & command + a **status matrix** (designed / built / validated) | see *what exists* and its maturity — the tracker |
 | **[SURFACES.md](SURFACES.md)** | The API surface map: every family by **plane** (SIEM / SOAR-legacy / SOAR-modern) with gaps | see *which API does what* and what's unbuilt |
 | **[SOAR-DESIGN.md](SOAR-DESIGN.md)** | SOAR specifics (3 tiers, gotchas, per-surface notes) | work on SOAR |
@@ -74,11 +74,16 @@ flowchart LR
 
 **Doc schema (the rules these follow).** One concept per doc; **short prose,
 dense content** (no filler). The **CATALOG is the source of truth for status** —
-every surface carries a `designed / built / validated` state, so design and
-implementation never drift. A surface is not "done" until it's **live-validated**
-(read round-trips clean; a write smoke ran on an inert throwaway). Design changes
-land in the design docs *with* the code in the same change; CATALOG status updates
-in the same commit that moves a surface forward.
+every surface carries a `designed / built / validated` state. The CATALOG and the
+ARCHITECTURE §6 version table are kept honest by a real code spine: the
+**surface-family registry** (`internal/mirror/surface_families.go`), with version
+pins sourced from `chronicle/versions.go`, plus a drift-guard test
+(`internal/mirror/surface_families_test.go`) that fails if code, §6, and the
+registry disagree — so design and implementation can't silently drift. A surface
+is not "done" until it's **live-validated** (read round-trips clean; a write smoke
+ran on an inert throwaway). Design changes land in the design docs *with* the code
+in the same change; CATALOG status updates in the same commit that moves a surface
+forward.
 
 ## Conventions (apply everywhere)
 

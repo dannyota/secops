@@ -52,13 +52,13 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | custom rules (CRUD + revisions) | reconcile | ✅ | — |
-| rule deployments (enable/alerting/freq/archived) | reconcile | ✅ | — (Wave 9 added `archived` + `ArchiveRule`) |
-| rule validation (`verifyRuleText`) + dry-run (`legacyRunTestRule`) | imperative | ✅ `RunTestRule` (Wave 9) | live-run validation pending approval |
+| rule deployments (enable/alerting/freq/archived) | reconcile | ✅ | — (`archived` + `ArchiveRule`) |
+| rule validation (`verifyRuleText`) + dry-run (`legacyRunTestRule`) | imperative | ✅ `RunTestRule` | live-run validation pending approval |
 | detections / errors | operational | ✅ | `legacySearchCuratedDetections` ⬜ (med) |
 | retrohunts | imperative | ✅ | — |
 | rule exclusions (`findingsRefinements`) | reconcile | ✅ | — |
-| curated rule sets / categories / deployments | imperative | ✅ list + per-deployment patch + `:batchUpdate` (Wave 9, write live-validated via unused-ruleset toggle) | single GETs ⬜ (low) |
-| curated rules (`curatedRules`) | operational (read) | ✅ list/get (Wave 9, `ti`-style read via `curated rules`) | — |
+| curated rule sets / categories / deployments | imperative | ✅ list + per-deployment patch (`curated set`) · 🔨 `:batchUpdate` (built, live write pending approval) | single GETs ⬜ (low) |
+| curated rules (`curatedRules`) | operational (read) | ✅ list/get (`curated rules`) | — |
 
 ### Data, lists & ingestion
 | Family | Lane | Status | Gaps |
@@ -68,7 +68,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | feeds (+ service account) | reconcile | ✅ | `feedSourceTypeSchemas`/`logTypeSchemas` discovery ⬜ (med) · `importPushLogs` ⬜ (low) |
 | parsers / parser extensions | reconcile + imperative | ✅ | — |
 | log types | read | 🔨 list | `getLogTypeSetting`/`updateLogTypeSetting` ⬜ (med) · event-type suggestions ⬜ (low) |
-| forwarders / collectors | reconcile | ✅ forwarder CRUD write-validated (Wave 12, throwaway create→update→delete); collectors list/get | reconcile-surface wiring ⬜; `feedSourceTypeSchemas`/`logTypeSetting` ⬜ (deferred) |
+| forwarders / collectors | reconcile | ✅ forwarder CRUD write-validated (throwaway create→update→delete); collectors list/get | reconcile-surface wiring ⬜; `feedSourceTypeSchemas`/`logTypeSetting` ⬜ (deferred) |
 | ingestion (`logs`/`events`/`entities:import`) | imperative | ✅ | — |
 
 ### Entities, Threat Intel & investigation
@@ -94,8 +94,8 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | dashboards (native) | reconcile | ✅ | — |
-| **data-access labels** (`dataAccessLabels`) | reconcile | 🔨 SDK CRUD (Wave 10); list read-validated | reconcile-surface wiring + write validation ⬜ (no objects on tenant; write needs approval) |
-| **data-access scopes** (`dataAccessScopes`) | reconcile | 🔨 SDK CRUD (Wave 10); list read-validated | reconcile-surface wiring + write validation ⬜ |
+| **data-access labels** (`dataAccessLabels`) | reconcile | 🔨 SDK CRUD; list read-validated | reconcile-surface wiring + write validation ⬜ |
+| **data-access scopes** (`dataAccessScopes`) | reconcile | 🔨 SDK CRUD; list read-validated | reconcile-surface wiring + write validation ⬜ |
 | **risk config** (`{instance}/riskConfig`) | imperative | ✅ `GetRiskConfig` live-validated (singleton sub-resource, returns defaults); `UpdateRiskConfig` built | path is the singleton `{instance}/riskConfig` (GET/PATCH), not a colon verb |
 | BigQuery export config | imperative | ⬜ | get/update ⬜ (low) |
 | Content Hub — featured content rules | read | ✅ | on the chronicle ADC host (distinct from the SOAR-host marketplace below) |
@@ -132,23 +132,32 @@ v1alpha equivalent we rely on.
 
 ---
 
-## SOAR — modern plane — `soar/` (AppKey, v1alpha)  ·  use only where legacy lacks it
+## SOAR — modern plane — `soar/` (AppKey, v1alpha)  ·  preferred per validated surface
 
-A discovery-and-cleanup surface. Most config-as-code is deliberately served on the
-legacy lane because these v1alpha endpoints 500 intermittently; only wire a modern
-method when the legacy API has no equivalent (e.g. per-connector-definition delete).
+Modern v1alpha on the SOAR host, used where it has earned its place. A surface
+goes modern-by-default only after it holds up live; until then config-as-code
+stays on the legacy lane, which is reliable. So far that means:
+
+- **`soar case list`** is modern-by-default — it calls the v1alpha cases API and
+  **auto-falls back to legacy** on error; the global **`--legacy`** flag forces the
+  legacy path. The labeled New-vs-Legacy dispatch is the `preferModern` helper.
+- **Content Hub** (`marketplaceIntegrations`, `contentPacks`) and **integration /
+  connector-definition** delete live here because the legacy API has no equivalent
+  (uninstall, per-definition delete).
+- Everything else (the reconcile config surfaces) is read on modern where validated
+  but **written on legacy** — the v1alpha write endpoints 500 intermittently.
 
 | Family | Status | Gaps (modern) |
 |---|---|---|
 | integrations catalog (list/get/delete) | ✅ | `updateCustomIntegration`, `:export`/`:download` ⬜ (low) |
 | connector **definitions** (list/get/delete) | ✅ | create/patch ⬜ (med) |
-| connector **instances** (list/get/patch + `:runOnDemand` Wave 14) | 🔨 | create/delete ⬜ |
+| connector **instances** (list/get/patch + `:runOnDemand`) | 🔨 | create/delete ⬜ |
 | job **definitions** (list) | 🔨 | get/create/patch/delete ⬜ (med) |
-| job **instances** (list/get/patch + `:runOnDemand` Wave 14) | 🔨 | create/delete ⬜ |
-| alert grouping rules (list/get/patch + create/delete Wave 14) | ✅ SDK lifecycle; list read-validated | live-write pending |
+| job **instances** (list/get/patch + `:runOnDemand`) | 🔨 | create/delete ⬜ |
+| alert grouping rules (list/get/patch + create/delete) | ✅ SDK lifecycle; list read-validated | live-write pending |
 | module settings | ✅ | — |
-| **Content Hub — `marketplaceIntegrations`** | ✅ list/get + install/uninstall (read-validated: 405 packs) | `soar/marketplace.go` — the durable twin of legacy `/store`, the only place uninstall exists |
-| **Content Hub — `contentHub/contentPacks`** | ✅ list (read-validated: 59 packs) | add/delete/deploy ⬜ |
+| **Content Hub — `marketplaceIntegrations`** | ✅ list/get + install/uninstall (reads validated) | `soar/marketplace.go` — the durable twin of legacy `/store`, the only place uninstall exists |
+| **Content Hub — `contentHub/contentPacks`** | ✅ list (reads validated) | add/delete/deploy ⬜ |
 | cases (list) | ✅ **modern by default** (`soar case list`, auto-fallback to legacy; `--legacy` forces legacy) | verbs/writes stay legacy until modern verbs pass a write-smoke; `--status` filtered client-side on modern |
 | environments · socRoles · customLists · caseStage/Close/Tag/QueueDefinitions | ✅ modern read coverage (`soar/config_surfaces.go`, live-validated) | reconcile lane still runs on legacy (works); re-pointing it to v1alpha-with-fallback is optional/per-surface |
 | data-access (scopes/labels) | — | 404 on SOAR host — these are SIEM-plane (chronicle ADC host), see SIEM table |

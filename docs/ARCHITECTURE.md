@@ -2,7 +2,9 @@
 
 How `secopsctl` works, independent of any one surface. Product specifics are in
 [SOAR-DESIGN.md](SOAR-DESIGN.md) / [SIEM-DESIGN.md](SIEM-DESIGN.md); what exists
-and its status is in [CATALOG.md](CATALOG.md).
+and its status is in [CATALOG.md](CATALOG.md). Unfamiliar with a term
+(*plane*, *lane*, *reconcile*, *canonical*, *etag*)? See the
+[Glossary](GLOSSARY.md).
 
 ## 1. Two planes
 
@@ -58,9 +60,10 @@ Surface{ Name, Dir, Caps,
 
 ## 3. The lane model
 
-Every surface is **exactly one lane**. Classification is empirical (verified
-against the API's *response* schema + a live read), not guessed from a method
-name — that distinction is what kept the engine honest.
+Every surface is **exactly one lane**, determined by the API's actual *response*
+schema rather than inferred from a method name — a read that round-trips as a
+clean per-object create/update/delete is `reconcile`; a batch, bundle, or
+selector-only response is not.
 
 | Lane | Fits | Mechanism |
 |---|---|---|

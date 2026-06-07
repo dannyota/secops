@@ -14,7 +14,10 @@ operational SOAR usage. Two facts drive it:
 > (per-entity verbs, no file), or raw (batch/bundle/selector passthrough). The
 > engine + lane model is product-neutral and lives in
 > [ARCHITECTURE.md](ARCHITECTURE.md); this doc is SOAR specifics. Live status per
-> surface is in [CATALOG.md](CATALOG.md).
+> surface is in [CATALOG.md](CATALOG.md). Each surface's home (host · auth ·
+> generation · version · lane · SDK location) is declared in the code registry
+> `internal/mirror/surface_families.go`, with a drift-guard test that keeps it in
+> step with CATALOG and ARCHITECTURE §6.
 
 All identifiers here are placeholders (`<tenant>`, `<num>`, `<reg>`, `<id>`) — the
 public repo stays tenant-neutral; real values come from config/env at runtime.
@@ -27,7 +30,7 @@ reconcile):
 
 | Lane | Mechanism | SOAR surfaces |
 |---|---|---|
-| **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **16**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) · `connectors` (Wave 7) · `jobs` (Wave 7). (`form-dynamic-parameters` was investigated and deferred — its PUT update is unsafe; see CATALOG) |
+| **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **16**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) · `connectors` · `jobs`. (`form-dynamic-parameters` is deferred — its PUT update is unsafe; see CATALOG) |
 | **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar integration` · `soar settings` | cases: `list` (New API — siemplify v1alpha, auto-falls back to the Legacy queue) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `integration list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`) |
 | **raw** (batch upserts / bundles / selector reads) | `soar legacy call <op>` | integrations (reads) · ontology-mapping (selector read + batch upsert + body delete) · environment-priorities · permissions · system/singleton settings · … |
 
@@ -56,7 +59,7 @@ lanes ride on. SOAR uses one host (`https://<tenant>.siemplify-soar.com`) with
 
 | Tier | Surface | Transport | Lifecycle |
 |---|---|---|---|
-| **Modern** (New API) | v1alpha native on the **siemplify** domain: integrations · connectors · jobs · alertGroupingRules · moduleSettings · cases | `/v1alpha/projects/<num>/…/instances/<id>` + `?format=camel` + `x-goog-api-version` + `updateMask` | siemplify serves **v1alpha only**. Validated where it adds something Legacy lacks — **cases `list`** runs here (`soar.ListCases`, auto-falls back to the Legacy queue) and the Content Hub / integration reads. **Connectors/jobs config-as-code runs on the Legacy AppKey reconcile engine (Wave 7);** `alertGroupingRules`/`moduleSettings` stay here via `soar pull grouping` |
+| **Modern** (New API) | v1alpha native on the **siemplify** domain: integrations · connectors · jobs · alertGroupingRules · moduleSettings · cases | `/v1alpha/projects/<num>/…/instances/<id>` + `?format=camel` + `x-goog-api-version` + `updateMask` | siemplify serves **v1alpha only**. Validated where it adds something Legacy lacks — **cases `list`** runs here (`soar.ListCases`, auto-falls back to the Legacy queue) and the Content Hub / integration reads. **Connectors/jobs config-as-code runs on the Legacy AppKey reconcile engine;** `alertGroupingRules`/`moduleSettings` stay here via `soar pull grouping` |
 | **Bridge** 🟠 | `legacyPlaybooks:legacy*` (list/get/save/attach/stats) | v1alpha host, **legacy op names** | the one genuine *quarantine*: delete when native v1alpha **playbook CRUD** ships |
 | **Legacy AppKey** ✅ | Siemplify external API — the broad, reliable surface the **reconcile engine** runs on | `/api/external/v1/…` (offset paging) | **durable backbone**, not slated for removal |
 
@@ -66,9 +69,11 @@ lanes ride on. SOAR uses one host (`https://<tenant>.siemplify-soar.com`) with
 > (cases `list`, Content Hub / integration reads), falling back to Legacy on error.
 > Only the *Bridge* tier is genuinely delete-when-native.
 
-Plus one **legacy SIEM** pair on the Chronicle side (ADC auth, not SOAR):
+Plus two **New-API** RPC reads on the Chronicle side (ADC auth, not SOAR):
 `legacy:legacyFindRawLogs` and `legacy:legacyBatchGetCases` (the SOAR-integer-id
-⇄ SIEM-uuid bridge).
+⇄ SIEM-uuid bridge). Despite the `legacy:` path segment these are *modern*
+chronicle v1alpha endpoints — New-generation, not the Siemplify external API — and
+both answer live (`chronicle/legacy.go`).
 
 ## Package layout
 
@@ -79,8 +84,12 @@ danny.vn/secops/
 ├── config/                       + soar_url (tenant SOAR host)         ← small add
 │
 ├── chronicle/   (SIEM · v1alpha · MODERN, ADC)
-│   └── legacy.go   🗑 QUARANTINE FILE  ── legacyFindRawLogs, legacyBatchGetCases
-│                   (SOAR int-id ⇄ SIEM uuid map). Delete when v1alpha equivalents land.
+│   ├── legacy.go   New-gen v1alpha RPC reads (despite the legacy: path segment):
+│   │               legacyFindRawLogs · legacyBatchGetCases (SOAR int-id ⇄ SIEM uuid
+│   │               bridge — the live Chronicle-host case read). Not a quarantine.
+│   └── case.go     Unused ALTERNATE Chronicle-host cases collection (UUID, ADC) —
+│                   500s at every version; the working case path is on the SOAR host
+│                   (soar.ListCases) + soar/legacy verbs.
 │
 └── soar/   (host=https://<tenant>.siemplify-soar.com · AppKey, NO ADC)
     │
@@ -114,7 +123,7 @@ danny.vn/secops/
 ```
 legacy/cases.go     CaseQueueRequest{ SortBy, RequestedPage, PageSize, Statuses[] }   // 1=OPEN 2=CLOSED
                     BulkCloseRequest{ CasesIDs[], CloseReason, RootCause, CloseComment, DynamicParameters[] }
-                      └ CloseReason enum: 0 NotMalicious · 1 Malicious · 2 Maintenance · 3 Inconclusive
+                      └ CloseReason enum: 0 Malicious · 1 NotMalicious · 2 Maintenance · 3 Inconclusive · 4 Unknown
 connectors/jobs     Parameters map[string]string   // EVERYTHING is a string ("true","100")
                       └ secrets read back as "***…" → pass through unchanged on PATCH (never re-send a real secret)
 transport (v1alpha) every request: ?format=camel  +  header x-goog-api-version: v1alpha  +  PATCH ?updateMask=a,b
@@ -133,10 +142,13 @@ bridge/playbooks    coercePlaybookTypes(): id/priority/version/*UnixTimeInMs int
   `templateName` must be `""`, never `null`.
 - **Playbook name charset** — letters/digits/space/`-`/`_` only; reject `.()[]:/`.
 - **One case, two ids** — a case is a single record reachable by two APIs: the
-  SOAR AppKey API (integer id, the reliable path secopsctl uses) and the Chronicle
-  API (UUID, same case, currently flaky). Map between the ids via
-  `legacy:legacyBatchGetCases` (`soarPlatformInfo.caseId`) only when correlating —
-  not two case systems.
+  SOAR API (integer id, the working path secopsctl uses — `soar.ListCases` on
+  siemplify v1alpha plus the `soar/legacy` verbs) and the Chronicle cases
+  collection (UUID, same case). The Chronicle UUID *collection* 500s at every
+  version and is an unused alternate (`chronicle/case.go`), but the bridge read
+  `legacy:legacyBatchGetCases` does answer — use it (`soarPlatformInfo.caseId`)
+  to map SOAR id ⇄ SIEM UUID when correlating. One case, two APIs — not two
+  systems.
 - **Parameters are always strings** on connectors/jobs (even bool/int); secrets
   read back masked (`***…`) and must be passed through unchanged on PATCH.
 - **Installed vs catalog integrations** — each marketplace pack lists twice: the

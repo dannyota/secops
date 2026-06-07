@@ -38,9 +38,11 @@ secopsctl info
 ```
 
 Notes:
-- **SIEM commands** (`pull`, `push`, `query`, `doctor`, `cases`, `curated`,
-  `rules`, `ti`, `watchlists`) need ADC. If they fail with an auth error,
-  re-run step 1.
+- **SIEM commands** (`pull`, `push`, `query`, `doctor`, `curated`, `rules`,
+  `ti`, `watchlists`) need ADC. If they fail with an auth error, re-run step 1.
+  (`cases` is also a SIEM/ADC command, but it reaches a case on the chronicle
+  host by UUID — a path that currently 500s, so for case work use `soar case`,
+  see §3.)
 - **SOAR commands** (`soar …`) need `soar_url` **and** an AppKey — no ADC.
   Generate the AppKey once in the SOAR UI (**Settings → Advanced → API Keys →
   Add**). `doctor` reports SIEM and SOAR independently, so a SIEM-only or

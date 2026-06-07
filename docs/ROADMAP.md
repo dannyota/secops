@@ -108,8 +108,9 @@ Kept generic and tenant-neutral. **Full design:
   - **Modern** v1alpha native — integrations · connectors · jobs · grouping ·
     cases; pull + patch only today (flaky), not the primary build path.
   - `soar (modern) → soar/internal/transport ← soar/legacy` (modern never imports legacy).
-- **Legacy SIEM** `chronicle/legacy.go` (ADC) — `legacyFindRawLogs`,
-  `legacyBatchGetCases` (SOAR integer-id ⇄ SIEM uuid map); quarantined file.
+- **Chronicle `legacy:` verbs** `chronicle/legacy.go` (ADC) — `legacyFindRawLogs`,
+  `legacyBatchGetCases` (SOAR integer-id ⇄ SIEM uuid map). Modern v1alpha endpoints
+  that carry a `legacy` path segment — New-generation, NOT the Siemplify external API.
 - **Connectors & cron jobs**: connector/job instance configs pulled/patched via the
   v1alpha SOAR surface; scheduled runners (case hygiene) — generic scaffolding here,
   kept tenant-neutral.
@@ -301,7 +302,7 @@ surfaces come after, behind clean-error-on-500 guards (Chronicle UUID operationa
 then SOAR v1alpha lifecycle), with the reliable lanes staying the default. Cross-cutting
 hardening, distribution, and automation close out.
 
-### Live v1alpha surface status *(probed 2026-06-07; `soar/v1alpha_probe_test.go`, `chronicle/probe_live_test.go`)*
+### Live v1alpha surface status *(`soar/version_probe_live_test.go`, `chronicle/version_probe_live_test.go`)*
 
 What each modern v1alpha surface returns **right now**, by host. This drives the
 Wave 13 upgrade. "Works" = a live read returned 2xx (not yet a reliability
@@ -317,7 +318,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 | dataAccessLabels · dataAccessScopes | ✅ works | ⛔ 404 | SIEM-plane only |
 | playbooks · workflows | (n/a) | ⛔ 404 | legacy-only, no v1alpha |
 
-### Wave 8 — Threat Intelligence (SIEM read)  *(in progress — `threatCollections` list/get done + read-validated; `iocs:find` pending)*
+### Wave 8 — Threat Intelligence (SIEM read)  *(in progress — `threatCollections` list/get + `iocs:find`/get/batchGet SDK built and read-validated (`chronicle/ti.go`, pinned v1); `iocs` CLI not yet wired)*
 - **Goal.** Mandiant / Applied Threat Intelligence as code — read the campaigns,
   reports, actors, malware and IoCs the tenant is matched against. Read-only (TI is
   Google/Mandiant-sourced — there is no write path), so low-risk and high-signal —
@@ -328,7 +329,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Exit.** Live read round-trip on `threatCollections` + `iocs:find`; CATALOG ✅.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 9 — Curated-rules-as-code completion  *(reads validated; `batchUpdate` write live-validated via an unused-ruleset enable→disable toggle)*
+### Wave 9 — Curated-rules-as-code completion  *(reads validated — `ListCuratedRules`/`GetCuratedRule` (187 rules); `BatchUpdateCuratedRuleSetDeployments` built, live write pending approval)*
 - **Goal.** Make curated (Google-managed) detections fully diff-and-push-able.
 - **Scope.** `curatedRuleSetDeployments:batchUpdate` (the atomic write primitive for
   a desired-state curated-deployment file); `listCuratedRules`/`getCuratedRule`;
@@ -440,8 +441,11 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 
 ### Wave 16 — Reliability & safety hardening
 - **Goal.** Production-grade trust.
-- **Scope.** Per-endpoint version-pinning audit (the §6 map kept current) —
-  probe **every** surface across v1 > v1beta > v1alpha (`chronicle/version_probe_live_test.go`)
+- **Scope.** Per-endpoint version-pinning audit (the §6 map kept current) — the pins
+  now live in one place (`chronicle/versions.go`, the `APIVersions` map) behind the
+  surface-family registry (`internal/mirror/surface_families.go`) and a drift-guard
+  test that fails if code, §6, and the registry disagree; the audit re-probes
+  **every** surface across v1 > v1beta > v1alpha (`chronicle/version_probe_live_test.go`)
   and re-pin each to the newest that works, **re-validating writes** on the new
   version before flipping (the major existing surfaces — rules / reference_lists /
   data_tables / feeds — already read OK on v1, but their write-smokes ran on v1alpha,

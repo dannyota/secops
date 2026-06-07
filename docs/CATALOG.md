@@ -13,6 +13,15 @@ product-neutral engine is `internal/mirror/reconcile`; live write-smokes are gat
 `SECOPS_SOAR_SMOKE`/`_WRITE` (`reconcile_smoke_test.go`) for SOAR and
 `SECOPS_SIEM_SMOKE`/`_WRITE` (`reconcile_smoke_siem_test.go`) for SIEM.
 
+**This catalog has a machine-readable spine.** The status matrix below is mirrored
+by the surface-family registry in `internal/mirror/surface_families.go` — one
+declarative `SurfaceFamily` entry per API family (`Area`, `Plane`, `Host`, `Auth`,
+`Generation`, `APIVersion`, `Lane`, `Status`, `SDKLocation`). SIEM versions in the
+registry are sourced from `chronicle/versions.go` (the `APIVersions` map, the single
+source of truth for Chronicle-host version pins), and a drift-guard test
+(`surface_families_test.go`) asserts the registry, the version pins, and
+[ARCHITECTURE.md](ARCHITECTURE.md) §6 stay in agreement.
+
 **Status legend**
 
 | | Status | Meaning |
@@ -84,7 +93,7 @@ has no legacy external API.
 | Function (CLI) | Lane | New API (status · domain · version) | Legacy | Notes |
 |---|---|---|---|---|
 | **events (UDM)** | operational (read) | 🔨 chronicle · v1alpha (`query udm`) · 📐 rest | — | immutable telemetry — **read-only, never mutated**. `query udm` built; `search nl` / `stats` designed |
-| **alerts** | operational | 📐 chronicle · v1alpha | — | standalone Chronicle alerts SDK built (`GetAlerts`/`UpdateAlert`/`BulkUpdateAlerts`). In practice operators read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts` — see SOAR → cases). Live-test focus in Wave 14 |
+| **alerts** | operational | 📐 chronicle · v1alpha | — | standalone Chronicle alerts SDK built (`GetAlerts`/`UpdateAlert`/`BulkUpdateAlerts`). In practice operators read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts` — see SOAR → cases) |
 | **entities** | operational (read) | 📐 chronicle · v1alpha | — | `entity summarize` — enrichment, read-only |
 | **watchlists** | operational (read) | ✅ chronicle · v1 | — | SIEM entity watchlists; `watchlists list`/`get <id>`, read-validated, pinned **v1** (`watchlistsAPIVersion`; all three answer → v1) |
 
@@ -176,5 +185,8 @@ A `⛔` belongs to a **specific column + domain + version** that's down — neve
 whole function. If the function works on *any* path (another domain or version),
 its row stays green and the dead path is a **note** (as with cases: ✅ on siemplify
 v1alpha; the chronicle-host UUID path 500s, noted, not blocking). When the working
-version of a New-API surface moves, change the pinned `const`, then update the
-cell's `domain · version` here and the §6 table in [ARCHITECTURE.md](ARCHITECTURE.md).
+version of a Chronicle-host New-API surface moves, change the pin in
+`chronicle/versions.go` (the `APIVersions` map), then update the cell's
+`domain · version` here and the §6 table in [ARCHITECTURE.md](ARCHITECTURE.md). The
+surface-family registry (`internal/mirror/surface_families.go`) reads its SIEM
+versions from that map, and the drift-guard test fails if the three fall out of sync.
