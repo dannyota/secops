@@ -171,8 +171,12 @@
       <p class="title">~/secops/docs</p>
       <ul>
         <li><a href="{{ '/' | relative_url }}"{% if page.url == '/' or page.url == '/index.html' %} class="on"{% endif %}>Home</a></li>
+        <li><a href="{{ '/USAGE/' | relative_url }}"{% if page.url contains 'USAGE' %} class="on"{% endif %}>Usage</a></li>
+        <li><a href="{{ '/GLOSSARY/' | relative_url }}"{% if page.url contains 'GLOSSARY' %} class="on"{% endif %}>Glossary</a></li>
+        <li><a href="{{ '/SDK/' | relative_url }}"{% if page.url contains 'SDK' %} class="on"{% endif %}>SDK</a></li>
         <li><a href="{{ '/ARCHITECTURE/' | relative_url }}"{% if page.url contains 'ARCHITECTURE' %} class="on"{% endif %}>Architecture</a></li>
         <li><a href="{{ '/CATALOG/' | relative_url }}"{% if page.url contains 'CATALOG' %} class="on"{% endif %}>Catalog</a></li>
+        <li><a href="{{ '/SURFACES/' | relative_url }}"{% if page.url contains 'SURFACES' %} class="on"{% endif %}>Surfaces</a></li>
         <li><a href="{{ '/SOAR-DESIGN/' | relative_url }}"{% if page.url contains 'SOAR-DESIGN' %} class="on"{% endif %}>SOAR Design</a></li>
         <li><a href="{{ '/SIEM-DESIGN/' | relative_url }}"{% if page.url contains 'SIEM-DESIGN' %} class="on"{% endif %}>SIEM Design</a></li>
         <li><a href="{{ '/ROADMAP/' | relative_url }}"{% if page.url contains 'ROADMAP' %} class="on"{% endif %}>Roadmap</a></li>
