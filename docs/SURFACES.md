@@ -84,7 +84,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | `iocAssociations` | operational (read) | ⬜ | get/batchGet/fetchRelated ⬜ (low) |
 | UDM search (`:udmSearch`, `:translateUdmQuery`, `:validateQuery`, `:findUdmFieldValues`, NL) | operational | ✅ | — |
 | investigations | operational | ✅ | — |
-| alerts (legacy get/fetch/update/bulk) | operational | ✅ | — |
+| alerts (legacy get/fetch/update/bulk) | operational | ✅ `alerts list`/`get` read CLI live-validated; decode tolerant of both legacy-API shapes (array/object, wrapped/bare) | act (update/bulk feedback) built, gated |
 | data exports | imperative | ✅ | `:fetchServiceAccountForDataExport` ⬜ (med) |
 
 > **Threat Intelligence is read-only.** `threatCollections` (campaigns / reports /

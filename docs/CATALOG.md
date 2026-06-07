@@ -94,7 +94,7 @@ has no legacy external API.
 | Function (CLI) | Lane | New API (status · domain · version) | Legacy | Notes |
 |---|---|---|---|---|
 | **events (UDM)** | operational (read) | 🔨 chronicle · v1alpha (`query udm`) · 📐 rest | — | immutable telemetry — **read-only, never mutated**. `query udm` built; `search nl` / `stats` designed |
-| **alerts** | operational | 📐 chronicle · v1alpha | — | standalone Chronicle alerts SDK built (`GetAlerts`/`UpdateAlert`/`BulkUpdateAlerts`). In practice operators read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts` — see SOAR → cases) |
+| **alerts** | operational | ✅ read · 🔨 act | — | `alerts list` (snapshot over a time window — `legacyFetchAlertsView`, streams a JSON-array of progressive fragments) + `alerts get <id>` (`legacyGetAlert`, response wrapped under `alert`) — **read-validated live** (`chronicle/alert.go`; fixed the array-stream decode, the `createdTime`/`detectionTime` keys, and `severityDisplay` being a string). Act (`UpdateAlert`/`BulkUpdateAlerts` feedback) built, gated, not run. Operators also read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts`) |
 | **entities** | operational (read) | 📐 chronicle · v1alpha | — | `entity summarize` — enrichment, read-only |
 | **watchlists** | operational (read) | ✅ chronicle · v1 | — | SIEM entity watchlists; `watchlists list`/`get <id>`, read-validated, pinned **v1** (`watchlistsAPIVersion`; all three answer → v1) |
 

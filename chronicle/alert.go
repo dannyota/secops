@@ -1,6 +1,7 @@
 package chronicle
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,8 +33,8 @@ import (
 type Alert struct {
 	ID              string         `json:"id,omitempty"`
 	Type            string         `json:"type,omitempty"`
-	CreateTime      string         `json:"createTime,omitempty"`
-	DetectionTime   string         `json:"detectionTimestamp,omitempty"`
+	CreateTime      string         `json:"createdTime,omitempty"`
+	DetectionTime   string         `json:"detectionTime,omitempty"`
 	CaseName        string         `json:"caseName,omitempty"`
 	FeedbackSummary *AlertFeedback `json:"feedbackSummary,omitempty"`
 	AlertCreateTime string         `json:"alertCreateTime,omitempty"`
@@ -45,6 +46,11 @@ type Alert struct {
 }
 
 // UnmarshalJSON populates the typed fields and retains the full payload in Raw.
+//
+// The legacy alert endpoints have shipped two key spellings for the timestamps
+// (live: createdTime/detectionTime; the older wrapper shape: createTime/
+// detectionTimestamp). The struct tags target the live keys; this fills the typed
+// fields from the older keys too, so the SDK decodes either shape.
 func (a *Alert) UnmarshalJSON(b []byte) error {
 	type alias Alert // avoid recursing into this method
 	var v alias
@@ -53,6 +59,19 @@ func (a *Alert) UnmarshalJSON(b []byte) error {
 	}
 	*a = Alert(v)
 	a.Raw = append(a.Raw[:0], b...)
+	if a.CreateTime == "" || a.DetectionTime == "" {
+		var alt struct {
+			CreateTime    string `json:"createTime"`
+			DetectionTime string `json:"detectionTimestamp"`
+		}
+		_ = json.Unmarshal(b, &alt)
+		if a.CreateTime == "" {
+			a.CreateTime = alt.CreateTime
+		}
+		if a.DetectionTime == "" {
+			a.DetectionTime = alt.DetectionTime
+		}
+	}
 	return nil
 }
 
@@ -66,7 +85,7 @@ type AlertFeedback struct {
 	Reason          string `json:"reason,omitempty"`
 	RiskScore       int    `json:"riskScore,omitempty"`
 	Disregarded     bool   `json:"disregarded,omitempty"`
-	Severity        int    `json:"severityDisplay,omitempty"`
+	SeverityDisplay string `json:"severityDisplay,omitempty"` // a label (e.g. "HIGH"), not a 0-100 score
 	Comment         string `json:"comment,omitempty"`
 	RootCause       string `json:"rootCause,omitempty"`
 	ConfidenceScore int    `json:"confidenceScore,omitempty"`
@@ -84,9 +103,22 @@ func (c *Client) GetAlert(ctx context.Context, alertID string, includeDetections
 	if includeDetections {
 		q.Set("includeDetections", "true")
 	}
-	var a Alert
-	if err := c.get(ctx, c.alertPath("legacyGetAlert"), &a, withQuery(q)); err != nil {
+	// legacyGetAlert may wrap the alert under an "alert" key (live) or return it
+	// bare (older/wrapper shape); accept either so the inner object's typed fields
+	// and Raw populate correctly.
+	var raw json.RawMessage
+	if err := c.get(ctx, c.alertPath("legacyGetAlert"), &raw, withQuery(q)); err != nil {
 		return nil, err
+	}
+	var wrap struct {
+		Alert json.RawMessage `json:"alert"`
+	}
+	if json.Unmarshal(raw, &wrap) == nil && len(wrap.Alert) > 0 {
+		raw = wrap.Alert
+	}
+	var a Alert
+	if err := json.Unmarshal(raw, &a); err != nil {
+		return nil, fmt.Errorf("chronicle: decode alert: %w", err)
 	}
 	return &a, nil
 }
@@ -169,21 +201,46 @@ func (c *Client) GetAlerts(ctx context.Context, start, end time.Time, maxAlerts 
 			case <-time.After(time.Second):
 			}
 		}
-		var resp alertsViewResponse
-		if err := c.get(ctx, c.alertPath("legacyFetchAlertsView"), &resp, withQuery(q)); err != nil {
+		// legacyFetchAlertsView streams progressive snapshot fragments, returned as a
+		// JSON array in a single response (the final fragment carries the complete
+		// set). Older/wrapper shapes returned a single object — accept either. Fold
+		// the fragments, keeping the latest non-empty values.
+		var raw json.RawMessage
+		if err := c.get(ctx, c.alertPath("legacyFetchAlertsView"), &raw, withQuery(q)); err != nil {
 			return nil, err
 		}
-		snap.Progress = resp.Progress
-		snap.Complete = resp.Complete
-		snap.FilteredAlertsCount = resp.FilteredAlertsCount
-		snap.BaselineAlertsCount = resp.BaselineAlertsCount
-		if len(resp.FieldAggregations) > 0 {
-			snap.FieldAggregations = resp.FieldAggregations
+		var frags []alertsViewResponse
+		if t := bytes.TrimSpace(raw); len(t) > 0 && t[0] == '[' {
+			if err := json.Unmarshal(raw, &frags); err != nil {
+				return nil, fmt.Errorf("chronicle: decode alert view: %w", err)
+			}
+		} else {
+			var one alertsViewResponse
+			if err := json.Unmarshal(raw, &one); err != nil {
+				return nil, fmt.Errorf("chronicle: decode alert view: %w", err)
+			}
+			frags = []alertsViewResponse{one}
 		}
-		if len(resp.Alerts.Alerts) > 0 {
-			snap.Alerts = resp.Alerts.Alerts
+		for i := range frags {
+			f := &frags[i]
+			snap.Progress = f.Progress
+			if f.Complete {
+				snap.Complete = true
+			}
+			if f.FilteredAlertsCount > 0 {
+				snap.FilteredAlertsCount = f.FilteredAlertsCount
+			}
+			if f.BaselineAlertsCount > 0 {
+				snap.BaselineAlertsCount = f.BaselineAlertsCount
+			}
+			if len(f.FieldAggregations) > 0 {
+				snap.FieldAggregations = f.FieldAggregations
+			}
+			if len(f.Alerts.Alerts) > 0 {
+				snap.Alerts = f.Alerts.Alerts
+			}
 		}
-		if resp.Complete {
+		if snap.Complete {
 			return snap, nil
 		}
 	}

@@ -144,7 +144,7 @@ func buildSurfaceFamilies() []SurfaceFamily {
 		siemFamily("forwarders", "forwarders", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/forwarders.go"),
 		siemFamily("governance", "governance", AreaSIEM, LaneImperative, StatusBuilt, "chronicle/rbac.go"),
 		siemFamily("events", "search", AreaSIEM, LaneOperational, StatusBuilt, "chronicle/search.go"),
-		siemFamily("alerts", "alerts", AreaSIEM, LaneOperational, StatusDesigned, "chronicle/alert.go"),
+		siemFamily("alerts", "alerts", AreaSIEM, LaneOperational, StatusValidated, "chronicle/alert.go"),
 		siemFamily("entities", "entities", AreaSIEM, LaneOperational, StatusDesigned, "chronicle/entity.go"),
 		siemFamily("watchlists", "watchlists", AreaSIEM, LaneOperational, StatusValidated, "chronicle/watchlist.go"),
 

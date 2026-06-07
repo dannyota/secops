@@ -413,7 +413,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   legacy SDK retained.
 - **Docs.** SURFACES (per-surface host/version/default), CATALOG, ARCHITECTURE §6/§7.
 
-### Wave 14 — Chronicle (UUID) operational API + remaining SIEM operational  *(modern cases reachable on the SOAR host (`soar case list`, v1alpha); the chronicle-host UUID cases collection 500s on all of v1/v1beta/v1alpha (confirmed) — flaky alternate, not needed. `watchlists list/get` CLI wired (v1, read-validated); `alerts` read remaining (needs a snapshot query))*
+### Wave 14 — Chronicle (UUID) operational API + remaining SIEM operational  *(done — `alerts list`/`get` read CLI live-validated (snapshot + single-alert; decode tolerant of both legacy-API shapes); `watchlists list/get` + `iocs find/get` wired and read-validated; modern cases on the SOAR host (`soar case list`). The chronicle-host UUID cases collection 500s at every version — documented alternate, not used. `entity summarize` / `stats` / `search nl` remain SDK-built operational reads, CLI-unwired)*
 - **Goal.** Reach cases/alerts/events through Chronicle's newer **UUID API** — the
   **same** cases the SOAR AppKey lane already operates, not a separate system —
   lighting it up if/when those endpoints stabilize, behind a clean-error-on-500
