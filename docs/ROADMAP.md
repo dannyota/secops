@@ -433,7 +433,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   validated or documented why not; mutations gated; 500s fail clean.
 - **Docs.** SIEM-DESIGN, ARCHITECTURE §6, CATALOG.
 
-### Wave 15 — SOAR v1alpha lifecycle *(reliability-gated)*  *(done — reads live-validated (alertGroupingRules list/get, connector/job instances list/get round-trip, `TestLiveWave15LifecycleRead`), which surfaced two decode bugs now fixed: alertGroupingRules `id` is a JSON number and a connector instance's `parameters` is a descriptor array (both decode tolerant of the older shapes). **alertGroupingRules create→delete write-validated** via a self-cleaning inert throwaway (`TestLiveAlertGroupingRuleWriteSmoke`). Connector/job instance create/delete + `:runOnDemand` stay SDK-built + clean-error-on-500, live-write deferred: `:runOnDemand` triggers a real run (ingestion/cases) that isn't cleanly reversible, so the legacy lane stays the default for those.)*
+### Wave 15 — SOAR v1alpha lifecycle *(reliability-gated)*  *(done — reads live-validated (alertGroupingRules list/get, connector/job instances list/get round-trip, `TestLiveWave15LifecycleRead`), which surfaced two decode bugs now fixed: alertGroupingRules `id` is a JSON number and a connector instance's `parameters` is a descriptor array (both decode tolerant of the older shapes). **alertGroupingRules create→delete write-validated** via a self-cleaning inert throwaway (`TestLiveAlertGroupingRuleWriteSmoke`). Connector/job instance `:runOnDemand` + update are SDK-built (clean-error-on-500); their **create/delete are not yet built** and live-write is deferred — `:runOnDemand` triggers a real run (ingestion/cases) that isn't cleanly reversible, so the legacy lane stays the default for those.)*
 - **Goal.** Close the modern-SOAR lifecycle gaps the legacy lane can't cover — only
   where the legacy API has no equivalent, and only once the v1alpha endpoints stop
   500ing.
@@ -457,7 +457,12 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   so re-validate then re-pin to v1); **drift-detection mode** (`pull` + diff + report, no push — a CI gate); etag/conflict
   everywhere; request-id surfaced on every error; pagination/`--as-list`; **config
   secret-at-rest** (Windows DPAPI / macOS Keychain / Linux libsecret) decrypted
-  in-process, **with cross-OS tests**.
+  in-process, **with cross-OS tests**. A docs-first recheck refuted the blanket
+  "v1alpha SOAR writes 500" assumption: the official v1alpha REST docs document
+  create/patch/delete for the config surfaces, and create→get→delete is live-validated
+  on customLists/socRoles/caseTagDefinitions (environments create reachable, license-capped) —
+  so the per-surface **modern-flip** of the reconcile lane can proceed for these (a past
+  500 was usually a null-collection or wrong-host shape issue, not a broken endpoint).
 - **Exit.** Secret-at-rest shipped + tested on 3 OSes; drift mode runnable in CI.
 - **Docs.** ARCHITECTURE, ROADMAP.
 

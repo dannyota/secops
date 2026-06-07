@@ -17,7 +17,7 @@ lists are **SIEM-plane** and **control-plane**.) SecOps exposes three:
 |---|---|---|---|---|---|
 | **SIEM** | `chronicle.googleapis.com` (regional) | ADC / OAuth | `{v}/projects/{p}/locations/{l}/instances/{i}/…` | `chronicle/` | mostly stable |
 | **SOAR — legacy** | `{tenant}.siemplify-soar.com` | AppKey | `/api/external/v1/…` | `soar/legacy/` | **the reliable path** |
-| **SOAR — modern** | `{tenant}.siemplify-soar.com` | AppKey | `v1alpha/…/instances/{i}/…` | `soar/` | intermittent 500s |
+| **SOAR — modern** | `{tenant}.siemplify-soar.com` | AppKey | `v1alpha/…/instances/{i}/…` | `soar/` | reads reliable; writes validated per surface |
 
 The chronicle host serves **v1 / v1beta / v1alpha**; we prefer **v1 > v1beta >
 v1alpha** and pin the highest version that answers **per surface** (`{v}` above —
@@ -148,8 +148,14 @@ stays on the legacy lane, which is reliable. So far that means:
 - **Content Hub** (`marketplaceIntegrations`, `contentPacks`) and **integration /
   connector-definition** delete live here because the legacy API has no equivalent
   (uninstall, per-definition delete).
-- Everything else (the reconcile config surfaces) is read on modern where validated
-  but **written on legacy** — the v1alpha write endpoints 500 intermittently.
+- The reconcile config surfaces are read on modern where validated; their v1alpha
+  **writes are also validated** — create→get→delete on customLists / socRoles /
+  caseTagDefinitions, environments create reachable (license-capped) — they do
+  **not** 500 (`TestLiveConfigSurfaceWriteSmoke`). The reconcile *engine* still
+  runs on the reliable legacy lane; pointing it at the validated modern writes is
+  the per-surface flip tracked below. (Per-surface, test before assuming a write
+  500s — the official v1alpha REST docs document create/patch/delete for all of
+  these, and a past 500 was usually a null-collection or wrong-host shape issue.)
 
 | Family | Status | Gaps (modern) |
 |---|---|---|
@@ -163,7 +169,7 @@ stays on the legacy lane, which is reliable. So far that means:
 | **Content Hub — `marketplaceIntegrations`** | ✅ list/get + install/uninstall (install→uninstall round-trip live-validated, self-cleaning) | `soar/marketplace.go` — the durable twin of legacy `/store`, the only place uninstall exists; modern path is cleanly reversible |
 | **Content Hub — `contentHub/contentPacks`** | ✅ list (reads validated) | add/delete/deploy ⬜ |
 | cases (list) | ✅ **modern by default** (`soar case list`, auto-fallback to legacy; `--legacy` forces legacy) | verbs/writes stay legacy until modern verbs pass a write-smoke; `--status` filtered client-side on modern |
-| environments · socRoles · customLists · caseStage/Close/Tag/QueueDefinitions | ✅ modern read coverage (`soar/config_surfaces.go`, live-validated) | reconcile lane still runs on legacy (works); re-pointing it to v1alpha-with-fallback is optional/per-surface |
+| environments · socRoles · customLists · caseStage/Close/Tag/QueueDefinitions | ✅ modern read + **write** coverage (`soar/config_surfaces.go`): create/get/update/delete wired; create→get→delete **live-validated** for customLists/socRoles/caseTagDefinitions, environments create reachable (license-capped) — **v1alpha writes do not 500** (`TestLiveConfigSurfaceWriteSmoke`) | reconcile lane still runs on legacy (works); flipping it to the validated modern writes is per-surface |
 | data-access (scopes/labels) | — | 404 on SOAR host — these are SIEM-plane (chronicle ADC host), see SIEM table |
 
 ---

@@ -110,22 +110,26 @@ only where it's validated and adds something Legacy lacks. `--legacy` forces Leg
 
 ### Control plane — config as code (`soar pull` → `git diff` → `soar push`)
 
-All reconcile surfaces run on the **Legacy** engine (reliable). The modern v1alpha
-twin exists on the domain for most, but secopsctl doesn't use it (`—`).
+All reconcile surfaces run on the **Legacy** engine (reliable). A modern v1alpha
+twin exists on the SOAR domain for most; the reconcile engine doesn't route to it
+yet (`—`), but the v1alpha **writes are validated** for several config surfaces
+(create→get→delete on customLists/socRoles/caseTagDefinitions; environments create
+reachable but license-capped) — they do **not** 500 (`TestLiveConfigSurfaceWriteSmoke`),
+so `—` is a routing choice, not an API gap.
 
 | Function | Lane | New API | Legacy (siemplify · external) | Notes |
 |---|---|---|---|---|
 | `webhooks` | reconcile | — | ✅ | full CUD; create is license-capped (engine surfaces it, smoke skips). **PruneEligible** |
-| `environments` | reconcile | — | 🔒 | NoDelete (segregation unit — high blast); writes guarded, not run |
+| `environments` | reconcile | ✅ siemplify · v1alpha (create/get/update/delete wired; create reachable — license-capped) | 🔒 | modern write endpoint validated (does not 500) via `TestLiveConfigSurfaceWriteSmoke`; legacy reconcile NoDelete (segregation unit — high blast), writes guarded |
 | `networks` | reconcile | — | ✅ | write smoke (RFC5737 throwaway). **PruneEligible**: `DeleteNetwork(id)` is a clean by-id delete (`TestLiveReconcileNetworkDeleteByIDSmoke`); low-blast enrichment data |
 | `tracking-lists` | reconcile | — | ✅ | first write-loop proof (clone throwaway) |
-| `soc-roles` | reconcile | — | ✅ | RBAC. Write **path** validated via an inert throwaway role — create→rename→delete (no users assigned); `DeleteSocRole` takes `{socRoleId}`. **Engine-NoDelete** (delete via raw SDK only; `--prune` never deletes these) — reconcile RBAC with care |
+| `soc-roles` | reconcile | ✅ siemplify · v1alpha (CRUD wired; create→get→delete live-validated, `TestLiveConfigSurfaceWriteSmoke`) | ✅ | RBAC. Modern write does not 500. Legacy write **path** validated via an inert throwaway role — create→rename→delete (no users assigned); `DeleteSocRole` takes `{socRoleId}`. **Engine-NoDelete** (delete via raw SDK only; `--prune` never deletes these) — reconcile RBAC with care |
 | `idp` | reconcile | — | ✅ | SSO; id-from-body update closure. Write **path** validated via a throwaway mapping for a **fake group** (no real users) — create→rename→delete-by-id. **Engine-NoDelete** — reconcile SSO with care |
 | `visual-families` | reconcile | — | ✅ | write smoke; validates the `wrapKey` envelope. **PruneEligible**: `DeleteFamilyData` is a clean by-id delete on an inert custom family |
 | `sla-definitions` | reconcile | — | ✅ | affects alert routing. Write **path** validated via a throwaway "Case Priority = High" SLA. Legacy `ApiSlaDefinition` int enums are documented in the **swagger schema `description`** fields: `valueType` (`ApiSlaProviderTypeEnum`) 2=AlertRuleGenerator/3=CaseStage/**4=CasePriority**/5=AlertPriority; `slaPeriodType`/`criticalPeriodType` (`ApiPeriodTypeEnum`) 0=Minutes/**1=Hours**/2=Days/3=Seconds; `alertType` (`ApiSlaAlertType`) **0=AllAlerts**/1=SpecificAlerts. For CasePriority the `value` round-trips as a JSON-array string (`["High"]`). (The v1alpha twin uses string enums; Legacy is the reliable one.) **Engine-NoDelete** (delete via raw `RemoveSlaDefinitionRecords`) — routing surface, reconcile with care |
-| `case-stages` | reconcile | — | ✅ | wrapped list. Write **path** validated via an inert throwaway stage — create→reorder→delete (used by no case); `RemoveCaseStageDefinitionRecords` takes the full record. **Engine-NoDelete** — UI-pollution, reconcile with care |
-| `case-tags` | reconcile | — | 🔨 | wrapped list; write smoke skips (no tag to clone) |
-| `close-root-causes` | reconcile | — | ✅ | non-unique names → exercises the slug-collision fix |
+| `case-stages` | reconcile | ✅ siemplify · v1alpha (caseStageDefinitions create/delete wired) | ✅ | wrapped list. Modern create/delete wired (family validated; the v1alpha case-defs do not 500). Legacy write **path** validated via an inert throwaway stage — create→reorder→delete (used by no case); `RemoveCaseStageDefinitionRecords` takes the full record. **Engine-NoDelete** — UI-pollution, reconcile with care |
+| `case-tags` | reconcile | ✅ siemplify · v1alpha (caseTagDefinitions create/get/delete **live-validated**, `TestLiveConfigSurfaceWriteSmoke`) | 🔨 | modern create→get→delete works (does not 500; `priority` must be > 0). Legacy write smoke skips (no tag to clone) |
+| `close-root-causes` | reconcile | ✅ siemplify · v1alpha (caseCloseDefinitions create/delete wired) | ✅ | modern create/delete wired (case-defs family validated, no 500). Legacy: non-unique names → exercises the slug-collision fix |
 | `blacklists` | reconcile | — | ✅ | model block-list; write smoke |
 | `playbook-categories` | reconcile | — | ✅ | write smoke |
 | `playbooks` | reconcile (bespoke) | — | ✅ | uuid rotates → key on **name**; whole-body save; SavePlaybook update-by-name verified. (Playbooks/workflows exist **only** on Legacy — no New twin) |
