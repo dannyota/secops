@@ -1,11 +1,9 @@
 package chronicle
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -170,69 +168,7 @@ func (c *Client) caseDo(ctx context.Context, method, absURL string, body, out an
 	if len(spec.query) > 0 {
 		full += "?" + spec.query.Encode()
 	}
-
-	var bodyBytes []byte
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("chronicle: marshal request body: %w", err)
-		}
-		bodyBytes = b
-	}
-
-	var lastErr error
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		if attempt > 0 {
-			backoff := time.Duration(1<<uint(attempt-1)) * 300 * time.Millisecond
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(backoff):
-			}
-		}
-
-		var reader io.Reader
-		if bodyBytes != nil {
-			reader = bytes.NewReader(bodyBytes)
-		}
-		req, err := http.NewRequestWithContext(ctx, method, full, reader)
-		if err != nil {
-			return fmt.Errorf("chronicle: build request: %w", err)
-		}
-		req.Header.Set("Accept", "application/json")
-		if bodyBytes != nil {
-			req.Header.Set("Content-Type", "application/json")
-		}
-
-		resp, err := c.http.Do(req)
-		if err != nil {
-			lastErr = fmt.Errorf("chronicle: %s %s: %w", method, full, err)
-			continue
-		}
-
-		data, readErr := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			if readErr != nil {
-				return fmt.Errorf("chronicle: read response: %w", readErr)
-			}
-			if out != nil && len(data) > 0 {
-				if err := json.Unmarshal(data, out); err != nil {
-					return fmt.Errorf("chronicle: decode response: %w", err)
-				}
-			}
-			return nil
-		}
-
-		apiErr := &APIError{Method: method, URL: full, Status: resp.StatusCode, Body: string(data)}
-		if retryStatuses[resp.StatusCode] && attempt < maxRetries {
-			lastErr = apiErr
-			continue
-		}
-		return apiErr
-	}
-	return lastErr
+	return c.doRequest(ctx, method, full, body, out)
 }
 
 // --- single-case reads (v1beta) ---------------------------------------------
