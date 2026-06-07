@@ -96,6 +96,63 @@ func TestSaveRoundTrip(t *testing.T) {
 	}
 }
 
+// TestForceIPv4EnvOverlay verifies SECOPS_FORCE_IPV4 sets inst.ForceIPv4, so the
+// resolved config (and `info`) reflect the dialer behavior the env already forces.
+func TestForceIPv4EnvOverlay(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "instance.yaml")
+	body := "project_id: p\nproject_number: \"1\"\nregion: us\ncustomer_id: c\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SECOPS_FORCE_IPV4", "1")
+
+	inst, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !inst.ForceIPv4 {
+		t.Error("ForceIPv4 = false, want true from SECOPS_FORCE_IPV4")
+	}
+}
+
+// TestSaveTightensExistingPerms verifies Save chmods a pre-existing 0644 file down
+// to 0600 — os.WriteFile alone leaves an existing file's perms untouched, which
+// would leave the AppKey in a group/world-readable file.
+func TestSaveTightensExistingPerms(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "instance.yaml")
+	if err := os.WriteFile(path, []byte("project_id: old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	in := &Instance{ProjectID: "p", Region: "us", CustomerID: "c", SOARAppKey: "secret"}
+	in.SetProjectNumber("1")
+	if _, err := Save(in, path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("existing file mode = %o, want 600", perm)
+	}
+}
+
+// TestFlexStrRejectsNonScalar verifies a project_number written as a list/map is a
+// loud parse error, not a silent empty value (which would surface as "missing").
+func TestFlexStrRejectsNonScalar(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "instance.yaml")
+	body := "project_id: p\nproject_number: [1, 2, 3]\nregion: us\ncustomer_id: c\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Error("Load should fail on a non-scalar project_number")
+	}
+}
+
 // TestAsMapRedactsAppKey verifies the AppKey value is never returned by AsMap.
 func TestAsMapRedactsAppKey(t *testing.T) {
 	i := &Instance{ProjectID: "p", Region: "us", CustomerID: "c", SOARAppKey: "super-secret"}

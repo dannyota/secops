@@ -24,6 +24,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"danny.vn/secops/auth"
 	"danny.vn/secops/chronicle"
 	"danny.vn/secops/internal/userdir"
 )
@@ -48,8 +49,25 @@ type Instance struct {
 type flexStr string
 
 func (f *flexStr) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind != yaml.ScalarNode {
+		return fmt.Errorf("project_number must be a scalar (a number or quoted string), got %s", nodeKindName(value.Kind))
+	}
 	*f = flexStr(value.Value)
 	return nil
+}
+
+// nodeKindName names a YAML node kind for error messages.
+func nodeKindName(k yaml.Kind) string {
+	switch k {
+	case yaml.SequenceNode:
+		return "a list"
+	case yaml.MappingNode:
+		return "a map"
+	case yaml.AliasNode:
+		return "an alias"
+	default:
+		return "a non-scalar value"
+	}
 }
 
 func (f flexStr) MarshalYAML() (any, error) {
@@ -130,6 +148,9 @@ func applyEnvOverrides(inst *Instance) {
 	set(&inst.SOARAppKey, "SECOPS_SOAR_APP_KEY")
 	set(&inst.BaseURL, "SECOPS_BASE_URL")
 	set(&inst.UIURL, "SECOPS_UI_URL")
+	if auth.ForceIPv4Env() {
+		inst.ForceIPv4 = true
+	}
 }
 
 // readFile loads an instance from a YAML file without validation or env overlay.
@@ -223,6 +244,12 @@ func Save(inst *Instance, path string) (string, error) {
 		return "", err
 	}
 	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return "", err
+	}
+	// WriteFile only applies the mode when CREATING the file; an existing config
+	// (possibly 0644 from an older write or hand-edit) keeps its old perms. The
+	// file may carry the SOAR AppKey, so tighten it to owner-only either way.
+	if err := os.Chmod(path, 0o600); err != nil {
 		return "", err
 	}
 	return path, nil

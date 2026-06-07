@@ -22,12 +22,13 @@ import (
 )
 
 // soarSettings maps the loaded instance config to SOAR settings (the tenant SOAR
-// host plus the v1alpha path components). soar_url is stored already-canonical
-// (see normalizeSOARURL at save time), so it is used as-is here.
+// host plus the v1alpha path components). `config` normalizes soar_url at save
+// time, but a value from $SECOPS_SOAR_URL or a hand-edited file skips that, so
+// normalize again here (cheap, idempotent) to tolerate a bare host / trailing slash.
 func soarSettings(inst *config.Instance) soar.Settings {
 	cs := inst.Settings()
 	return soar.Settings{
-		BaseURL:       inst.SOARURL,
+		BaseURL:       normalizeSOARURL(inst.SOARURL),
 		ProjectNumber: cs.ProjectNumber,
 		Region:        cs.Region,
 		CustomerID:    cs.CustomerID,
