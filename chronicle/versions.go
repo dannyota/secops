@@ -11,7 +11,7 @@ package chronicle
 //
 // This is the single source of truth for SIEM versions. The surface-family
 // registry derives APIVersion from APIVersions below, a drift-guard test asserts
-// the two agree, and docs/ARCHITECTURE.md §6 mirrors it. When an endpoint moves,
+// the two agree, and docs/design/architecture.md §6 mirrors it. When an endpoint moves,
 // change it HERE (and re-run the version probe).
 const (
 	tiAPIVersion             = "v1"     // threatCollections + modern IoCs (all three answer → newest)
@@ -24,7 +24,7 @@ const (
 
 // APIVersions maps every Chronicle-host surface family to the API version it is
 // pinned to, keyed by the family name used in the surface registry and
-// docs/ARCHITECTURE.md §6.
+// docs/design/architecture.md §6.
 var APIVersions = map[string]string{
 	// Ride the v1alpha default (DefaultAPIVersion).
 	"rules":               DefaultAPIVersion,

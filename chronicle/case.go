@@ -39,7 +39,7 @@ import (
 // only the path segment these alternate-path calls target, NOT a validated working
 // pin; the working case path is on the SOAR host (soar.ListCases). caseAPIVersionLegacy
 // carries the legacy: RPC reads (legacyBatchGetCases is the live SOAR⇄SIEM bridge;
-// legacyListCases 404s). See docs/ARCHITECTURE.md §6.
+// legacyListCases 404s). See docs/design/architecture.md §6.
 const (
 	caseAPIVersionLegacy = "v1alpha" // chronicle legacy: RPC reads (batchGet bridge works; listCases 404s)
 	caseAPIVersion       = "v1beta"  // first-class cases collection path segment — 500s at every version (unused alternate)

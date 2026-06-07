@@ -3,7 +3,7 @@
 // Data-access labels and scopes are the access-control primitives: a label tags
 // data (by UDM query / log type), and a scope grants a role a set of allowed/
 // denied labels. Both are clean per-object config-as-code targets.
-// See docs/SURFACES.md.
+// See docs/design/surfaces.md.
 //
 // These resources are documented in the Chronicle v1alpha REST reference but are
 // NOT in the official wrapper. The list endpoints are validated live; the per-

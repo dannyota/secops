@@ -10,7 +10,7 @@
 //
 // These are upstream-defined, so there is no write path — this is a read surface.
 // They ride the feeds family on the chronicle host (v1alpha default, project ID
-// form), matching feeds.go. See docs/SURFACES.md.
+// form), matching feeds.go. See docs/design/surfaces.md.
 
 package chronicle
 

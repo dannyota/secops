@@ -83,7 +83,7 @@ func TestSurfaceFamiliesConsistent(t *testing.T) {
 }
 
 // TestChronicleAPIVersionsGolden locks chronicle.APIVersions (versions.go) to the
-// versions documented in docs/ARCHITECTURE.md §6. If a pin changes here, this test
+// versions documented in docs/design/architecture.md §6. If a pin changes here, this test
 // fails until the docs are updated in the same change — the "cannot silently
 // drift" guarantee the registry is supposed to provide.
 func TestChronicleAPIVersionsGolden(t *testing.T) {

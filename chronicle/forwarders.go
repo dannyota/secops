@@ -3,7 +3,7 @@
 // A forwarder is an on-prem ingestion agent; collectors are the per-source inputs
 // it runs. Managing them as code is core to ingestion-as-code. The unexported
 // get-or-create in ingest.go covers raw-log ingest; these are the public CRUD.
-// See docs/SURFACES.md.
+// See docs/design/surfaces.md.
 
 package chronicle
 

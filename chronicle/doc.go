@@ -31,8 +31,8 @@
 // (the SOAR-int ⇄ SIEM-uuid case bridge) and case.go (the alternate Chronicle-host
 // cases path — see that file).
 //
-// Per-file build/validation status lives in docs/CATALOG.md; the forward plan
-// and sequencing is docs/ROADMAP.md.
+// Per-file build/validation status lives in docs/design/catalog.md; the forward plan
+// and sequencing is docs/design/roadmap.md.
 //
 // # Not yet built
 //

@@ -1,15 +1,21 @@
-# secopsctl docs
+# 🛰️ secopsctl docs
 
-> **New here?** Start at the [project README](../README.md) for install, auth, and
-> a 5-command quickstart, then the [task cookbook](USAGE.md) for end-to-end
-> workflows. Unfamiliar term? the [Glossary](GLOSSARY.md). The pages below are the
-> **design reference** — deeper than a user needs for everyday work.
+Operate **Google SecOps** (Chronicle SIEM + Siemplify SOAR) **as code** — one Go
+CLI and unofficial SDK. Two products, two planes, one loop.
 
-`secopsctl` operates **Google SecOps** (Chronicle SIEM + Siemplify SOAR) **as
-code** — the way Terraform operates cloud infra. Two products, two planes, one
-CLI. These docs are the contract: read them before changing the surface.
+## 🧭 Find your way
 
-## The model in one screen
+| Folder | For | Start here |
+|---|---|---|
+| 🧭 **[guides/](guides/)** | using `secopsctl` | [Install](guides/install.md) → [Configure & auth](guides/configure.md) → [The loop](guides/the-loop.md) |
+| 📐 **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Catalog (status)](design/catalog.md) · [Roadmap](design/roadmap.md) |
+| 💡 **[tips/](tips/)** | the SecOps craft | [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [SOAR ops](tips/09-soar-operations.md) |
+
+New here? [Install](guides/install.md), then the [loop](guides/the-loop.md). Building it?
+[Architecture](design/architecture.md). Unfamiliar term? [Glossary](GLOSSARY.md).
+Writing docs? [Style guide](STYLE.md).
+
+## 🧩 The model in one screen
 
 Two products (SIEM · SOAR), each split across two planes — **control** (config as
 code) and **operational** (live data). One CLI; the two planes are two loops:
@@ -36,66 +42,29 @@ flowchart LR
   SOAR --> OPS
 ```
 
-- **Control plane = desired state.** Config you want to *keep*. It's
-  detection-as-code: **`pull` → review in `git diff` → `push`**, reconciled by one
-  product-neutral engine (identity · canonical diff · redaction · additive,
-  `--prune` to delete). A `push` is a production deploy behind a `LIVE` banner.
+- **Control plane = desired state.** Config you want to *keep*:
+  **`pull` → review in `git diff` → `push`**, reconciled by one product-neutral
+  engine (identity · canonical diff · redaction · additive, `--prune` to delete).
+  A `push` is a production deploy behind a `LIVE` banner. See [the loop](guides/the-loop.md).
 - **Operational plane = live data.** Events, alerts, cases. You don't reconcile an
-  incident from a file — you **query a subset and act on it**, the way an analyst
-  triages. Reads are free; every act is guarded (dry-run default, `--yes`,
-  `--limit`-capped).
+  incident from a file — you **query a subset and act on it**. Reads are free;
+  every act is guarded (dry-run default, `--yes`, `--limit`-capped).
 
-**The four quadrants — which surfaces live where** (status in [CATALOG.md](CATALOG.md)):
+**The four quadrants — which surfaces live where** (status in [design/catalog.md](design/catalog.md)):
 
 | | **SIEM** · Chronicle | **SOAR** · Siemplify |
 |---|---|---|
-| **Control**<br/>`pull → push` | rules · reference_lists · data_tables · feeds · parsers · dashboards · curated\* | webhooks · environments · networks · idp · soc-roles · blacklists · case-stages · case-tags · playbooks · visual-families · … |
+| **Control**<br/>`pull → push` | rules · reference_lists · data_tables · feeds · parsers · dashboards · curated\* | webhooks · environments · networks · idp · soc-roles · case-stages · playbooks · … |
 | **Operational**<br/>`query → act` | events (read-only) · alerts · cases† | `soar case list`/`get` (read) · `soar case` (per-case verbs) · bulk-close |
 
-<sub>† There is **one** case, reachable by two APIs on the SOAR (siemplify) domain: `soar case list` defaults to the New API (v1alpha) and auto-falls back to the reliable Legacy AppKey queue. The Chronicle-host UUID `cases` API reaches the *same* case but 500s at every version, so it's unused. Not two case systems.</sub>
+<sub>† One case, two APIs on the SOAR domain: `soar case list` defaults to the New API (v1alpha) and auto-falls back to the reliable Legacy AppKey queue. \* curated = Google-managed: read + enable/disable, not full CUD. Authoritative set + live status in [design/catalog.md](design/catalog.md).</sub>
 
-<sub>\* curated = Google-managed: read + enable/disable/alerting, not full CUD. The SOAR list is representative — the authoritative set + live status is in [CATALOG.md](CATALOG.md).</sub>
+## 📏 The rules these docs follow
 
-## How these docs are organized
-
-| Doc | What it is | Read it to… |
-|---|---|---|
-| **[../README.md](../README.md)** | Project landing — install, auth, quickstart | get running |
-| **[USAGE.md](USAGE.md)** | Task cookbook — copy-paste workflows | get a job done |
-| **[GLOSSARY.md](GLOSSARY.md)** | Plain-language term definitions | look up a word |
-| **[SDK.md](SDK.md)** | Go SDK guide (three clients, examples) | import the SDK |
-| **[README.md](README.md)** (this) | The map: model, diagram, index | get oriented |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | The cross-cutting design — engine, lanes, planes, auth, safety, reliability, the per-surface version pins (§6) and the surface-family registry (§7) | understand *how* it works (any surface) |
-| **[CATALOG.md](CATALOG.md)** | Every surface & command + a **status matrix** (designed / built / validated) | see *what exists* and its maturity — the tracker |
-| **[SURFACES.md](SURFACES.md)** | The API surface map: every family by **plane** (SIEM / SOAR-legacy / SOAR-modern) with gaps | see *which API does what* and what's unbuilt |
-| **[SOAR-DESIGN.md](SOAR-DESIGN.md)** | SOAR specifics (3 tiers, gotchas, per-surface notes) | work on SOAR |
-| **[SIEM-DESIGN.md](SIEM-DESIGN.md)** | SIEM specifics (two planes, cases/alerts model) | work on SIEM |
-| **[ROADMAP.md](ROADMAP.md)** | Waves / sequencing | see what's next |
-
-**Doc schema (the rules these follow).** One concept per doc; **short prose,
-dense content** (no filler). The **CATALOG is the source of truth for status** —
-every surface carries a `designed / built / validated` state. The CATALOG and the
-ARCHITECTURE §6 version table are kept honest by a real code spine: the
-**surface-family registry** (`internal/mirror/surface_families.go`), with version
-pins sourced from `chronicle/versions.go`, plus a drift-guard test
-(`internal/mirror/surface_families_test.go`) that fails if code, §6, and the
-registry disagree — so design and implementation can't silently drift. A surface
-is not "done" until it's **live-validated** (read round-trips clean; a write smoke
-ran on an inert throwaway). Design changes land in the design docs *with* the code
-in the same change; CATALOG status updates in the same commit that moves a surface
-forward.
-
-## Conventions (apply everywhere)
-
-- **Tenant-neutral.** No real project/customer/host/IP/rule names anywhere —
-  placeholders only (`<tenant>`, `<region>`, `000000000000`). Enforced by the
-  pre-commit leak guard.
-- **No `push` (or live write) without `--yes`.** Dry-run is the default; every
-  mutation prints a `LIVE DEPLOY` banner. Bulk operational acts preview a count +
-  sample and are `--limit`-capped.
-- **Lanes, not exceptions.** Every surface is exactly one of: **reconcile**
-  (per-object CUD), **raw** (batch/bundle/selector passthrough), **imperative**
-  (per-entity verbs), **operational** (query+act), or **skip**. See ARCHITECTURE.
-- **Reliability.** The official new SecOps APIs 500 intermittently (Google is still
-  building them); validate against the reliable paths + the swagger, surface a
-  clean error on 500, never retry a mutation. See `../CLAUDE.md`.
+- **[design/catalog.md](design/catalog.md) is the source of truth for status** — every
+  surface carries `designed / built / validated`. A code spine (the surface-family
+  registry + a drift-guard test) keeps the catalog, the version pins, and the code
+  honest, so design and implementation can't silently drift.
+- **Docs land with the code** in the same change; a wrong diagram is a bug.
+- **Tenant-neutral** everywhere — placeholders only, enforced by the leak guard.
+- Full conventions: **[STYLE.md](STYLE.md)**.

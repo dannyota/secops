@@ -1,10 +1,9 @@
 # Catalog & status
 
-The source of truth for **what exists and how mature it is**. Every surface
-carries a status; update it in the same commit that moves the surface forward.
-Design in [ARCHITECTURE.md](ARCHITECTURE.md); the full API split by plane and the
-unbuilt gaps are in [SURFACES.md](SURFACES.md); product specifics in
-[SOAR-DESIGN.md](SOAR-DESIGN.md) / [SIEM-DESIGN.md](SIEM-DESIGN.md).
+The source of truth for **what exists and how mature it is** — one status per
+surface, updated in the same commit that moves the surface forward. Design in
+[architecture.md](architecture.md); the API split by plane and unbuilt gaps in
+[surfaces.md](surfaces.md); product specifics in [soar.md](soar.md) / [siem.md](siem.md).
 
 **Where the code is:** surfaces register in `internal/mirror/registry_{soar,siem}.go`
 (playbooks: `soar_playbooks.go`; data_tables: `datatables_surface.go`;
@@ -20,7 +19,7 @@ declarative `SurfaceFamily` entry per API family (`Area`, `Plane`, `Host`, `Auth
 registry are sourced from `chronicle/versions.go` (the `APIVersions` map, the single
 source of truth for Chronicle-host version pins), and a drift-guard test
 (`surface_families_test.go`) asserts the registry, the version pins, and
-[ARCHITECTURE.md](ARCHITECTURE.md) §6 stay in agreement.
+[architecture.md](architecture.md) §6 stay in agreement.
 
 **Status legend**
 
@@ -45,12 +44,13 @@ Content Hub). A function can be served by **two API generations**, tracked in
   `✅ siemplify · v1alpha`. **Domain** is a property of the call, not the section —
   the **same function can answer on either domain**. We prefer **v1 > v1beta >
   v1alpha** and pin the version that works per surface (full per-endpoint map:
-  [ARCHITECTURE.md](ARCHITECTURE.md) §6).
+  [architecture.md](architecture.md) §6).
 - **Legacy API** — the Siemplify **external** API (`/api/external/v1`, AppKey, on
   the siemplify domain). SOAR-only; the broad, reliable path the reconcile engine
   and the case verbs run on.
 
 **The two domains** (both are just where the call goes):
+
 - **chronicle** = `chronicle.googleapis.com` (Google), regional, **ADC/OAuth**.
   Serves v1 / v1beta / v1alpha.
 - **siemplify** = `*.siemplify-soar.com` (Siemplify), **AppKey**. The modern API
@@ -60,6 +60,22 @@ A `—` means secopsctl doesn't use that generation for the function. A function
 **not** "blocked" just because one domain/version is down — the status is per
 column+domain; if any path serves it, the function works (e.g. **cases** works on
 siemplify v1alpha even though the chronicle-host UUID path 500s).
+
+```mermaid
+flowchart LR
+  subgraph chronicle["chronicle.googleapis.com · ADC/OAuth"]
+    direction TB
+    cnew["New API<br/>v1 &gt; v1beta &gt; v1alpha"]
+  end
+  subgraph siemplify["*.siemplify-soar.com · AppKey"]
+    direction TB
+    snew["New API<br/>v1alpha only"]
+    sleg["Legacy API<br/>/api/external/v1"]
+  end
+  cnew --> siem["SIEM families<br/>rules · feeds · parsers · TI"]
+  snew --> soarn["SOAR modern<br/>cases-list · grouping · Content Hub"]
+  sleg --> soarl["SOAR legacy<br/>reconcile engine · case verbs"]
+```
 
 ---
 
@@ -72,7 +88,7 @@ has no legacy external API.
 
 | Function (CLI) | Lane | New API (status · domain · version) | Legacy | Notes |
 |---|---|---|---|---|
-| `rules` | bespoke | ✅ chronicle · v1alpha | — | YARA-L source + deployment state machine (two resources), not a single canonical body. `push rules-create` · `rules-update` (etag-guarded text update) · `rules-deploy` (reconcile enabled/alerting/frequency/**archived**) · `rules-disable`. Operational `rules detections/errors/alerts <id>` + `rules retrohunt list/get/create`. `RunTestRule` (dry-run vs historical data) + `ArchiveRule`. Read live-validated; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create→update→deploy→archive→delete, self-cleaning) |
+| `rules` | bespoke | ✅ chronicle · v1alpha | — | YARA-L source + deployment state machine (two resources), not a single canonical body. `push rules-create` · `rules-update` (etag-guarded text update) · `rules-deploy` (reconcile enabled/alerting/frequency) · `rules-disable`. Operational `rules detections/errors/alerts <id>` + `rules retrohunt list/get/create`. `RunTestRule` (dry-run vs historical data) + `ArchiveRule`. Read live-validated; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create→update→deploy→archive→delete, self-cleaning) |
 | `reference_lists` | reconcile | ✅ chronicle · v1alpha | — | typed, `.txt`+`.yaml`; NoDelete; product-neutral engine. Resource-name **normalization**: create echoes the project NUMBER while list echoes the project ID — both rewritten to the id form so reconcile identity (keyed on the name) stays stable. Write smoke `TestLiveReconcileReferenceListWriteSmoke` reuses one fixed inert list (no delete API) — fresh create-or-reuse + one update each run (rerunnable, no accumulation) |
 | `data_tables` | reconcile | ✅ chronicle · v1alpha | — | `.csv`+`.yaml` on the engine; `push data_tables` (create/update). Columns immutable after create; rows are wholesale destroy-and-replace (`ReplaceDataTableRows`). Not prune-eligible (whole-table delete is high-blast). Write smoke `TestLiveReconcileDataTableWriteSmoke` (create→update desc→replace rows→delete) |
 | `feeds` | reconcile | ✅ chronicle · v1alpha | — | `.yaml` on the engine; `push feeds`. Secrets redacted on pull, overlaid on update (real secret preserved; create refuses a masked body); `details` replaced wholesale on PATCH. `assetNamespace`(read) vs `namespace`(write) reconciled (API uses `assetNamespace`); short `logType` expanded to the full resource name on write. Feed state is a runtime toggle, out of canonical. Not prune-eligible (delete stops ingestion). Write smoke `TestLiveReconcileFeedWriteSmoke` (inert HTTP throwaway, create→update→delete); GCS V2 (`gcsV2Settings`, STS-backed) validated; `FetchFeedServiceAccount` for the STS SA grant |
@@ -80,7 +96,7 @@ has no legacy external API.
 | `dashboards` | reconcile | ✅ chronicle · v1alpha | — | native dashboards (**CUSTOM only**; CURATED read-only/unmanaged); `pull`/`push dashboards`. One `<slug>.json` (config + `_server` id), charts inline under `definition.charts` (replaced wholesale on update); `access` immutable after create. extraStrip drops `createUserId`/`updateUserId`/`dashboardUserData`; root `name` stripped (identity in ServerID). Write smoke (create→update→delete, closure-direct to dodge full-view rate-limiting) |
 | `curated` / `curated_rules` | imperative (read+toggle) | ✅ chronicle · v1alpha | — | Google-managed (no CUD) → `curated list` + guarded `curated set` toggling `enabled`/`alerting` per (category, rule set, precision). `curated rules` lists individual curated rules (`ListCuratedRules`/`GetCuratedRule`, read-validated, 187 rules); `BatchUpdateCuratedRuleSetDeployments` is the atomic multi-deployment write primitive (live-validated by `TestLiveCuratedBatchToggleWriteSmoke` — a self-restoring enable→verify→restore toggle on an inert deployment, alerting off). Imperative lane (fixed catalog, array batch body), not reconcile. (v1alpha is the **only** version that answers — v1/v1beta 404) |
 | `rule_exclusions` | reconcile | ✅ chronicle · v1alpha | — | findings refinements (display_name + type + UDM query); `pull`/`push rule_exclusions`. Create + Update (PATCH, updateMask); **NoDelete** (drift reported, never pruned), NoEtag. Deployment toggle (enabled/archived) out of the diff basis. Read + write live-validated (create→update→archive); the API has no hard delete — **archive** is the teardown |
-| `forwarders` | reconcile | ✅ chronicle · v1beta | — | `.yaml` on the engine; `pull`/`push forwarders`. Diff basis is `display_name` + the freeform `config` block (uploadCompression, metadata, serverSettings, …); runtime `state` and server-stamped times stripped from the canonical. Config replaced wholesale on PATCH so Update overlays local edits onto the live body. NoEtag; **prune-eligible** (clean delete-by-id). Collectors are a separate nested resource. SDK pinned v1beta (v1 **404s**). Write smoke `TestLiveReconcileForwarderWriteSmoke` (inert throwaway, serverSettings disabled, create→update config→delete, self-cleaning) |
+| `forwarders` | reconcile | ✅ chronicle · v1beta | — | `.yaml` on the engine; reconcilable via the engine, surfaced through `push forwarders` (+ `drift forwarders`) — no `pull forwarders` target. Diff basis is `display_name` + the freeform `config` block (uploadCompression, metadata, serverSettings, …); runtime `state` and server-stamped times stripped from the canonical. Config replaced wholesale on PATCH so Update overlays local edits onto the live body. NoEtag; **prune-eligible** (clean delete-by-id). Collectors are a separate nested resource. SDK pinned v1beta (v1 **404s**). Write smoke `TestLiveReconcileForwarderWriteSmoke` (inert throwaway, serverSettings disabled, create→update config→delete, self-cleaning) |
 | `metric_definitions` | reconcile | 🔨 chronicle · v1alpha | — | custom SOC metrics (id = display name; `text_definition` is **YARA-L 2.0**); `pull`/`push metric_definitions`. **Additive** (create + state-only patch; **textDefinition immutable** — a text edit is refused, change = new id; **no delete API** → NoDelete). One `<slug>.yaml` (display_name, name, state, text_definition). Built + offline-tested; **live read is 403 on this tenant — the feature is not enabled/GA** (Chronicle admin still blocked), so it is not live-validated here. `chronicle/metrics.go` |
 | `scheduled_reports` | reconcile | 🔨 chronicle · v1alpha | — | scheduled dashboard reports (`dashboardScheduledReports`): recurring PDF/CSV/PNG delivery of a native dashboard on a cron, full CRUD with etag; `pull`/`push scheduled_reports`. One `<slug>.json` (config + `_server` id/etag); the embedded `dashboard` is reduced to its `{name}` reference (the dashboard is managed separately). **Prune-eligible** (clean delete-by-id). Imperative `trigger`/`duplicate`/`fetchHistory` in the SDK. **Reads live-validated** (list 200); the create-report backend currently **500s "failed to fetch native dashboard details"** (server-side — the `{name}` ref shape is accepted/parsed; verified for existing + new dashboards, both project forms), so the write-smoke (`TestLiveReconcileScheduledReportWriteSmoke`) skips on that 500. `chronicle/scheduled_reports.go` |
 | `datataps` | reconcile | ✅ chronicle · v1alpha | — | stream UDM events to a Cloud Pub/Sub topic (`dataTaps`): `pull`/`push datataps`. One `<slug>.yaml` (display_name, name, filter ALL/ALERT/LABELED, serialization_format JSON_OBJECT/MARSHALLED_PROTO defaulted, topic). **Prune-eligible**; NoEtag. **Write live-validated** (`TestLiveReconcileDataTapWriteSmoke`, create→update→delete on an inert tap pointed at a nonexistent topic). PATCH is **501 UNIMPLEMENTED** on the backend, so an update is done as **delete-old + create-new** (the id is server-assigned and changes); `UpdateDataTap` is kept for when PATCH lands. Supersedes the legacy Backstory `dataTaps`. Prereq for a live tap: grant Pub/Sub Publisher to `publisher@chronicle-data-tap.iam.gserviceaccount.com`. `chronicle/datataps.go` |
@@ -104,7 +120,7 @@ has no legacy external API.
 | **alerts** | operational | ✅ read · 🔨 act | — | `alerts list` (snapshot over a time window — `legacyFetchAlertsView`, streams a JSON-array of progressive fragments) + `alerts get <id>` (`legacyGetAlert`, response wrapped under `alert`) — **read-validated live** (`chronicle/alert.go`; fixed the array-stream decode, the `createdTime`/`detectionTime` keys, and `severityDisplay` being a string). Act (`UpdateAlert`/`BulkUpdateAlerts` feedback) built, gated, not run. Operators also read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts`) |
 | **entities** | operational (read) | 📐 chronicle · v1alpha | — | `entity summarize` — enrichment, read-only |
 | **watchlists** | operational (read) | ✅ chronicle · v1 | — | SIEM entity watchlists; `watchlists list`/`get <id>`, read-validated, pinned **v1** (`watchlistsAPIVersion`; all three answer → v1) |
-| **analytics & AI reads** — `investigations`(+steps/comments) · `entityRiskScores` · `bigQueryExport` · `coverageDetails` | operational (read) | ✅ chronicle (Wave 17, `chronicle/analytics.go`) | — | Gemini **TIN** investigations (250) + steps read-validated (list/get/trigger in `investigations.go`); `entityRiskScores:query` (301, behavioral risk 0–1000); `coverageDetails` MITRE coverage (5) — both pinned **v1**; `bigQueryExport` get + `investigationComments` wired, return clean typed errors when not provisioned/implemented (501/400, Pre-GA/Enterprise+). `TestLiveAnalyticsRead`. Writes (`:trigger`/`:provision`/`update`) gated, not wired. SDK-only (no CLI yet) |
+| **analytics & AI reads** — `investigations`(+steps/comments) · `entityRiskScores` · `bigQueryExport` · `coverageDetails` | operational (read) | ✅ chronicle (Wave 17, `chronicle/analytics.go`) | — | Gemini **TIN** investigations (250) + steps read-validated (list/get/trigger in `investigations.go`); `entityRiskScores:query` (301, behavioral risk 0–1000, v1alpha default); `coverageDetails` MITRE coverage (5) + `bigQueryExport` get — both pinned **v1**; `investigationComments` wired, return clean typed errors when not provisioned/implemented (501/400, Pre-GA/Enterprise+). `TestLiveAnalyticsRead`. Writes (`:trigger`/`:provision`/`update`) gated, not wired. SDK-only (no CLI yet) |
 
 ---
 
@@ -194,7 +210,7 @@ Installing content (integration **packages** and the connector/job/action
 When a surface advances: edit its row here **and** the relevant design doc in the
 **same commit**. A surface reaches `✅` only after a live read round-trips clean and
 (for writes) a gated smoke passed on an inert throwaway — see the build discipline
-in [ARCHITECTURE.md](ARCHITECTURE.md) §5.
+in [architecture.md](architecture.md) §5.
 
 A `⛔` belongs to a **specific column + domain + version** that's down — never to a
 whole function. If the function works on *any* path (another domain or version),
@@ -202,6 +218,6 @@ its row stays green and the dead path is a **note** (as with cases: ✅ on siemp
 v1alpha; the chronicle-host UUID path 500s, noted, not blocking). When the working
 version of a Chronicle-host New-API surface moves, change the pin in
 `chronicle/versions.go` (the `APIVersions` map), then update the cell's
-`domain · version` here and the §6 table in [ARCHITECTURE.md](ARCHITECTURE.md). The
+`domain · version` here and the §6 table in [architecture.md](architecture.md). The
 surface-family registry (`internal/mirror/surface_families.go`) reads its SIEM
 versions from that map, and the drift-guard test fails if the three fall out of sync.

@@ -3,8 +3,8 @@ package mirror
 import "danny.vn/secops/chronicle"
 
 // The surface-family registry: one declarative entry per API family describing
-// where it lives and how mature it is. It is the spine docs/CATALOG.md (the
-// by-function status matrix) and docs/ARCHITECTURE.md §6 (the version table)
+// where it lives and how mature it is. It is the spine docs/design/catalog.md (the
+// by-function status matrix) and docs/design/architecture.md §6 (the version table)
 // derive from — the single place the map, the docs, and the code agree. A
 // drift-guard test (surface_families_test.go) asserts the entries stay internally
 // consistent, that SIEM versions are sourced from chronicle.APIVersions
@@ -18,7 +18,7 @@ import "danny.vn/secops/chronicle"
 // A function can sit in one Area on a different Plane: the chronicle-host cases
 // path is Area=SOAR (it's the cases function) on Plane=SIEM (the chronicle host).
 
-// Area is the top-level functional grouping in docs/CATALOG.md.
+// Area is the top-level functional grouping in docs/design/catalog.md.
 type Area string
 
 const (
@@ -27,7 +27,7 @@ const (
 	AreaOther Area = "Other" // cross-cutting: Threat Intel, Content Hub
 )
 
-// Plane is the (product, transport) pairing from docs/SURFACES.md.
+// Plane is the (product, transport) pairing from docs/design/surfaces.md.
 type Plane string
 
 const (
@@ -71,7 +71,7 @@ const (
 	LaneOperational FamilyLane = "operational"
 )
 
-// FamilyStatus mirrors the docs/CATALOG.md status legend.
+// FamilyStatus mirrors the docs/design/catalog.md status legend.
 type FamilyStatus string
 
 const (
@@ -153,7 +153,7 @@ func buildSurfaceFamilies() []SurfaceFamily {
 		soarModern("idp-mappings", AreaSOAR, LaneImperative, StatusValidated, "soar/idp_mappings.go"),
 		siemFamily("curated_rules", "curated_rules", AreaSIEM, LaneImperative, StatusValidated, "chronicle/curated_rules.go"),
 		siemFamily("forwarders", "forwarders", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/forwarders.go"),
-		siemFamily("governance", "governance", AreaSIEM, LaneImperative, StatusBuilt, "chronicle/rbac.go"),
+		siemFamily("governance", "governance", AreaSIEM, LaneImperative, StatusValidated, "chronicle/rbac.go"),
 		siemFamily("events", "search", AreaSIEM, LaneOperational, StatusBuilt, "chronicle/search.go"),
 		siemFamily("alerts", "alerts", AreaSIEM, LaneOperational, StatusValidated, "chronicle/alert.go"),
 		siemFamily("entities", "entities", AreaSIEM, LaneOperational, StatusDesigned, "chronicle/entity.go"),

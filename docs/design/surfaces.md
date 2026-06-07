@@ -1,17 +1,39 @@
-# Surface map
+# 📐 Surface map
 
-The authoritative map of **which API does what**, split by plane. This is the
-control layer for the SDK: every API family has exactly one home (plane + host +
-auth + version) and one lane. [ARCHITECTURE.md](ARCHITECTURE.md) explains the
-model; [CATALOG.md](CATALOG.md) tracks per-command build status; this file is the
-inventory and the SIEM-vs-SOAR split.
+The authoritative map of **which API does what**, split by plane: every API
+family has exactly one home (plane + host + auth + version) and one lane.
+[architecture.md](architecture.md) explains the model; [catalog.md](catalog.md)
+tracks per-command build status; this file is the inventory and the SIEM-vs-SOAR
+split.
 
 ## Planes
 
-A **plane** here is a `(host, auth)` pair — the *product + transport* axis. (This
-is orthogonal to the control-vs-operational planes in [ARCHITECTURE.md](ARCHITECTURE.md)
-§1, which is the *config-vs-data* axis. A surface has both: e.g. SIEM reference
-lists are **SIEM-plane** and **control-plane**.) SecOps exposes three:
+A **plane** is a `(host, auth)` pair — the *product + transport* axis (orthogonal
+to the control-vs-operational planes in [architecture.md](architecture.md) §1,
+the *config-vs-data* axis; a surface has both — SIEM reference lists are
+SIEM-plane **and** control-plane). SecOps exposes three:
+
+```mermaid
+flowchart TB
+  cli["secopsctl · soar/ · chronicle/"]
+
+  subgraph SIEM["SIEM plane · chronicle/ · ADC/OAuth"]
+    direction TB
+    siemH["chronicle.googleapis.com (regional)<br/>v1 › v1beta › v1alpha · per-surface pin"]
+  end
+  subgraph LEG["SOAR-legacy · soar/legacy/ · AppKey"]
+    direction TB
+    legH["{tenant}.siemplify-soar.com<br/>/api/external/v1/… · no version ladder"]
+  end
+  subgraph MOD["SOAR-modern · soar/ · AppKey"]
+    direction TB
+    modH["{tenant}.siemplify-soar.com<br/>v1alpha only"]
+  end
+
+  cli -->|ADC| SIEM
+  cli -->|AppKey| LEG
+  cli -->|AppKey| MOD
+```
 
 | Plane | Host | Auth | Base path | SDK package | Reliability |
 |---|---|---|---|---|---|
@@ -22,7 +44,7 @@ lists are **SIEM-plane** and **control-plane**.) SecOps exposes three:
 The chronicle host serves **v1 / v1beta / v1alpha**; we prefer **v1 > v1beta >
 v1alpha** and pin the highest version that answers **per surface** (`{v}` above —
 e.g. Threat Intel / watchlists / governance = v1, forwarders = v1beta,
-curatedRules = v1alpha; full map in [ARCHITECTURE.md](ARCHITECTURE.md) §6). The
+curatedRules = v1alpha; full map in [architecture.md](architecture.md) §6). The
 SOAR host serves **v1alpha only** (v1/v1beta 404), so the version ladder is a
 chronicle-host concern.
 
@@ -121,7 +143,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 > So it lives on the **SOAR-modern plane** (`soar/marketplace.go`); it is the durable
 > twin of the legacy `/store` install path and the only place an integration
 > **uninstall** exists. See that table below and the "Other features" rows in
-> [CATALOG.md](CATALOG.md). The SIEM-host *featured content* rows above are a
+> [catalog.md](catalog.md). The SIEM-host *featured content* rows above are a
 > separate, chronicle-side surface. (See the CLAUDE.md rule on host placement.)
 
 ---
@@ -139,7 +161,7 @@ settings, store).
 
 | Status | Detail |
 |---|---|
-| ✅ | the whole reliable SOAR surface — see [CATALOG.md](CATALOG.md) for per-command rows |
+| ✅ | the whole reliable SOAR surface — see [catalog.md](catalog.md) for per-command rows |
 | ⬜ | `getExternalProviders` (SSO provider catalog) — on the non-standard `/api/1p/external/v1/` base the transport can't reach; low priority |
 
 Playbooks/workflows and the SOAR case mutate-verbs exist **only** here — there is no
@@ -193,14 +215,16 @@ stays on the legacy lane, which is reliable. So far that means:
 ## How a family earns a home
 
 When adding any surface, fill one **registry entry** in
-`internal/mirror/surface_families.go` (see ARCHITECTURE §7) before writing code:
+`internal/mirror/surface_families.go` (see [architecture.md](architecture.md) §7)
+before writing code:
 
-```
+```go
 SurfaceFamily{ Name, Area, Plane, Host, Auth, Generation, APIVersion, Lane, Status, SDKLocation }
 ```
 
-The registry is the single source of truth that the CATALOG status matrix and the
-ARCHITECTURE §6 version table derive from. SIEM `APIVersion` is sourced from
+The registry is the single source of truth that the [catalog.md](catalog.md)
+status matrix and the [architecture.md](architecture.md) §6 version table derive
+from. SIEM `APIVersion` is sourced from
 `chronicle.APIVersions` (`chronicle/versions.go`), and a drift-guard test
 (`surface_families_test.go`) asserts the registry, that map, and the §6 table all
 agree — so the map, the docs, and the code can never silently drift.

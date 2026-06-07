@@ -1,4 +1,4 @@
-# 01 · SecOps as Code
+# 💡 01 · SecOps as code
 
 Operating Google SecOps (Chronicle SIEM) **as code** means the live instance is
 not the source of truth your team edits by hand — a git repository is. Detection
@@ -13,23 +13,23 @@ has no tenant identifiers baked in.
 
 ## The core loop
 
-```
-  pull  ──▶  review in git diff  ──▶  push
-   ▲                                    │
-   └──────────── re-pull ◀──────────────┘
+```mermaid
+flowchart LR
+  live[("live instance")] -- "pull · read-only" --> files[("local files · git")]
+  files -- "git diff · review" --> review{{"approve the diff"}}
+  review -- "push · LIVE DEPLOY" --> live
+  live -. "re-pull · sync metadata" .-> files
 ```
 
-1. **pull** — read the live instance, write local files. Read-only against the
-   instance; it never mutates the tenant. It *does* overwrite your local files,
-   so commit work-in-progress first.
-2. **review** — `git diff` shows exactly what changed between the live state and
-   your edits. This is the audit trail and the review gate. A reviewer approves a
-   diff, not a vibe.
-3. **push** — apply the reviewed change to the live instance. **Every `push` is a
-   production deploy to a live SIEM.** See [03-yara-l-rules.md](03-yara-l-rules.md)
-   for what `push rules-create` / `push rules-disable` actually mutate.
-4. **re-pull** — after any live mutation, pull the affected entity again so the
-   companion metadata (server IDs, `etag`, deployment state) matches live.
+| Step | What it does | Side effect |
+|---|---|---|
+| **pull** | read the live instance, write local files | read-only on the tenant; **overwrites local files** — commit WIP first |
+| **review** | `git diff` shows live-vs-edit; the audit trail and the gate | none — a reviewer approves a diff, not a vibe |
+| **push** | apply the reviewed change to the live instance | **every `push` is a production deploy to a live SIEM** |
+| **re-pull** | pull the affected entity again after a mutation | syncs companion metadata (server IDs, `etag`, deployment state) to live |
+
+See [03-yara-l-rules.md](03-yara-l-rules.md) for what `push rules-create` /
+`push rules-disable` actually mutate.
 
 ### `pull` is read-only; `push` is a deploy
 

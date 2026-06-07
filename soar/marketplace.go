@@ -4,7 +4,7 @@
 // (siemplify-soar.com) using the v1alpha resource format + AppKey — the same plane
 // as integrations/connectors here, NOT chronicle.googleapis.com (which 500s for
 // this tenant type). marketplaceIntegrations is the durable twin of the legacy
-// /store install path, and the only place an UNINSTALL exists. See docs/SURFACES.md.
+// /store install path, and the only place an UNINSTALL exists. See docs/design/surfaces.md.
 
 package soar
 

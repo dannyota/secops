@@ -4,7 +4,7 @@
 // coverage details. Read-only: the investigations :trigger / :transitionReviewState
 // and bigQueryExport :provision / update writes are intentionally NOT wired (they
 // are gated, side-effecting mutations). Records are returned raw (the shapes are
-// large and still evolving). See docs/SURFACES.md and ARCHITECTURE.md §6.
+// large and still evolving). See docs/design/surfaces.md and design/architecture.md §6.
 
 package chronicle
 

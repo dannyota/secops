@@ -1,14 +1,12 @@
 # secopsctl / Go SDK — Roadmap
 
-`secopsctl` is both a CLI and an importable, unofficial Go SDK for Google SecOps
-(`danny.vn/secops/chronicle`). This roadmap is the **forward plan and
-sequencing**; **live build/validation status lives in [CATALOG.md](CATALOG.md)** —
-this doc deliberately does not re-track maturity (it would drift). The guiding
-rule: **design cleanly, port the parity slice first, then finish the surface** —
-improving on the official Python wrapper where it is weak (see the `// DEVIATION:`
-markers in code).
+The **forward plan and wave sequencing** for `secopsctl` (CLI + Go SDK). Live
+build/validation status lives in [catalog.md](catalog.md) — this doc does not
+re-track maturity (it would drift). Guiding rule: **design cleanly, port the
+parity slice first, then finish the surface**, improving on the official Python
+wrapper where it is weak (see the `// DEVIATION:` markers in code).
 
-## Package map
+## 🗺️ Package map
 
 ```
 danny.vn/secops
@@ -24,6 +22,38 @@ danny.vn/secops
 Future SecOps products are **sibling packages** so `chronicle` stays focused —
 today that is `danny.vn/secops/soar`. (Third-party EDR and chat/notification
 integrations are explicit non-goals; see below.)
+
+## 🌊 Wave map
+
+Waves are done **strictly in order** — the number *is* the sequence. Per-surface
+maturity is in [catalog.md](catalog.md); this is the shape of the plan.
+
+```mermaid
+flowchart LR
+  subgraph P1["1–3 · parity + foundation"]
+    direction TB
+    w1["1 Python-tool parity"] --> w2["2 wrapper surface"] --> w3["3 SOAR external API"]
+  end
+  subgraph P2["4–7 · triage + config plane"]
+    direction TB
+    w4["4 case/alert triage"] --> w5["5 SIEM config plane"] --> w6["6 rules-as-code"] --> w7["7 SOAR completion"]
+  end
+  subgraph P3["8–15 · modern v1alpha expansion"]
+    direction TB
+    w8["8 Threat Intel"] --> w9["9 curated rules"] --> w10["10 RBAC/governance"] --> w11["11 Content Hub"]
+    w11 --> w12["12 ingestion"] --> w13["13 modern-by-default"] --> w14["14 UUID operational"] --> w15["15 SOAR lifecycle"]
+  end
+  subgraph P4["16–20 · feature expansion"]
+    direction TB
+    w16["16 case fields/logic"] --> w17["17 analytics & AI"] --> w18["18 SOC metrics"] --> w19["19 enrichment"] --> w20["20 MSSP/federation"]
+  end
+  subgraph P5["21–24 · finishing"]
+    direction TB
+    w21["21 reliability/safety"] --> w22["22 distribution"] --> w23["23 automation · retired"]:::tomb --> w24["24 admin/settings"]
+  end
+  P1 --> P2 --> P3 --> P4 --> P5
+  classDef tomb fill:#eee,stroke:#999,color:#666,stroke-dasharray:4 3;
+```
 
 ---
 
@@ -45,6 +75,7 @@ Feature parity with the original `secopstips`:
 CLI: `info`, `pull <target>`, `push <target>` (dry-run-guarded), `query udm`.
 
 ### Deviations from the official wrapper (intentional)
+
 - **Explicit project form** per endpoint instead of 404-then-retry trial/error.
 - **Typed structs** instead of `map[string]any` + `.get()` chains.
 - **Typed `*APIError`** (status + body) surfaced, not swallowed by broad `except`.
@@ -61,7 +92,7 @@ Most of this surface has **already landed as `chronicle/*.go` files** (`case` ·
 `alert` · `entity` · `ingest` · `stats` · `nl_search` · `gemini` · `data_export` ·
 `investigations` · `watchlist` · `retrohunt` · `rule_exclusion` · the `*_write.go`
 writers · …); the remaining gap is **CLI verbs over the already-built SDK** plus the
-few unbuilt files below. Per-file status is in [CATALOG.md](CATALOG.md). Read the
+few unbuilt files below. Per-file status is in [catalog.md](catalog.md). Read the
 matching `third_party/secops-wrapper/src/secops/chronicle/*.py` when implementing.
 
 - **Rule writes & lifecycle** (`rules.go`/`rule_exclusion.go`/`rule_retrohunt.go`):
@@ -94,14 +125,14 @@ helper for very large lists.
 ## Wave 3 — features the wrapper does NOT cover
 
 Kept generic and tenant-neutral. **Full design:
-[`docs/SOAR-DESIGN.md`](SOAR-DESIGN.md)** — read it before implementing.
+[`soar.md`](soar.md)** — read it before implementing.
 
 - **SOAR (`soar/`)** — one host, one AppKey, **no ADC**. The **AppKey legacy external
   API (`/api/external/v1`) is the reliable, most-complete surface** and backs the
   reconcile engine (14 surfaces) + the `soar case` verbs; the **modern v1alpha
   methods are new, pull/patch-only, and 500 intermittently**. The tiers:
   - **Legacy AppKey** `soar/legacy/` — the durable, broad SDK the engine runs on
-    (reliable). *Not* a quarantine; see [SOAR-DESIGN.md](SOAR-DESIGN.md).
+    (reliable). *Not* a quarantine; see [soar.md](soar.md).
   - **Bridge** `legacyPlaybooks:legacy*` — v1alpha host, legacy op names; the one
     genuinely delete-when-native-ships piece. Gotchas: UUID rotates on save
     (re-resolve by name), int→str coercion, name charset, whole-body replace.
@@ -150,6 +181,7 @@ existing `soar/legacy` tier + `soar/internal/transport` (External, AppKey).
 
 Priority order (config + automation that fits pull → diff → push; skip UI/runtime
 noise like Homepage, CommandCenter, Agents, Reports, Dashboards):
+
 1. **Connectors** (9) — CRUD, cards, templates, fetch-sample-data, statistics.
 2. **Jobs** (10) — installed/templates, instances CRUD, run.
 3. **Integrations** (9) — installed integrations, instance config + settings.
@@ -179,9 +211,10 @@ CATALOG rows moved forward and design docs updated in the same change.
 **Waves are done strictly in order** — one wave fully built **and validated** (its
 CATALOG rows moved forward, its design docs updated) before the next begins. The
 number *is* the sequence. Per-wave: **Goal · Scope · Exit · Docs.** Live status per
-surface lives in [CATALOG.md](CATALOG.md).
+surface lives in [catalog.md](catalog.md).
 
 ### Wave 4 — Case + alert triage (SOAR AppKey — the reliable lane)  *(done — reads live-validated; all 9 case verbs live-validated end-to-end)*
+
 - **Goal.** Finish the daily triage workflow on the path that is reliable. Small,
   unblocked, high-value — the SDK already exists, this is CLI plumbing + validation.
   (Same case, two APIs: this wave uses the reliable SOAR AppKey lane; the Chronicle
@@ -195,6 +228,7 @@ surface lives in [CATALOG.md](CATALOG.md).
 - **Docs.** SOAR-DESIGN, SIEM-DESIGN (the cases-are-one-case bridge), CATALOG.
 
 ### Wave 5 — SIEM config plane onto the engine  *(done — `data_tables`/`parsers`/`feeds`/`dashboards`/`rule_exclusions` on the engine + `curated` toggles + SIEM write-smoke harness; read **and write** live-validated)*
+
 - **Goal.** Turn SIEM config-as-code from one surface into the whole plane.
 - **Scope.** Wire `data_tables` → `feeds` → `parsers` → `dashboards` → `curated`
   (read + enable/disable) onto the shared reconcile engine; add a SIEM write-smoke
@@ -206,6 +240,7 @@ surface lives in [CATALOG.md](CATALOG.md).
 - **Docs.** SIEM-DESIGN (plan → built), CATALOG, ARCHITECTURE §3.
 
 ### Wave 6 — Rules as code (finish the one bespoke surface)  *(done — `rules-update`/`rules-deploy` + `rules` detections/errors/alerts/retrohunt; lifecycle write-smoke passed)*
+
 - **Goal.** Full rule lifecycle as code (rules stay bespoke: YARA-L source + a
   deployment state machine, not one canonical body).
 - **Scope.** Over the existing `rules_write`/`rule_exclusion`/`retrohunt`/`rule_results`
@@ -249,6 +284,7 @@ live-write-validated. Status after closing them:
   zero-residue).
 
 ### Wave 7 — SOAR completion  *(done — reads + connectors/jobs writes live-validated; form-dynamic-parameters deferred)*
+
 - **Goal.** Close SOAR to full config-as-code.
 - **Scope.** Finish the remaining write-smokes + enable `--prune` where a clean
   delete-by-id exists; **ontology** raw lane (entity mappings/relations, export/import
@@ -285,12 +321,12 @@ live-write-validated. Status after closing them:
   `soar integration connector list`/`delete` (custom connector **definitions** —
   e.g. a duplicated "Copy of …" template) round out the surface; whole-integration
   delete is custom-only, and the installed-vs-catalog model is documented in
-  [SURFACES.md](SURFACES.md).
+  [surfaces.md](surfaces.md).
 
 ---
 
 The forward waves below are **derived from a full audit** of the legacy swagger and
-the Chronicle v1alpha docs against the SDK (see [SURFACES.md](SURFACES.md) for the
+the Chronicle v1alpha docs against the SDK (see [surfaces.md](surfaces.md) for the
 per-family gap map). The legacy SOAR external API is ~99.8% wrapped; the remaining
 work is almost entirely **modern v1alpha SIEM** surfaces.
 
@@ -319,6 +355,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 | playbooks · workflows | (n/a) | ⛔ 404 | legacy-only, no v1alpha |
 
 ### Wave 8 — Threat Intelligence (SIEM read)  *(done — `threatCollections` list/get (`ti`) + the `iocs find`/`get` CLI, read-validated live (`chronicle/ti.go`, pinned v1). The enrichment RPCs `:fetchRelated`/`:fetchEntityMetadata`/`:fetchIocMatchMetadata` are deferred as optional gaps — see SURFACES)*
+
 - **Goal.** Mandiant / Applied Threat Intelligence as code — read the campaigns,
   reports, actors, malware and IoCs the tenant is matched against. Read-only (TI is
   Google/Mandiant-sourced — there is no write path), so low-risk and high-signal —
@@ -330,6 +367,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 9 — Curated-rules-as-code completion  *(done — `ListCuratedRules`/`GetCuratedRule` (187 rules) read-validated; `BatchUpdateCuratedRuleSetDeployments` live-validated by a self-restoring toggle write-smoke (enable→verify→restore, alerting off))*
+
 - **Goal.** Make curated (Google-managed) detections fully diff-and-push-able.
 - **Scope.** `curatedRuleSetDeployments:batchUpdate` (the atomic write primitive for
   a desired-state curated-deployment file); `listCuratedRules`/`getCuratedRule`;
@@ -340,6 +378,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 10 — SIEM RBAC & data governance  *(done — `dataAccessLabels` + `dataAccessScopes` CRUD and `riskConfig` get + idempotent update all write-validated by self-cleaning smokes; operated **imperatively, not reconcile** (create→list lag + create-despite-error break diffing). No CLI yet — SDK only)*
+
 - **Goal.** Manage access control as code — the highest-value SIEM config still
   missing.
 - **Scope.** `dataAccessLabels` + `dataAccessScopes` full CRUD operated
@@ -352,6 +391,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 11 — Content Hub (modern, **SOAR host**)  *(done — Content Hub served on `*.siemplify-soar.com` (AppKey, v1alpha), NOT chronicle.googleapis.com; `marketplaceIntegrations` (405) + `contentHub/contentPacks` (59) read-validated; **install/uninstall live-validated** via a self-cleaning install→uninstall round-trip on an inert pack — the modern `:uninstall` makes it cleanly reversible. SDK only — the mutations are deliberate ops, no CLI)*
+
 - **Goal.** Manage installable content on the durable SOAR-host API — the twin of
   the legacy `/store` install path, and the only place an **uninstall** exists.
 - **Scope.** `marketplaceIntegrations` list/get/install/uninstall; `contentHub.
@@ -363,6 +403,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 12 — SIEM ingestion completion  *(done — forwarders wired as a reconcile surface + engine write-smoke (create→update→delete) live-validated; collectors read; schema discovery (`feedSourceTypeSchemas`/`logTypeSchemas` + `GetLogTypeSetting`) read-validated (`chronicle/schemas.go`) as the basis for feed-YAML validation; per-log-type `logTypes.get` wired as a documented v1alpha method (`GetLogType`), though it 404s "Method not found" on instances that don't enable it — across all versions and both hosts — so log types are enumerated via `ListLogTypes`)*
+
 - **Goal.** Ingestion config-as-code beyond feeds/parsers.
 - **Scope.** `forwarders` + `forwarders.collectors` full CRUD (reconcile);
   `feedSourceTypeSchemas`/`logTypeSchemas` discovery (validate feed YAML before
@@ -372,6 +413,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 13 — Make modern the default in the CLI; `--legacy` to force legacy *(done — mechanism complete: global `--legacy`, the shared `preferModern` dispatch, `soar case list` modern-by-default with legacy auto-fallback, interim `--modern` flags removed; the remaining per-surface flips are deferred by design — see below)*
+
 - **Goal.** `secopsctl` uses the **modern v1alpha API by DEFAULT** for each surface
   that has been validated, auto-falling back to the reliable legacy AppKey path on
   error; a **`--legacy` flag forces the legacy path only** (skip modern). **Keep both
@@ -414,6 +456,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Docs.** SURFACES (per-surface host/version/default), CATALOG, ARCHITECTURE §6/§7.
 
 ### Wave 14 — Chronicle (UUID) operational API + remaining SIEM operational  *(done — `alerts list`/`get` read CLI live-validated (snapshot + single-alert; decode tolerant of both legacy-API shapes); `watchlists list/get` + `iocs find/get` wired and read-validated; modern cases on the SOAR host (`soar case list`). The chronicle-host UUID cases collection 500s at every version — documented alternate, not used. `entity summarize` / `stats` / `search nl` remain SDK-built operational reads, CLI-unwired)*
+
 - **Goal.** Reach cases/alerts/events through Chronicle's newer **UUID API** — the
   **same** cases the SOAR AppKey lane already operates, not a separate system —
   lighting it up if/when those endpoints stabilize, behind a clean-error-on-500
@@ -434,6 +477,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
 - **Docs.** SIEM-DESIGN, ARCHITECTURE §6, CATALOG.
 
 ### Wave 15 — SOAR v1alpha lifecycle *(reliability-gated)*  *(done — reads live-validated (alertGroupingRules list/get, connector/job instances list/get round-trip, `TestLiveWave15LifecycleRead`), which surfaced two decode bugs now fixed: alertGroupingRules `id` is a JSON number and a connector instance's `parameters` is a descriptor array (both decode tolerant of the older shapes). **alertGroupingRules create→delete write-validated** via a self-cleaning inert throwaway (`TestLiveAlertGroupingRuleWriteSmoke`). Connector/job instance `:runOnDemand` + update are SDK-built (clean-error-on-500); their **create/delete are not yet built** and live-write is deferred — `:runOnDemand` triggers a real run (ingestion/cases) that isn't cleanly reversible, so the legacy lane stays the default for those.)*
+
 - **Goal.** Close the modern-SOAR lifecycle gaps the legacy lane can't cover — only
   where the legacy API has no equivalent, and only once the v1alpha endpoints stop
   500ing.
@@ -454,6 +498,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 `legacySystemMetadata`), and get-only diagnostics (`dataTableOperationErrors`).
 
 ### Wave 16 — Case fields & logic as code *(SOAR/AppKey, full CRUD; high value)*  *(done — `customFields`, `calculatedFieldDefinitions`, `propertySchemaDefinitions` wired with full CRUD (`soar/case_data_surfaces.go`, shared collection helpers); reads validated + create→get→delete **write-validated** by `TestLiveCaseDataWriteSmoke` (incl. the calc dependency chain: target Free-Text field → calc → teardown). Shapes from the v1alpha REST docs: customFields `scopes`="Case"/"Alert" (FREE_TEXT needs no options; "All" 500s); calc needs `calculationType=SET_VALUE`/`outputType=TEXT`/`targetField=CaseCustom.<field>`/`formulaExpression="…"`.)*
+
 - **Goal.** Bring case/alert customization under config-as-code on the reliable SOAR host.
 - **Scope.** `customFields` (case/alert custom-field **schemas** — type/scope/option
   values); `calculatedFieldDefinitions` (formula-driven **derived fields**:
@@ -465,6 +510,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
 ### Wave 17 — Flagship analytics & AI reads *(SIEM/ADC, read-mostly; high value)*  *(done — `chronicle/analytics.go`: investigation **steps/comments** reads (atop the existing investigations list/get/trigger), `entityRiskScores:query`, `bigQueryExport` get, `coverageDetails` list (MITRE). Live-validated (`TestLiveAnalyticsRead`): investigations 250 / steps / entityRiskScores 301 / coverageDetails 5 answer; investigationComments (501) + bigQueryExport (400, not provisioned) are wired and return clean typed errors (Pre-GA / feature-gated). v1 pins for bigQueryExport + coverageDetails (`bigQueryExportAPIVersion`/`coverageAPIVersion`, golden + §6 updated); investigations/risk ride v1alpha. Writes (`:trigger`/`:provision`/`update`) intentionally not wired.)*
+
 - **Goal.** Surface SecOps' newest analytics + Gemini features as safe, committable reads.
 - **Scope.** `investigations` — the **Gemini Triage & Investigation Agent (TIN)**:
   read get/list/`investigationSteps`/`investigationComments`; the `:trigger` write
@@ -481,6 +527,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 18 — SOC metrics & scheduled reporting *(SIEM/ADC)*  *(built — both surfaces on the engine + offline-tested; `metricDefinitions` is **feature-gated 403** on the tenant (not enabled/GA — Chronicle admin still blocked), so read/write are not live-validated here; `dashboardScheduledReports` **reads are live-validated** (list 200) but the create-report backend **500s "failed to fetch native dashboard details"** server-side (the `{name}` dashboard-ref shape is accepted; verified for existing+new dashboards, both project forms), so the gated write-smoke skips on that 500. No tenant residue (checked for create-despite-error). `metricDefinitions` has create/get/list/patch only — no delete (confirmed against the full method listing); textDefinition is immutable, patch is state-only.)*
+
 - **Goal.** Metrics-as-code + scheduled dashboard delivery.
 - **Scope.** `metricDefinitions` (custom SOC metrics whose `textDefinition` is
   **YARA-L 2.0** — pulls/diffs/pushes like a rule; create/patch, no delete → additive
@@ -492,6 +539,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 19 — Enrichment & ingestion governance *(SIEM)*  *(built — all three on the modern chronicle v1alpha host (the Backstory `dataTaps` endpoint is superseded — no separate client needed). **`dataTaps` is write-validated** (`TestLiveReconcileDataTapWriteSmoke`: create→update→delete on an inert tap); its PATCH is **501 UNIMPLEMENTED**, so the reconcile update is done as **delete-old + create-new** (`UpdateDataTap` kept for when PATCH lands). `errorNotificationConfigs` (reconcile, full CRUD) and `enrichmentControls` (imperative — no patch, accumulating records, `:disable` verb) are built + offline-tested but **feature-gated 403** on the tenant, so not live-validated. No tenant residue (checked create-despite-error).)*
+
 - **Goal.** Config-as-code for data-enrichment and ingestion-health.
 - **Scope (as built).** `enrichmentControls` (turn off enrichment per log type /
   enrichment type — **imperative**, not reconcile: no patch, a create appends a
@@ -508,6 +556,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 20 — MSSP & federation *(mixed plane; multi-tenant only)*  *(built — `federationGroups` (chronicle reconcile) + `tenants`/`multitenantDirectory` (chronicle reads, `chronicle/federation.go`); `idp-mappings` (`legacySoarIdpMappingGroups`) turned out to be a **two-host surface** — it 500s on the chronicle host but answers on the **SOAR host** (AppKey), so it was moved to the SOAR plane (`soar/idp_mappings.go`) and is **read-validated** there (3 groups + external providers). On this single-tenant instance `federationGroups`/`tenants` are 403 (feature/partner-gated); **multitenantDirectory is read-validated**. Writes (federation groups, IdP mappings) touch live access — built, gated, not live-written.)*
+
 - **Goal.** Multi-tenant / access-mapping config-as-code (meaningful only on
   MSSP / multi-tenant deployments).
 - **Scope.** `federationGroups` (group subtenant instances — SIEM/ADC, full CRUD);
@@ -520,6 +569,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
 ### Wave 21 — Reliability & safety hardening  *(partial — **drift-detection mode** shipped (`secopsctl drift`, the read-only CI gate: pull→commit→drift; reconcilable divergence fails, incomplete listings are "indeterminate" not phantom drift, NoDelete live-only objects are "untracked"/pull-to-adopt) and **request-id surfaced on every error** (`*APIError`/SOAR `Error` carry the server request id from the response headers). **Deferred by decision:** the live version-pin re-probe audit (pins are already validated per-surface + guarded by the golden drift test) and **config secret-at-rest** (the AppKey stays a git-ignored `0600` file — on a headless Linux server the OS keychain (DPAPI/Keychain/libsecret) is usually unavailable, so it would fall back to the same plaintext file).)*
+
 - **Goal.** Production-grade trust (the sweep over the full, expanded surface).
 - **Scope.** Per-endpoint version-pinning audit (the §6 map kept current) — the pins
   now live in one place (`chronicle/versions.go`, the `APIVersions` map) behind the
@@ -539,6 +589,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Docs.** ARCHITECTURE, ROADMAP.
 
 ### Wave 22 — Distribution & operability  *(built — `secopsctl version [--json]` (ldflags-stamped, with a `debug.ReadBuildInfo` VCS fallback so even an un-stamped `go install` reports a commit) + `--version`; `doctor` prints the version line; **CI** workflow (`.github/workflows/ci.yml`: build·vet·test / golangci-lint / govulncheck / semgrep-OSS); **release** workflow (`.github/workflows/release.yml`) + **goreleaser** (`.goreleaser.yaml`, schema v2) producing cross-OS/arch archives, checksums, and a **cosign keyless** checksum signature; shell completions ship via cobra's built-in `completion`; README install/verify section. Cross-compile verified for linux/darwin/windows × amd64/arm64. Remaining (need maintainer infra/action, not code): cut the first `vX.Y.Z` **tag** to fire the release (the exit's "tagged signed release"); brew/scoop taps; man-page generation deferred (avoids a go-md2man dep — `--help` covers usage).)*
+
 - **Goal.** Easy to install and run anywhere.
 - **Scope.** CI (build/test/lint/`govulncheck`/`semgrep`); release binaries
   (goreleaser); `secopsctl version`; shell completions; man pages; `doctor`
@@ -547,6 +598,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 - **Docs.** README, ROADMAP.
 
 ### Wave 23 — Automation & scheduling *(removed — SOAR owns this)*
+
 - **Removed by design.** Operational, recurring automation (case hygiene,
   enrichment, scheduled response) belongs in **SOAR playbooks and jobs**, which run
   on the SOAR engine and which secopsctl already manages *as code* (Wave 7:
@@ -559,6 +611,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   tombstone so the committed sequence does not shift.
 
 ### Wave 24 — Admin & settings management *(SOAR-legacy; raw-lane → typed)*  *(built — **API-key metadata read** promoted to a typed, guarded command: `soar settings api-keys [list]` → `legacy.ListAPIKeys` (`GET /settings/GetApiKeys` — absent from the swagger, confirmed live: GET, not POST). It returns metadata only (id / name / permission-group / SOC-role / environments / created); the secret is **never surfaced** — the list endpoint masks it and the typed `APIKey` drops the field entirely (House Rule 4). Read live-validated (`TestLiveListAPIKeys`) + the no-secret invariant offline (`TestAPIKeyDecodeDropsSecret`). **Create/revoke deferred:** none of `/settings/{Generate,Add,Create,Revoke,Delete}ApiKey` resolves on the external API (all 404), so the create/revoke verbs need the real console request to confirm before wrapping — a create returns the key once, to be shown and never persisted.)*
+
 - **Goal.** Promote useful settings/admin external-API ops — today reachable only via
   the generic `soar legacy call` passthrough — to typed, guarded commands. These live
   under `/api/external/v1` (AppKey) and are frequently **absent from the swagger**
@@ -577,6 +630,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 ---
 
 ## Non-goals
+
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).
   A pre-commit leak guard (`.githooks/pre-commit`) enforces this; when porting
   logic from a private source, bring over only generic, sanitized code.

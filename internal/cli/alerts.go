@@ -15,7 +15,7 @@ import (
 // snapshot view, legacyFetchAlertsView). Read-only here — the alerts SDK also
 // supports feedback updates, gated for a later act layer. The reliable analyst
 // view of a case's alerts is the SOAR lane (`soar case get`); this surfaces the
-// Chronicle alert snapshot directly. See docs/SIEM-DESIGN.md.
+// Chronicle alert snapshot directly. See docs/design/siem.md.
 
 func init() { rootCmd.AddCommand(newAlertsCmd()) }
 

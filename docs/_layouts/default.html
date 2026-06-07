@@ -171,15 +171,33 @@
       <p class="title">~/secops/docs</p>
       <ul>
         <li><a href="{{ '/' | relative_url }}"{% if page.url == '/' or page.url == '/index.html' %} class="on"{% endif %}>Home</a></li>
-        <li><a href="{{ '/USAGE/' | relative_url }}"{% if page.url contains 'USAGE' %} class="on"{% endif %}>Usage</a></li>
+      </ul>
+      <p class="title">guides/</p>
+      <ul>
+        <li><a href="{{ '/guides/install/' | relative_url }}"{% if page.url contains '/guides/install' %} class="on"{% endif %}>Install</a></li>
+        <li><a href="{{ '/guides/configure/' | relative_url }}"{% if page.url contains '/guides/configure' %} class="on"{% endif %}>Configure &amp; auth</a></li>
+        <li><a href="{{ '/guides/the-loop/' | relative_url }}"{% if page.url contains '/guides/the-loop' %} class="on"{% endif %}>The loop</a></li>
+        <li><a href="{{ '/guides/rules/' | relative_url }}"{% if page.url contains '/guides/rules' %} class="on"{% endif %}>Rules</a></li>
+        <li><a href="{{ '/guides/query/' | relative_url }}"{% if page.url contains '/guides/query' %} class="on"{% endif %}>Query</a></li>
+        <li><a href="{{ '/guides/soar-cases/' | relative_url }}"{% if page.url contains '/guides/soar-cases' %} class="on"{% endif %}>SOAR cases</a></li>
+        <li><a href="{{ '/guides/reconcile/' | relative_url }}"{% if page.url contains '/guides/reconcile' %} class="on"{% endif %}>Reconcile surfaces</a></li>
+        <li><a href="{{ '/guides/sdk/' | relative_url }}"{% if page.url contains '/guides/sdk' %} class="on"{% endif %}>Go SDK</a></li>
+        <li><a href="{{ '/guides/usage/' | relative_url }}"{% if page.url contains '/guides/usage' %} class="on"{% endif %}>Command reference</a></li>
+      </ul>
+      <p class="title">design/</p>
+      <ul>
+        <li><a href="{{ '/design/architecture/' | relative_url }}"{% if page.url contains '/design/architecture' %} class="on"{% endif %}>Architecture</a></li>
+        <li><a href="{{ '/design/surfaces/' | relative_url }}"{% if page.url contains '/design/surfaces' %} class="on"{% endif %}>Surfaces</a></li>
+        <li><a href="{{ '/design/catalog/' | relative_url }}"{% if page.url contains '/design/catalog' %} class="on"{% endif %}>Catalog (status)</a></li>
+        <li><a href="{{ '/design/siem/' | relative_url }}"{% if page.url contains '/design/siem' %} class="on"{% endif %}>SIEM</a></li>
+        <li><a href="{{ '/design/soar/' | relative_url }}"{% if page.url contains '/design/soar' %} class="on"{% endif %}>SOAR</a></li>
+        <li><a href="{{ '/design/roadmap/' | relative_url }}"{% if page.url contains '/design/roadmap' %} class="on"{% endif %}>Roadmap</a></li>
+      </ul>
+      <p class="title">reference/</p>
+      <ul>
+        <li><a href="{{ '/tips/' | relative_url }}"{% if page.url contains '/tips' %} class="on"{% endif %}>Tips</a></li>
         <li><a href="{{ '/GLOSSARY/' | relative_url }}"{% if page.url contains 'GLOSSARY' %} class="on"{% endif %}>Glossary</a></li>
-        <li><a href="{{ '/SDK/' | relative_url }}"{% if page.url contains 'SDK' %} class="on"{% endif %}>SDK</a></li>
-        <li><a href="{{ '/ARCHITECTURE/' | relative_url }}"{% if page.url contains 'ARCHITECTURE' %} class="on"{% endif %}>Architecture</a></li>
-        <li><a href="{{ '/CATALOG/' | relative_url }}"{% if page.url contains 'CATALOG' %} class="on"{% endif %}>Catalog</a></li>
-        <li><a href="{{ '/SURFACES/' | relative_url }}"{% if page.url contains 'SURFACES' %} class="on"{% endif %}>Surfaces</a></li>
-        <li><a href="{{ '/SOAR-DESIGN/' | relative_url }}"{% if page.url contains 'SOAR-DESIGN' %} class="on"{% endif %}>SOAR Design</a></li>
-        <li><a href="{{ '/SIEM-DESIGN/' | relative_url }}"{% if page.url contains 'SIEM-DESIGN' %} class="on"{% endif %}>SIEM Design</a></li>
-        <li><a href="{{ '/ROADMAP/' | relative_url }}"{% if page.url contains 'ROADMAP' %} class="on"{% endif %}>Roadmap</a></li>
+        <li><a href="{{ '/STYLE/' | relative_url }}"{% if page.url contains 'STYLE' %} class="on"{% endif %}>Doc style</a></li>
       </ul>
       <div class="foot"><a href="https://github.com/dannyota/secops">&#8599; GitHub repo</a></div>
     </nav>

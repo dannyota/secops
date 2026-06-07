@@ -1,10 +1,9 @@
 # Architecture
 
-How `secopsctl` works, independent of any one surface. Product specifics are in
-[SOAR-DESIGN.md](SOAR-DESIGN.md) / [SIEM-DESIGN.md](SIEM-DESIGN.md); what exists
-and its status is in [CATALOG.md](CATALOG.md). Unfamiliar with a term
-(*plane*, *lane*, *reconcile*, *canonical*, *etag*)? See the
-[Glossary](GLOSSARY.md).
+How `secopsctl` works, independent of any one surface. Product specifics live in
+[soar.md](soar.md) / [siem.md](siem.md); what exists and its status is in
+[catalog.md](catalog.md). New to a term (*plane*, *lane*, *reconcile*,
+*canonical*, *etag*)? See the [glossary](../GLOSSARY.md).
 
 ## 1. Two planes
 
@@ -24,11 +23,30 @@ detection rule. One CLI, two models.
 
 A single product-neutral engine (`internal/mirror/reconcile`, imports no SDK)
 drives every config surface. A surface is a declarative descriptor; the engine
-does the orchestration.
+does the orchestration: **pull** reads live state to files, **diff** classifies,
+**push** applies create/update/delete.
+
+```mermaid
+flowchart LR
+  live[("live instance")]
+  files[("local files · git")]
+  live -- "pull · List → Write" --> files
+  files -- "LoadDir" --> plan
+  live -- "List" --> plan{{"diff (by ServerID,<br/>canonical bytes)"}}
+  plan -- "local-only" --> c["Create"]
+  plan -- "id matches,<br/>canonical differs" --> u["Update (overlay)"]
+  plan -- "live-only" --> d["Delete · --prune only"]
+  plan -. "equal" .-> x["Unchanged"]
+  c --> live
+  u --> live
+  d --> live
+```
+
+The descriptor: closures the caller fills with the SDK; the engine never sees it.
 
 ```
 Surface{ Name, Dir, Caps,
-         List(ctx)→[]Object,            // live state
+         List(ctx)→ListResult,          // live state (+ Incomplete flag)
          LoadDir(dir)→[]Object,         // local files
          Write(dir,Object),             // pull writer
          Create/Update/Delete(...) }    // the CUD ops
@@ -73,6 +91,16 @@ selector-only response is not.
 | **operational** | live data: query a subset, act on it | query + act commands (§4) |
 | **skip** | runtime/UI/telemetry, singletons, auth topology | not modeled |
 
+```mermaid
+flowchart TD
+  s["a SecOps surface"] --> q{"response shape?"}
+  q -- "per-object CUD<br/>(stable id, read≈write,<br/>delete-by-id)" --> r["reconcile · engine + Surface"]
+  q -- "batch / bundle /<br/>selector-only · read≠write" --> raw["raw · soar legacy call"]
+  q -- "per-entity verb,<br/>no desired-state file" --> imp["imperative · command tree"]
+  q -- "live data:<br/>query → review → act" --> op["operational · query + act"]
+  q -- "runtime / UI / singleton" --> sk["skip · not modeled"]
+```
+
 The engine **enforces** the boundary: a batch/bundle/selector endpoint cannot
 register as a reconcile surface. When the swagger response is grouped/nested or
 the write body is an array, it's `raw`, not `reconcile`.
@@ -116,7 +144,7 @@ operator model and its **safety**.
   **verify SDK signatures by hand** (the spec agents are imprecise) → wire the
   Surface/command → **live read-validate** (pull round-trips clean) → **gated write
   smoke** on a uniquely-labeled, inert, self-deleting throwaway. No `--yes` path is
-  trusted until that smoke passes. Status lands in [CATALOG.md](CATALOG.md).
+  trusted until that smoke passes. Status lands in [catalog.md](catalog.md).
 
 ## 6. API versions — per endpoint, tested not guessed
 
@@ -134,7 +162,7 @@ responding, change the const to the version that works and update this table.
 | SIEM reporting — `metricDefinitions` · `dashboardScheduledReports` | `v1alpha` | 🔨 | `DefaultAPIVersion`. metricDefinitions is **feature-gated 403** (not enabled/GA on the tenant); scheduledReports **reads OK**, create-report backend **500s** server-side. Both on the engine, offline-tested |
 | SIEM governance — `dataTaps` · `errorNotificationConfigs` · `enrichmentControls` | `v1alpha` | 🔨 (dataTaps ✅) | `DefaultAPIVersion`. **dataTaps write-validated** (PATCH 501 → update = delete+recreate); the other two **feature-gated 403**. dataTaps supersedes the Backstory endpoint — same chronicle host |
 | MSSP — `federationGroups` · `tenants` · `multitenantDirectory` (chronicle) · `legacySoarIdpMappingGroups` (**SOAR host**) | `v1alpha` | 🔨 (directory ✅, idp-mappings ✅) | federationGroups/tenants 403 on a single tenant; multitenantDirectory read-validated. **legacySoarIdpMappingGroups 500s on chronicle, answers on the SOAR host** (AppKey) — a two-host surface, lives in `soar/` |
-| Chronicle **cases** (UUID) API on the **chronicle host** — get/list/patch/merge/bulk | all (v1/v1beta/v1alpha) | ⛔ | **alternate, unused path** for the cases function. The chronicle.googleapis.com cases collection **500s at every version** (server-side), so no version is pinned. The **modern cases that DO work are on the SOAR host** (`soar.ListCases`, v1alpha — `soar case list` uses it by default); operational case work uses the SOAR AppKey lane. The cases function is **not** blocked — this `⛔` is only this dead chronicle path. One case, multiple APIs |
+| Chronicle **cases** (UUID) API on the **chronicle host** — get/list/patch/merge/bulk | `v1beta` segment (collection 500s at every version) | ⛔ | **alternate, unused path** for the cases function. The chronicle.googleapis.com cases collection **500s at every version** (server-side); the `v1beta` segment (`caseAPIVersion`, mapped `cases_chronicle_alt`→v1beta in `versions.go`) is a **non-working pin** kept only so the alternate path can be exercised, not a validated version. The **modern cases that DO work are on the SOAR host** (`soar.ListCases`, v1alpha — `soar case list` uses it by default); operational case work uses the SOAR AppKey lane. The cases function is **not** blocked — this `⛔` is only this dead chronicle path. One case, multiple APIs |
 | SIEM legacy case reads — `legacy:legacyListCases` · `legacyBatchGetCases` | `v1alpha` | ⛔ list · ✅ bridge | `legacyListCases` 404 (⛔, that one path only); `legacyBatchGetCases` is the working SOAR-int ⇄ SIEM-uuid bridge |
 | SOAR legacy — `/api/external/v1/…` (**cases** · connectors · jobs · settings · playbooks bridge) | external `v1` · AppKey | ✅ | the reliable path — **incl. the working operational case lane** (`GetCaseCardsByRequest`, `GetCaseFullDetails` → alerts, `ExecuteBulkCloseCase`, `ChangeCasePriority`) |
 | SOAR modern — integrations · connectors · jobs · grouping · cases · Content Hub · environments · socRoles · customLists · case*Definitions | `v1alpha` only | 🔨 (cases ✅) | **SOAR host serves v1alpha ONLY** — v1/v1beta 404 for every surface. **cases is live-validated** here (`soar.ListCases`, the default for `soar case list`); the rest are built. The v1>v1beta>v1alpha preference is a **chronicle-host** concern; the SOAR host stays v1alpha |
@@ -157,11 +185,12 @@ disagree, so §6 and the code can't drift apart silently.
 ## 7. Surface taxonomy & registry
 
 Every API family has one home: a **plane** `(host, auth)` and a **lane**. The full
-inventory and the SIEM-vs-SOAR split live in [SURFACES.md](SURFACES.md); this section
+inventory and the SIEM-vs-SOAR split live in [surfaces.md](surfaces.md); this section
 is the design behind it.
 
 **Two orthogonal axes.** Don't conflate them:
-- **Plane** (*product + transport*, SURFACES.md): **SIEM** (`chronicle.googleapis.com`,
+
+- **Plane** (*product + transport*, surfaces.md): **SIEM** (`chronicle.googleapis.com`,
   ADC), **SOAR-legacy** (`*.siemplify-soar.com` `/api/external/v1`, AppKey — reliable),
   **SOAR-modern** (`*.siemplify-soar.com` v1alpha, AppKey — flaky).
 - **Lane** (*how it's modeled*, §3): reconcile / raw / imperative / operational / skip.
@@ -190,7 +219,7 @@ entry in `internal/mirror/surface_families.go`:
 SurfaceFamily{ Name, Area, Plane, Host, Auth, Generation, APIVersion, Lane, Status, SDKLocation }
 ```
 
-`Area` is the by-function grouping in [CATALOG.md](CATALOG.md) (SIEM / SOAR / Other);
+`Area` is the by-function grouping in [catalog.md](catalog.md) (SIEM / SOAR / Other);
 `Generation` is the New-vs-Legacy axis. SIEM `APIVersion` is **sourced from**
 `chronicle.APIVersions` (`chronicle/versions.go`), so the registry can't disagree
 with the SDK's actual pins. A drift-guard test (`surface_families_test.go`) asserts

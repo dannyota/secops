@@ -3,7 +3,7 @@
 // threatCollections is the Google/Mandiant threat-intelligence catalog the tenant
 // is matched against: campaigns, reports, threat actors, malware families and
 // vulnerabilities. It is upstream-sourced, so there is no write path — this is an
-// operational read surface (query → review). See docs/SURFACES.md.
+// operational read surface (query → review). See docs/design/surfaces.md.
 
 package chronicle
 

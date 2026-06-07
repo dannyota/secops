@@ -1,11 +1,10 @@
-# SIEM design — two planes: config-as-code + operational query/act
+# 📐 SIEM design — two planes: config-as-code + operational query/act
 
 Design for the Google SecOps **SIEM** surface of `secopsctl`. SIEM splits into two
-planes that need fundamentally different models. Per-surface status lives in
-[CATALOG.md](CATALOG.md); the cross-cutting engine and version model are in
-[ARCHITECTURE.md](ARCHITECTURE.md); unfamiliar terms are defined in
-[GLOSSARY.md](GLOSSARY.md). All identifiers here are placeholders; the public repo
-stays tenant-neutral.
+planes that need different models: config is *desired state* (reconciled from
+files), operational is *live data* (queried and acted on). Per-surface status is in
+[catalog.md](catalog.md); the engine and version model are in
+[architecture.md](architecture.md); terms are defined in [GLOSSARY.md](../GLOSSARY.md).
 
 > **The split.** **Config** is *desired state* — rules, lists, tables, parsers,
 > feeds, dashboards. It's detection-as-code: **pull → review in `git diff` →
@@ -13,28 +12,36 @@ stays tenant-neutral.
 > You don't reconcile a case from a file; you **query a subset and act on it**,
 > the way a SOC analyst triages. Two planes, two models, one CLI.
 
-```
-secopsctl
-├── CONFIG plane  (desired state, files, git)        pull → diff → push  (reconcile)
-│     rules · reference_lists · data_tables · feeds · parsers · dashboards · curated …
-│
-└── OPERATIONAL plane  (live data, no files)          query → review → act
-      events (read-only) · alerts (triage) · cases (triage) · entities/iocs (enrich)
+```mermaid
+flowchart TB
+  subgraph CONFIG["⚙️ config plane — desired state · files · git"]
+    direction LR
+    pull[("live instance")] -- "pull · read" --> files[("local files")]
+    files -- "git diff → push · reconcile" --> pull
+    cfgs["rules · reference_lists · data_tables · feeds<br/>parsers · dashboards · curated · rule_exclusions …"]
+  end
+  subgraph OPER["🔭 operational plane — live data · no files"]
+    direction LR
+    q["query"] --> r["review"] --> a["act · --yes"]
+    surf["events (read-only) · alerts (triage)<br/>cases (triage) · entities / iocs / ti (enrich)"]
+  end
+  CONFIG -. "one CLI · two models" .- OPER
 ```
 
-Auth note: the SIEM API is served by `chronicle.googleapis.com` and needs ADC /
-`SECOPS_ACCESS_TOKEN` (the SOAR AppKey does **not** work here). The Chronicle
-v1alpha REST surface can **HTTP-500 intermittently**; secopsctl surfaces a clean
-error on 500 and never retries a mutation (risk of double-apply). See `CLAUDE.md`.
+Auth: the SIEM API is served by `{region}-chronicle.googleapis.com` and needs ADC /
+`SECOPS_ACCESS_TOKEN` (the SOAR AppKey does **not** work here). The Chronicle REST
+surface can **HTTP-500 intermittently**; secopsctl surfaces a clean error on 500 and
+never retries a mutation (risk of double-apply). See `CLAUDE.md`.
 
 ---
 
-## Plane 1 — Config as code (reconcile)
+## Plane 1 — config as code (reconcile)
 
-The user's framing: *"rules, curated rules, dashboards, etc. — similar things."*
-They are. This plane **reuses the proven product-neutral reconcile engine**
-(`internal/mirror/reconcile`, already shipped for SOAR + SIEM `reference_lists`):
-identity + canonical diff + redaction + additive/`--prune` guard.
+Rules, curated rules, dashboards, etc. are similar things. This plane **reuses the
+product-neutral reconcile engine** (`internal/mirror/reconcile`, shared with SOAR):
+identity + canonical diff + redaction + additive/`--prune` guard. The SIEM surfaces
+are registered in `internal/mirror/registry_siem.go`; each lives in its own
+`*_surface.go`. Status per surface is the source of truth in [catalog.md](catalog.md).
 
 | Surface | Shape | Plan |
 |---|---|---|
@@ -46,12 +53,14 @@ identity + canonical diff + redaction + additive/`--prune` guard.
 | `dashboards` (native) | typed, charts as JSON | **done** (engine, `pull`/`push dashboards`): CUSTOM only (CURATED excluded as read-only); one `<slug>.json` (config + `_server`), charts inline under `definition.charts` replaced wholesale on update; `access` immutable after create. Canonical strips `createUserId`/`updateUserId`/`dashboardUserData` + the root resource `name` (identity in ServerID); nested chart/filter ids are stable across reads so they need no stripping. `pull` re-pointed from export-envelope → config. Read live-validated; gated write smoke. NB: the full-view List can rate-limit (429) on instances with many dashboards — the write smoke drives the surface closures directly rather than repeatedly listing |
 | `curated` / `curated_rules` | Google-managed (read-mostly) | **done** (imperative `curated list`/`set`, NOT reconcile): the catalog is fixed (no create/delete) and the batch write body is an array, so it's the imperative lane, not the engine. `set` toggles `enabled`/`alerting` per (category, rule set, precision precise\|broad) via a guarded single PATCH (new `chronicle/curated_write.go`, updateMask-driven). Live-validated via a guarded enable→disable toggle that restores prior state. Rule **exclusions** are their own `rule_exclusions` reconcile surface (findingsRefinements, full CUD) — separate from curated |
 | `rule_exclusions` (findings refinements) | typed: display_name + type + UDM query | **done** (engine, `pull`/`push rule_exclusions`): Create + Update (PATCH/updateMask); NoDelete (no delete API), NoEtag; deployment toggle out of the diff basis. Read + write live-validated (create→update→archive); no hard delete exists — **archive** (deployment `archived=true`) is the documented teardown. This is the "exclusions" the curated row points to |
-| `watchlists`, `forwarders`, `log_pipelines` | typed | engine surfaces where per-object CUD fits |
+| `forwarders` | typed `.yaml` (config block) | **done** (engine, `push forwarders` + `drift forwarders`; no `pull` target): config replaced wholesale on PATCH; NoEtag, **prune-eligible**; pinned **v1beta** (v1 404s). Write smoke `TestLiveReconcileForwarderWriteSmoke` (create→update→delete, self-cleaning). Collectors are a separate nested resource. `internal/mirror/forwarders_surface.go` |
+| `watchlists`, `log_pipelines` | typed | future engine surfaces where per-object CUD fits |
 | `metric_definitions` (custom SOC metrics) | typed: id + state + YARA-L `text_definition` | **built** (engine, `pull`/`push metric_definitions`): additive — create + state-only patch (textDefinition **immutable**, a text edit is refused → change = new id), **no delete API** (NoDelete). Offline-tested; **feature-gated 403 on the tenant** (not enabled/GA), so not live-validated. `chronicle/metrics.go` |
 | `scheduled_reports` (`dashboardScheduledReports`) | JSON body + `_server` id/etag | **built** (engine, `pull`/`push scheduled_reports`): full CRUD with etag, prune-eligible; the embedded `dashboard` is reduced to its `{name}` reference (managed separately); imperative `trigger`/`duplicate`/`fetchHistory` in the SDK. **Reads live-validated**; create-report backend **500s** server-side (the ref shape is accepted). `chronicle/scheduled_reports.go` |
 | `datataps` (`dataTaps`) | typed: display_name + filter + serialization_format + topic | **write-validated** (engine, `pull`/`push datataps`): stream UDM → Cloud Pub/Sub; prune-eligible, NoEtag. PATCH is **501 UNIMPLEMENTED** → update = **delete-old + create-new**. Supersedes the legacy Backstory endpoint (same chronicle host). Live tap needs a Pub/Sub topic + publisher grant. `chronicle/datataps.go` |
 | `error_notifications` (`errorNotificationConfigs`) | JSON body + `_server` id | **built** (engine, `pull`/`push error_notifications`): ingestion-health alerts → Cloud Monitoring channels; full CRUD, prune-eligible, NoEtag; updateMask derived from present keys. Offline-tested; **feature-gated 403**. `chronicle/error_notifications.go` |
 | `enrichment_controls` (`enrichmentControls`) | imperative (no patch) | **built** (SDK only): disable a UDM enrichment per log type / enrichment type. Create appends a record, `:disable` closes the latest — so imperative, not reconcile. **Feature-gated 403**. `chronicle/enrichment_controls.go` |
+| `federation_groups` (data-federation groups) | typed: display_name + member tenants | **built** (engine, `pull`/`push federation_groups`): full CUD — Create + Update (PATCH), delete is **prune-eligible**, NoEtag. Meaningful only on MSSP / multi-tenant instances; offline-tested. `internal/mirror/federation_surface.go` |
 
 **Discipline (same as SOAR, proven):** workflow-spec the shape → verify SDK
 signatures by hand → wire as a `reconcile.Surface` → **live read-validate** →
@@ -63,19 +72,31 @@ is live-validated.
 
 ---
 
-## Plane 2 — Operational query/act (the SOC workflow)
+## Plane 2 — operational query/act (the SOC workflow)
 
-This is the part that needs the new design. Events/alerts/cases are **live
-security data**, not desired state. The loop is **query → review → act on each or
-a subset** — exactly how an analyst triages. The SDK is largely already built;
-this plane is about the *operator model* and *safety*, not new API code.
+Events/alerts/cases are **live security data**, not desired state. The loop is
+**query → review → act on each or a subset** — how an analyst triages. The SDK is
+built; this plane is the *operator model* and *safety*, not new API code.
 
-### The three act surfaces (and one read-only)
+```mermaid
+stateDiagram-v2
+  [*] --> query
+  query --> review : list / get (read-only)
+  review --> act_one : per-item
+  review --> act_subset : reviewed --ids / --filter
+  act_one --> dryrun
+  act_subset --> dryrun
+  dryrun --> applied : --yes
+  dryrun --> review : abort
+  applied --> [*]
+```
+
+### The act surfaces (and the read-only ones)
 
 | Surface | Query (read) | Act (mutate) | Mutability |
 |---|---|---|---|
 | **events (UDM)** | `SearchUDM` / `NLSearch` / `GetStats` / `FindUDMFieldValues` | — | immutable telemetry — **read-only, never mutate** |
-| **alerts** | `GetAlerts` (list) · `GetAlert` · `ListDetections` · `SearchRuleAlerts` | `UpdateAlert` · `BulkUpdateAlerts` (status / verdict / priority / reason / comment) | per-item + subset |
+| **alerts** | `GetAlerts` (`alerts list`) · `GetAlert` (`alerts get`) — read-validated | `UpdateAlert` · `BulkUpdateAlerts` (status / verdict / priority / reason / comment) — built + gated, not run | per-item + subset |
 | **cases** (one case; operated via `soar case`, see below) | `soar.ListCases` (siemplify v1alpha) · Legacy `GetCaseFullDetails` (case + its alerts) | Legacy verbs: assign · rename · stage · tag/untag · describe · importance · close · merge | per-item + subset |
 | **entities / IoCs** | `SummarizeEntity` · `ListIoCs` · `FetchAssociatedInvestigations` | — | enrichment — read-only |
 | **threat intel** | `ListThreatCollections` · `GetThreatCollection` (`ti collections`/`collection`) | — | Mandiant-sourced — **read-only** (no write path) |
@@ -104,7 +125,7 @@ this plane is about the *operator model* and *safety*, not new API code.
 > | id | integer (e.g. `234`) | integer (e.g. `234`) | UUID (resource name) |
 > | api · auth · version | modern `cases` · AppKey · **v1alpha** | `/api/external/v1/cases` · AppKey | v1/v1beta/v1alpha `cases` · ADC |
 > | today | **live-validated** | mature, **reliable**, complete | 500s at every version |
-> | CLI | `soar case list` (default) | `soar case list`/`get` · `soar case <verb>` | — |
+> | CLI | `soar case list` (default) | `soar case list`/`get` · `soar case <verb>` | `cases list`/`get`/`search` (alternate, 500s) |
 >
 > Same case, two ids — `soarPlatformInfo.caseId` bridges them when you need to
 > correlate across paths. Use `soar case` for all case work; the chronicle-host
@@ -117,18 +138,22 @@ Every list/search command shares: a **filter**, a **time window**, a **limit**,
 
 ```
 secopsctl query udm '<udm filter>' [--hours N | --from TS --to TS] [--limit N] [--json]   # events (built)
-secopsctl search nl  '<question>'   [--hours N] [--limit N] [--json]                       # NL → UDM → search (planned)
-secopsctl stats      '<query>'      [--hours N]                                            # aggregations (planned)
-secopsctl alerts list   [--filter EXPR] [--hours N] [--state OPEN|CLOSED] [--limit N] [--json]   # planned
-secopsctl soar case list [--status OPENED|CLOSED] [--limit N] [--json]                     # cases (built)
+secopsctl alerts list [--query EXPR] [--hours N | --from TS --to TS] [--limit N] [--json]  # alerts snapshot (built, read)
+secopsctl alerts get  <alert-id> [--detections] [--json]                                   # one alert (built, read)
+secopsctl soar case list [--status open|closed|all] [--limit N] [--json]                   # cases (built, default open)
+secopsctl iocs find <value> [value…] [--type md5|sha1|sha256|domain|ip] [--json]           # IoC lookup (built, read)
+secopsctl iocs get  <ioc-id> [--json]                                                      # one IoC (built, read)
+secopsctl ti collections [--types campaign,report,…] [--limit N] [--json]                  # threat intel (built, read)
+secopsctl search nl '<question>'   [--hours N] [--limit N] [--json]                        # NL → UDM → search (planned)
+secopsctl stats     '<query>'      [--hours N]                                             # aggregations (planned)
 secopsctl entity summarize <ip|domain|hash|user> <value> [--hours N]                       # planned
-secopsctl iocs   list   [--prioritized] [--hours N] [--limit N] [--json]                   # SDK only (no CLI yet)
 ```
 
 - **Default output is a compact table** (id, key fields, status/time) for humans;
   `--json` emits the raw objects for scripting and **piping into an act command**.
-- **`--limit` is mandatory-with-a-default** (e.g. 100) so a query never pulls the
-  whole tenant by accident; large pulls require an explicit large `--limit`.
+- **`--limit` is mandatory-with-a-default** (e.g. 100 for alerts/cases; 10000 for
+  `query udm`) so a query never pulls the whole tenant by accident; large pulls
+  require an explicit large `--limit`.
 
 ### The act model — single + subset, **safe by construction**
 
@@ -138,6 +163,7 @@ default**, real apply needs `--yes`.
 
 **1. Per-item** — unambiguous, low blast radius. Case verbs are **built today**
 under `soar case` (Legacy AppKey, live-validated); `alerts` is the planned model:
+
 ```
 secopsctl alerts update <id> --verdict FALSE_POSITIVE --priority LOW [--comment "…"]   # planned
 secopsctl soar case describe --id N --description "triaged: benign"                    # built
@@ -148,6 +174,7 @@ secopsctl soar case close    --id N --reason "<…>" --root-cause "…"         
 **2. Subset (bulk)** — the dangerous one; two selection paths, **safest first**:
 
 - **Reviewed-ids (preferred).** Query → eyeball → act on the *explicit* set:
+
   ```
   secopsctl alerts list --filter '…' --json | jq -r '.[].id' > ids.txt   # review the set
   secopsctl alerts bulk close --ids @ids.txt --reason FALSE_POSITIVE --yes
@@ -159,6 +186,7 @@ secopsctl soar case close    --id N --reason "<…>" --root-cause "…"         
   **dry-run-first, always**: it prints the **match count + a sample** and refuses
   to mutate until re-run with `--yes`, and a **`--limit` caps the blast radius**
   (refuse if the match set exceeds it unless `--limit` is raised explicitly):
+
   ```
   secopsctl <bulk verb> --filter 'rule="<noisy>" AND priority=LOW' --reason FALSE_POSITIVE --dry-run
     → "MATCHES 412 cases (cap 100). Sample: …. Re-run with --yes --limit 500 to apply."
@@ -173,16 +201,17 @@ as a config `push`.
 
 ### Command tree
 
-*Designed shape, mixing built and planned. **Built today:** `query udm`, the full
-`soar case` lifecycle (`list`/`get` + the mutate verbs), and `soar push bulk-close`.
-The `alerts …` namespace and the generalized SIEM `cases bulk` model are planned, not
-yet wired. The bare `cases list/get/search` command reaches the chronicle-host UUID
-path, which 500s today — prefer `soar case`. Authoritative per-command status is in
-[CATALOG.md](CATALOG.md).*
+*Designed shape, mixing built and planned. **Built today:** `query udm`, `alerts
+list`/`get`, `iocs find`/`get`, `ti collections`/`collection`, the full `soar case`
+lifecycle (`list`/`get` + the mutate verbs), and `soar push bulk-close`. The `alerts`
+**act** verbs (`update`/`bulk`) and the generalized SIEM bulk model are planned. The
+bare `cases list/get/search` command reaches the chronicle-host UUID path, which 500s
+today — prefer `soar case`. Authoritative per-command status is in
+[catalog.md](catalog.md).*
 
 ```
-secopsctl query udm | search nl | stats | iocs list | entity summarize          # read
-secopsctl alerts    list | get | update | bulk <close|verdict|priority|comment>  # planned
+secopsctl query udm | alerts list/get | iocs find/get | ti collections | entity summarize   # read
+secopsctl alerts    update | bulk <close|verdict|priority|comment>                           # act (planned)
 secopsctl soar case list | get | assign | rename | stage | tag | untag | describe | importance | close | merge
 secopsctl soar push bulk-close                                                   # queue bulk-close (fixed reason)
 ```
@@ -217,7 +246,7 @@ verbs take). Cases key on an **integer** id (`--id N`), not a UUID.
 
 ```
 # query
-secopsctl soar case list  [--status OPENED|CLOSED] [--limit N] [--json]   # New API, Legacy fallback
+secopsctl soar case list  [--status open|closed|all] [--limit N] [--json] # New API, Legacy fallback (default open)
 secopsctl soar case get <id>                                              # case + its alerts (Legacy)
 
 # per-item act (guarded: dry-run default, --yes to apply)
@@ -239,17 +268,19 @@ The mutate verbs and `merge` run through the Legacy case methods (`AssignUserToC
 they reuse the same LIVE banner + dry-run/`--yes` guard as `push`. The whole lifecycle
 is live-validated end-to-end (`TestLiveSOARCaseVerbsWriteSmoke`: create two throwaway
 cases → run every verb → merge → close). Status detail is in
-[SOAR-DESIGN.md](SOAR-DESIGN.md) and [CATALOG.md](CATALOG.md).
+[soar.md](soar.md) and [catalog.md](catalog.md).
 
-### Still planned — the generalized bulk model and `alerts`
+### Still planned — alert act verbs and the generalized bulk model
 
-Two pieces of the operator model above are **not yet wired**: the subset-act model
-on a SIEM-native namespace (reviewed-`--ids` preferred, `--filter` gated dry-run-first
-and `--limit`-capped — beyond today's fixed-reason `soar push bulk-close`), and the
-`alerts` namespace as a first-class CLI (the standalone Chronicle alerts SDK exists;
-operators currently read alerts as a **field of the case** via `soar case get`). Both
-follow the same guard: read + `--dry-run` previews ship first, and no `--yes` bulk
-mutation is trusted until a gated live smoke runs against an inert throwaway.
+The `alerts` **read** namespace is wired (`alerts list`/`get`, read-validated;
+operators can also read alerts as a **field of the case** via `soar case get`). Two
+pieces of the operator model above are **not yet wired**: the alert **act** verbs
+(`alerts update`/`bulk` — `UpdateAlert`/`BulkUpdateAlerts` exist in the SDK, gated,
+not run), and the generalized subset-act model on a SIEM-native namespace
+(reviewed-`--ids` preferred, `--filter` gated dry-run-first and `--limit`-capped —
+beyond today's fixed-reason `soar push bulk-close`). Both follow the same guard: read
++ `--dry-run` previews ship first, and no `--yes` bulk mutation is trusted until a
+gated live smoke runs against an inert throwaway.
 
 ## Non-goals
 

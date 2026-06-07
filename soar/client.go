@@ -8,7 +8,7 @@
 // here imports that subpackage.
 //
 // SOAR authenticates with an AppKey (auth.SOARAppKey) on the tenant SOAR host,
-// never ADC. See docs/SOAR-DESIGN.md for the full design and the three tiers.
+// never ADC. See docs/design/soar.md for the full design and the three tiers.
 package soar
 
 import (

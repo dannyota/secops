@@ -6,18 +6,19 @@ operational SOAR usage. Two facts drive it:
 > **1 · The AppKey legacy API is the backbone, not a quarantine.** The *modern*
 > v1alpha SOAR methods are new, 500 intermittently, and cover little; the AppKey
 > `/api/external/v1` surface is reliable and by far the most complete, so it is what
-> the operator-facing **reconcile engine** runs on (`soar/legacy/` — ~90 files, a
-> durable SDK). Only the genuinely transitional `legacyPlaybooks:legacy*` *bridge*
+> the operator-facing **reconcile engine** runs on (`soar/legacy/` — ~60 source files
+> (~95 with tests), a durable SDK). Only the genuinely transitional
+> `legacyPlaybooks:legacy*` *bridge*
 > is "delete when the native API ships."
 >
 > **2 · Every surface is exactly one lane** — reconcile (per-object CUD), imperative
 > (per-entity verbs, no file), or raw (batch/bundle/selector passthrough). The
 > engine + lane model is product-neutral and lives in
-> [ARCHITECTURE.md](ARCHITECTURE.md); this doc is SOAR specifics. Live status per
-> surface is in [CATALOG.md](CATALOG.md). Each surface's home (host · auth ·
+> [architecture.md](architecture.md); this doc is SOAR specifics. Live status per
+> surface is in [catalog.md](catalog.md). Each surface's home (host · auth ·
 > generation · version · lane · SDK location) is declared in the code registry
 > `internal/mirror/surface_families.go`, with a drift-guard test that keeps it in
-> step with CATALOG and ARCHITECTURE §6.
+> step with the catalog and architecture §6.
 
 All identifiers here are placeholders (`<tenant>`, `<num>`, `<reg>`, `<id>`) — the
 public repo stays tenant-neutral; real values come from config/env at runtime.
@@ -31,7 +32,7 @@ reconcile):
 | Lane | Mechanism | SOAR surfaces |
 |---|---|---|
 | **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **16**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) · `connectors` · `jobs`. (`form-dynamic-parameters` is deferred — its PUT update is unsafe; see CATALOG) |
-| **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar integration` · `soar settings` | cases: `list` (New API — siemplify v1alpha, auto-falls back to the Legacy queue) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `integration list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`); **API-key metadata** read: `settings api-keys [list]` (`GET /settings/GetApiKeys`, typed, metadata only — the secret is masked by the server and dropped by the typed view; create/revoke deferred until the console request confirms those endpoints) |
+| **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar integration` · `soar settings` | cases: `list` (New API — siemplify v1alpha; the CLI auto-falls back to the Legacy queue on error) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `integration list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`); **API-key metadata** read: `settings api-keys [list]` (`GET /settings/GetApiKeys`, typed, metadata only — the secret is masked by the server and dropped by the typed view; create/revoke deferred until the console request confirms those endpoints) |
 | **raw** (batch upserts / bundles / selector reads) | `soar legacy call <op>` | integrations (reads) · ontology-mapping (selector read + batch upsert + body delete) · environment-priorities · permissions · system/singleton settings · … |
 
 Commands:
@@ -45,7 +46,7 @@ Commands:
 The operational loop is **`soar case list` → review → `soar case get <id>` → act**
 (a mutate verb or `soar push bulk-close`). Per-surface identity, capabilities (NoDelete /
 WholeBodyWrite / PruneEligible) and read/write validation are in
-[CATALOG.md](CATALOG.md). `PruneEligible` (a clean, low-blast delete-by-id, so
+[catalog.md](catalog.md). `PruneEligible` (a clean, low-blast delete-by-id, so
 `--prune` may delete server-only objects) is set on `webhooks`, `connectors`,
 `visual-families`, and `networks`; every other surface is additive/NoDelete by design — its delete takes a body selector, or is high-blast
 (an environment orphans its cases) or RBAC/SSO-sensitive (`idp` has a clean by-id
@@ -55,11 +56,38 @@ delete but pruning a forgotten mapping would silently revoke a group's access).
 
 The lane table above is what an operator drives; this is the transport reality the
 lanes ride on. SOAR uses one host (`https://<tenant>.siemplify-soar.com`) with
-**one AppKey and no ADC**, across three tiers:
+**one AppKey and no ADC**, across three tiers. Two cross-id RPC reads sit on the
+Chronicle host (ADC) — same `legacy:` path segment, different host and auth:
+
+> **Finding the host.** The tenant SOAR host isn't in the public docs. Sign in to
+> the SecOps Web UI, open browser dev-tools → **Network**, and read it off the
+> captured SOAR requests (`https://<tenant>.siemplify-soar.com`); that value is
+> `soar_url`. Steps in the [configure guide](../guides/configure.md).
+
+```mermaid
+flowchart TB
+  cli["secopsctl soar"]
+
+  subgraph siem["siemplify host · AppKey · no ADC · v1alpha-only"]
+    modern["Modern (New API)<br/>v1alpha native: cases · integrations<br/>connectors · jobs · grouping<br/>/v1alpha/…/instances/ID"]
+    bridge["Bridge 🟠<br/>legacyPlaybooks:legacy*<br/>(v1alpha host, legacy op names)"]
+    legacy["Legacy AppKey ✅ — backbone<br/>/api/external/v1 · offset paging<br/>reconcile engine + case verbs"]
+  end
+
+  subgraph chr["chronicle host · ADC/OAuth"]
+    rpc["New-API RPC reads<br/>legacy:legacyFindRawLogs<br/>legacy:legacyBatchGetCases<br/>(SOAR int-id ⇄ SIEM uuid)"]
+  end
+
+  cli --> modern
+  cli --> bridge
+  cli --> legacy
+  cli --> rpc
+  modern -. "fall back on error" .-> legacy
+```
 
 | Tier | Surface | Transport | Lifecycle |
 |---|---|---|---|
-| **Modern** (New API) | v1alpha native on the **siemplify** domain: integrations · connectors · jobs · alertGroupingRules · moduleSettings · cases | `/v1alpha/projects/<num>/…/instances/<id>` + `?format=camel` + `x-goog-api-version` + `updateMask` | siemplify serves **v1alpha only**. Validated where it adds something Legacy lacks — **cases `list`** runs here (`soar.ListCases`, auto-falls back to the Legacy queue) and the Content Hub / integration reads. **Connectors/jobs config-as-code runs on the Legacy AppKey reconcile engine;** `alertGroupingRules`/`moduleSettings` stay here via `soar pull grouping` |
+| **Modern** (New API) | v1alpha native on the **siemplify** domain: integrations · connectors · jobs · alertGroupingRules · moduleSettings · cases | `/v1alpha/projects/<num>/…/instances/<id>` + `?format=camel` + `x-goog-api-version` + `updateMask` | siemplify serves **v1alpha only**. Validated where it adds something Legacy lacks — **cases `list`** runs here (`soar.ListCases`; the CLI wraps it in `preferModern` to auto-fall back to the Legacy queue) and the Content Hub / integration reads. **Connectors/jobs config-as-code runs on the Legacy AppKey reconcile engine;** `alertGroupingRules`/`moduleSettings` stay here via `soar pull grouping` |
 | **Bridge** 🟠 | `legacyPlaybooks:legacy*` (list/get/save/attach/stats) | v1alpha host, **legacy op names** | the one genuine *quarantine*: delete when native v1alpha **playbook CRUD** ships |
 | **Legacy AppKey** ✅ | Siemplify external API — the broad, reliable surface the **reconcile engine** runs on | `/api/external/v1/…` (offset paging) | **durable backbone**, not slated for removal |
 
@@ -106,7 +134,7 @@ danny.vn/secops/
     │     grouping.go      alertGroupingRules · moduleSettings(:batchUpdate)
     │     cases.go         cases   (v1alpha listing)
     │
-    └── soar/legacy/   ── DURABLE AppKey SDK (~90 files) — backs the reconcile engine ──
+    └── soar/legacy/   ── DURABLE AppKey SDK (~60 source files) — backs the reconcile engine ──
           ─ reliable Siemplify external API (/api/external/v1); NOT a quarantine ─
           cases · connectors · jobs · settings · ontology · webhooks ·
           environments · networks · blacklists · soc-roles · …
@@ -143,7 +171,8 @@ bridge/playbooks    coercePlaybookTypes(): id/priority/version/*UnixTimeInMs int
 - **Playbook name charset** — letters/digits/space/`-`/`_` only; reject `.()[]:/`.
 - **One case, two ids** — a case is a single record reachable by two APIs: the
   SOAR API (integer id, the working path secopsctl uses — `soar.ListCases` on
-  siemplify v1alpha plus the `soar/legacy` verbs) and the Chronicle cases
+  siemplify v1alpha plus the `soar/legacy` verbs; the CLI's `soar case list`
+  falls back to the Legacy queue read on error) and the Chronicle cases
   collection (UUID, same case). The Chronicle UUID *collection* 500s at every
   version and is an unused alternate (`chronicle/case.go`), but the bridge read
   `legacy:legacyBatchGetCases` does answer — use it (`soarPlatformInfo.caseId`)

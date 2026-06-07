@@ -19,7 +19,7 @@ import (
 // HTTP-500s at every API version, so for case work prefer `soar case` — the same
 // case on the SOAR host, where it works (modern v1alpha list + the reliable AppKey
 // verbs). Kept here as the typed alternate-path reader; reads are free. There is
-// one case reachable by several APIs, not two case systems. See docs/SIEM-DESIGN.md.
+// one case reachable by several APIs, not two case systems. See docs/design/siem.md.
 
 func init() {
 	rootCmd.AddCommand(newCasesCmd())
