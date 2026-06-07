@@ -179,11 +179,11 @@ func (c *Client) FindUDMFieldValues(ctx context.Context, fieldPath, query string
 
 // QueryValidation is the result of a UDM query syntax check (:validateQuery).
 //
-// The live server does not return an isValid/validationMessage pair: a valid query
-// yields just {"queryType":...}, and an invalid one adds errorType/errorText/
-// errorPosition. Validity is therefore derived (no error reported = valid). The
-// decode also still honors an explicit isValid/validationMessage if a server ever
-// sends that older shape.
+// The documented v1alpha response carries no isValid/validationMessage pair: it is
+// {queryType, errorType, errorText, errorPosition}, where a valid query yields just
+// {"queryType":...} and an invalid one adds errorType/errorText/errorPosition.
+// Validity is therefore derived (no error reported = valid). The decode also still
+// honors an explicit isValid/validationMessage if a server ever sends that shape.
 type QueryValidation struct {
 	IsValid           bool            `json:"isValid"`
 	QueryType         string          `json:"queryType,omitempty"`         // e.g. QUERY_TYPE_UDM_QUERY, QUERY_TYPE_STATS_QUERY
@@ -192,9 +192,9 @@ type QueryValidation struct {
 	ErrorPosition     json.RawMessage `json:"errorPosition,omitempty"`     // {startLine,startColumn,endLine,endColumn}
 }
 
-// UnmarshalJSON maps the live :validateQuery body (queryType / errorType /
+// UnmarshalJSON maps the documented :validateQuery body (queryType / errorType /
 // errorText / errorPosition) onto the typed fields and derives IsValid, while
-// tolerating the older isValid/validationMessage shape.
+// tolerating an isValid/validationMessage shape if one is ever sent.
 func (v *QueryValidation) UnmarshalJSON(b []byte) error {
 	var raw struct {
 		QueryType         string          `json:"queryType"`

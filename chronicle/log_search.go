@@ -104,9 +104,11 @@ type rawLogSearchResponse struct {
 	NextPageToken string
 }
 
-// rawLogChunk is one element of the server-streamed :searchRawLogs response. The
-// HTTP body is a JSON ARRAY of these chunks; matches live under "matches" (the
-// older shape used "rawLogs"), and aggregations are freeform.
+// rawLogChunk is one element of the :searchRawLogs response. The documented
+// v1alpha body is a single object {matches, progress, timeline, aggregations,
+// nextPageToken}; in practice the host streams a JSON ARRAY of these objects.
+// decodeRawLogResponse handles both. Matches live under "matches" (documented
+// key; an older shape used "rawLogs"); aggregations are kept freeform.
 type rawLogChunk struct {
 	Matches       []RawLog        `json:"matches"`
 	RawLogs       []RawLog        `json:"rawLogs"` // older key, if present
@@ -162,11 +164,13 @@ func decodeRawLogResponse(raw json.RawMessage) (entries []RawLog, agg json.RawMe
 // matching the API; timestamps are sent in UTC with microsecond precision.
 //
 // DEVIATION: the official Python wrapper issues a single POST and returns the
-// raw response dict, ignoring nextPageToken — so its results silently truncate
-// at one page. We round-trip pageToken and accumulate across pages (capped at
-// 50 via the shared paginator) so large result sets come back whole. We also
-// return typed []RawLog (full entry preserved as raw JSON) instead of an
-// untyped map. Use SearchRawLogsPage for a single page plus aggregations.
+// raw response dict as an untyped map. We return typed []RawLog (full entry
+// preserved as raw JSON) and accumulate any pages the server reports (capped at
+// 50 via the shared paginator). Note the documented request body has no
+// pageToken and documents nextPageToken only as a "more matches available"
+// indicator, so paging is best-effort: the streamed response normally delivers
+// every match in one POST. Use SearchRawLogsPage for a single page plus
+// aggregations.
 func (c *Client) SearchRawLogs(ctx context.Context, query string, logTypes []string, start, end time.Time, pageSize int) ([]RawLog, error) {
 	if query == "" {
 		return nil, fmt.Errorf("chronicle: SearchRawLogs requires a non-empty query")
