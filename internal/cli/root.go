@@ -18,8 +18,9 @@ import (
 
 // Global persistent-flag values, shared across subcommands.
 var (
-	cfgFile string // --config
-	jsonOut bool   // --json
+	cfgFile     string // --config
+	jsonOut     bool   // --json
+	forceLegacy bool   // --legacy: force the legacy AppKey path, skip modern v1alpha
 )
 
 var rootCmd = &cobra.Command{
@@ -48,6 +49,8 @@ func init() {
 	pf.StringVar(&cfgFile, "config", "",
 		"path to the instance config YAML (overrides $SECOPSCTL_CONFIG and discovery)")
 	pf.BoolVar(&jsonOut, "json", false, "emit machine-readable JSON where supported")
+	pf.BoolVar(&forceLegacy, "legacy", false,
+		"force the legacy AppKey path only, skipping the modern v1alpha API (for surfaces that support both)")
 }
 
 func initViper() {

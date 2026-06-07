@@ -104,7 +104,7 @@ func init() {
 			"long-lived AppKey ($SECOPS_SOAR_APP_KEY) and the soar_url config host.",
 	}
 	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARCaseCmd(), newSOARLegacyCmd(),
-		newSOARIntegrationCmd(), newSOARSettingsCmd())
+		newSOARIntegrationCmd(), newSOARSettingsCmd(), newSOARMarketplaceCmd())
 	rootCmd.AddCommand(soarCmd)
 }
 

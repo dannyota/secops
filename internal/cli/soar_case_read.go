@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"danny.vn/secops/soar"
 	"danny.vn/secops/soar/legacy"
 )
 
@@ -76,10 +77,12 @@ func newCaseListCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Read-only: list SOAR case-queue cards (default: open)",
-		Long: "List the SOAR case queue (first page) as a compact table, or raw JSON.\n" +
-			"Reads only — no LIVE banner. Use the case id shown here with `soar case\n" +
-			"get` and the mutating verbs.",
+		Short: "Read-only: list SOAR cases (default: open)",
+		Long: "List SOAR cases (first page) as a compact table, or raw JSON. Reads only —\n" +
+			"no LIVE banner. Use the case id shown here with `soar case get` and the\n" +
+			"mutating verbs.\n\n" +
+			"Uses the modern v1alpha cases API by default, falling back to the legacy\n" +
+			"AppKey queue on error. --legacy forces the legacy queue only.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			statuses, err := parseSOARCaseStatuses(status)
@@ -90,27 +93,84 @@ func newCaseListCmd() *cobra.Command {
 			if pageSize <= 0 {
 				pageSize = 100
 			}
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
-			}
-			raw, err := lc.ListCaseCards(baseContext(), legacy.CaseQueueRequest{
-				RequestedPage: 0, PageSize: pageSize, Statuses: statuses,
-			})
-			if err != nil {
-				return err
-			}
-			if asJSON {
-				return writeRawJSON(os.Stdout, raw)
-			}
-			return emitSOARCaseCards(os.Stdout, raw, limit)
+			return preferModern(
+				func() error { return runModernCaseList(pageSize, status, asJSON) },
+				func() error {
+					lc, err := newSOARLegacyClient()
+					if err != nil {
+						return err
+					}
+					raw, err := lc.ListCaseCards(baseContext(), legacy.CaseQueueRequest{
+						RequestedPage: 0, PageSize: pageSize, Statuses: statuses,
+					})
+					if err != nil {
+						return err
+					}
+					if asJSON {
+						return writeRawJSON(os.Stdout, raw)
+					}
+					return emitSOARCaseCards(os.Stdout, raw, limit)
+				},
+			)
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&status, "status", "open", "status filter: open|closed|all")
-	f.IntVar(&limit, "limit", 100, "max cards to fetch/show (first page; 0 = up to 100)")
-	f.BoolVar(&asJSON, "json", false, "emit the raw queue JSON (caseCards + totalCount)")
+	f.IntVar(&limit, "limit", 100, "max cases to fetch/show (first page; 0 = up to 100)")
+	f.BoolVar(&asJSON, "json", false, "emit the raw queue JSON")
 	return cmd
+}
+
+// runModernCaseList lists cases via the modern v1alpha API (SOAR host), fetching
+// before printing so a fetch error falls back cleanly. --status is applied
+// client-side (the modern Status is OPENED/CLOSED): open→OPENED, closed→CLOSED,
+// all→no filter.
+func runModernCaseList(pageSize int, status string, asJSON bool) error {
+	c, err := newSOARClient()
+	if err != nil {
+		return err
+	}
+	raws, err := c.ListCases(baseContext(), pageSize)
+	if err != nil {
+		return err // preferModern falls back to legacy
+	}
+	want := ""
+	switch status {
+	case "open":
+		want = "OPENED"
+	case "closed":
+		want = "CLOSED"
+	}
+	type row struct {
+		id, priority, stat, stage string
+	}
+	var rows []row
+	kept := make([]json.RawMessage, 0, len(raws))
+	for _, r := range raws {
+		var cs soar.Case
+		if err := json.Unmarshal(r, &cs); err != nil {
+			continue
+		}
+		if want != "" && !strings.EqualFold(cs.Status, want) {
+			continue
+		}
+		id := cs.DisplayID
+		if id == "" { // modern payload keys the id under the resource name
+			id = cs.Name[strings.LastIndex(cs.Name, "/")+1:]
+		}
+		rows = append(rows, row{id, cs.Priority, cs.Status, cs.Stage})
+		kept = append(kept, r)
+	}
+	if asJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(kept)
+	}
+	for _, rw := range rows {
+		fmt.Fprintf(os.Stdout, "%-14s %-16s %-8s %s\n", rw.id, rw.priority, rw.stat, rw.stage)
+	}
+	fmt.Fprintf(os.Stdout, "\n%d case(s) (modern v1alpha)\n", len(rows))
+	return nil
 }
 
 func newCaseGetCmd() *cobra.Command {

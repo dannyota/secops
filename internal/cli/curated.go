@@ -31,7 +31,42 @@ func newCuratedCmd() *cobra.Command {
 			"only toggle each deployment's `enabled` and `alerting` per precision\n" +
 			"(precise|broad). `list` reads; `set` is a guarded live toggle.",
 	}
-	cmd.AddCommand(newCuratedListCmd(), newCuratedSetCmd())
+	cmd.AddCommand(newCuratedListCmd(), newCuratedSetCmd(), newCuratedRulesCmd())
+	return cmd
+}
+
+// newCuratedRulesCmd lists the individual Google-managed curated rules (distinct
+// from the rule SETS that `list` shows). Read-only.
+func newCuratedRulesCmd() *cobra.Command {
+	var asJSON bool
+	cmd := &cobra.Command{
+		Use:   "rules",
+		Short: "Read-only: list the individual curated (Google-managed) rules",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			rules, err := c.ListCuratedRules(baseContext())
+			if err != nil {
+				return err
+			}
+			if asJSON {
+				return writeJSONValue(os.Stdout, rules)
+			}
+			for i, r := range rules {
+				sev := ""
+				if r.Severity != nil {
+					sev = r.Severity.DisplayName
+				}
+				fmt.Fprintf(os.Stdout, "%4d  %-28s %-10s %s\n", i+1, r.ID, sev, r.DisplayName)
+			}
+			fmt.Fprintf(os.Stdout, "\n%d curated rule(s)\n", len(rules))
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, "emit curated rules as JSON")
 	return cmd
 }
 
