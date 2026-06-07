@@ -17,7 +17,8 @@ import (
 //
 // The full response is {"events": [...], "moreDataAvailable": bool}; only the
 // events are returned. If more data than maxEvents was available the extra rows
-// are silently dropped server-side — raise maxEvents or narrow the time range.
+// are dropped server-side — raise maxEvents or narrow the time range. Use
+// SearchUDMPage to detect that truncation (moreDataAvailable).
 //
 // Endpoint: GET {instance}:udmSearch with query params query,
 // timeRange.start_time, timeRange.end_time (RFC3339) and limit.
@@ -32,11 +33,19 @@ import (
 // project_id. (Only curated rule-set categories/sets and parsers need the
 // project NUMBER — see resource.go.)
 func (c *Client) SearchUDM(ctx context.Context, query string, start, end time.Time, maxEvents int) ([]json.RawMessage, error) {
+	events, _, err := c.SearchUDMPage(ctx, query, start, end, maxEvents)
+	return events, err
+}
+
+// SearchUDMPage is SearchUDM that also reports the server's moreDataAvailable
+// flag, so a caller can tell whether the result was truncated at maxEvents
+// (rather than silently presenting a partial set as complete).
+func (c *Client) SearchUDMPage(ctx context.Context, query string, start, end time.Time, maxEvents int) (events []json.RawMessage, moreAvailable bool, err error) {
 	if query == "" {
-		return nil, fmt.Errorf("chronicle: SearchUDM requires a non-empty query")
+		return nil, false, fmt.Errorf("chronicle: SearchUDM requires a non-empty query")
 	}
 	if !start.Before(end) {
-		return nil, fmt.Errorf("chronicle: SearchUDM start (%s) must be before end (%s)",
+		return nil, false, fmt.Errorf("chronicle: SearchUDM start (%s) must be before end (%s)",
 			start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339))
 	}
 
@@ -58,7 +67,7 @@ func (c *Client) SearchUDM(ctx context.Context, query string, start, end time.Ti
 		MoreDataAvailable bool              `json:"moreDataAvailable"`
 	}
 	if err := c.get(ctx, path, &resp, withQuery(q)); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return resp.Events, nil
+	return resp.Events, resp.MoreDataAvailable, nil
 }

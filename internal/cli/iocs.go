@@ -6,12 +6,18 @@ import (
 	"io"
 	"net"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"danny.vn/secops/chronicle"
 )
+
+// iocsFindBatch is the per-request lookup cap for `iocs find`: the iocs:find
+// endpoint returns at most 1000 records (in request order), so larger inputs are
+// chunked to this size and aggregated rather than silently truncated.
+const iocsFindBatch = 1000
 
 // newIoCsCmd builds the modern IoC command group — a read-only lookup over the
 // SIEM-plane `iocs` surface (resolve an indicator value to its IoC record). It is
@@ -47,9 +53,16 @@ func newIoCsFindCmd() *cobra.Command {
 				}
 				lookups = append(lookups, chronicle.FieldAndValue{Value: v, ValueType: vt})
 			}
-			iocs, err := c.FindIoCs(baseContext(), lookups...)
-			if err != nil {
-				return err
+			// iocs:find caps the response at 1000 records, in request order — so a
+			// single call with more indicators would silently drop the overflow.
+			// Chunk the lookups to stay under the cap and aggregate the results.
+			var iocs []chronicle.Ioc
+			for chunk := range slices.Chunk(lookups, iocsFindBatch) {
+				found, ferr := c.FindIoCs(baseContext(), chunk...)
+				if ferr != nil {
+					return ferr
+				}
+				iocs = append(iocs, found...)
 			}
 			return emitIoCs(os.Stdout, iocs)
 		},

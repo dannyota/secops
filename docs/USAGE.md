@@ -297,9 +297,12 @@ secopsctl soar marketplace contentpacks
   ```bash
   secopsctl soar case list --legacy
   ```
-- **Escape hatch** — call any Siemplify external-API op directly:
+- **Escape hatch** — call any Siemplify external-API op directly. The legacy API
+  uses POST for both reads and writes, so a POST must declare intent: `--read` for
+  a read-only call, or `--write --yes` for a mutation (which prints the LIVE banner).
   ```bash
-  secopsctl soar legacy call integrations/GetInstalledIntegrations
+  secopsctl soar legacy call integrations/GetInstalledIntegrations --method POST --read
+  secopsctl soar legacy call cases/SomeWriteOp --method POST --body req.json --write --yes
   ```
 
 ---

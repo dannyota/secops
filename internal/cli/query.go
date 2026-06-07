@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -85,9 +86,15 @@ func init() {
 				return err
 			}
 
-			events, err := c.SearchUDM(baseContext(), filter, start, end, limit)
+			events, more, err := c.SearchUDMPage(baseContext(), filter, start, end, limit)
 			if err != nil {
 				return err
+			}
+			// The server caps results at --limit; warn (to stderr, so --json stays
+			// clean for piping) when it had more so a partial set isn't mistaken
+			// for the full match.
+			if more {
+				fmt.Fprintf(os.Stderr, "warning: result truncated at --limit=%d; more events match — raise --limit or narrow the time range.\n", limit)
 			}
 
 			if jsonOut {

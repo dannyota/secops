@@ -70,7 +70,12 @@ func newCasesListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			total := len(cases)
 			cases = capCases(cases, limit)
+			// Don't let the cap masquerade as the full result set.
+			if len(cases) < total {
+				fmt.Fprintf(os.Stderr, "warning: showing %d of %d case(s) (--limit=%d); raise --limit for the rest.\n", len(cases), total, limit)
+			}
 			return emitCases(os.Stdout, cases, asJSON)
 		},
 	}
@@ -119,7 +124,6 @@ func newCasesSearchCmd() *cobra.Command {
 		hours    int
 		ids      string
 		pageSize int
-		asJSON   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "search",
@@ -142,8 +146,7 @@ func newCasesSearchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// The legacy page is instance-shaped; emit it raw either way.
-			_ = asJSON
+			// The legacy page is instance-shaped; it is always emitted raw.
 			return writeRawJSON(os.Stdout, raw)
 		},
 	}
@@ -151,7 +154,6 @@ func newCasesSearchCmd() *cobra.Command {
 	f.IntVar(&hours, "hours", 0, "look back this many hours (createTime window)")
 	f.StringVar(&ids, "ids", "", "comma-separated case ids to fetch")
 	f.IntVar(&pageSize, "page-size", 100, "page size")
-	f.BoolVar(&asJSON, "json", true, "emit raw JSON (always, for the legacy page)")
 	return cmd
 }
 

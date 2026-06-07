@@ -344,24 +344,29 @@ func newSOARLegacyCmd() *cobra.Command {
 
 func newSOARLegacyCallCmd() *cobra.Command {
 	var (
-		method string
-		body   string
-		write  bool
-		yes    bool
-		out    string
+		method   string
+		body     string
+		write    bool
+		readOnly bool
+		yes      bool
+		out      string
 	)
 	cmd := &cobra.Command{
 		Use:   "call <op>",
 		Short: "Call an external-API op, e.g. integrations/GetInstalledIntegrations",
-		Long: "op is the path under /api/external/v1 (leading slash optional). GET and\n" +
-			"POST default to read-only; PUT/DELETE or --write mark a mutation, which\n" +
-			"prints the LIVE banner and requires --yes.",
+		Long: "op is the path under /api/external/v1 (leading slash optional). GET is\n" +
+			"read-only. The legacy API uses POST for BOTH reads and writes, so a POST\n" +
+			"must declare intent: --read for a read-only call, or --write for a mutation.\n" +
+			"PUT/DELETE/--write print the LIVE banner and require --yes.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			op := args[0]
 			method = strings.ToUpper(strings.TrimSpace(method))
 			if method == "" {
 				method = "GET"
+			}
+			if write && readOnly {
+				return fmt.Errorf("--read and --write are mutually exclusive")
 			}
 
 			var payload any
@@ -374,6 +379,13 @@ func newSOARLegacyCallCmd() *cobra.Command {
 					return fmt.Errorf("%s is not valid JSON", body)
 				}
 				payload = json.RawMessage(raw)
+			}
+
+			// A POST can read or write on this API, so it is fail-closed: without an
+			// explicit --read or --write it is refused rather than run ungated (a
+			// forgotten --write on a write-POST would otherwise deploy live silently).
+			if method == "POST" && !write && !readOnly {
+				return fmt.Errorf("POST on the legacy API can read OR write; pass --read for a read-only call or --write (with --yes) for a mutation")
 			}
 
 			if write || method == "PUT" || method == "DELETE" {
@@ -407,9 +419,11 @@ func newSOARLegacyCallCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&method, "method", "GET", "HTTP method (GET, POST, PUT, DELETE)")
 	f.StringVar(&body, "body", "", "JSON file to send as the request body")
-	f.BoolVar(&write, "write", false, "mark this call as mutating (forces the guard for a POST that writes)")
+	f.BoolVar(&write, "write", false, "mark this call as mutating (LIVE banner + --yes); required for a write-POST")
+	f.BoolVar(&readOnly, "read", false, "assert a read-only POST (skips the mutation guard)")
 	f.BoolVar(&yes, "yes", false, "confirm a mutating call")
 	f.StringVar(&out, "out", "", "write the response to this file instead of stdout")
+	cmd.MarkFlagsMutuallyExclusive("read", "write")
 	return cmd
 }
 
