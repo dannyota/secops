@@ -160,7 +160,7 @@ stays on the legacy lane, which is reliable. So far that means:
 | job **instances** (list/get/patch + `:runOnDemand`) | 🔨 | create/delete ⬜ |
 | alert grouping rules (list/get/patch + create/delete) | ✅ SDK lifecycle; list read-validated | live-write pending |
 | module settings | ✅ | — |
-| **Content Hub — `marketplaceIntegrations`** | ✅ list/get + install/uninstall (reads validated) | `soar/marketplace.go` — the durable twin of legacy `/store`, the only place uninstall exists |
+| **Content Hub — `marketplaceIntegrations`** | ✅ list/get + install/uninstall (install→uninstall round-trip live-validated, self-cleaning) | `soar/marketplace.go` — the durable twin of legacy `/store`, the only place uninstall exists; modern path is cleanly reversible |
 | **Content Hub — `contentHub/contentPacks`** | ✅ list (reads validated) | add/delete/deploy ⬜ |
 | cases (list) | ✅ **modern by default** (`soar case list`, auto-fallback to legacy; `--legacy` forces legacy) | verbs/writes stay legacy until modern verbs pass a write-smoke; `--status` filtered client-side on modern |
 | environments · socRoles · customLists · caseStage/Close/Tag/QueueDefinitions | ✅ modern read coverage (`soar/config_surfaces.go`, live-validated) | reconcile lane still runs on legacy (works); re-pointing it to v1alpha-with-fallback is optional/per-surface |

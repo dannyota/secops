@@ -351,7 +351,7 @@ guarantee — v1alpha can 500 intermittently, so legacy stays the fallback).
   risk-config read/write validated.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 11 — Content Hub (modern, **SOAR host**)  *(✅ read-validated — Content Hub is served on `*.siemplify-soar.com` (AppKey, v1alpha), NOT chronicle.googleapis.com; `marketplaceIntegrations` (405) + `contentHub/contentPacks` (59) live via `soar/marketplace.go`; install/uninstall built)*
+### Wave 11 — Content Hub (modern, **SOAR host**)  *(done — Content Hub served on `*.siemplify-soar.com` (AppKey, v1alpha), NOT chronicle.googleapis.com; `marketplaceIntegrations` (405) + `contentHub/contentPacks` (59) read-validated; **install/uninstall live-validated** via a self-cleaning install→uninstall round-trip on an inert pack — the modern `:uninstall` makes it cleanly reversible. SDK only — the mutations are deliberate ops, no CLI)*
 - **Goal.** Manage installable content on the durable SOAR-host API — the twin of
   the legacy `/store` install path, and the only place an **uninstall** exists.
 - **Scope.** `marketplaceIntegrations` list/get/install/uninstall; `contentHub.
