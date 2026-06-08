@@ -32,6 +32,12 @@ import (
 // so the caller decodes the exact bytes the platform stored.
 func (c *Client) FindRawLogsByIDs(ctx context.Context, ids []string) (json.RawMessage, error) {
 	q := url.Values{}
+	// Match the console request: a large response cap so big logs aren't truncated,
+	// and the literal read-only flags it sends.
+	q.Set("maxResponseByteSize", "300000000")
+	q.Set("regexSearch", "false")
+	q.Set("caseSensitive", "false")
+	q.Set("query", "")
 	for _, id := range ids {
 		if id != "" {
 			q.Add("ids", id)

@@ -8,19 +8,18 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
-// TestLiveFetchRawLogLines validates the raw-log retrieval path end to end:
-// :searchRawLogs to collect raw-log ids, then legacyFindRawLogs to download the
-// FULL bytes (the search snippet is truncated to 80 chars). It asserts the decode
-// works and that a returned line can exceed the snippet cap (proving the full-bytes
-// path, not the preview). Read-only; never logs content. Gated on SECOPS_SIEM_SMOKE=1.
+// TestLiveFetchRawLogLines validates the raw-log retrieval path end to end: a UDM
+// search to collect each event's raw-log id, then legacyFindRawLogs to download the
+// FULL bytes. It asserts the decode works and that a returned line can exceed the
+// 80-char search snippet (proving the full-bytes path). Read-only; never logs
+// content. Gated on SECOPS_SIEM_SMOKE=1.
 func TestLiveFetchRawLogLines(t *testing.T) {
 	c, ctx := liveChronicle(t)
 	end := time.Now().UTC()
-	start := end.Add(-6 * time.Hour)
+	start := end.Add(-24 * time.Hour)
 
-	// Match-all over any log type; the customer's parser-dev case adds parsed=false,
-	// but match-all exercises the full path regardless of tenant parse state.
-	lines, err := c.FetchRawLogLines(ctx, `raw = /.*/`, nil, start, end, 10)
+	// Any ingesting log type works; GCP_CLOUDAUDIT is reliably present.
+	lines, err := c.FetchRawLogLines(ctx, `metadata.log_type = "GCP_CLOUDAUDIT"`, start, end, 10)
 	if err != nil {
 		var apiErr *chronicle.APIError
 		if errors.As(err, &apiErr) {

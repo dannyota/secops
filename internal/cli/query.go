@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"danny.vn/secops/chronicle"
 )
 
 // parseQueryTS coerces an ISO-8601 / RFC3339 timestamp into a UTC time. A
@@ -45,16 +47,30 @@ func init() {
 		fromTS string
 		toTS   string
 		limit  int
+		raw    bool
 	)
 
 	udmCmd := &cobra.Command{
 		Use:   "udm <filter>",
 		Short: "Run a UDM event search over a time window",
 		Long: "Run a UDM event search over [start, end]. The window defaults to the last\n" +
-			"--hours; --from/--to (RFC3339 / ISO-8601) override it.",
+			"--hours; --from/--to (RFC3339 / ISO-8601) override it.\n\n" +
+			"--raw prints each matched event's FULL raw (ingested) log line instead of the\n" +
+			"event summary — one per line, to pipe into a parser test. This is how to pull\n" +
+			"the raw logs for a log type whose parser is missing/broken (they normalize to\n" +
+			"GENERIC_EVENT):\n\n" +
+			"  secopsctl query udm 'metadata.log_type = \"KONG_GATEWAY\" AND \\\n" +
+			"      metadata.event_type = \"GENERIC_EVENT\"' --raw --limit 50 | \\\n" +
+			"    secopsctl parsers run KONG_GATEWAY --cbn parser.conf --logs -\n\n" +
+			"With --raw, --limit defaults to 100 (one raw fetch per matched event).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter := args[0]
+			// --raw fetches a raw log per matched event, so cap conservatively unless
+			// the operator set --limit explicitly (the event-only default is 10000).
+			if raw && !cmd.Flags().Changed("limit") {
+				limit = 100
+			}
 
 			// Resolve the time range (ports query.py): end = --to or now UTC;
 			// start = --from or end-hours.
@@ -100,6 +116,41 @@ func init() {
 				fmt.Fprintf(os.Stderr, "warning: result truncated at --limit=%d; more events match — raise --limit or narrow the time range.\n", limit)
 			}
 
+			// --raw: download each matched event's FULL raw log and print one per line
+			// (for `parsers run --logs -`). Reuses the events already fetched: lift each
+			// raw-log id (udm.metadata.id) and fetch the complete bytes.
+			if raw {
+				ids := chronicle.RawLogIDsFromUDMEvents(events)
+				if len(ids) == 0 {
+					fmt.Fprintln(os.Stderr, "no raw logs: the matched events carry no raw-log id (or none matched)")
+					return nil
+				}
+				lines, err := c.FindRawLogLines(baseContext(), ids)
+				if err != nil {
+					return err
+				}
+				if jsonOut {
+					return emitJSON(lines)
+				}
+				multiline := 0
+				for _, l := range lines {
+					text := strings.TrimRight(l.Text, "\r\n")
+					if strings.Contains(text, "\n") {
+						multiline++
+					}
+					fmt.Fprintln(os.Stdout, text)
+				}
+				// `parsers run --logs -` reads one log per line, so a raw log with embedded
+				// newlines would be split; warn rather than corrupt silently (--json keeps
+				// each log intact).
+				if multiline > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d raw log(s) contain embedded newlines and span "+
+						"multiple lines — `parsers run --logs -` treats each line as a separate log; "+
+						"use --json for those\n", multiline)
+				}
+				return nil
+			}
+
 			if jsonOut {
 				// Print the raw events verbatim as an indented JSON array. An
 				// empty result set is rendered as "[]".
@@ -133,6 +184,8 @@ func init() {
 		"explicit end time (RFC3339 / ISO-8601); default: now")
 	f.IntVar(&limit, "limit", 10000,
 		"maximum number of events to return")
+	f.BoolVar(&raw, "raw", false,
+		"print each matched event's FULL raw log line (for `parsers run --logs -`) instead of the event summary")
 
 	queryCmd.AddCommand(udmCmd, newQueryNLCmd())
 	rootCmd.AddCommand(queryCmd)

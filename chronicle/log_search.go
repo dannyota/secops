@@ -320,62 +320,90 @@ type findRawLogsResponse struct {
 	} `json:"rawLogs"`
 }
 
+// findRawLogIDBatch bounds how many raw-log ids go in one legacyFindRawLogs GET, so
+// the request URL stays well under any length limit (ids are ~44-char base64).
+const findRawLogIDBatch = 25
+
 // FindRawLogLines downloads the FULL raw log lines for the given raw-log ids
-// (FindRawLogsByIDs) and decodes them: logBytes is base64-decoded to text (falling
-// back to the verbatim string if it is not base64). Read-only.
+// (legacyFindRawLogs) and decodes them: logBytes is base64-decoded to text (falling
+// back to the verbatim string if it is not base64). The ids are fetched in batches
+// so a large request can't blow the URL length. Read-only.
 func (c *Client) FindRawLogLines(ctx context.Context, ids []string) ([]RawLogLine, error) {
-	raw, err := c.FindRawLogsByIDs(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-	var resp findRawLogsResponse
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		return nil, fmt.Errorf("chronicle: decode raw logs: %w", err)
-	}
 	var out []RawLogLine
-	for _, g := range resp.RawLogs {
-		for _, l := range g.RawLogs {
-			text := l.LogBytes
-			if dec, derr := base64.StdEncoding.DecodeString(l.LogBytes); derr == nil {
-				text = string(dec)
+	for start := 0; start < len(ids); start += findRawLogIDBatch {
+		end := min(start+findRawLogIDBatch, len(ids))
+		raw, err := c.FindRawLogsByIDs(ctx, ids[start:end])
+		if err != nil {
+			return nil, err
+		}
+		var resp findRawLogsResponse
+		if err := json.Unmarshal(raw, &resp); err != nil {
+			return nil, fmt.Errorf("chronicle: decode raw logs: %w", err)
+		}
+		for _, g := range resp.RawLogs {
+			for _, l := range g.RawLogs {
+				text := l.LogBytes
+				if dec, derr := base64.StdEncoding.DecodeString(l.LogBytes); derr == nil {
+					text = string(dec)
+				}
+				out = append(out, RawLogLine{
+					Text:          text,
+					LogType:       l.Type,
+					SourceProduct: l.SourceProduct,
+					Timestamp:     l.Timestamp,
+				})
 			}
-			out = append(out, RawLogLine{
-				Text:          text,
-				LogType:       l.Type,
-				SourceProduct: l.SourceProduct,
-				Timestamp:     l.Timestamp,
-			})
 		}
 	}
 	return out, nil
 }
 
-// FetchRawLogLines returns up to limit recent FULL raw (unparsed) log lines for a
-// raw-log search — the bytes a parser developer needs. It runs :searchRawLogs (one
-// page, capped at limit) to collect raw-log ids, then legacyFindRawLogs to download
-// the COMPLETE bytes (the search match only carries an 80-char preview snippet),
-// base64-decoding logBytes to text.
+// RawLogIDsFromUDMEvents lifts each event's raw-log id (udm.metadata.id) — the
+// handle FindRawLogLines / legacyFindRawLogs takes to download the full raw bytes.
+// Events with no metadata.id are skipped. The events are the raw element shape
+// :udmSearch returns ({"name":…,"udm":{"metadata":{…}}}).
+func RawLogIDsFromUDMEvents(events []json.RawMessage) []string {
+	ids := make([]string, 0, len(events))
+	for _, e := range events {
+		var d struct {
+			UDM struct {
+				Metadata struct {
+					ID string `json:"id"`
+				} `json:"metadata"`
+			} `json:"udm"`
+		}
+		if json.Unmarshal(e, &d) == nil && d.UDM.Metadata.ID != "" {
+			ids = append(ids, d.UDM.Metadata.ID)
+		}
+	}
+	return ids
+}
+
+// FetchRawLogLines returns up to limit recent FULL raw log lines matching a UDM
+// search query — the bytes a parser developer needs. It runs :udmSearch (which
+// accepts the `metadata.log_type = "…"` / `metadata.event_type = "…"` predicates
+// that the raw-log-search filter does NOT), takes each event's raw-log id
+// (udm.metadata.id), and downloads the COMPLETE bytes via legacyFindRawLogs
+// (base64-decoding logBytes to text).
 //
-// query is a raw-log search expression (e.g. `raw = /.*/` to match all, optionally
-// with ` parsed = false` to restrict to logs that aren't being normalized).
-// logTypes, when non-empty, limits the search to those log-type display names.
-// start is inclusive, end exclusive.
-func (c *Client) FetchRawLogLines(ctx context.Context, query string, logTypes []string, start, end time.Time, limit int) ([]RawLogLine, error) {
+// This is the path the console uses: a log type whose parser is missing/broken
+// normalizes to GENERIC_EVENT (still parsed=true), so a raw-log `parsed = false`
+// filter misses it — but a UDM search on metadata.log_type finds it.
+//
+// udmQuery is a UDM search expression (e.g. `metadata.log_type = "KONG_GATEWAY"`,
+// optionally `… AND metadata.event_type = "GENERIC_EVENT"`). start is inclusive,
+// end exclusive.
+func (c *Client) FetchRawLogLines(ctx context.Context, udmQuery string, start, end time.Time, limit int) ([]RawLogLine, error) {
 	if limit <= 0 {
 		limit = 100
 	}
-	page, err := c.SearchRawLogsPage(ctx, query, logTypes, start, end, limit, 0, false, "", "")
+	events, _, err := c.SearchUDMPage(ctx, udmQuery, start, end, limit)
 	if err != nil {
 		return nil, err
 	}
-	ids := make([]string, 0, len(page.RawLogs))
-	for _, m := range page.RawLogs {
-		if m.ID != "" {
-			ids = append(ids, m.ID)
-		}
-		if len(ids) >= limit {
-			break
-		}
+	ids := RawLogIDsFromUDMEvents(events)
+	if len(ids) > limit {
+		ids = ids[:limit]
 	}
 	if len(ids) == 0 {
 		return nil, nil

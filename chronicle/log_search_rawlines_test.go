@@ -3,13 +3,76 @@ package chronicle
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"danny.vn/secops/auth"
 )
+
+// TestRawLogIDsFromUDMEvents locks the udm.metadata.id extraction (the handle the
+// raw-log fetch takes), skipping events with no id.
+func TestRawLogIDsFromUDMEvents(t *testing.T) {
+	events := []json.RawMessage{
+		json.RawMessage(`{"name":"a","udm":{"metadata":{"id":"ID1"}}}`),
+		json.RawMessage(`{"name":"b","udm":{"metadata":{"id":""}}}`), // empty id skipped
+		json.RawMessage(`{"name":"c","udm":{"metadata":{}}}`),        // no id skipped
+		json.RawMessage(`{"name":"d","udm":{"metadata":{"id":"ID2"}}}`),
+	}
+	got := RawLogIDsFromUDMEvents(events)
+	want := []string{"ID1", "ID2"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// routeRT returns the udm body for a :udmSearch request and the find body for a
+// legacyFindRawLogs request — so FetchRawLogLines's two-step chain can be tested.
+type routeRT struct{ udm, find string }
+
+func (r *routeRT) RoundTrip(req *http.Request) (*http.Response, error) {
+	body := r.find
+	if strings.Contains(req.URL.String(), "udmSearch") {
+		body = r.udm
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}, nil
+}
+
+// TestFetchRawLogLinesViaUDM locks the UDM-search path: :udmSearch returns events,
+// FetchRawLogLines lifts each event's udm.metadata.id, and legacyFindRawLogs returns
+// the full bytes. (The raw-log-search log-type filter is broken server-side; this is
+// the working path.)
+func TestFetchRawLogLinesViaUDM(t *testing.T) {
+	line := `192.0.2.7 - - "GET /api" 200 — a full kong line`
+	rt := &routeRT{
+		udm: `{"events":[
+			{"name":"a","udm":{"metadata":{"id":"ID1","eventType":"GENERIC_EVENT","logType":"KONG_GATEWAY"}}},
+			{"name":"b","udm":{"metadata":{"id":"ID2","eventType":"GENERIC_EVENT"}}}
+		],"moreDataAvailable":false}`,
+		find: `{"rawLogs":[{"rawLogs":[{"logBytes":"` + base64.StdEncoding.EncodeToString([]byte(line)) +
+			`","type":"KONG_GATEWAY","sourceProduct":"kong"}]}]}`,
+	}
+	c := rawLinesClient(t, rt)
+	lines, err := c.FetchRawLogLines(context.Background(), `metadata.log_type = "KONG_GATEWAY"`,
+		time.Unix(0, 0), time.Unix(1, 0), 10)
+	if err != nil {
+		t.Fatalf("FetchRawLogLines: %v", err)
+	}
+	if len(lines) == 0 {
+		t.Fatal("no lines decoded from the udm->find chain")
+	}
+	if lines[0].Text != line {
+		t.Errorf("decoded text = %q, want %q", lines[0].Text, line)
+	}
+}
 
 // rawBodyRT returns a fixed body for any request and records the last URL — enough to
 // exercise the raw-log decode offline (no network, no credentials).
