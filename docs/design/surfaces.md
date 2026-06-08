@@ -89,7 +89,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 |---|---|---|---|
 | reference lists | reconcile | ✅ | (API has no delete) |
 | data tables (+ rows) | reconcile | ✅ | async bulk-row ops, single-row reads ⬜ (low) |
-| feeds (+ service account) | reconcile | ✅ | `feedSourceTypeSchemas`/`logTypeSchemas` discovery ✅ read-validated (`chronicle/schemas.go`) · `importPushLogs` ⬜ (low) |
+| feeds (+ service account) | reconcile | ✅ | `feedSourceTypeSchemas`/`logTypeSchemas` discovery ✅ read-validated (`chronicle/schemas.go`) · examples + `secret_ref` env/Secret Manager support ✅ offline-tested · `importPushLogs` ⬜ (low) |
 | parsers / parser extensions | reconcile + imperative | ✅ | — |
 | log types | read | ✅ list · `GetLogTypeSetting` read-validated · `GetLogType` wired (documented v1alpha) | per-log-type `logTypes.get` is a documented method but 404s "Method not found" on instances that don't enable it (verified across v1/v1beta/v1alpha and both hosts) — enumerate with `ListLogTypes` · `updateLogTypeSetting` ⬜ (med) · event-type suggestions ⬜ (low) |
 | forwarders / collectors | reconcile | ✅ **reconcile surface wired + engine write-smoke** (`TestLiveReconcileForwarderWriteSmoke`, create→update→delete); collectors list/get | per-collector CUD ⬜ (collectors are a nested resource) |

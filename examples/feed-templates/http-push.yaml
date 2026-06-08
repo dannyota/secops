@@ -1,0 +1,28 @@
+# Template for a new HTTP ingestion feed.
+# Copy into feeds/<slug>.yaml, adjust writable fields, then run:
+#   secopsctl push feeds --dry-run
+display_name: Example HTTP Push Feed
+
+# Leave name empty for create. A pull/push refresh fills the server resource name.
+name: ""
+
+# Writable fields used by the reconcile engine.
+source_type: HTTP
+log_type: OKTA
+asset_namespace: example
+labels:
+  purpose: example
+
+# Source-specific settings are merged into the API details object.
+# Put credentials behind secret_ref; the resolved value is read at push time and
+# is never written back to YAML.
+settings:
+  httpSettings:
+    uri: https://collector.example.com/ingest
+    authorizationHeader:
+      secret_ref: env:SECOPS_FEED_AUTHORIZATION_HEADER
+
+    # Secret Manager is also supported. Use a full resource, or a short secret
+    # name in the configured Google Cloud project:
+    # authorizationHeader:
+    #   secret_ref: secretmanager:projects/<project>/secrets/<secret>/versions/latest

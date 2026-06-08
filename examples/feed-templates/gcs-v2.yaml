@@ -1,0 +1,18 @@
+# Template for a Google Cloud Storage V2 feed.
+# Grant the feed service account read access to the bucket before enabling a live
+# feed. Discover it with `secopsctl feeds schemas` / SDK FetchFeedServiceAccount.
+display_name: Example GCS V2 Feed
+name: ""
+
+source_type: GOOGLE_CLOUD_STORAGE_V2
+log_type: GENERIC_EVENT
+asset_namespace: example
+labels:
+  purpose: example
+
+settings:
+  gcsV2Settings:
+    # Confirm the exact writable keys for this source type with:
+    #   secopsctl feeds schemas --source-type GOOGLE_CLOUD_STORAGE_V2 --json
+    bucket: example-secops-logs
+    sourcePattern: "*.log"

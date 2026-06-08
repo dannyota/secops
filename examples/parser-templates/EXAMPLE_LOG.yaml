@@ -1,0 +1,5 @@
+# Parser metadata template.
+# Copy this file to parsers/<LOG_TYPE>.yaml beside parsers/<LOG_TYPE>.conf.
+# Leave name empty for create; pull/push refresh fills the active parser resource.
+log_type: EXAMPLE_LOG
+name: ""

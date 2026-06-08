@@ -831,7 +831,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   in-tool; modern `case list` matches legacy output. ✅
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
-### Wave 35 — Detection-state & curated reconcile *(partial — rule targeting + curated push + enrichment shipped)*
+### Wave 35 — Detection-state & curated reconcile *(done — rule targeting + curated push + enrichment + feed templates/secrets)*
 
 - **Goal.** Make detection *deployment state* — not just rule bodies — fully
   diff-and-push-able, closing the last places where a live toggle bypasses git review.
@@ -848,12 +848,13 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
     campaigns/reports, and `ti related` uses `:fetchIocMatchMetadata` to show
     tenant IoC match counts for collection alt names. The SDK also exposes
     `iocs:fetchRelated` for the reverse collection/association → IoC lookup.
-  - **Feed authoring ergonomics** — ship feed/parser file templates under `examples/`
-    (with the writable-field schema), and source feed secrets from env / Secret Manager
-    **at push time** (never the YAML) so a feed carrying a credential can be reconciled.
+  - **Done — feed authoring ergonomics** — feed/parser templates live under
+    `examples/`; feed YAML supports `secret_ref: env:VAR` and Secret Manager refs
+    resolved at apply time (never committed in YAML) so new credentialed feeds can
+    be reconciled safely.
 - **Exit.** A rule's deployment block and a curated-deployment file each reconcile
-  through pull → diff → push; enrichment pivot is built + offline-tested. Feed
-  templates + secret-at-push remain.
+  through pull → diff → push; enrichment pivot is built + offline-tested; feed
+  templates and secret-at-push support are built + offline-tested.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 36 — SOAR automation-as-code completion *(planned)*

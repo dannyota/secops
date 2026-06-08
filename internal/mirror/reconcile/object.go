@@ -27,10 +27,11 @@ type Object struct {
 	// used as the diff basis. Both local and live objects canonicalize the same
 	// way so secrets and server-managed fields never produce phantom diffs.
 	Canonical []byte
-	// Raw is the FULL, UNREDACTED live body, populated for LIVE objects only. It
-	// is the overlay base for Update (apply local edits onto the live body so the
-	// real secret is preserved). Local objects never carry Raw — the on-disk
-	// snapshot is redacted and must never be trusted as a send body.
+	// Raw is the surface-owned full body. Live objects use it as the unredacted
+	// overlay base for Update (apply local edits onto live so real secrets are
+	// preserved). Most local objects leave Raw empty; a surface may populate it
+	// when it has a separate apply-time write body that must not affect Canonical
+	// (for example feed secret_ref resolution).
 	Raw json.RawMessage
 }
 

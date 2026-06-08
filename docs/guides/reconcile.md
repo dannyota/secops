@@ -112,16 +112,23 @@ flowchart LR
 Pulled files mask secrets with a marker (`***REDACTED***`) so the snapshot is safe to
 commit. The push side **refuses to deploy a body that still carries the marker** —
 create and update both error out rather than write a masked placeholder over a real
-secret.
+secret. For a new feed that needs a credential, use a runtime source reference
+instead of putting the secret in YAML:
 
-```
-refusing to create "<name>": body still contains a redaction marker
-(***REDACTED***); supply the real value first
+```yaml
+settings:
+  httpSettings:
+    authorizationHeader:
+      secret_ref: env:SECOPS_FEED_AUTHORIZATION_HEADER
 ```
 
-To change a secret, replace the marker with the real value before pushing. To keep an
-existing secret untouched, leave the field as it is — the update overlays your edits
-onto the live body, so a field you didn't touch keeps its server value.
+`secret_ref` supports `env:VAR` and
+`secretmanager:projects/<project>/secrets/<secret>/versions/latest`. The value is
+resolved only during `push feeds --yes`, then the local file is refreshed from live
+with the normal redaction marker. To keep an existing secret untouched, leave the
+marker as it is — the update overlays your edits onto the live body, so an unedited
+secret keeps its server value. See `examples/feed-templates/` and `examples/parser-templates/` for
+file templates.
 
 ## When an op isn't reconcilable: the raw lane
 

@@ -69,8 +69,22 @@ committed.** On `pull`, secret scalar fields are **redacted** with
   `push feeds` overlays your local edits onto the live (unredacted) feed, so any
   scalar still holding the redaction marker keeps the live secret rather than
   clobbering it. On a **create**, there is no live secret to fall back to, so a
-  body that still carries the marker is **refused** — you must replace the marker
-  with the real secret before pushing.
+  body that still carries the marker is **refused**.
+
+Use `secret_ref` for new feed credentials so the secret is read at push time and
+never committed:
+
+```yaml
+settings:
+  httpSettings:
+    authorizationHeader:
+      secret_ref: env:SECOPS_FEED_AUTHORIZATION_HEADER
+```
+
+Secret Manager is supported too:
+`secret_ref: secretmanager:projects/<project>/secrets/<secret>/versions/latest`.
+See `examples/feed-templates/` for feed templates and `examples/parser-templates/` for the matching
+`<LOG_TYPE>.conf` + `<LOG_TYPE>.yaml` parser shape.
 
 Same discipline as everywhere else in the tool: auth comes from ADC or an env
 token, and no API key, password, or service-account JSON belongs in version
@@ -83,7 +97,7 @@ the same as everywhere else — edit the YAML, dry-run, review, apply:
 
 ```bash
 secopsctl pull feeds                 # refresh local state first
-# edit feeds/<feed>.yaml; supply the real secret in place of any ***REDACTED*** marker
+# edit feeds/<feed>.yaml; use secret_ref for any new credential
 secopsctl push feeds --dry-run       # preview the diff (LIVE DEPLOY banner)
 secopsctl push feeds --yes           # apply for real
 ```
@@ -91,8 +105,10 @@ secopsctl push feeds --yes           # apply for real
 Feeds are **not prune-eligible**: deleting a feed stops ingestion, so a missing
 local file never deletes a live feed. To stop a feed, do it explicitly in the
 SecOps UI, not by removing the YAML. Credential failures (an expired key, a
-rotated password) are still fixed at the source or in the UI feed config, not by
-editing the redaction marker in the repo.
+rotated password) are still fixed at the source or in the UI feed config. A
+secret-only change does not produce a stable diff because secrets are redacted; pair
+secret rotation with an explicit source-side rotation or a reviewed non-secret feed
+edit.
 
 ## Parsers
 

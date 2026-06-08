@@ -144,10 +144,22 @@ func loadFeeds(dir string) ([]reconcile.Object, error) {
 		if cerr != nil {
 			return nil, cerr
 		}
+		raw, rerr := json.Marshal(feedSpec{
+			DisplayName:    od.DisplayName,
+			SourceType:     od.SourceType,
+			LogType:        od.LogType,
+			AssetNamespace: od.AssetNamespace,
+			Labels:         od.Labels,
+			Settings:       od.Settings,
+		})
+		if rerr != nil {
+			return nil, rerr
+		}
 		objs = append(objs, reconcile.Object{
 			Slug:      strings.TrimSuffix(e.Name(), ".yaml"),
 			ServerID:  od.Name,
 			Canonical: canon,
+			Raw:       raw,
 		})
 	}
 	return objs, nil
@@ -173,14 +185,22 @@ func writeFeedObject(dir string, o reconcile.Object) error {
 // carries a redaction marker (a real secret can't be invented from a mask).
 func feedsCreate(c *chronicle.Client) func(context.Context, reconcile.Object) (reconcile.Object, error) {
 	return func(ctx context.Context, local reconcile.Object) (reconcile.Object, error) {
-		if reconcile.ContainsValue(local.Canonical, redactedMarker) {
+		spec, err := decodeLocalFeedSpec(local)
+		if err != nil {
+			return reconcile.Object{}, err
+		}
+		spec, err = resolveFeedSpecSecrets(ctx, c, spec)
+		if err != nil {
+			return reconcile.Object{}, err
+		}
+		body, err := json.Marshal(spec)
+		if err != nil {
+			return reconcile.Object{}, err
+		}
+		if reconcile.ContainsValue(body, redactedMarker) {
 			return reconcile.Object{}, fmt.Errorf(
 				"refusing to create %q: body still contains a redaction marker (%s); supply the real secret first",
 				local.Slug, redactedMarker)
-		}
-		spec, err := decodeFeedSpec(local.Canonical)
-		if err != nil {
-			return reconcile.Object{}, err
 		}
 		created, err := c.CreateFeed(ctx, spec.DisplayName, spec.SourceType, spec.LogType, spec.AssetNamespace, feedWriteSettings(spec))
 		if err != nil {
@@ -202,13 +222,25 @@ func feedsUpdate(c *chronicle.Client) func(context.Context, reconcile.Object, re
 		if err := json.Unmarshal(live.Raw, &liveFeed); err != nil {
 			return reconcile.Object{}, err
 		}
+		localSpec, err := decodeLocalFeedSpec(local)
+		if err != nil {
+			return reconcile.Object{}, err
+		}
+		localSpec, err = resolveFeedSpecSecrets(ctx, c, localSpec)
+		if err != nil {
+			return reconcile.Object{}, err
+		}
 		// Overlay local edits onto the live (unredacted) spec: where local still
 		// holds the mask, keep the live secret; otherwise local wins.
 		liveSpecJSON, err := json.Marshal(feedSpecFromFeed(liveFeed))
 		if err != nil {
 			return reconcile.Object{}, err
 		}
-		merged, err := reconcile.DeepMerge(liveSpecJSON, local.Canonical, func(_ string, v any) bool {
+		localSpecJSON, err := json.Marshal(localSpec)
+		if err != nil {
+			return reconcile.Object{}, err
+		}
+		merged, err := reconcile.DeepMerge(liveSpecJSON, localSpecJSON, func(_ string, v any) bool {
 			s, ok := v.(string)
 			return ok && s == redactedMarker
 		})
@@ -322,4 +354,11 @@ func decodeFeedSpec(canonical []byte) (feedSpec, error) {
 	var spec feedSpec
 	err := json.Unmarshal(canonical, &spec)
 	return spec, err
+}
+
+func decodeLocalFeedSpec(local reconcile.Object) (feedSpec, error) {
+	if len(local.Raw) > 0 {
+		return decodeFeedSpec(local.Raw)
+	}
+	return decodeFeedSpec(local.Canonical)
 }

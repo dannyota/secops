@@ -2,10 +2,12 @@ package mirror
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 
+	"danny.vn/secops/auth"
 	"danny.vn/secops/chronicle"
 	"danny.vn/secops/internal/mirror/reconcile"
 )
@@ -122,5 +124,83 @@ func TestFeedWriteSettingsFoldsLabels(t *testing.T) {
 	}
 	if _, ok := got["httpSettings"]; !ok {
 		t.Error("settings dropped from write settings")
+	}
+}
+
+func TestFeedSecretRefEnvResolvesAtPushTime(t *testing.T) {
+	dir := t.TempDir()
+	if err := writeYAML(dir+"/http_feed.yaml", map[string]any{
+		"display_name": "HTTP Feed",
+		"source_type":  "HTTP",
+		"log_type":     "OKTA",
+		"settings": map[string]any{
+			"httpSettings": map[string]any{
+				"uri": "https://example.com/ingest",
+				"authorizationHeader": map[string]any{
+					feedSecretRefKey: "env:SECOPSCTL_TEST_FEED_AUTH",
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	objs, err := loadFeeds(dir)
+	if err != nil {
+		t.Fatalf("loadFeeds: %v", err)
+	}
+	if len(objs) != 1 {
+		t.Fatalf("loaded %d feeds, want 1", len(objs))
+	}
+	if strings.Contains(string(objs[0].Canonical), "SECOPSCTL_TEST_FEED_AUTH") {
+		t.Fatalf("secret reference leaked into canonical: %s", objs[0].Canonical)
+	}
+	if !strings.Contains(string(objs[0].Canonical), redactedMarker) {
+		t.Fatalf("canonical should carry the redaction marker: %s", objs[0].Canonical)
+	}
+	if !strings.Contains(string(objs[0].Raw), feedSecretRefKey) {
+		t.Fatalf("raw local write body should preserve the secret reference: %s", objs[0].Raw)
+	}
+
+	t.Setenv("SECOPSCTL_TEST_FEED_AUTH", "example-token")
+	spec, err := decodeLocalFeedSpec(objs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := chronicle.NewClient(
+		chronicle.Settings{ProjectID: "pid", Region: "us", CustomerID: "cust"},
+		auth.OAuth(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec, err = resolveFeedSpecSecrets(context.Background(), c, spec)
+	if err != nil {
+		t.Fatalf("resolveFeedSpecSecrets: %v", err)
+	}
+	httpSettings := spec.Settings["httpSettings"].(map[string]any)
+	if got := httpSettings["authorizationHeader"]; got != "example-token" {
+		t.Fatalf("authorizationHeader = %v, want env value", got)
+	}
+}
+
+func TestSecretManagerResource(t *testing.T) {
+	settings := chronicle.Settings{ProjectID: "pid"}
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"feed-auth-token", "projects/pid/secrets/feed-auth-token/versions/latest"},
+		{"projects/other/secrets/feed-auth-token", "projects/other/secrets/feed-auth-token/versions/latest"},
+		{"projects/other/secrets/feed-auth-token/versions/7", "projects/other/secrets/feed-auth-token/versions/7"},
+	}
+	for _, c := range cases {
+		got, err := secretManagerResource(settings, c.in)
+		if err != nil {
+			t.Fatalf("secretManagerResource(%q): %v", c.in, err)
+		}
+		if got != c.want {
+			t.Fatalf("secretManagerResource(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }

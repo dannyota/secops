@@ -28,7 +28,7 @@ var surfaceProse = map[string]string{
 	"reference_lists":     "No delete or archive API; entries and scope are normalized for stable round-trips.",
 	"data_tables":         "Row writes are a wholesale destroy-and-replace (ReplaceDataTableRows), not a merge — the dry run is the safety check.",
 	"parsers":             "Parsers are immutable (new version + activate). `push parsers` activates immediately — a live ingestion cutover. Dry-test first with `parsers run`; roll back with `parsers activate <id>`.",
-	"feeds":               "Secret scalars are redacted on write — source them from env / Secret Manager at push time, never the YAML. GCS V2 / Storage-Transfer feeds supported.",
+	"feeds":               "Secret scalars are redacted on pull; new credentials can use secret_ref from env / Secret Manager at push time, never literal YAML. GCS V2 / Storage-Transfer feeds supported.",
 	"forwarders":          "Full pull / push / drift symmetry, so `pull all` mirrors forwarders and the drift gate stays clean.",
 	"dashboards":          "CUSTOM dashboards only. `access` is immutable — change it with `dashboards duplicate`, not push. Charts are replaced wholesale on update.",
 	"rule_exclusions":     "Detection-exclusion rules: scoped UDM filters that suppress matches.",

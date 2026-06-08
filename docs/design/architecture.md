@@ -68,7 +68,8 @@ Surface{ Name, Dir, Caps,
 - **Redaction round-trip.** Secrets are redacted on pull (`***REDACTED***`). A push
   never sends the marker back: **Update overlays edits onto the live body and drops
   masked fields** (keeping the real secret); **Create refuses** a body that still
-  carries a marker.
+  carries a marker. Feeds may use `secret_ref` sources (`env:` / Secret Manager)
+  that resolve only at apply time and never enter the canonical diff.
 - **Capabilities** adapt behavior without the engine inspecting payloads:
   `WholeBodyWrite`, `NoDelete`, `NoEtag`, `PruneEligible`.
 - The **`jsonSurface` adapter** turns any RawJSON per-object endpoint into a
