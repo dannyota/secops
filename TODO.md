@@ -75,7 +75,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
   lookups.
 - [x] **P3 — `iocs find --from-file` / stdin.** Bulk indicator lookup from a file or
   stdin (one per line); document the 1000-per-request chunking/cap.
-- [ ] **P3 — Wire `entity summarize` / NL search into the CLI.** The SDK already has
+- [x] **P3 — Wire `entity summarize` / NL search into the CLI.** The SDK already has
   them (`chronicle/nl_search.go`, `log_search.go`) and the design docs reference
   them, but they're not reachable from the CLI.
 - [x] **P3 — `rules validate <file.yaral>`.** Standalone pre-push YARA-L validation
@@ -105,7 +105,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## SDK
 
-- [ ] **P1 — Export `soar.Error` / `soar.IsNotFound` (and `soar/legacy`).** The
+- [x] **P1 — Export `soar.Error` / `soar.IsNotFound` (and `soar/legacy`).** The
   transport already builds a structured `*transport.Error{Status,URL,Body,…}` but it
   is sealed in an internal package, so SOAR consumers must string-parse `err.Error()`.
   Alias it from the public package (as `Settings` already is) and add an `IsNotFound`

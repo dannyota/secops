@@ -224,16 +224,19 @@ raw, err := c.CloseCase(ctx, map[string]any{
 })
 ```
 
-> **SOAR error handling.** A SOAR call returns an error carrying the HTTP
-> method/URL/status/body, but the concrete type lives in an internal package, and
-> there is no exported SOAR error type or `IsNotFound` helper. You cannot
-> `errors.As` it the way you can with `chronicle.APIError`; instead inspect
-> `err.Error()`, which embeds the HTTP status (and body):
+> **SOAR error handling.** A SOAR call returns a typed `soar.Error` (and
+> `legacy.Error`) carrying the HTTP method/URL/status/body/request-id — `errors.As`
+> it, or use the `soar.IsNotFound` / `legacy.IsNotFound` helpers, exactly as you
+> would with `chronicle.APIError` / `chronicle.IsNotFound`:
 
 ```go
 _, err := c.GetCustomField(ctx, "does-not-exist")
-if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+if soar.IsNotFound(err) {
 	// not found — create it, or skip
+}
+var apiErr *soar.Error
+if errors.As(err, &apiErr) {
+	log.Printf("SOAR %d: %s", apiErr.Status, apiErr.Body)
 }
 ```
 

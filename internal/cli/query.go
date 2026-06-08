@@ -131,8 +131,63 @@ func init() {
 	f.IntVar(&limit, "limit", 10000,
 		"maximum number of events to return")
 
-	queryCmd.AddCommand(udmCmd)
+	queryCmd.AddCommand(udmCmd, newQueryNLCmd())
 	rootCmd.AddCommand(queryCmd)
+}
+
+// newQueryNLCmd translates a natural-language description to a UDM query and runs
+// it (or just prints the generated UDM with --translate-only).
+func newQueryNLCmd() *cobra.Command {
+	var (
+		nlHours       int
+		nlLimit       int
+		translateOnly bool
+	)
+	cmd := &cobra.Command{
+		Use:   "nl <natural language query>",
+		Short: "Translate a natural-language query to UDM and search",
+		Long: "Translate a natural-language description to a UDM query and run it over the\n" +
+			"last --hours. --translate-only prints the generated UDM without searching.",
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			text := strings.Join(args, " ")
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			ctx := baseContext()
+			if translateOnly {
+				udm, terr := c.TranslateNLToUDM(ctx, text)
+				if terr != nil {
+					return terr
+				}
+				if jsonOut {
+					return emitJSON(map[string]string{"udm": udm})
+				}
+				fmt.Println(udm)
+				return nil
+			}
+			start, end := timeWindow(nlHours)
+			events, serr := c.NLSearch(ctx, text, start, end, nlLimit)
+			if serr != nil {
+				return serr
+			}
+			if jsonOut {
+				return emitJSON(events)
+			}
+			for i, e := range events {
+				when, etype := udmSummary(e)
+				fmt.Printf("%-4d %-26s %s\n", i, when, etype)
+			}
+			fmt.Printf("\n%d event(s)\n", len(events))
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.IntVar(&nlHours, "hours", 24, "look-back window in hours")
+	f.IntVar(&nlLimit, "limit", 1000, "maximum number of events to return")
+	f.BoolVar(&translateOnly, "translate-only", false, "print the generated UDM query; do not search")
+	return cmd
 }
 
 // udmMetadata captures UDM metadata in both serializations the API may emit:

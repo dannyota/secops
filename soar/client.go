@@ -12,6 +12,7 @@
 package soar
 
 import (
+	"errors"
 	"net/http"
 
 	"danny.vn/secops/auth"
@@ -20,6 +21,18 @@ import (
 
 // Settings identifies a tenant SOAR instance (host + v1alpha path components).
 type Settings = transport.Settings
+
+// Error is the typed error the SOAR client returns for a non-2xx response — it
+// carries the method, URL, HTTP status, body, and server request id. Consumers
+// can errors.As it to inspect the status, mirroring chronicle.APIError.
+type Error = transport.Error
+
+// IsNotFound reports whether err is (or wraps) a SOAR 404 — the SOAR-plane twin
+// of chronicle.IsNotFound, so a not-found check reads the same on both clients.
+func IsNotFound(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Status == http.StatusNotFound
+}
 
 // Client is a modern (v1alpha) SOAR API client. It is safe for concurrent use.
 type Client struct {

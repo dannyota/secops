@@ -729,10 +729,19 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   catalog to ship (the upstream swagger is git-ignored and not published); op
   discovery stays via the SecOps UI Network tab for now.
 
-### Wave 32 — SDK ergonomics & enrichment  *(planned)*
+### Wave 32 — SDK ergonomics & enrichment  *(done — pivot + typed-case deferred)*
 
-export `soar.Error`/`IsNotFound`; typed SOAR case view; `iocs related`/`ti related`;
-wire `entity summarize`/NL search into the CLI.
+- **`soar.Error` / `soar.IsNotFound`** (and `legacy.Error` / `legacy.IsNotFound`) —
+  the internal transport error is now re-exported via a type alias plus an
+  `IsNotFound` helper, so SOAR error handling reads exactly like
+  `chronicle.APIError` / `chronicle.IsNotFound` (no more string-matching).
+- **`entity summarize <type> <value>`** — alerts-by-rule, related entities, and
+  prevalence over a window (wraps `SummarizeEntity`).
+- **`query nl <text>`** — natural-language → UDM → search (`--translate-only` to
+  just print the UDM); wraps `TranslateNLToUDM` / `NLSearch`.
+- **Deferred:** `iocs related` / `ti related` (the `:fetchRelated` /
+  `:fetchIocMatchMetadata` enrichment RPCs aren't built in the SDK yet), and a
+  typed `ListCases` view (cases stay `[]json.RawMessage` + the typed `soar.Case`).
 
 ---
 

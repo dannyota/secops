@@ -14,6 +14,7 @@
 package legacy
 
 import (
+	"errors"
 	"net/http"
 
 	"danny.vn/secops/auth"
@@ -22,6 +23,17 @@ import (
 
 // Settings identifies a tenant SOAR instance (host + v1alpha path components).
 type Settings = transport.Settings
+
+// Error is the typed error the legacy SOAR client returns for a non-2xx response
+// (method, URL, HTTP status, body, server request id). errors.As it to inspect
+// the status, mirroring chronicle.APIError and soar.Error.
+type Error = transport.Error
+
+// IsNotFound reports whether err is (or wraps) a legacy SOAR 404.
+func IsNotFound(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Status == http.StatusNotFound
+}
 
 // Client speaks the Siemplify external-API (and bridge) SOAR surfaces. It is safe
 // for concurrent use.

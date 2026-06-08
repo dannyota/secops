@@ -144,9 +144,9 @@ secopsctl soar case list [--status open|closed|all] [--limit N] [--json]        
 secopsctl iocs find <value> [value…] [--type md5|sha1|sha256|domain|ip] [--json]           # IoC lookup (built, read)
 secopsctl iocs get  <ioc-id> [--json]                                                      # one IoC (built, read)
 secopsctl ti collections [--types campaign,report,…] [--limit N] [--json]                  # threat intel (built, read)
-secopsctl search nl '<question>'   [--hours N] [--limit N] [--json]                        # NL → UDM → search (planned)
+secopsctl query nl '<question>'    [--hours N] [--limit N] [--translate-only] [--json]     # NL → UDM → search (built, read)
 secopsctl stats     '<query>'      [--hours N]                                             # aggregations (planned)
-secopsctl entity summarize <ip|domain|hash|user> <value> [--hours N]                       # planned
+secopsctl entity summarize <type> <value> [--hours N] [--json]                             # built, read
 ```
 
 - **Default output is a compact table** (id, key fields, status/time) for humans;

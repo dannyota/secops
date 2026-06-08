@@ -126,9 +126,9 @@ through the Go SDK only.
 
 | Function (CLI) | Lane | New API (status · domain · version) | Legacy | Notes |
 |---|---|---|---|---|
-| **events (UDM)** | operational (read) | 🔨 chronicle · v1alpha (`query udm`) · 📐 rest | — | immutable telemetry — **read-only, never mutated**. `query udm` built; `search nl` / `stats` designed |
+| **events (UDM)** | operational (read) | 🔨 chronicle · v1alpha (`query udm`, `query nl`) · 📐 rest | — | immutable telemetry — **read-only, never mutated**. `query udm` + `query nl` (NL→UDM→search) built; `stats` designed |
 | **alerts** | operational | ✅ read · 🔨 act | — | `alerts list` (snapshot over a time window — `legacyFetchAlertsView`, streams a JSON-array of progressive fragments) + `alerts get <id>` (`legacyGetAlert`, response wrapped under `alert`) — **read-validated live** (`chronicle/alert.go`; fixed the array-stream decode, the `createdTime`/`detectionTime` keys, and `severityDisplay` being a string). Act (`UpdateAlert`/`BulkUpdateAlerts` feedback) built, gated, not run. Operators also read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts`) |
-| **entities** | operational (read) | 📐 chronicle · v1alpha | — | `entity summarize` — enrichment, read-only |
+| **entities** | operational (read) | 🔨 chronicle · v1alpha (`entity summarize`) | — | `entity summarize` (alerts/related/prevalence) — enrichment, read-only |
 | **watchlists** | operational (read) | ✅ chronicle · v1 | — | SIEM entity watchlists; `watchlists list`/`get <id>`, read-validated, pinned **v1** (`watchlistsAPIVersion`; all three answer → v1) |
 | **analytics & AI reads** — `investigations`(+steps/comments) · `entityRiskScores` · `bigQueryExport` · `coverageDetails` | operational (read) | ✅ chronicle (Wave 17, `chronicle/analytics.go`) | — | Gemini **TIN** investigations (250) + steps read-validated (list/get/trigger in `investigations.go`); `entityRiskScores:query` (301, behavioral risk 0–1000, v1alpha default); `coverageDetails` MITRE coverage (5) + `bigQueryExport` get — both pinned **v1**; `investigationComments` wired, return clean typed errors when not provisioned/implemented (501/400, Pre-GA/Enterprise+). `TestLiveAnalyticsRead`. Writes (`:trigger`/`:provision`/`update`) gated, not wired. SDK-only (no CLI yet) |
 
