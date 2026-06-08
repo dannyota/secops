@@ -97,8 +97,13 @@ func newSOARLegacyCallCmd() *cobra.Command {
 			}
 
 			if write || method == "PUT" || method == "DELETE" {
-				legacyCallBanner(method, op)
+				if !jsonOut { // a banner on stdout would corrupt --json output
+					legacyCallBanner(method, op)
+				}
 				if !yes {
+					if jsonOut {
+						return emitGuardedResult(fmt.Sprintf("%s %s", method, op), false, false)
+					}
 					fmt.Fprintln(os.Stdout, "Refusing a mutating call without --yes. Aborted.")
 					return nil
 				}
