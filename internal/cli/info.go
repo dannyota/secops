@@ -52,6 +52,9 @@ func init() {
 			return nil
 		},
 	}
-	infoCmd.AddCommand(newInfoSOARIntegrationsCmd())
+	infoCmd.AddCommand(
+		newInfoCronCmd(),
+		newInfoSOARIntegrationsCmd(),
+	)
 	rootCmd.AddCommand(infoCmd)
 }

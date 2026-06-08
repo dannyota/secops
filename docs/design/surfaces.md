@@ -185,6 +185,11 @@ stays on the legacy lane, which is reliable. So far that means:
   installed-pack catalog with legacy connector/job runtime cards. It is read-only
   and flags config-only installs, runtime without an installed pack, disabled
   runtime, and explicit unconfigured runtime markers.
+- **Scheduler-reference manifest** (`info cron`) is an offline local scan, not an
+  API surface. It walks scheduler-like files such as GitHub Actions workflows,
+  `cron/`, crontabs, and systemd units, then reports which known `drift`, SIEM
+  `push`, and SOAR `soar push` commands have file:line references without echoing
+  raw scheduler lines.
 - The reconcile config surfaces are read on modern where validated; their v1alpha
   **writes are also validated** — create→get→delete on customLists / socRoles /
   caseTagDefinitions, environments create reachable (license-capped) — they do
@@ -198,6 +203,7 @@ stays on the legacy lane, which is reliable. So far that means:
 |---|---|---|
 | integrations catalog (list/get/delete) | ✅ | `updateCustomIntegration`, `:export`/`:download` ⬜ (low) |
 | custom integration package ZIP (`soar package-integration`) | 🔨 offline utility | deterministic local ZIP builder for an already-shaped IDE integration directory; no API call, no tenant validation |
+| scheduler references (`info cron`) | 🔨 offline utility | local scheduler-file scan only; no host scheduler ownership, heartbeat, or SOAR trigger introspection yet |
 | connector **definitions** (list/get/delete) | ✅ | create/patch ⬜ (med) |
 | connector **instances** (list/get/patch + `:runOnDemand`) | ✅ list+get read-validated (instance GET decodes the `parameters` descriptor array) | create/delete + `:runOnDemand` SDK-built, live-write pending |
 | job **definitions** (list) | 🔨 | get/create/patch/delete ⬜ (med) |
