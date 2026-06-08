@@ -36,6 +36,7 @@ or `secopsctl config --show-path`.
 `ti collections`, `ti collection`, `watchlists list`, `watchlists get`,
 `curated list`, `curated rules`, `rules detections`, `rules errors`,
 `rules retrohunt list`, `rules retrohunt get`, `soar case list`, `soar case get`,
+`soar case values`, `soar users list`, `soar marketplace contentpacks get`,
 `soar integration list`, `soar settings api-keys`, and `version`. It is **also**
 emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
 `drifted_surfaces`), `push` (the reconcile plan/result + `would_change`), and the
@@ -135,8 +136,10 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar case assign` | Assign a case to a user (`--user`). |
 | `soar case tag` / `untag` | Tag / untag a case. |
 | `soar case stage` | Change a case's stage (`--stage`). |
-| `soar case close` | Close one case (`--id`, `--reason` string; `--root-cause`, `--comment` optional). |
+| `soar case close` | Close one case (`--id`, `--reason` = the fixed enum `malicious\|not-malicious\|maintenance\|inconclusive\|unknown`, same as `bulk-close`; `--root-cause`, `--comment` optional). |
 | `soar case rename` / `describe` / `importance` / `merge` | Rename / re-describe / flag-important / merge cases. |
+| `soar case values <tags\|stages\|root-causes>` | List the live configured values for `--tag` / `--stage` / `--root-cause`. |
+| `soar users list` | List SOAR users (the USERNAME column is the value for `soar case assign --user`); `--grep` / `--all`. |
 | `soar integration install --identifier <id>` | Install a Content Hub marketplace integration pack (from `soar marketplace list`); pairs with `uninstall`. |
 | `soar integration create` | Create a new, unconfigured (inert) integration instance. |
 | `soar integration delete` | Delete an integration instance (warns if playbooks use it). |

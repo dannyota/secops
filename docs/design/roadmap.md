@@ -782,7 +782,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   help matches actual behavior; a guard fails on doc↔CLI drift. ✅
 - **Docs.** CATALOG, ARCHITECTURE.
 
-### Wave 34 — SOAR triage & discovery UX *(done — reads live-validated; value-lister deferred)*
+### Wave 34 — SOAR triage & discovery UX *(done — all items shipped + live-validated)*
 
 - **Goal.** Close the daily SOAR triage loop's discovery gaps — every flag value an
   operator must supply should be discoverable in-tool.
@@ -816,15 +816,15 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   <id>` (+ `GetContentPack`). `soar legacy list [--grep] [--tag] [--method]` over a
   bundled, tenant-neutral op index (`internal/cli/legacy_ops.json`, 483 ops embedded)
   so clean-clone users can discover ops without the unshipped swagger; `legacy call
-  --help` points at it. Value-discovery **pointers** added to the `--tag` / `--stage` /
-  `--root-cause` flag help (→ the matching `soar pull` surface).
+  --help` points at it. **Value discovery**: `soar case values <tags|stages|root-causes>`
+  lists the live configured values, and the `--tag` / `--stage` / `--root-cause` flag
+  help points at it.
 - **Live-validated.** `soar users list` (typed keys match the directory payload, all
   populated); modern `soar case list` parity (the live payload keys `displayName` +
   `assignee` are exactly what the tolerant decode targets — TITLE/ASSIGNEE columns
-  populate); `soar marketplace contentpacks get <id>` (round-trips a pack by identifier).
-- **Deferred.** A live `--list-values` lister for `--tag`/`--stage`/`--root-cause` (the
-  pull surfaces + flag-help pointers cover discovery for now; a live lister awaits
-  per-kind value decoders).
+  populate); `soar marketplace contentpacks get <id>` (round-trips a pack by identifier);
+  `soar case values` (stages + root-causes return the live config; tags empty on a tenant
+  with none — the decode handles the objectsList wrap and the flat array).
 - **Exit.** Every `soar case` / `marketplace` / `legacy` flag value is discoverable
   in-tool; modern `case list` matches legacy output. ✅
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
