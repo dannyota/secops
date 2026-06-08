@@ -152,7 +152,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## SIEM — feeds, parsers, dashboards (round 2)
 
-- [ ] **P2 — Parser CLI: test / versions / rollback.** The SDK has `RunParser`
+- [x] **P2 — Parser CLI: test / versions / rollback.** The SDK has `RunParser`
   (inert validate against sample logs), `ActivateParser`/`DeactivateParser`, and
   retains the prior version for rollback, but none are CLI-reachable. `push parsers`
   does create-new-version **and activate** in one step (immediate live cutover) with
@@ -160,11 +160,11 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
   `parsers run <logtype> --logs <file>`, `parsers versions <logtype>`, and
   `parsers activate <logtype> <id>`; optionally a two-step `push parsers --inactive`
   then `parsers activate`.
-- [ ] **P3 — Feed-config schema discovery + pre-push validation in the CLI.** The SDK
+- [x] **P3 — Feed-config schema discovery + pre-push validation in the CLI.** The SDK
   has `ListFeedSourceTypeSchemas` / `ListLogTypeSchemas` (the reference for authoring
   a feed file) but they are SDK-only, so an admin can't discover required fields
   before a `push feeds` 500s. Add `feeds schemas [--source-type X]` + pre-push validation.
-- [ ] **P3 — `DuplicateDashboard` CLI verb.** Dashboard `access` is immutable; the
+- [x] **P3 — `DuplicateDashboard` CLI verb.** Dashboard `access` is immutable; the
   documented "recreate to change visibility" path uses the SDK's `DuplicateDashboard`
   (new access type), which has no CLI verb. Expose it.
 - [ ] **P3 — Ship feed/parser file templates under `examples/`.** `examples/` has

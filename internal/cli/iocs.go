@@ -91,6 +91,32 @@ func newIoCsFindCmd() *cobra.Command {
 	return cmd
 }
 
+// readLines reads every line from path (or stdin for "-") verbatim — no trimming
+// or comment filtering — dropping only a trailing newline. Use it for content
+// where blank or #-prefixed lines are meaningful (e.g. parser sample logs).
+func readLines(cmd *cobra.Command, path string) ([]string, error) {
+	var r io.Reader
+	if path == "-" {
+		r = cmd.InOrStdin()
+	} else {
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = f.Close() }()
+		r = f
+	}
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	s := strings.TrimRight(string(data), "\n")
+	if s == "" {
+		return nil, nil
+	}
+	return strings.Split(s, "\n"), nil
+}
+
 // readIndicatorList reads newline-delimited indicators from path (or stdin when
 // path is "-"), skipping blank lines and # comments.
 func readIndicatorList(cmd *cobra.Command, path string) ([]string, error) {

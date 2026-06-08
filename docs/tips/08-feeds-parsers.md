@@ -137,6 +137,17 @@ secopsctl push parsers --dry-run     # preview the diff (LIVE DEPLOY banner)
 secopsctl push parsers --yes         # creates + activates a NEW version; live ingestion switches
 ```
 
+Because the push activates immediately, test first and keep a rollback handy:
+
+```bash
+secopsctl parsers run <LOG_TYPE> --cbn parsers/<LOG_TYPE>.conf --logs samples.txt  # parse sample logs, no server change
+secopsctl parsers versions <LOG_TYPE>          # list versions (id · state · created)
+secopsctl parsers activate <LOG_TYPE> <id>     # roll back to a prior version (guarded)
+```
+
+For authoring a new feed, `secopsctl feeds schemas [--source-type <type>]` lists
+the source types and their log types (the field reference for the YAML).
+
 Like feeds, parsers are **not prune-eligible**: a missing local file never
 deletes a live parser. (The active set is derived from your feeds' log types, so
 a transient gap can't drive a deletion either.)

@@ -59,6 +59,9 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `curated rules` | List the individual curated rules. |
 | `rules list` | List detection rules (rule id · display name · slug · type) — maps a name/slug to the `ru_` id the inspect verbs need. |
 | `rules validate <file.yaral>` | Validate a YARA-L file against the API (no mutation); non-zero exit if invalid. |
+| `parsers versions <log-type>` | List a log type's parser versions (id · state · created). |
+| `parsers run <log-type>` | Validate a CBN parser against sample logs (`--cbn`, `--logs`); no server change. |
+| `feeds schemas` | List feed source types (or one source type's log types with `--source-type`) — the field reference for authoring a feed. |
 | `rules detections` | List detections a deployed rule produced in a time window. |
 | `rules errors` | List execution errors a rule produced. |
 | `rules alerts` | Search alerts a rule generated (raw, rule-dependent shape). |
@@ -87,6 +90,8 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 | `push <reconcile-target>` | Reconcile local files to live (create/update; `--prune` to delete). Targets: `reference_lists`, `data_tables`, `parsers`, `feeds`, `forwarders`, `dashboards`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`. |
 | `curated set` | Toggle a curated deployment's `enabled`/`alerting` per precision (`--category`, `--ruleset`, `--precision`). |
 | `rules retrohunt` | Manage retrohunts (run a rule over historical data). |
+| `parsers activate <log-type> <id>` | Make a parser version ACTIVE (live ingestion switches; use `parsers versions` to find a prior id to roll back to). |
+| `dashboards duplicate <id>` | Copy a dashboard with a new `--name`/`--access` — the supported way to change the immutable `access`. |
 
 ## 🔒 SOAR — read-only
 

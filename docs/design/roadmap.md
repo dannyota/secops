@@ -685,10 +685,22 @@ puller-output refactor; `pull`'s real output is the files it writes (`git diff`)
 - **Deferred:** per-rule `--rule` for `push rules-deploy`/`rules-disable` (needs a
   filter through the mirror push functions).
 
-### Wave 29 — Ingestion & dashboard operability  *(planned)*
+### Wave 29 — Ingestion & dashboard operability  *(done — push-curated deferred)*
 
-parser `run`/`versions`/`activate`; feeds schema discovery + pre-push validation;
-`DuplicateDashboard`; reconcilable curated (`push curated`).
+CLI wiring of existing SDK methods (built + offline-tested; the guarded writes —
+`parsers activate`, `dashboards duplicate` — await an approved live smoke):
+
+- `parsers versions` (list versions) · `parsers run --cbn --logs` (inert validate
+  against sample logs, no server change) · `parsers activate` (guarded — live
+  ingestion switches; the rollback path).
+- `feeds schemas [--source-type]` — source types and their log types, the field
+  reference for authoring a feed YAML.
+- `dashboards duplicate <id> --name --access` — the supported way to change a
+  dashboard's immutable `access` (recreate with new access; guarded).
+- **Deferred:** reconcilable curated (`push curated` from `deployments.yaml`) — the
+  imperative `curated set` covers toggling today; a desired-state file + batch diff
+  is a larger change. Two-step `push parsers --inactive` (stage without activate)
+  also deferred (engine change).
 
 ### Wave 30 — SOAR case & Content Hub UX  *(planned)*
 

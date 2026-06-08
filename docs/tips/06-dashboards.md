@@ -62,9 +62,9 @@ plus a reserved `_server` identity block. Two things matter on push:
   not merged — a dropped chart in the JSON drops it live. Review the dry-run.
 - **`access` is immutable after create.** Changing `DASHBOARD_PRIVATE` ↔
   `DASHBOARD_PUBLIC` in the JSON is rejected. To change visibility, copy the
-  dashboard into a new one with the desired access: the SDK exposes
-  `DuplicateDashboard(ctx, dashboardID, displayName, accessType, description)` as
-  the recreate-with-new-access primitive (SDK-only; no `push` subcommand).
+  dashboard into a new one with the desired access:
+  `secopsctl dashboards duplicate <id> --name <new> --access DASHBOARD_PUBLIC`
+  (guarded; re-pull afterwards). It wraps the SDK's `DuplicateDashboard`.
 - **No dashboard-level etag.** A dashboard carries no top-level `etag`, so a
   `push dashboards` cannot detect a concurrent live edit of dashboard-level fields
   (`displayName`, `description`, `definition.{filters,charts}`) — it overwrites
