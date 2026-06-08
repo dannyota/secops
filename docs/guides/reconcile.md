@@ -1,4 +1,4 @@
-# 🧭 Reconcile surfaces
+# Reconcile surfaces
 
 Config-as-code for the many engine surfaces: snapshot live objects to files, review
 in `git diff`, push back. One redacted, diff-friendly file per object. Additive by

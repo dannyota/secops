@@ -1,4 +1,4 @@
-# 💡 05 · Curated rules
+# 05 · Curated rules
 
 Google ships a large catalog of **curated** detection content — rules authored and
 maintained by Google/Mandiant that you **deploy but cannot edit**. They are a

@@ -1,4 +1,4 @@
-# 🧭 Go SDK
+# Go SDK
 
 `secopsctl` is also an importable Go SDK (module `danny.vn/secops`). There are
 **three clients**, split by surface and credential. Each is a standalone package,

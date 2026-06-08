@@ -1,4 +1,4 @@
-# 🧭 Query & read
+# Query & read
 
 The operational read plane: **search live events and look up entities**, with no
 deploy attached. Reads are free — nothing here mutates the tenant. Use these to

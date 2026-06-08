@@ -41,7 +41,7 @@
       --muted:#5c6b6a; --border:#d7dbc6; --accent:#1a7f37; --accent2:#0a7c8c;
       --sel:rgba(26,127,55,.16); --glow:none;
       --mono:ui-monospace,"JetBrains Mono","Fira Code",SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;
-      --radius:6px; --maxw:1400px; --header-h:45px;
+      --radius:6px; --maxw:1760px; --header-h:45px;
     }
     :root[data-theme="dark"] {
       --bg:#0a0e14; --surface:#0f141c; --surface-2:#161d28; --text:#c9d1d9;
@@ -85,6 +85,7 @@
     .layout { max-width:var(--maxw); margin:0 auto; padding:0 24px;
       display:grid; grid-template-columns:232px minmax(0,1fr) 208px; gap:28px; }
     .layout.no-toc { grid-template-columns:232px minmax(0,1fr); }
+    .layout.no-toc .toc { display:none; }
 
     .rail { position:sticky; top:var(--header-h); align-self:start;
       max-height:calc(100vh - var(--header-h)); overflow:auto; padding:26px 0 40px; font-size:13px; }
@@ -145,6 +146,7 @@
     @media (max-width:1140px) {
       .layout, .layout.no-toc { grid-template-columns:232px minmax(0,1fr); }
       .toc { display:none; }
+      #toc-btn { display:none; }
     }
     @media (max-width:820px) {
       .layout, .layout.no-toc { grid-template-columns:minmax(0,1fr); }
@@ -162,6 +164,7 @@
     <button class="menu-btn" id="menu-btn" aria-label="Toggle navigation">☰</button>
     <a class="brand" href="{{ '/' | relative_url }}"><span class="prompt">secopsctl:~$</span> docs<span class="cursor">█</span></a>
     <span class="spacer"></span>
+    <button id="toc-btn" class="toggle" type="button" aria-label="Toggle the on-this-page panel">⊟ TOC</button>
     <button id="theme-toggle" class="toggle" type="button" aria-label="Toggle theme">◐ Auto</button>
   </div></header>
 
@@ -184,6 +187,20 @@
         <li><a href="{{ '/guides/sdk/' | relative_url }}"{% if page.url contains '/guides/sdk' %} class="on"{% endif %}>Go SDK</a></li>
         <li><a href="{{ '/guides/usage/' | relative_url }}"{% if page.url contains '/guides/usage' %} class="on"{% endif %}>Command reference</a></li>
       </ul>
+      <p class="title">tips/</p>
+      <ul>
+        <li><a href="{{ '/tips/' | relative_url }}"{% if page.url == '/tips/' %} class="on"{% endif %}>Overview</a></li>
+        <li><a href="{{ '/tips/01-secops-as-code/' | relative_url }}"{% if page.url contains '/tips/01-secops-as-code' %} class="on"{% endif %}>01 · SecOps as code</a></li>
+        <li><a href="{{ '/tips/02-architecture-client/' | relative_url }}"{% if page.url contains '/tips/02-architecture-client' %} class="on"{% endif %}>02 · Architecture &amp; client</a></li>
+        <li><a href="{{ '/tips/03-yara-l-rules/' | relative_url }}"{% if page.url contains '/tips/03-yara-l-rules' %} class="on"{% endif %}>03 · YARA-L rules</a></li>
+        <li><a href="{{ '/tips/04-reference-lists-data-tables/' | relative_url }}"{% if page.url contains '/tips/04-reference-lists-data-tables' %} class="on"{% endif %}>04 · Reference lists &amp; tables</a></li>
+        <li><a href="{{ '/tips/05-curated-rules/' | relative_url }}"{% if page.url contains '/tips/05-curated-rules' %} class="on"{% endif %}>05 · Curated rules</a></li>
+        <li><a href="{{ '/tips/06-dashboards/' | relative_url }}"{% if page.url contains '/tips/06-dashboards' %} class="on"{% endif %}>06 · Dashboards</a></li>
+        <li><a href="{{ '/tips/07-udm-queries/' | relative_url }}"{% if page.url contains '/tips/07-udm-queries' %} class="on"{% endif %}>07 · UDM queries</a></li>
+        <li><a href="{{ '/tips/08-feeds-parsers/' | relative_url }}"{% if page.url contains '/tips/08-feeds-parsers' %} class="on"{% endif %}>08 · Feeds &amp; parsers</a></li>
+        <li><a href="{{ '/tips/09-soar-operations/' | relative_url }}"{% if page.url contains '/tips/09-soar-operations' %} class="on"{% endif %}>09 · SOAR operations</a></li>
+        <li><a href="{{ '/tips/10-llm-and-automation/' | relative_url }}"{% if page.url contains '/tips/10-llm-and-automation' %} class="on"{% endif %}>10 · LLM &amp; automation</a></li>
+      </ul>
       <p class="title">design/</p>
       <ul>
         <li><a href="{{ '/design/architecture/' | relative_url }}"{% if page.url contains '/design/architecture' %} class="on"{% endif %}>Architecture</a></li>
@@ -195,7 +212,6 @@
       </ul>
       <p class="title">reference/</p>
       <ul>
-        <li><a href="{{ '/tips/' | relative_url }}"{% if page.url contains '/tips' %} class="on"{% endif %}>Tips</a></li>
         <li><a href="{{ '/GLOSSARY/' | relative_url }}"{% if page.url contains 'GLOSSARY' %} class="on"{% endif %}>Glossary</a></li>
         <li><a href="{{ '/STYLE/' | relative_url }}"{% if page.url contains 'STYLE' %} class="on"{% endif %}>Doc style</a></li>
       </ul>
@@ -281,6 +297,27 @@
         if (mb) mb.addEventListener('click', function () { nav.classList.toggle('open'); bd.classList.toggle('show'); });
         if (bd) bd.addEventListener('click', close);
         nav.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', close); });
+      });
+    })();
+
+    /* ---- right "On this page" panel: show/hide toggle (persisted) ---- */
+    (function () {
+      function pref() { try { return localStorage.getItem('toc') || 'show'; } catch (e) { return 'show'; } }
+      window.addEventListener('load', function () {
+        var layout = document.getElementById('layout'), btn = document.getElementById('toc-btn');
+        if (!layout || !btn) return;
+        if (!document.querySelectorAll('#toc-list li').length) { btn.style.display = 'none'; return; }
+        function apply() {
+          var hidden = pref() === 'hide';
+          layout.classList.toggle('no-toc', hidden);
+          btn.textContent = (hidden ? '⊞' : '⊟') + ' TOC';
+          btn.setAttribute('aria-pressed', String(!hidden));
+        }
+        apply();
+        btn.addEventListener('click', function () {
+          try { localStorage.setItem('toc', pref() === 'hide' ? 'show' : 'hide'); } catch (e) {}
+          apply();
+        });
       });
     })();
   </script>

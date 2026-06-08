@@ -1,4 +1,4 @@
-# 💡 SOAR operations
+# SOAR operations
 
 Google SecOps pairs the Chronicle **SIEM** with **Chronicle SOAR** (formerly
 Siemplify — Google acquired and rebranded it; the API still carries the older URL

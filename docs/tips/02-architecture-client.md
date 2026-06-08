@@ -1,4 +1,4 @@
-# 💡 02 · Architecture & the client
+# 02 · Architecture & the client
 
 `secopsctl` talks to one Chronicle (Google SecOps) instance, identified entirely
 by a config file — no tenant data is compiled in. This doc covers how the SDK

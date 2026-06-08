@@ -1,4 +1,4 @@
-# 💡 08 · Feeds & parsers
+# 08 · Feeds & parsers
 
 Detection is only as good as ingestion. **Feeds** bring raw logs into SecOps;
 **parsers** normalize those raw logs into UDM. This doc covers tracking both as

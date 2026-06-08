@@ -1,4 +1,4 @@
-# 📐 Docs style guide
+# Docs style guide
 
 The contract every doc in `docs/` follows. Keep it short; keep it true to the code.
 

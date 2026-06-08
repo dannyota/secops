@@ -1,4 +1,4 @@
-# 🧭 SOAR cases
+# SOAR cases
 
 Per-case SOAR triage from the CLI: read a case and its alerts, then run guarded
 mutations (assign, tag, close, merge, …). Every mutating verb is **dry-run by

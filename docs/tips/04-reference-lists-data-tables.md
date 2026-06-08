@@ -1,4 +1,4 @@
-# 💡 04 · Reference lists & data tables
+# 04 · Reference lists & data tables
 
 Lookup structures your YARA-L rules ([03-yara-l-rules.md](03-yara-l-rules.md)) and
 UDM queries ([07-udm-queries.md](07-udm-queries.md)) read against — allowlists,

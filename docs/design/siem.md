@@ -1,4 +1,4 @@
-# 📐 SIEM design — two planes: config-as-code + operational query/act
+# SIEM design — two planes: config-as-code + operational query/act
 
 Design for the Google SecOps **SIEM** surface of `secopsctl`. SIEM splits into two
 planes that need different models: config is *desired state* (reconciled from

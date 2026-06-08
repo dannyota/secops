@@ -1,4 +1,4 @@
-# 💡 10 · LLM agents & automation
+# 10 · LLM agents & automation
 
 `secopsctl` is built so an **LLM agent** can drive it as safely as a human — and
 so the safe, repetitive parts of SecOps operations can run unattended. This doc

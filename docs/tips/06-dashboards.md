@@ -1,4 +1,4 @@
-# 💡 06 · Native dashboards
+# 06 · Native dashboards
 
 Chronicle **native dashboards** (visualizations built on UDM/YARA-L data in the
 SecOps UI) are tracked as JSON. Two things trip people up: *listing* a dashboard

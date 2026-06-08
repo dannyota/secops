@@ -1,4 +1,4 @@
-# 💡 secopsctl tips
+# secopsctl tips
 
 Tenant-neutral craft notes for operating **Google SecOps (Chronicle SIEM + SOAR)**
 as code. They share the *workflow*, the API gotchas, the entity conventions, and

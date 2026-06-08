@@ -1,4 +1,4 @@
-# 🧭 The loop
+# The loop
 
 Detection-as-code: live state is mirrored to files under git, reviewed in a diff,
 and pushed back. The git history is the source of truth and the review surface.

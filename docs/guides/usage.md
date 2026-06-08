@@ -1,4 +1,4 @@
-# 🧭 Command reference
+# Command reference
 
 Every `secopsctl` command at a glance — what it does, and whether it only
 **reads** or performs a **guarded mutation** (live deploy, dry-run by default).

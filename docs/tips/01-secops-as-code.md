@@ -1,4 +1,4 @@
-# 💡 01 · SecOps as code
+# 01 · SecOps as code
 
 Operating Google SecOps (Chronicle SIEM) **as code** means the live instance is
 not the source of truth your team edits by hand — a git repository is. Detection

@@ -1,4 +1,4 @@
-# 🧭 Detection rules
+# Detection rules
 
 YARA-L detection rules as code: `pull` live rules to files, edit the `.yaral`
 text in git, `push` the change back. Inspect detections, errors, alerts, and

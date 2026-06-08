@@ -1,4 +1,4 @@
-# 📐 Surface map
+# Surface map
 
 The authoritative map of **which API does what**, split by plane: every API
 family has exactly one home (plane + host + auth + version) and one lane.

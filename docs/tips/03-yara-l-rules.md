@@ -1,4 +1,4 @@
-# 💡 03 · YARA-L detection rules
+# 03 · YARA-L detection rules
 
 Custom detections are written in **YARA-L 2.0** and tracked as code. This doc
 covers the file layout, the read-only metadata contract, conventions for writing

@@ -1,4 +1,4 @@
-# 🛰️ secopsctl docs
+# secopsctl docs
 
 Operate **Google SecOps** (Chronicle SIEM + Siemplify SOAR) **as code** — one Go
 CLI and unofficial SDK. Two products, two planes, one loop.

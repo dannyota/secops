@@ -1,4 +1,4 @@
-# 💡 07 · UDM queries
+# 07 · UDM queries
 
 UDM (Unified Data Model) is Chronicle's normalized event schema. A UDM query is a
 filter expression over normalized fields like `metadata.event_type`,

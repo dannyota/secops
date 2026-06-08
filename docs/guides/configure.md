@@ -1,4 +1,4 @@
-# 🧭 Configure & auth
+# Configure & auth
 
 One config file, two auth planes. Get both right and every other command just
 works. Previous: [install.md](install.md). Next: [the-loop.md](the-loop.md).

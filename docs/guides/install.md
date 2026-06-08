@@ -1,4 +1,4 @@
-# 🧭 Install
+# Install
 
 Get the `secopsctl` binary onto a machine, then verify it can reach your tenant.
 `secopsctl` is a single Go binary (module `danny.vn/secops`); the same code is an
