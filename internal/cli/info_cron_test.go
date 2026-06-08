@@ -37,6 +37,38 @@ func TestBuildCronInfoReport(t *testing.T) {
 	if err := os.WriteFile(workflow, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	playbookDir := filepath.Join(root, "soar", "playbooks")
+	if err := os.MkdirAll(playbookDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	playbook := strings.Join([]string{
+		`{`,
+		`  "name": "Case Hygiene",`,
+		`  "enabled": true,`,
+		`  "trigger": {`,
+		`    "cronSchedule": "0 8 * * *"`,
+		`  }`,
+		`}`,
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(playbookDir, "Case_Hygiene.json"), []byte(playbook+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	jobDir := filepath.Join(root, "soar", "jobs")
+	if err := os.MkdirAll(jobDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	job := strings.Join([]string{
+		`{`,
+		`  "name": "Nightly Sync",`,
+		`  "enabled": false,`,
+		`  "cronSchedule": "*/15 * * * *",`,
+		`  "lastRunStatus": "Success",`,
+		`  "lastRunTime": "1700000000"`,
+		`}`,
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(jobDir, "Nightly_Sync.json"), []byte(job+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	report, err := buildCronInfoReport(root)
 	if err != nil {
@@ -74,6 +106,34 @@ func TestBuildCronInfoReport(t *testing.T) {
 	}
 	if row.Referenced || len(row.References) != 0 {
 		t.Fatalf("push rules-create row = %+v, want unreferenced", row)
+	}
+
+	schedules := map[string]cronSOARScheduleRow{}
+	for _, row := range report.SOARSchedules {
+		schedules[row.Type+"/"+row.Name] = row
+	}
+	playbookRow, ok := schedules["soar_playbook_trigger/Case Hygiene"]
+	if !ok {
+		t.Fatalf("missing playbook trigger schedule: %#v", report.SOARSchedules)
+	}
+	if playbookRow.CronSchedule != "0 8 * * *" || playbookRow.File != "soar/playbooks/Case_Hygiene.json" || playbookRow.Line != 5 {
+		t.Fatalf("playbook trigger row = %+v", playbookRow)
+	}
+	if playbookRow.Enabled == nil || !*playbookRow.Enabled {
+		t.Fatalf("playbook enabled = %#v, want true", playbookRow.Enabled)
+	}
+	jobRow, ok := schedules["soar_job/Nightly Sync"]
+	if !ok {
+		t.Fatalf("missing job schedule: %#v", report.SOARSchedules)
+	}
+	if jobRow.CronSchedule != "*/15 * * * *" || jobRow.File != "soar/jobs/Nightly_Sync.json" || jobRow.Line != 4 {
+		t.Fatalf("job row = %+v", jobRow)
+	}
+	if jobRow.Enabled == nil || *jobRow.Enabled {
+		t.Fatalf("job enabled = %#v, want false", jobRow.Enabled)
+	}
+	if jobRow.LastRunStatus != "Success" || jobRow.LastRunTime != "1700000000" {
+		t.Fatalf("job last run = (%q,%q)", jobRow.LastRunStatus, jobRow.LastRunTime)
 	}
 }
 

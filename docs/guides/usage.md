@@ -161,7 +161,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 |---|---|
 | `config` (alias `init`) | Set up / edit the config (`~/.secopsctl/instance.yaml`, `0600`). Single-screen form, or flags + `--non-interactive`. See [configure](configure.md). `config --show-path` prints the active config file. |
 | `surfaces [--json]` | List every API surface family — plane (host + auth), API version, lane (reconcile/imperative/raw/operational), status, and whether `--prune` can delete it. Reads nothing live; the map of reconcilable vs read-only. |
-| `info cron [--root <dir>]` | Offline scan of local scheduler-like files (`.github/workflows/`, `cron/`, systemd units, etc.) for `secopsctl drift`, `push`, and `soar push` references. Reports file:line references only; it does not inspect the host scheduler or echo raw command lines. |
+| `info cron [--root <dir>]` | Offline scan of local scheduler-like files (`.github/workflows/`, `cron/`, systemd units, etc.) for `secopsctl drift`, `push`, and `soar push` references. Also reads pulled `soar/jobs/` and `soar/playbooks/` JSON for non-empty `cronSchedule` values. Reports file:line references only; it does not inspect the host scheduler or echo raw command lines. |
 | `soar package-integration <dir>` | Offline ZIP builder for an already-shaped SOAR custom integration directory. Defaults to `<dir>.zip`; use `--out <file>` and `--force` to overwrite. |
 | `completion` | Generate the shell autocompletion script. |
 | `help` | Help about any command. |
