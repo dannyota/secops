@@ -105,7 +105,7 @@ flowchart TD
 |---|---|---|---|
 | `rules-create` | a `.yaral` with **no** companion `.yaml` | `CreateRule(text)` then optional deployment | the new-rule path |
 | `rules-update` | tracked rules whose `.yaral` text drifted from live | `UpdateRule(id, text, etag)` | etag-guarded; validates first |
-| `rules-deploy` | tracked rules whose `deployment` block drifted from live | `UpdateRuleDeployment(id, …)` | deployment state as code; subsumes enable/alerting/frequency |
+| `rules-deploy` | tracked rules whose `deployment` block drifted from live | `UpdateRuleDeployment(id, …)` | deployment state as code; `--rule` scopes one rule |
 | `rules-disable` | tracked rules with `deployment.enabled: true` | `UpdateRuleDeployment(id, enabled=false)` | fast "turn off this batch"; alerting + frequency preserved |
 
 Common flags: `--dry-run` (preview only — the effective default), `--yes` (apply
@@ -115,6 +115,7 @@ for real), `--rules-dir DIR` (override the default `<dataRoot>/rules`).
 secopsctl push rules-create  [--dry-run | --yes]   # new .yaral → live rule
 secopsctl push rules-update  [--dry-run | --yes]   # changed text → new version
 secopsctl push rules-deploy  [--dry-run | --yes]   # reconcile enabled/alerting/freq
+secopsctl push rules-deploy --rule <rule-id-or-slug> --dry-run
 secopsctl push rules-disable [--dry-run | --yes]   # disable enabled tracked rules
 ```
 

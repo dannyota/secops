@@ -125,12 +125,13 @@ at the rule set. Read and toggle from the CLI:
 |---|---|
 | `curated list [--filter SUBSTR] [--json]` | 🔒 read — list deployments with `enabled`/`alerting` (filter is a case-insensitive substring on the rule-set display name) |
 | `curated rules [--json]` | 🔒 read — list the individual Google-managed rules |
+| `push curated [--dry-run\|--yes]` | ⚠️ guarded mutation — reconcile `curated/deployments.yaml` to live deployment flags |
 | `curated set --category C --ruleset R --precision precise\|broad [--enabled[=bool]] [--alerting[=bool]]` | ⚠️ guarded mutation — flip one deployment's flags (`--dry-run` → review → `--yes`) |
 
-Under the hood `set` calls `UpdateCuratedRuleSetDeployment`; for reconciling a whole
-desired-state file the SDK exposes `BatchUpdateCuratedRuleSetDeployments`, the atomic
-multi-deployment write primitive. The individual-rule `.yaral` files are read-only
-reference material: read them to understand and to plan, never to edit.
+Under the hood `set` calls `UpdateCuratedRuleSetDeployment`; `push curated` uses
+`BatchUpdateCuratedRuleSetDeployments`, the atomic multi-deployment write primitive.
+The individual-rule `.yaral` files are read-only reference material: read them to
+understand and to plan, never to edit.
 
 A practical consequence: when a curated rule set is noise-dominated for your
 environment (e.g. rules with no principal-type filter firing on routine automation, or

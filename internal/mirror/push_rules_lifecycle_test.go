@@ -64,3 +64,49 @@ func TestTrackedRules(t *testing.T) {
 		t.Errorf("missing dir: rs=%v err=%v", rs, err)
 	}
 }
+
+func TestFilterTrackedRules(t *testing.T) {
+	rules := []trackedRule{
+		{
+			comp: &ruleCompanion{
+				DisplayName: "Suspicious Login",
+				RuleID:      "ru_login",
+				Name:        "projects/p/locations/r/instances/i/rules/ru_login",
+			},
+			path: "/tmp/suspicious_login.yaml",
+		},
+		{
+			comp: &ruleCompanion{
+				DisplayName: "Admin Action",
+				RuleID:      "ru_admin",
+			},
+			path: "/tmp/admin_action.yaml",
+		},
+		{
+			comp: &ruleCompanion{
+				DisplayName: "Folder/Rule",
+				RuleID:      "ru_slash",
+			},
+			path: "/tmp/folder_rule.yaml",
+		},
+	}
+
+	for _, filter := range []string{
+		"ru_login",
+		"projects/p/locations/r/instances/i/rules/ru_login",
+		"Suspicious Login",
+		"suspicious_login",
+	} {
+		got := filterTrackedRules(rules, filter)
+		if len(got) != 1 || got[0].comp.RuleID != "ru_login" {
+			t.Errorf("filter %q matched %+v, want ru_login", filter, got)
+		}
+	}
+	if got := filterTrackedRules(rules, "Folder/Rule"); len(got) != 1 || got[0].comp.RuleID != "ru_slash" {
+		t.Errorf("display name with slash matched %+v, want ru_slash", got)
+	}
+
+	if got := filterTrackedRules(rules, "missing"); len(got) != 0 {
+		t.Errorf("missing filter matched %d rule(s)", len(got))
+	}
+}

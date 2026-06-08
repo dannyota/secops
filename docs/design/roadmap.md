@@ -674,7 +674,7 @@ puller-output refactor; `pull`'s real output is the files it writes (`git diff`)
   design makes `push <x> --help` generic), and a catalog-parsing drift-guard — the
   registry view + the existing drift-guard test cover the consistency need for now.
 
-### Wave 28 — SIEM reads & symmetry  *(done — per-rule scoping deferred)*
+### Wave 28 — SIEM reads & symmetry  *(done — per-rule scoping closed in W35)*
 
 - `rules list [--json]` (rule id · display name · slug · type) — maps a name/slug
   to the `ru_` id the inspect verbs need; `rules validate <file.yaral>` (API
@@ -684,10 +684,10 @@ puller-output refactor; `pull`'s real output is the files it writes (`git diff`)
 - `drift --siem` / `--soar` — scope the gate to one plane (one credential set).
 - `iocs find --from-file <path>` / `-` (stdin) — bulk indicator lookup, one per
   line (blank/`#` lines skipped), chunked at the 1000/request cap.
-- **Deferred:** per-rule `--rule` for `push rules-deploy`/`rules-disable` (needs a
-  filter through the mirror push functions).
+- **Deferred closed in Wave 35:** per-rule `--rule` for `push rules-deploy` landed;
+  `rules-disable` remains the sweep path.
 
-### Wave 29 — Ingestion & dashboard operability  *(done — push-curated deferred)*
+### Wave 29 — Ingestion & dashboard operability  *(done — push-curated closed in W35)*
 
 CLI wiring of existing SDK methods (built + offline-tested; the guarded writes —
 `parsers activate`, `dashboards duplicate` — await an approved live smoke):
@@ -699,10 +699,10 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   reference for authoring a feed YAML.
 - `dashboards duplicate <id> --name --access` — the supported way to change a
   dashboard's immutable `access` (recreate with new access; guarded).
-- **Deferred:** reconcilable curated (`push curated` from `deployments.yaml`) — the
-  imperative `curated set` covers toggling today; a desired-state file + batch diff
-  is a larger change. Two-step `push parsers --inactive` (stage without activate)
-  also deferred (engine change).
+- **Deferred closed in Wave 35:** reconcilable curated (`push curated` from
+  `deployments.yaml`) now diffs the desired-state file and batch-updates changed
+  deployment flags. Two-step `push parsers --inactive` (stage without activate)
+  remains deferred (engine change).
 
 ### Wave 30 — SOAR case & Content Hub UX  *(partial)*
 
@@ -830,21 +830,18 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   in-tool; modern `case list` matches legacy output. ✅
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
-### Wave 35 — Detection-state & curated reconcile *(planned)*
+### Wave 35 — Detection-state & curated reconcile *(partial — rule targeting + curated push shipped)*
 
 - **Goal.** Make detection *deployment state* — not just rule bodies — fully
   diff-and-push-able, closing the last places where a live toggle bypasses git review.
 - **Scope.**
-  - **`push rules-update-deployment` + per-rule `--rule`** — read each tracked rule's
-    `deployment` block (`enabled` / `alerting` / `runFrequency`) and apply it live for
-    drifted rules, scoped to one rule or swept; closes the silent local↔live divergence
-    where hand-editing a rule's yaml is a no-op. Extends the existing
-    `rules-deploy` / `rules-disable` sweeps with targeting.
-  - **`push curated` (reconcilable deployments)** — diff `curated/deployments.yaml` vs
-    live and call `BatchUpdateCuratedRuleSetDeployments` for changed (category, set,
-    precision) tuples, so curated enable/alerting is detection-as-code like every other
-    surface; fix the curated read path so the check-first diff (list the rules in a set
-    before flipping a tier) works.
+  - **Done — `push rules-deploy --rule`** — scopes deployment reconciliation to one
+    tracked rule by rule id, full resource name, display name, or slug. The existing
+    `rules-deploy` sweep still applies all drifted deployment blocks.
+  - **Done — `push curated` (reconcilable deployments)** — diffs
+    `curated/deployments.yaml` vs live and calls
+    `BatchUpdateCuratedRuleSetDeployments` for changed (category, set, precision)
+    tuples, so curated enable/alerting is detection-as-code like every other surface.
   - **Enrichment pivot** — expose `:fetchRelated` / `:fetchIocMatchMetadata` as
     `iocs related` / `ti related` so a hunt pivots indicator → campaign/report instead
     of three disconnected lookups (SDK methods first, then CLI).
@@ -853,7 +850,8 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
     **at push time** (never the YAML) so a feed carrying a credential can be reconciled.
 - **Exit.** A rule's deployment block and a curated-deployment file each reconcile
   through pull → diff → push; enrichment pivot read-validated; feed templates +
-  secret-at-push documented.
+  secret-at-push documented. First half is complete; enrichment and feed authoring
+  remain.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 36 — SOAR automation-as-code completion *(planned)*

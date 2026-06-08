@@ -158,7 +158,7 @@ responding, change the const to the version that works and update this table.
 
 | Endpoint family | Version | Status | Notes |
 |---|---|---|---|
-| SIEM config + reads — rules · reference_lists · data_tables · feeds · parsers · dashboards · search · entity | `v1alpha` | ✅ | `DefaultAPIVersion`; doctor + pulls confirm |
+| SIEM config + reads — rules · curated deployments · reference_lists · data_tables · feeds · parsers · dashboards · search · entity | `v1alpha` | ✅ | `DefaultAPIVersion`; doctor + pulls confirm |
 | SIEM reporting — `metricDefinitions` · `dashboardScheduledReports` | `v1alpha` | 🔨 | `DefaultAPIVersion`. metricDefinitions is **feature-gated 403** (not enabled/GA on the tenant); scheduledReports **reads OK**, create-report backend **500s** server-side. Both on the engine, offline-tested |
 | SIEM governance — `dataTaps` · `errorNotificationConfigs` · `enrichmentControls` | `v1alpha` | 🔨 (dataTaps ✅) | `DefaultAPIVersion`. **dataTaps write-validated** (PATCH 501 → update = delete+recreate); the other two **feature-gated 403**. dataTaps supersedes the Backstory endpoint — same chronicle host |
 | MSSP — `federationGroups` · `tenants` · `multitenantDirectory` (chronicle) · `legacySoarIdpMappingGroups` (**SOAR host**) | `v1alpha` | 🔨 (directory ✅, idp-mappings ✅) | federationGroups/tenants 403 on a single tenant; multitenantDirectory read-validated. **legacySoarIdpMappingGroups 500s on chronicle, answers on the SOAR host** (AppKey) — a two-host surface, lives in `soar/` |
@@ -170,7 +170,7 @@ responding, change the const to the version that works and update this table.
 | SIEM operational — `watchlists` (read) | **`v1`** | ✅ | all three answer → pinned v1 (`watchlistsAPIVersion`); `watchlists list/get` CLI |
 | SIEM governance — `riskConfig` · `dataAccessLabels` · `dataAccessScopes` | **`v1`** | ✅ | all three versions answer → pinned v1 (`rbacAPIVersion`); riskConfig is `{instance}/riskConfig` |
 | SIEM ingestion — `forwarders` · `forwarders.collectors` | **`v1beta`** | ✅ | v1 **404s** → pinned v1beta (`forwardersAPIVersion`) |
-| SIEM detection — `curatedRules` | `v1alpha` | ✅ | v1/v1beta **404** → only v1alpha works |
+| SIEM detection — `curatedRuleSetDeployments` · `curatedRules` | `v1alpha` | ✅ | v1/v1beta **404** for curatedRules → only v1alpha works |
 | SIEM analytics — `entityRiskScores` (query) · `investigations` (TIN, + steps/comments) | `v1alpha` | ✅ | ride `DefaultAPIVersion`; read-only (Gemini TIN; `:trigger` write gated) |
 | SIEM analytics — `bigQueryExport` (get) · `coverageDetails` (list, MITRE) | **`v1`** | ✅ | v1 + v1alpha answer → pinned v1 (`bigQueryExportAPIVersion` / `coverageAPIVersion`); reads (provision/update gated) |
 | **SOAR** Content Hub — `marketplaceIntegrations` · `contentHub.contentPacks` | `v1alpha` (SOAR host) | ✅ | served on `*.siemplify-soar.com` (AppKey), NOT chronicle (which 500s); `soar/marketplace.go` |

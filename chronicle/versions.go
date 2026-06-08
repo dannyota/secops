@@ -44,6 +44,7 @@ var APIVersions = map[string]string{
 	"enrichment_controls": DefaultAPIVersion,
 	"federation_groups":   DefaultAPIVersion,
 	"tenants":             DefaultAPIVersion,
+	"curated":             DefaultAPIVersion,
 	"curated_rules":       DefaultAPIVersion, // v1alpha ONLY here (v1/v1beta 404)
 	// Pinned per surface (newest that answers).
 	"threat_intel":    tiAPIVersion,

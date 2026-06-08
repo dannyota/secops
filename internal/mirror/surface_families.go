@@ -151,6 +151,7 @@ func buildSurfaceFamilies() []SurfaceFamily {
 		// them under the chronicle instance path — they 500 on chronicle, answer on
 		// siemplify-soar. So they live on the SOAR plane, not SIEM.
 		soarModern("idp-mappings", AreaSOAR, LaneImperative, StatusValidated, "soar/idp_mappings.go"),
+		siemFamily("curated", "curated", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/curated.go"),
 		siemFamily("curated_rules", "curated_rules", AreaSIEM, LaneImperative, StatusValidated, "chronicle/curated_rules.go"),
 		siemFamily("forwarders", "forwarders", AreaSIEM, LaneReconcile, StatusValidated, "chronicle/forwarders.go"),
 		siemFamily("governance", "governance", AreaSIEM, LaneImperative, StatusValidated, "chronicle/rbac.go"),

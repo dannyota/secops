@@ -146,6 +146,14 @@ func PushRulesUpdate(ctx context.Context, c *chronicle.Client, rulesDir string, 
 // deployment state machine as code (it subsumes enable / disable / alerting).
 // Returns the number of deployments changed (0 on dry-run / no work).
 func PushRulesDeploy(ctx context.Context, c *chronicle.Client, rulesDir string, dryRun, assumeYes bool, w io.Writer) (int, error) {
+	return PushRulesDeployFiltered(ctx, c, rulesDir, "", dryRun, assumeYes, w)
+}
+
+// PushRulesDeployFiltered is PushRulesDeploy scoped to one tracked rule when
+// ruleFilter is non-empty. The filter accepts a rule id, full resource name,
+// display name, or local slug/stem, so operators can target the form they have
+// open without listing live state first.
+func PushRulesDeployFiltered(ctx context.Context, c *chronicle.Client, rulesDir, ruleFilter string, dryRun, assumeYes bool, w io.Writer) (int, error) {
 	comps, err := trackedRules(rulesDir)
 	if err != nil {
 		return 0, err
@@ -153,6 +161,15 @@ func PushRulesDeploy(ctx context.Context, c *chronicle.Client, rulesDir string, 
 	if len(comps) == 0 {
 		fmt.Fprintf(w, "Nothing to deploy -- no tracked rules (companion .yaml) in %s.\n", rulesDir)
 		return 0, nil
+	}
+	if ruleFilter != "" {
+		comps = filterTrackedRules(comps, ruleFilter)
+		if len(comps) == 0 {
+			return 0, fmt.Errorf("rules-deploy --rule %q: no tracked rule matched (use rule id, display name, or slug)", ruleFilter)
+		}
+		if len(comps) > 1 {
+			return 0, fmt.Errorf("rules-deploy --rule %q: matched %d tracked rules; use a rule id or unique slug", ruleFilter, len(comps))
+		}
 	}
 
 	live := map[string]chronicle.RuleDeployment{}
@@ -279,6 +296,34 @@ func trackedRules(rulesDir string) ([]trackedRule, error) {
 		})
 	}
 	return out, nil
+}
+
+// filterTrackedRules keeps rules matching filter as a rule id, full resource
+// name, display name, or local slug/stem.
+func filterTrackedRules(rules []trackedRule, filter string) []trackedRule {
+	filter = strings.TrimSpace(filter)
+	needles := map[string]bool{
+		strings.ToLower(filter):              true,
+		strings.ToLower(lastSegment(filter)): true,
+	}
+	var out []trackedRule
+	for _, r := range rules {
+		stem := strings.TrimSuffix(filepath.Base(r.path), filepath.Ext(r.path))
+		candidates := []string{
+			r.comp.RuleID,
+			lastSegment(r.comp.Name),
+			r.comp.DisplayName,
+			Slugify(r.comp.DisplayName),
+			stem,
+		}
+		for _, c := range candidates {
+			if needles[strings.ToLower(strings.TrimSpace(c))] {
+				out = append(out, r)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // companionPath returns the `.yaml` path for a given `.yaral` path.

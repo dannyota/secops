@@ -20,7 +20,7 @@ var surfaceProse = map[string]string{
 	// Bespoke rule targets (not engine surfaces — no Caps; prose only).
 	"rules-create":  "Creates live rules from *.yaral files that have no companion *.yaml.",
 	"rules-update":  "Updates live YARA-L text where a tracked *.yaral changed; etag-guarded.",
-	"rules-deploy":  "Reconciles each tracked rule's deployment block (enabled / alerting / runFrequency).",
+	"rules-deploy":  "Reconciles each tracked rule's deployment block (enabled / alerting / runFrequency); pass --rule to scope one rule.",
 	"rules-disable": "Disables locally-tracked rules whose deployment.enabled is true.",
 	"rules":         "YARA-L source plus a typed deployment subset per rule (not a single canonical body).",
 
@@ -39,7 +39,7 @@ var surfaceProse = map[string]string{
 	"federation_groups":   "MSSP / multi-tenant only: groups subtenant instances. Writes touch live access — extra care.",
 
 	// Imperative / read-only pull targets.
-	"curated":       "Curated (Google-managed) rule-set deployment state; toggle a set with `curated set`.",
+	"curated":       "Curated (Google-managed) rule-set deployment state; `push curated` reconciles deployments.yaml, while `curated set` toggles one deployment.",
 	"curated_rules": "Read-only Google / Mandiant-managed detections; --filter narrows the pull.",
 }
 

@@ -61,10 +61,10 @@ A pull writes one file per object into a per-surface directory under the data ro
 Edit the files in that directory between pull and push — the diff you commit is exactly
 what push deploys.
 
-> **Not every pull target is a reconcile surface.** `curated` and `curated_rules` are
-> **pull-only**: the rule sets are Google-managed, so there is no `push curated`. To
-> change a curated deployment, toggle its `enabled`/`alerting` state with
-> `secopsctl curated set` (a guarded live toggle), not a push. See
+> **Not every pull target is a create/update/delete surface.** `curated` reconciles
+> only deployment flags from `curated/deployments.yaml`; Google-managed rule sets
+> cannot be created or deleted. `curated_rules` is read-only reference material. For
+> a one-off curated toggle, use `secopsctl curated set`. See
 > [curated rule sets](../tips/05-curated-rules.md).
 
 ## Prune: deleting server-only objects

@@ -71,8 +71,9 @@ func knownReconcileTargets(t *testing.T) map[string]struct{} {
 func TestReconcileSurfacesAreCLITargets(t *testing.T) {
 	known := knownReconcileTargets(t)
 
-	// SIEM engine surfaces must each be a `push` target (rules is bespoke — its
-	// targets are rules-create/update/deploy/disable, not a plain "rules" push).
+	// SIEM engine surfaces must each be a `push` target (rules and curated are
+	// bespoke — rules is split across rules-* targets; curated is one batch-diff
+	// target over deployments.yaml, not an engine surface).
 	for _, name := range mirror.SIEMSurfaceNames() {
 		if _, ok := known[name]; !ok {
 			t.Errorf("SIEM engine surface %q is not a CLI push/pull target", name)
@@ -92,7 +93,8 @@ func TestReconcileSurfacesAreCLITargets(t *testing.T) {
 	}
 
 	// Every registry reconcile-lane family must resolve to a CLI target. The single
-	// bespoke exception is "rules": its reconcile lane is the rules-* push targets.
+	// bespoke exceptions: "rules" is split across rules-* push targets, while
+	// "curated" is the single `push curated` target over deployments.yaml.
 	for _, f := range mirror.SurfaceFamilies {
 		if f.Lane != mirror.LaneReconcile {
 			continue
@@ -129,7 +131,7 @@ func TestSurfaceProseTargetsExist(t *testing.T) {
 func TestEngineTargetsHaveHelpNote(t *testing.T) {
 	targets := append([]string{}, mirror.SIEMSurfaceNames()...)
 	targets = append(targets, mirror.SOARSurfaceNames()...)
-	targets = append(targets, "rules-create", "rules-update", "rules-deploy", "rules-disable")
+	targets = append(targets, "rules-create", "rules-update", "rules-deploy", "rules-disable", "curated")
 	for _, tg := range targets {
 		note := surfaceNote(tg)
 		if strings.TrimSpace(note) == "" {

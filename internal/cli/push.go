@@ -20,12 +20,13 @@ var (
 	pushYes      bool   // --yes
 	pushPrune    bool   // --prune (engine surfaces only)
 	pushRulesDir string // --rules-dir
+	pushRule     string // --rule (rules-deploy only)
 	pushOut      string // --out (data root; default cwd)
 )
 
 func init() {
 	engine := mirror.SIEMSurfaceNames()
-	valid := append([]string{"rules-create", "rules-update", "rules-deploy", "rules-disable"}, engine...)
+	valid := append([]string{"rules-create", "rules-update", "rules-deploy", "rules-disable", "curated"}, engine...)
 
 	pushCmd := &cobra.Command{
 		Use:   "push <target>",
@@ -38,6 +39,7 @@ func init() {
 			"  rules-update     update live YARA-L text where a tracked *.yaral changed (etag-guarded)\n" +
 			"  rules-deploy     reconcile each tracked rule's deployment (enabled/alerting/frequency)\n" +
 			"  rules-disable    disable locally-tracked rules with deployment.enabled=true\n" +
+			"  curated          reconcile curated/deployments.yaml (enabled/alerting)\n" +
 			"  " + strings.Join(engine, ", ") + "   reconcile local files to live (create/update; --prune to delete)\n\n" +
 			"Not every surface is prune-eligible; run `secopsctl surfaces` to see which\n" +
 			"`--prune` can delete (the rest report orphans but never delete them).",
@@ -55,6 +57,8 @@ func init() {
 			"a no-op on surfaces without a delete API — see `push <target> --help`)")
 	f.StringVar(&pushRulesDir, "rules-dir", "",
 		"directory of local rule files (default: <dataRoot>/rules)")
+	f.StringVar(&pushRule, "rule", "",
+		"rules-deploy: limit deployment reconciliation to one rule id, display name, or slug")
 	f.StringVar(&pushOut, "out", "",
 		"data root directory the engine surfaces read from (default: cwd; matches pull/drift)")
 	// --dry-run and --yes are conceptually opposed; --dry-run always wins (see
@@ -153,10 +157,33 @@ func runPush(cmd *cobra.Command, args []string) error {
 	}
 
 	switch target {
-	case "rules-create", "rules-update", "rules-deploy", "rules-disable":
+	case "rules-create", "rules-update", "rules-deploy", "rules-disable", "curated":
 	default:
 		return fmt.Errorf("unknown push target %q (want one of: %s)",
-			target, strings.Join(append([]string{"rules-create", "rules-update", "rules-deploy", "rules-disable"}, mirror.SIEMSurfaceNames()...), ", "))
+			target, strings.Join(append([]string{"rules-create", "rules-update", "rules-deploy", "rules-disable", "curated"}, mirror.SIEMSurfaceNames()...), ", "))
+	}
+	if pushRule != "" && target != "rules-deploy" {
+		return fmt.Errorf("--rule only applies to `push rules-deploy`")
+	}
+	if target == "curated" {
+		dir := filepath.Join(mirror.DataRoot(pushOut), mirror.DirCurated)
+		if err := ensureDataDir(target, dir, dryRun); err != nil {
+			return err
+		}
+		maybeConfirm()
+		n, err := mirror.PushCuratedDeployments(ctx, client, dir, dryRun, assumeYes, out)
+		if err != nil {
+			return err
+		}
+		if jsonOut {
+			return emitJSON(struct {
+				Target  string `json:"target"`
+				DryRun  bool   `json:"dry_run"`
+				Applied bool   `json:"applied"`
+				Count   int    `json:"count"`
+			}{Target: target, DryRun: dryRun, Applied: !dryRun && assumeYes, Count: n})
+		}
+		return nil
 	}
 	rulesDir := pushRulesDir
 	if rulesDir == "" {
@@ -173,7 +200,7 @@ func runPush(cmd *cobra.Command, args []string) error {
 	case "rules-update":
 		n, err = mirror.PushRulesUpdate(ctx, client, rulesDir, dryRun, assumeYes, out)
 	case "rules-deploy":
-		n, err = mirror.PushRulesDeploy(ctx, client, rulesDir, dryRun, assumeYes, out)
+		n, err = mirror.PushRulesDeployFiltered(ctx, client, rulesDir, pushRule, dryRun, assumeYes, out)
 	case "rules-disable":
 		n, err = mirror.PushRulesDisable(ctx, client, rulesDir, dryRun, assumeYes, out)
 	}

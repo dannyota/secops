@@ -80,7 +80,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | detections / errors | operational | ✅ | `legacySearchCuratedDetections` ⬜ (med) |
 | retrohunts | imperative | ✅ | — |
 | rule exclusions (`findingsRefinements`) | reconcile | ✅ | — |
-| curated rule sets / categories / deployments | imperative | ✅ list + per-deployment patch (`curated set`) · `:batchUpdate` (self-restoring toggle write-smoke validated) | single GETs ⬜ (low) |
+| curated rule sets / categories / deployments | reconcile + imperative | ✅ `pull curated` / `push curated` over `deployments.yaml` + per-deployment patch (`curated set`) · `:batchUpdate` (self-restoring toggle write-smoke validated) | single GETs ⬜ (low) |
 | curated rules (`curatedRules`) | operational (read) | ✅ list/get (`curated rules`) | — |
 
 ### Data, lists & ingestion

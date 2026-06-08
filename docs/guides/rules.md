@@ -57,7 +57,7 @@ review surface.
 |---|---|---|
 | `rules-create` | create live rules from `*.yaral` that have **no** companion `*.yaml` | — |
 | `rules-update` | update live YARA-L text where a tracked `*.yaral` changed | etag |
-| `rules-deploy` | reconcile each tracked rule's deployment (enabled / alerting / frequency) from its `*.yaml` | — |
+| `rules-deploy` | reconcile each tracked rule's deployment (enabled / alerting / frequency) from its `*.yaml`; `--rule` scopes one rule | — |
 | `rules-disable` | disable locally-tracked rules whose `deployment.enabled=true` | — |
 
 `rules-deploy` reads `deployment.runFrequency` from each rule's companion `.yaml`.
@@ -72,6 +72,7 @@ secopsctl push rules-update --dry-run
 secopsctl push rules-update --yes
 
 secopsctl push rules-deploy --dry-run
+secopsctl push rules-deploy --rule <rule-id-or-slug> --dry-run
 secopsctl push rules-deploy --yes
 
 secopsctl push rules-disable --dry-run
@@ -146,6 +147,9 @@ only `pull` it for visibility and toggle each deployment's `enabled` /
 secopsctl pull curated          # rule-set deployments + their state
 secopsctl pull curated_rules    # the individual curated rules (--filter EXPR)
 
+secopsctl push curated --dry-run  # reconcile curated/deployments.yaml
+secopsctl push curated --yes
+
 secopsctl curated list          # deployments with enable/alerting state (--filter)
 secopsctl curated rules         # the individual Google-managed rules
 ```
@@ -160,9 +164,11 @@ secopsctl curated set --category <category-id> --ruleset <ruleset-id> \
   --precision precise --enabled --alerting --yes
 ```
 
-`--category`, `--ruleset`, and `--precision` are required. `--enabled` /
-`--alerting` apply only when present, so you can flip one without disturbing the
-other. Get the ids from `curated list --json`.
+Use `push curated` when the desired state lives in `curated/deployments.yaml`.
+Use `curated set` for a one-off toggle. `--category`, `--ruleset`, and
+`--precision` are required; `--enabled` / `--alerting` apply only when present,
+so you can flip one without disturbing the other. Get the ids from
+`curated list --json`.
 
 ## See also
 

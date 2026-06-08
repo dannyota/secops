@@ -63,6 +63,7 @@ Headline push targets (full set in [reconcile.md](reconcile.md), rule paths in
 | `rules-update` | update YARA-L text where a tracked `*.yaral` changed (etag-guarded) |
 | `rules-deploy` | reconcile each rule's deployment (enabled / alerting / frequency) |
 | `rules-disable` | disable locally-tracked rules with `enabled=true` |
+| `curated` | reconcile curated rule-set deployment flags from `curated/deployments.yaml` |
 | `reference_lists`, `data_tables`, `parsers`, `feeds`, `dashboards`, … | reconcile local files to live |
 
 ## Reconcile is additive by default
