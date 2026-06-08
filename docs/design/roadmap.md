@@ -782,7 +782,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   help matches actual behavior; a guard fails on doc↔CLI drift. ✅
 - **Docs.** CATALOG, ARCHITECTURE.
 
-### Wave 34 — SOAR triage & discovery UX *(done — live read-validation + value-lister deferred)*
+### Wave 34 — SOAR triage & discovery UX *(done — reads live-validated; value-lister deferred)*
 
 - **Goal.** Close the daily SOAR triage loop's discovery gaps — every flag value an
   operator must supply should be discoverable in-tool.
@@ -818,11 +818,13 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   so clean-clone users can discover ops without the unshipped swagger; `legacy call
   --help` points at it. Value-discovery **pointers** added to the `--tag` / `--stage` /
   `--root-cause` flag help (→ the matching `soar pull` surface).
-- **Deferred.** Live read-validation of the new reads (users list / case-list parity /
-  contentpacks get) — built + offline-tested, pending a gated live AppKey read. A live
-  `--list-values` lister for `--tag`/`--stage`/`--root-cause` (the pull surfaces +
-  flag-help pointers cover discovery for now; a live lister awaits per-kind value
-  decoders).
+- **Live-validated.** `soar users list` (typed keys match the directory payload, all
+  populated); modern `soar case list` parity (the live payload keys `displayName` +
+  `assignee` are exactly what the tolerant decode targets — TITLE/ASSIGNEE columns
+  populate); `soar marketplace contentpacks get <id>` (round-trips a pack by identifier).
+- **Deferred.** A live `--list-values` lister for `--tag`/`--stage`/`--root-cause` (the
+  pull surfaces + flag-help pointers cover discovery for now; a live lister awaits
+  per-kind value decoders).
 - **Exit.** Every `soar case` / `marketplace` / `legacy` flag value is discoverable
   in-tool; modern `case list` matches legacy output. ✅
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
