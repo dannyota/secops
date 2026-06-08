@@ -702,10 +702,19 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   is a larger change. Two-step `push parsers --inactive` (stage without activate)
   also deferred (engine change).
 
-### Wave 30 — SOAR case & Content Hub UX  *(planned)*
+### Wave 30 — SOAR case & Content Hub UX  *(partial)*
 
-`soar users list`; `soar integration install`; modern `case list` parity; typed
-single-close reason; `case get` flag consistency; `marketplace get` human view.
+- `soar integration install --identifier <id>` — the missing half of `uninstall`,
+  closing browse → install → create-instance (guarded; live validation deferred).
+- `soar case get` accepts `--id` as well as positional (symmetry with the verbs).
+- modern `case list` gains a header row (the "header-less table" gap).
+- `soar marketplace get` — human summary by default, `--json` for the raw record.
+- `soar push playbook` (singular, save-one) help disambiguates it from
+  `playbooks` (plural, directory reconcile with `--prune`).
+- **Deferred:** `soar users list` (no wrapped external-API op — needs the console
+  request / swagger), full case-list TITLE/ASSIGNEE parity (the modern payload's
+  field names need live confirmation), typed single-close reason, value completion
+  for `--tag`/`--stage`/`--root-cause`, `marketplace contentpacks get`.
 
 ### Wave 31 — Legacy escape-hatch hardening  *(planned)*
 

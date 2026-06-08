@@ -177,6 +177,7 @@ func runModernCaseList(pageSize int, status string, asJSON bool) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(kept)
 	}
+	fmt.Fprintf(os.Stdout, "%-14s %-16s %-8s %s\n", "ID", "PRIORITY", "STATUS", "STAGE")
 	for _, rw := range rows {
 		fmt.Fprintf(os.Stdout, "%-14s %-16s %-8s %s\n", rw.id, rw.priority, rw.stat, rw.stage)
 	}
@@ -186,16 +187,25 @@ func runModernCaseList(pageSize int, status string, asJSON bool) error {
 
 func newCaseGetCmd() *cobra.Command {
 	var asJSON bool
+	var idFlag int
 	cmd := &cobra.Command{
 		Use:   "get <case-id>",
 		Short: "Read-only: get one SOAR case and its alerts",
 		Long: "Fetch a single case by its SOAR integer id (GetCaseFullDetails) and show\n" +
-			"the case header plus its alerts, or the raw JSON with --json.",
-		Args: cobra.ExactArgs(1),
+			"the case header plus its alerts, or the raw JSON with --json. The id can be\n" +
+			"given positionally or with --id (symmetry with the mutating verbs).",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := strconv.Atoi(strings.TrimSpace(args[0]))
-			if err != nil {
-				return fmt.Errorf("case id must be an integer, got %q", args[0])
+			id := idFlag
+			if len(args) == 1 {
+				n, perr := strconv.Atoi(strings.TrimSpace(args[0]))
+				if perr != nil {
+					return fmt.Errorf("case id must be an integer, got %q", args[0])
+				}
+				id = n
+			}
+			if id == 0 {
+				return fmt.Errorf("a case id is required (positional or --id)")
 			}
 			lc, err := newSOARLegacyClient()
 			if err != nil {
@@ -212,6 +222,7 @@ func newCaseGetCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the raw full-details JSON")
+	cmd.Flags().IntVar(&idFlag, "id", 0, "SOAR case id (alternative to the positional arg)")
 	return cmd
 }
 

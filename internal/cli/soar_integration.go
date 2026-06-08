@@ -22,8 +22,64 @@ func newSOARIntegrationCmd() *cobra.Command {
 		Short: "Manage SOAR integration instances (imperative create/delete)",
 	}
 	cmd.AddCommand(newSOARIntegrationCreateCmd(), newSOARIntegrationDeleteCmd(),
-		newSOARIntegrationListCmd(), newSOARIntegrationUninstallCmd(),
+		newSOARIntegrationListCmd(), newSOARIntegrationInstallCmd(), newSOARIntegrationUninstallCmd(),
 		newSOARIntegrationConnectorCmd())
+	return cmd
+}
+
+// newSOARIntegrationInstallCmd installs a Content Hub marketplace integration by
+// identifier — the missing half of `uninstall`, closing the browse → install →
+// create-instance loop. Guarded; live validation deferred.
+func newSOARIntegrationInstallCmd() *cobra.Command {
+	var (
+		identifier  string
+		dryRun, yes bool
+	)
+	cmd := &cobra.Command{
+		Use:   "install --identifier <marketplace-id>",
+		Short: "Install a Content Hub marketplace integration (guarded)",
+		Long: "Install a marketplace integration pack by its identifier (from\n" +
+			"`soar marketplace list`). Guarded: dry-run by default, --yes to apply.\n" +
+			"Configure an instance afterwards with `soar integration create`.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			target := fmt.Sprintf("integration install %s", identifier)
+			dr, ay := soarGuard(target, dryRun, yes)
+			if dr {
+				if jsonOut {
+					return emitGuardedResult(target, true, false)
+				}
+				fmt.Printf("DRY RUN — would install marketplace integration %q. Re-run with --yes.\n", identifier)
+				return nil
+			}
+			if !ay {
+				if jsonOut {
+					return emitGuardedResult(target, false, false)
+				}
+				fmt.Println("Refusing to install without confirmation (pass --yes). Aborted.")
+				return nil
+			}
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
+			out, err := c.InstallMarketplaceIntegration(baseContext(), identifier, map[string]any{})
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return emitJSON(out)
+			}
+			fmt.Printf("Installed marketplace integration %q.\n", identifier)
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&identifier, "identifier", "", "marketplace integration identifier (from `soar marketplace list`) (required)")
+	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	_ = cmd.MarkFlagRequired("identifier")
 	return cmd
 }
 

@@ -122,8 +122,12 @@ func newSOARPlaybookSaveCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "playbook --file <playbook.json>",
-		Short: "Save a playbook definition (whole-body replace; mints a new version)",
-		Args:  cobra.NoArgs,
+		Short: "Save ONE playbook from a file (whole-body replace; mints a new version)",
+		Long: "Save a single playbook definition from --file (imperative whole-body replace;\n" +
+			"the server mints a new version). This is NOT the directory reconcile — for that\n" +
+			"use `soar push playbooks` (plural), which diffs the local playbooks/ folder\n" +
+			"against live and supports --prune. Singular = save one file; plural = reconcile.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lc, err := newSOARLegacyClient()
 			if err != nil {

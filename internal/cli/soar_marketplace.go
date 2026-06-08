@@ -69,6 +69,7 @@ func newSOARMarketplaceListCmd() *cobra.Command {
 }
 
 func newSOARMarketplaceGetCmd() *cobra.Command {
+	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "get <identifier>",
 		Short: "Show one marketplace integration (read-only)",
@@ -82,9 +83,17 @@ func newSOARMarketplaceGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return json.NewEncoder(os.Stdout).Encode(m.Raw)
+			if asJSON {
+				return json.NewEncoder(os.Stdout).Encode(m.Raw)
+			}
+			fmt.Printf("Identifier:  %s\n", m.Identifier)
+			fmt.Printf("Name:        %s\n", m.DisplayName)
+			fmt.Printf("Installed:   %v\n", m.IsInstalled)
+			fmt.Println("\n(--json for the full record)")
+			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the full raw record")
 	return cmd
 }
 

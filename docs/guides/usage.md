@@ -106,7 +106,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar integration list` | List installed integration packs. |
 | `soar integration connector list` | List connector definitions inside an integration (`--integration <key>`; read-only). Sibling `soar integration connector delete` removes a custom definition. |
 | `soar marketplace list` | List Content Hub marketplace integrations (`--installed` to filter). |
-| `soar marketplace get` | Show one marketplace integration. |
+| `soar marketplace get` | Show one marketplace integration (human summary; `--json` for the full record). |
 | `soar marketplace contentpacks` | List Content Hub content packs. |
 | `soar settings api-keys` | List SOAR API keys (metadata only; no secret). |
 | `soar settings case-assignment` | Read the case auto-assignment policy. |
@@ -134,6 +134,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar case stage` | Change a case's stage (`--stage`). |
 | `soar case close` | Close one case (`--id`, `--reason` string; `--root-cause`, `--comment` optional). |
 | `soar case rename` / `describe` / `importance` / `merge` | Rename / re-describe / flag-important / merge cases. |
+| `soar integration install --identifier <id>` | Install a Content Hub marketplace integration pack (from `soar marketplace list`); pairs with `uninstall`. |
 | `soar integration create` | Create a new, unconfigured (inert) integration instance. |
 | `soar integration delete` | Delete an integration instance (warns if playbooks use it). |
 | `soar integration uninstall` | Delete a custom integration pack (clone) by its key. |

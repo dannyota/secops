@@ -97,7 +97,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
   is free text while `push bulk-close --reason` is a fixed enum, so the same action
   uses two vocabularies and metrics don't aggregate. Offer the typed enum on single
   close (free text as an optional comment).
-- [ ] **P3 — `soar case` flag consistency.** `get` takes the id positionally while
+- [x] **P3 — `soar case` flag consistency.** `get` takes the id positionally while
   every mutating verb takes `--id`; accept both forms on both for muscle-memory.
 - [ ] **P3 — Value discovery for `--tag` / `--stage` / `--root-cause`.** Wire shell
   completion or a `--list-values` helper sourced from `soar pull case-tags` /
@@ -138,7 +138,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
   `--prune` from an empty/wrong directory that is a path to deleting live objects.
   Give `push` the same `--out` as `pull`/`drift`, and/or refuse a live push when the
   resolved data root has no files for the target.
-- [ ] **P2 — `soar push playbook` vs `soar push playbooks` are one character apart
+- [x] **P2 — `soar push playbook` vs `soar push playbooks` are one character apart
   with different blast radius.** Singular = imperative whole-body save of one
   playbook (mints a version); plural = directory reconcile with `--prune`. A
   mistype runs a different live operation. Rename/disambiguate (e.g. `playbook save`)
@@ -173,12 +173,12 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## SOAR — Content Hub / integrations (round 2)
 
-- [ ] **P1 — `soar integration install` (and/or `soar marketplace install`).**
+- [x] **P1 — `soar integration install` (and/or `soar marketplace install`).**
   `uninstall` exists but there is no `install`, and `integration create` needs an
   already-installed pack — so the browse → install → create-instance flow dead-ends
   at install with no CLI path (the SDK already has the install method). The lone
   `uninstall` implies a matching `install`.
-- [ ] **P2 — `soar marketplace get` output.** It always dumps raw JSON with no
+- [x] **P2 — `soar marketplace get` output.** It always dumps raw JSON with no
   human view and no `--json` of its own, the inverse of sibling `list`/`contentpacks`.
   Give it a readable summary by default (incl. the fields `create` needs) and honor
   `--json` for the raw body.
