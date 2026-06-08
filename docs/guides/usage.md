@@ -32,7 +32,7 @@ non-zero. Confirm the active config with `secopsctl info` (`config_source` line)
 or `secopsctl config --show-path`.
 
 `--json` is honored by the read commands: `info`, `query udm`, `query nl`,
-`entity summarize`, `alerts list`, `alerts get`, `iocs find`, `iocs get`,
+`query raw`, `entity summarize`, `alerts list`, `alerts get`, `iocs find`, `iocs get`,
 `ti collections`, `ti collection`, `watchlists list`, `watchlists get`,
 `curated list`, `curated rules`, `rules detections`, `rules errors`,
 `rules retrohunt list`, `rules retrohunt get`, `soar case list`, `soar case get`,
@@ -57,6 +57,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `drift [target...]` | Report how live state has drifted from local files (CI gate; exit 2 on drift). No target = every engine surface; `--siem`/`--soar` scope to one plane. |
 | `query udm <filter>` | Point-in-time UDM event search over `--hours` / `--from` / `--to` (default last 24h), capped by `--limit`. `--raw` prints each matched event's FULL raw ingested log line (for `parsers run --logs -`) instead of the summary — e.g. `query udm 'metadata.log_type = "KONG_GATEWAY" AND metadata.event_type = "GENERIC_EVENT"' --raw --limit 50`. |
 | `query nl <text>` | Translate a natural-language query to UDM and search (`--translate-only` to just print the UDM). |
+| `query raw <pattern>` | Content-based raw-log search (`searchRawLogs raw = /<pattern>/`) — prints each match's FULL raw ingested log line (for `parsers run --logs -`). Reaches logs with no parser; complements `query udm --raw`. `--unparsed` / `--hours` / `--from`,`--to` / `--limit`. |
 | `entity summarize <type> <value>` | Summarize an entity (alerts by rule, related entities, prevalence) over `--hours` (default 7d). |
 | `curated list` | List curated (Google-managed) rule-set deployments + enable/alerting state. |
 | `curated rules` | List the individual curated rules. |

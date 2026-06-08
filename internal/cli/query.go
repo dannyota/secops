@@ -32,14 +32,64 @@ func parseQueryTS(value string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("invalid timestamp %q (want RFC3339 / ISO-8601)", value)
 }
 
+// resolveWindow resolves a [start, end) search window from --hours / --from / --to:
+// end = --to or now UTC; start = --from or end-hours. Errors when start >= end.
+func resolveWindow(hours int, fromTS, toTS string) (start, end time.Time, err error) {
+	if toTS != "" {
+		if end, err = parseQueryTS(toTS); err != nil {
+			return start, end, err
+		}
+	} else {
+		end = time.Now().UTC()
+	}
+	if fromTS != "" {
+		if start, err = parseQueryTS(fromTS); err != nil {
+			return start, end, err
+		}
+	} else {
+		start = end.Add(-time.Duration(hours) * time.Hour)
+	}
+	if !start.Before(end) {
+		return start, end, fmt.Errorf("start time (%s) must be before end time (%s)",
+			start.Format(time.RFC3339), end.Format(time.RFC3339))
+	}
+	return start, end, nil
+}
+
+// emitRawLines prints raw log lines one per line (to pipe into `parsers run
+// --logs -`), or the structured records under --json. It warns when a log carries
+// embedded newlines, which the one-per-line consumer would split into fragments.
+func emitRawLines(lines []chronicle.RawLogLine) error {
+	if jsonOut {
+		return emitJSON(lines)
+	}
+	multiline := 0
+	for _, l := range lines {
+		text := strings.TrimRight(l.Text, "\r\n")
+		if strings.Contains(text, "\n") {
+			multiline++
+		}
+		fmt.Fprintln(os.Stdout, text)
+	}
+	if multiline > 0 {
+		fmt.Fprintf(os.Stderr, "warning: %d raw log(s) contain embedded newlines and span "+
+			"multiple lines — `parsers run --logs -` treats each line as a separate log; "+
+			"use --json for those\n", multiline)
+	}
+	return nil
+}
+
 func init() {
 	queryCmd := &cobra.Command{
 		Use:   "query",
-		Short: "Run read-only queries against the tenant (udm, nl)",
-		Long: "Query the tenant (read-only). Two kinds:\n" +
-			"  udm  point-in-time UDM event search over a time window\n" +
+		Short: "Run read-only queries against the tenant (udm, nl, raw)",
+		Long: "Query the tenant (read-only). Three kinds:\n" +
+			"  udm  point-in-time UDM event search over a time window (`--raw` prints each\n" +
+			"       matched event's full raw log line)\n" +
 			"  nl   natural-language search — describe what you want; it translates to UDM\n" +
-			"       (`--translate-only` prints the UDM without running it).",
+			"       (`--translate-only` prints the UDM without running it)\n" +
+			"  raw  content-based raw-log search — print full raw log lines matching a regex\n" +
+			"       (reaches logs with no parser; complements `udm --raw`).",
 	}
 
 	var (
@@ -72,32 +122,9 @@ func init() {
 				limit = 100
 			}
 
-			// Resolve the time range (ports query.py): end = --to or now UTC;
-			// start = --from or end-hours.
-			var (
-				end time.Time
-				err error
-			)
-			if toTS != "" {
-				if end, err = parseQueryTS(toTS); err != nil {
-					return err
-				}
-			} else {
-				end = time.Now().UTC()
-			}
-
-			var start time.Time
-			if fromTS != "" {
-				if start, err = parseQueryTS(fromTS); err != nil {
-					return err
-				}
-			} else {
-				start = end.Add(-time.Duration(hours) * time.Hour)
-			}
-
-			if !start.Before(end) {
-				return fmt.Errorf("start time (%s) must be before end time (%s)",
-					start.Format(time.RFC3339), end.Format(time.RFC3339))
+			start, end, err := resolveWindow(hours, fromTS, toTS)
+			if err != nil {
+				return err
 			}
 
 			c, err := newChronicleClient()
@@ -129,26 +156,7 @@ func init() {
 				if err != nil {
 					return err
 				}
-				if jsonOut {
-					return emitJSON(lines)
-				}
-				multiline := 0
-				for _, l := range lines {
-					text := strings.TrimRight(l.Text, "\r\n")
-					if strings.Contains(text, "\n") {
-						multiline++
-					}
-					fmt.Fprintln(os.Stdout, text)
-				}
-				// `parsers run --logs -` reads one log per line, so a raw log with embedded
-				// newlines would be split; warn rather than corrupt silently (--json keeps
-				// each log intact).
-				if multiline > 0 {
-					fmt.Fprintf(os.Stderr, "warning: %d raw log(s) contain embedded newlines and span "+
-						"multiple lines — `parsers run --logs -` treats each line as a separate log; "+
-						"use --json for those\n", multiline)
-				}
-				return nil
+				return emitRawLines(lines)
 			}
 
 			if jsonOut {
@@ -187,8 +195,83 @@ func init() {
 	f.BoolVar(&raw, "raw", false,
 		"print each matched event's FULL raw log line (for `parsers run --logs -`) instead of the event summary")
 
-	queryCmd.AddCommand(udmCmd, newQueryNLCmd())
+	queryCmd.AddCommand(udmCmd, newQueryNLCmd(), newQueryRawCmd())
 	rootCmd.AddCommand(queryCmd)
+}
+
+// newQueryRawCmd is content-based raw-log search (searchRawLogs): match raw bytes by
+// regex and print each match's FULL raw log line. Complements `query udm --raw`
+// (which scopes by metadata.log_type and needs a UDM event) — this reaches even logs
+// with no parser at all, scoped by a distinctive content pattern.
+func newQueryRawCmd() *cobra.Command {
+	var (
+		hours    int
+		fromTS   string
+		toTS     string
+		limit    int
+		unparsed bool
+	)
+	cmd := &cobra.Command{
+		Use:   "raw <pattern>",
+		Short: "Content-based raw-log search: print FULL raw lines matching a regex",
+		Long: "Search raw (ingested) logs by CONTENT (searchRawLogs): <pattern> is a regex\n" +
+			"matched against the raw bytes — use a distinctive substring of the log type you\n" +
+			"want (it matches ANY log containing the pattern). Prints each match's FULL raw\n" +
+			"log line, one per line, for `parsers run --logs -`:\n\n" +
+			"  secopsctl query raw 'GET /healthz' --limit 50 | \\\n" +
+			"    secopsctl parsers run KONG_GATEWAY --cbn parser.conf --logs -\n\n" +
+			"Unlike `query udm --raw` (scopes by metadata.log_type; needs a UDM event), this\n" +
+			"reaches even logs with no parser at all. --unparsed adds `parsed = false`.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pattern := strings.TrimSpace(args[0])
+			if pattern == "" {
+				return fmt.Errorf("a search pattern is required (a regex matched against the raw bytes)")
+			}
+			start, end, err := resolveWindow(hours, fromTS, toTS)
+			if err != nil {
+				return err
+			}
+			q := "raw = /" + pattern + "/"
+			if unparsed {
+				q += " parsed = false"
+			}
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			ctx := baseContext()
+			page, err := c.SearchRawLogsPage(ctx, q, nil, start, end, limit, 0, false, "", "")
+			if err != nil {
+				return err
+			}
+			ids := make([]string, 0, len(page.RawLogs))
+			for _, m := range page.RawLogs {
+				if m.ID != "" {
+					ids = append(ids, m.ID)
+				}
+				if limit > 0 && len(ids) >= limit { // pageSize is best-effort; enforce --limit
+					break
+				}
+			}
+			if len(ids) == 0 {
+				fmt.Fprintf(os.Stderr, "no raw logs match /%s/ in the window — try a different pattern or widen --hours\n", pattern)
+				return nil
+			}
+			lines, err := c.FindRawLogLines(ctx, ids)
+			if err != nil {
+				return err
+			}
+			return emitRawLines(lines)
+		},
+	}
+	f := cmd.Flags()
+	f.IntVar(&hours, "hours", 24, "look-back window in hours when --from is not given")
+	f.StringVar(&fromTS, "from", "", "explicit start time (RFC3339 / ISO-8601); overrides --hours")
+	f.StringVar(&toTS, "to", "", "explicit end time (RFC3339 / ISO-8601); default: now")
+	f.IntVar(&limit, "limit", 100, "max raw lines to fetch")
+	f.BoolVar(&unparsed, "unparsed", false, "restrict to truly-unparsed logs (parsed = false)")
+	return cmd
 }
 
 // newQueryNLCmd translates a natural-language description to a UDM query and runs

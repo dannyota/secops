@@ -211,7 +211,8 @@ today — prefer `soar case`. Authoritative per-command status is in
 
 ```
 secopsctl query udm | alerts list/get | iocs find/get | ti collections | entity summarize   # read
-secopsctl query udm '<filter>' --raw [--limit N]                                             # full raw log line per matched event -> parsers run --logs -
+secopsctl query udm '<filter>' --raw [--limit N]                                             # raw log line per matched event (UDM-scoped) -> parsers run --logs -
+secopsctl query raw '<regex>' [--unparsed] [--limit N]                                        # content-based raw log search (reaches no-parser logs) -> parsers run --logs -
 secopsctl alerts    update | bulk <close|verdict|priority|comment>                           # act (planned)
 secopsctl soar case list | get | assign | rename | stage | tag | untag | describe | importance | close | merge
 secopsctl soar push bulk-close                                                   # queue bulk-close (fixed reason)
