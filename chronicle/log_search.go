@@ -3,6 +3,7 @@ package chronicle
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -31,6 +32,9 @@ type RawLog struct {
 	LogType string `json:"logType,omitempty"`
 	// Timestamp is the entry's collection/event time, when present.
 	Timestamp string `json:"timestamp,omitempty"`
+	// ID is the raw-log id (the top-level "id"), the handle FindRawLogsByIDs takes
+	// to download the FULL log bytes (the in-match snippet is truncated to 80 chars).
+	ID string `json:"id,omitempty"`
 	// Data is the complete entry object as returned by the API.
 	Data json.RawMessage `json:"-"`
 }
@@ -45,11 +49,13 @@ func (r *RawLog) UnmarshalJSON(b []byte) error {
 	var lifted struct {
 		LogType   json.RawMessage `json:"logType"`
 		Timestamp string          `json:"timestamp"`
+		ID        string          `json:"id"`
 	}
 	// Ignore decode errors for the lifted view: Data is the source of truth and a
 	// non-object entry should not fail the whole search.
 	_ = json.Unmarshal(b, &lifted)
 	r.Timestamp = lifted.Timestamp
+	r.ID = lifted.ID
 	r.LogType = ""
 	if len(lifted.LogType) > 0 {
 		var s string
@@ -288,4 +294,91 @@ func (c *Client) searchRawLogsPage(ctx context.Context, query string, logTypes [
 		return nil, err
 	}
 	return &rawLogSearchResponse{RawLogs: entries, Aggregations: agg, NextPageToken: next}, nil
+}
+
+// RawLogLine is one full, untruncated raw (unparsed) log line — the decoded
+// logBytes plus its provenance. This is what a parser-development workflow needs:
+// the exact bytes the platform ingested, ready to feed `parsers run --logs`.
+type RawLogLine struct {
+	Text          string `json:"text"`                    // the complete raw log line (logBytes, base64-decoded)
+	LogType       string `json:"logType,omitempty"`       // log-type token, when present
+	SourceProduct string `json:"sourceProduct,omitempty"` // source product, when present
+	Timestamp     string `json:"timestamp,omitempty"`     // ingestion/collection time, when present
+}
+
+// findRawLogsResponse is the legacyFindRawLogs (by ids) response: per-id groups,
+// each carrying the full RawLog entries. Only the fields needed for a raw line are
+// modeled; logBytes is a base64-encoded ("bytes format") field.
+type findRawLogsResponse struct {
+	RawLogs []struct {
+		RawLogs []struct {
+			LogBytes      string `json:"logBytes"`
+			SourceProduct string `json:"sourceProduct"`
+			Timestamp     string `json:"timestamp"`
+			Type          string `json:"type"`
+		} `json:"rawLogs"`
+	} `json:"rawLogs"`
+}
+
+// FindRawLogLines downloads the FULL raw log lines for the given raw-log ids
+// (FindRawLogsByIDs) and decodes them: logBytes is base64-decoded to text (falling
+// back to the verbatim string if it is not base64). Read-only.
+func (c *Client) FindRawLogLines(ctx context.Context, ids []string) ([]RawLogLine, error) {
+	raw, err := c.FindRawLogsByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	var resp findRawLogsResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("chronicle: decode raw logs: %w", err)
+	}
+	var out []RawLogLine
+	for _, g := range resp.RawLogs {
+		for _, l := range g.RawLogs {
+			text := l.LogBytes
+			if dec, derr := base64.StdEncoding.DecodeString(l.LogBytes); derr == nil {
+				text = string(dec)
+			}
+			out = append(out, RawLogLine{
+				Text:          text,
+				LogType:       l.Type,
+				SourceProduct: l.SourceProduct,
+				Timestamp:     l.Timestamp,
+			})
+		}
+	}
+	return out, nil
+}
+
+// FetchRawLogLines returns up to limit recent FULL raw (unparsed) log lines for a
+// raw-log search — the bytes a parser developer needs. It runs :searchRawLogs (one
+// page, capped at limit) to collect raw-log ids, then legacyFindRawLogs to download
+// the COMPLETE bytes (the search match only carries an 80-char preview snippet),
+// base64-decoding logBytes to text.
+//
+// query is a raw-log search expression (e.g. `raw = /.*/` to match all, optionally
+// with ` parsed = false` to restrict to logs that aren't being normalized).
+// logTypes, when non-empty, limits the search to those log-type display names.
+// start is inclusive, end exclusive.
+func (c *Client) FetchRawLogLines(ctx context.Context, query string, logTypes []string, start, end time.Time, limit int) ([]RawLogLine, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	page, err := c.SearchRawLogsPage(ctx, query, logTypes, start, end, limit, 0, false, "", "")
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(page.RawLogs))
+	for _, m := range page.RawLogs {
+		if m.ID != "" {
+			ids = append(ids, m.ID)
+		}
+		if len(ids) >= limit {
+			break
+		}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	return c.FindRawLogLines(ctx, ids)
 }

@@ -21,6 +21,29 @@ import (
 // Endpoint: POST .../instances/<id>/legacy:legacyFindRawLogs (an RPC-style verb on
 // the "legacy" collection — note the /legacy segment). Matching the legacy tool,
 // it uses the project NUMBER form of the resource name (numeric=true).
+// FindRawLogsByIDs downloads the FULL, untruncated raw (unparsed) log bytes for
+// the given raw-log ids — the ids carried as snippet.id by SearchRawLogs matches.
+// SearchRawLogs only returns an 80-char preview snippet; this is how you get the
+// complete log line a parser needs.
+//
+// Endpoint: GET .../instances/<id>/legacy:legacyFindRawLogs?ids=<id>… with an
+// empty body (project NUMBER form). Each id is a base64-encoded raw-log id. The
+// response carries rawLogs[] (logs grouped per requested id), returned untouched
+// so the caller decodes the exact bytes the platform stored.
+func (c *Client) FindRawLogsByIDs(ctx context.Context, ids []string) (json.RawMessage, error) {
+	q := url.Values{}
+	for _, id := range ids {
+		if id != "" {
+			q.Add("ids", id)
+		}
+	}
+	var out json.RawMessage
+	if err := c.get(ctx, c.resourcePath("legacy:legacyFindRawLogs", true), &out, withQuery(q)); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *Client) FindRawLogs(ctx context.Context, body any) (json.RawMessage, error) {
 	var out json.RawMessage
 	if err := c.post(ctx, c.resourcePath("legacy:legacyFindRawLogs", true), body, &out); err != nil {
