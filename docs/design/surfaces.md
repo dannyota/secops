@@ -197,6 +197,7 @@ stays on the legacy lane, which is reliable. So far that means:
 | Family | Status | Gaps (modern) |
 |---|---|---|
 | integrations catalog (list/get/delete) | ✅ | `updateCustomIntegration`, `:export`/`:download` ⬜ (low) |
+| custom integration package ZIP (`soar package-integration`) | 🔨 offline utility | deterministic local ZIP builder for an already-shaped IDE integration directory; no API call, no tenant validation |
 | connector **definitions** (list/get/delete) | ✅ | create/patch ⬜ (med) |
 | connector **instances** (list/get/patch + `:runOnDemand`) | ✅ list+get read-validated (instance GET decodes the `parameters` descriptor array) | create/delete + `:runOnDemand` SDK-built, live-write pending |
 | job **definitions** (list) | 🔨 | get/create/patch/delete ⬜ (med) |

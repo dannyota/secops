@@ -37,7 +37,8 @@ or `secopsctl config --show-path`.
 `curated list`, `curated rules`, `rules detections`, `rules errors`,
 `rules retrohunt list`, `rules retrohunt get`, `soar case list`, `soar case get`,
 `soar case values`, `soar users list`, `soar marketplace contentpacks get`,
-`soar integration list`, `info soar-integrations`, `soar settings api-keys`, and `version`. It is **also**
+`soar integration list`, `info soar-integrations`, `soar package-integration`,
+`soar settings api-keys`, and `version`. It is **also**
 emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
 `drifted_surfaces`), `push` (the reconcile plan/result + `would_change`), and the
 `soar case` mutating verbs (`{action, dry_run, applied}`). Only `pull` is
@@ -160,6 +161,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 |---|---|
 | `config` (alias `init`) | Set up / edit the config (`~/.secopsctl/instance.yaml`, `0600`). Single-screen form, or flags + `--non-interactive`. See [configure](configure.md). `config --show-path` prints the active config file. |
 | `surfaces [--json]` | List every API surface family — plane (host + auth), API version, lane (reconcile/imperative/raw/operational), status, and whether `--prune` can delete it. Reads nothing live; the map of reconcilable vs read-only. |
+| `soar package-integration <dir>` | Offline ZIP builder for an already-shaped SOAR custom integration directory. Defaults to `<dir>.zip`; use `--out <file>` and `--force` to overwrite. |
 | `completion` | Generate the shell autocompletion script. |
 | `help` | Help about any command. |
 
