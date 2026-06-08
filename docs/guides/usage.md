@@ -37,7 +37,7 @@ or `secopsctl config --show-path`.
 `curated list`, `curated rules`, `rules detections`, `rules errors`,
 `rules retrohunt list`, `rules retrohunt get`, `soar case list`, `soar case get`,
 `soar case values`, `soar users list`, `soar marketplace contentpacks get`,
-`soar integration list`, `soar settings api-keys`, and `version`. It is **also**
+`soar integration list`, `info soar-integrations`, `soar settings api-keys`, and `version`. It is **also**
 emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
 `drifted_surfaces`), `push` (the reconcile plan/result + `would_change`), and the
 `soar case` mutating verbs (`{action, dry_run, applied}`). Only `pull` is
@@ -113,6 +113,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar pull <target>` | Snapshot SOAR state to local files. Targets: `grouping`, `cases`, `blacklists`, `case-stages`, `case-tags`, `close-root-causes`, `connectors`, `environments`, `idp`, `jobs`, `networks`, `playbook-categories`, `playbooks`, `sla-definitions`, `soc-roles`, `tracking-lists`, `visual-families`, `webhooks`, `all`. |
 | `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). |
 | `soar case get <id>` | Get one case + its alerts (SOAR integer id). |
+| `info soar-integrations` | Report installed SOAR integration packs, connector/job runtime counts, bound environments, and gaps such as `config_without_runtime` or `runtime_disabled`. |
 | `soar integration list` | List installed integration packs. |
 | `soar integration connector list` | List connector definitions inside an integration (`--integration <key>`; read-only). Sibling `soar integration connector delete` removes a custom definition. |
 | `soar marketplace list` | List Content Hub marketplace integrations (`--installed` to filter). |
@@ -200,6 +201,13 @@ secopsctl pull rules                        # re-pull so local matches live
 secopsctl soar case list
 secopsctl soar case get 1234
 secopsctl soar case close --id 1234 --reason "Malicious" --yes
+```
+
+**Check SOAR integration runtime coverage**:
+
+```bash
+secopsctl info soar-integrations
+secopsctl --json info soar-integrations
 ```
 
 **Reconcile a SOAR surface** ([reconcile](reconcile.md)):

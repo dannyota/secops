@@ -211,7 +211,9 @@ The Content Hub is the opposite trap: it uses the modern v1alpha resource shape,
 `chronicle.googleapis.com` v1alpha. The rule: **operate config-as-code on the legacy
 AppKey lane** (reliable) and reach for the modern path only for what the legacy API
 lacks (e.g. the per-connector-definition delete). Each dual-host family records the
-host it actually uses and why.
+host it actually uses and why. Read-only health joins may use both lanes: for example,
+`info soar-integrations` combines the modern installed-pack catalog with legacy
+connector/job runtime cards.
 
 **The registry is the spine — and it is code.** Each family is one declarative
 entry in `internal/mirror/surface_families.go`:

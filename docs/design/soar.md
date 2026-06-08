@@ -32,7 +32,7 @@ reconcile):
 | Lane | Mechanism | SOAR surfaces |
 |---|---|---|
 | **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **16**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) · `connectors` · `jobs`. (`form-dynamic-parameters` is deferred — its PUT update is unsafe; see CATALOG) |
-| **imperative** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar integration` · `soar settings` | cases: `list` (New API — siemplify v1alpha; the CLI auto-falls back to the Legacy queue on error) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `integration install` (marketplace pack by identifier, guarded) / `list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`); **API-key metadata** read: `settings api-keys [list]` (`GET /settings/GetApiKeys`, typed, metadata only — the secret is masked by the server and dropped by the typed view; create/revoke deferred until the console request confirms those endpoints) |
+| **imperative/read** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar integration` · `soar settings` · `info soar-integrations` | cases: `list` (New API — siemplify v1alpha; the CLI auto-falls back to the Legacy queue on error) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `integration install` (marketplace pack by identifier, guarded) / `list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). runtime health: `info soar-integrations` joins installed packs with connector/job runtime cards and flags `config_without_runtime`, `runtime_without_installed_pack`, `runtime_disabled`, and `unconfigured_runtime`. singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`); **API-key metadata** read: `settings api-keys [list]` (`GET /settings/GetApiKeys`, typed, metadata only — the secret is masked by the server and dropped by the typed view; create/revoke deferred until the console request confirms those endpoints) |
 | **raw** (batch upserts / bundles / selector reads) | `soar legacy call <op>` | integrations (reads) · ontology-mapping (selector read + batch upsert + body delete) · environment-priorities · permissions · system/singleton settings · … |
 
 Commands:
@@ -41,6 +41,7 @@ Commands:
 - `soar push <surface> [--prune]` — files → live; additive by default, dry-run unless `--yes`
 - `soar case list`/`get` — read
 - `soar case <verb>` — guarded mutate
+- `info soar-integrations` — read-only integration runtime coverage
 - `soar legacy call <op>` — raw passthrough
 
 The operational loop is **`soar case list` → review → `soar case get <id>` → act**
@@ -188,6 +189,10 @@ bridge/playbooks    coercePlaybookTypes(): id/priority/version/*UnixTimeInMs int
   protects the working installs. A duplicated connector **definition** inside a
   pack (`custom:true`, e.g. a "Copy of …") is removed per-definition via
   `DeleteConnectorDef`, not by deleting the pack.
+- **Installed pack is not runtime** — installing a Content Hub integration only
+  adds definitions. `info soar-integrations` is the read-only check that joins
+  installed packs with configured connector/job runtime and environments, so an
+  unused install or disabled runtime is visible before a playbook fails.
 - **Two paginations** — legacy is offset (`requestedPage`/`pageSize`); v1alpha is
   Google-style (`pageToken`/`nextPageToken`).
 

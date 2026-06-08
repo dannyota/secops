@@ -181,6 +181,10 @@ stays on the legacy lane, which is reliable. So far that means:
 - **Content Hub** (`marketplaceIntegrations`, `contentPacks`) and **integration /
   connector-definition** delete live here because the legacy API has no equivalent
   (uninstall, per-definition delete).
+- **Integration runtime health** (`info soar-integrations`) joins the modern
+  installed-pack catalog with legacy connector/job runtime cards. It is read-only
+  and flags config-only installs, runtime without an installed pack, disabled
+  runtime, and explicit unconfigured runtime markers.
 - The reconcile config surfaces are read on modern where validated; their v1alpha
   **writes are also validated** — create→get→delete on customLists / socRoles /
   caseTagDefinitions, environments create reachable (license-capped) — they do

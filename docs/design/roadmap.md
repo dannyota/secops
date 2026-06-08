@@ -857,7 +857,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   templates and secret-at-push support are built + offline-tested.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 36 — SOAR automation-as-code completion *(planned)*
+### Wave 36 — SOAR automation-as-code completion *(partial — `info soar-integrations` built + offline-tested)*
 
 The Wave-23 design stance holds: SOAR *runs* recurring automation; secopsctl's job is
 to **build, track, and push** that automation as code. This wave gives the CLI the
@@ -875,7 +875,10 @@ break it.
   - **Integration runtime/health introspection** (`info soar-integrations`) — per
     integration: installed? runtime bound to which environment? config-only? Flag
     config-without-runtime and unconfigured-but-referenced — the failures that otherwise
-    surface only when a playbook fails at runtime.
+    surface only when a playbook fails at runtime. **Done:** read-only report joins
+    modern installed packs with legacy connector/job runtime cards, aliases
+    installed-copy ids to production identifiers, and flags `config_without_runtime`,
+    `runtime_without_installed_pack`, `runtime_disabled`, and `unconfigured_runtime`.
   - **Trigger-wiring manifest** (`info cron` / orphan check) — list each push subcommand
     or scheduled job and whether a cron / SOAR trigger references it (plus a
     last-run/heartbeat check), so an orphaned or broken-path automation is visible.
