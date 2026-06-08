@@ -629,6 +629,67 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 
 ---
 
+## Waves 25–32 — operability & UX hardening
+
+A backlog surfaced by using the tool against its own help and docs (tracked in
+`TODO.md`). Sequenced by value + dependency; git-style exit codes (`0`/`1`/`2`)
+are the shared contract.
+
+### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
+
+- **Exit codes** (git-style) via a typed sentinel mapped in `Execute()`: `0`
+  success, `2` divergence (`drift` detected a difference / a dry-run that would
+  change), `1` any error. Applied to `drift`.
+- **Unknown subcommand exits non-zero.** A parent group with no run of its own now
+  rejects an unknown/extra arg (`soar bogus` errors) instead of printing help with
+  status 0; a bare parent still shows help.
+- **Config-path fail-loud.** An explicit `--config` / `$SECOPSCTL_CONFIG` that does
+  not exist is an error — no silent fall-through to a wrong-tenant file. `info`
+  prints a `config_source` line and `config --show-path` reports the active file.
+- **`push --out`** data-root flag (parity with `pull`/`drift`); a live push refuses
+  a missing data dir (the empty-dir-+-`--prune` footgun).
+- **Global `--non-interactive`** forces the confirmation off (no TTY prompt).
+- **`doctor` remediation hints** on a failed auth/SIEM/SOAR check; `curated list`
+  `--json` help no longer mis-renders a value name.
+
+### Wave 26 — Machine-readable output  *(planned)*
+
+`--json` for `doctor`/`drift`/`pull`/`push`; structured push plan + `soar case`
+verb results.
+
+### Wave 27 — Self-describing surfaces  *(planned)*
+
+`secopsctl surfaces [--json]`; per-target help for reconcile targets;
+capability-aware `--prune` help; a drift-guard assertion that catalog CLI entries
+map to real commands.
+
+### Wave 28 — SIEM reads & symmetry  *(planned)*
+
+`rules list`; per-rule `--rule` for deploy/disable; `--siem`/`--soar` plane
+selector; `pull forwarders`; `iocs find --from-file`; `rules validate`.
+
+### Wave 29 — Ingestion & dashboard operability  *(planned)*
+
+parser `run`/`versions`/`activate`; feeds schema discovery + pre-push validation;
+`DuplicateDashboard`; reconcilable curated (`push curated`).
+
+### Wave 30 — SOAR case & Content Hub UX  *(planned)*
+
+`soar users list`; `soar integration install`; modern `case list` parity; typed
+single-close reason; `case get` flag consistency; `marketplace get` human view.
+
+### Wave 31 — Legacy escape-hatch hardening  *(planned)*
+
+`soar legacy call --dry-run`; bundled op index + `soar legacy list`; `--out` `0600`;
+`--read`/DELETE semantics.
+
+### Wave 32 — SDK ergonomics & enrichment  *(planned)*
+
+export `soar.Error`/`IsNotFound`; typed SOAR case view; `iocs related`/`ti related`;
+wire `entity summarize`/NL search into the CLI.
+
+---
+
 ## Non-goals
 
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).

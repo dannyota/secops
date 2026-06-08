@@ -15,14 +15,14 @@ import (
 
 func init() {
 	var (
-		fProjectID      string
-		fProjectNumber  string
-		fRegion         string
-		fCustomerID     string
-		fSOARURL        string
-		fSOARAppKey     string
-		fForceIPv4      bool
-		fNonInteractive bool
+		fProjectID     string
+		fProjectNumber string
+		fRegion        string
+		fCustomerID    string
+		fSOARURL       string
+		fSOARAppKey    string
+		fForceIPv4     bool
+		fShowPath      bool
 	)
 
 	cmd := &cobra.Command{
@@ -40,6 +40,18 @@ func init() {
 			"application-default login` handles SIEM auth.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if fShowPath {
+				p, err := config.ResolvedSource(cfgFile)
+				if err != nil {
+					return err
+				}
+				if p == "" {
+					fmt.Println("(no config file — using environment / defaults)")
+				} else {
+					fmt.Println(p)
+				}
+				return nil
+			}
 			target := cfgFile
 			if target == "" {
 				target = config.DefaultPath()
@@ -60,7 +72,7 @@ func init() {
 				cur.ForceIPv4 = fForceIPv4
 			}
 
-			if !fNonInteractive && term.IsTerminal(int(os.Stdin.Fd())) {
+			if !nonInteractive && term.IsTerminal(int(os.Stdin.Fd())) {
 				saved, err := runConfigForm(cur)
 				if err != nil {
 					return err
@@ -103,7 +115,7 @@ func init() {
 	f.StringVar(&fSOARURL, "soar-url", "", "SOAR host URL (optional)")
 	f.StringVar(&fSOARAppKey, "soar-app-key", "", "SOAR AppKey (optional; avoid on shared shells — prefer the prompt)")
 	f.BoolVar(&fForceIPv4, "force-ipv4", false, "pin the network dialer to IPv4 (corporate-VPN / broken-IPv6 fix)")
-	f.BoolVar(&fNonInteractive, "non-interactive", false, "do not show the form; write flags + current values")
+	f.BoolVar(&fShowPath, "show-path", false, "print the resolved config file path and exit (no changes)")
 
 	rootCmd.AddCommand(cmd)
 }

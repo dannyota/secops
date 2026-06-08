@@ -122,10 +122,11 @@ secopsctl does **not** read `.env`.
 4. `./config/instance.yaml`
 5. `~/.config/secopsctl/instance.yaml`
 
-An explicit `--config` / `$SECOPSCTL_CONFIG` path that does **not** exist is
-silently skipped — resolution falls through to the next candidate rather than
-erroring. Run `secopsctl info` to confirm which file actually loaded before any
-deploy.
+An explicit `--config` / `$SECOPSCTL_CONFIG` path that does **not** exist is an
+**error** — secopsctl refuses to fall through to a different (possibly
+wrong-tenant) file. Discovery (steps 3–5) only applies when no explicit path is
+given. To confirm which file actually loaded, run `secopsctl info` (it prints a
+`config_source` line) or `secopsctl config --show-path`.
 
 ## Project number vs ID
 

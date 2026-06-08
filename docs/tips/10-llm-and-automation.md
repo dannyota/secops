@@ -83,11 +83,11 @@ secopsctl's *own* unattended role is narrow and read-mostly:
 - **Config-drift detection** — run `secopsctl drift` on a CI/cron schedule. It is
   read-only: it diffs the committed baseline against live and reports divergence
   (an out-of-band UI edit, or an undeployed local change) as human text, then
-  **exits non-zero**. In automation, key on the **exit code**: `drift` exits 0 only
-  when local matches live; any non-zero exit means "investigate" — drift detected,
-  or a surface that could not be verified (an incomplete live list). It does not
-  emit a JSON body, so gate on the exit code plus the printed report, not on parsed
-  output. Pair it with `pull` in CI.
+  **exits non-zero**. In automation, branch on the **exit code** (git-style):
+  `0` = in sync, `2` = drift detected (act — reconcile), `1` = error or a surface
+  that could not be verified (incomplete live list — retry/fix). It does not emit a
+  JSON body, so gate on the exit code plus the printed report, not on parsed output.
+  Pair it with `pull` in CI.
 - **Ingest-health checks** — pull feeds on a schedule and alert on any
   `state: FAILED` ([08-feeds-parsers.md](08-feeds-parsers.md)). Read-only; safe to
   run often.

@@ -19,6 +19,7 @@ var (
 	pushYes      bool   // --yes
 	pushPrune    bool   // --prune (engine surfaces only)
 	pushRulesDir string // --rules-dir
+	pushOut      string // --out (data root; default cwd)
 )
 
 func init() {
@@ -49,6 +50,8 @@ func init() {
 		"engine surfaces: also delete live objects with no local file (guarded)")
 	f.StringVar(&pushRulesDir, "rules-dir", "",
 		"directory of local rule files (default: <dataRoot>/rules)")
+	f.StringVar(&pushOut, "out", "",
+		"data root directory the engine surfaces read from (default: cwd; matches pull/drift)")
 	// --dry-run and --yes are conceptually opposed; --dry-run always wins (see
 	// the dryRun/assumeYes derivation below), mirroring the legacy tool.
 	pushCmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
@@ -73,35 +76,51 @@ func runPush(cmd *cobra.Command, args []string) error {
 	dryRun := pushDryRun || !pushYes
 	assumeYes := pushYes && !pushDryRun
 
-	// For a live mutation without --yes, offer an interactive confirmation when a
-	// TTY is attached. A "yes" here promotes the run to assumeYes; anything else
-	// (including no TTY) leaves assumeYes false so the mirror layer aborts cleanly.
-	if !dryRun && !assumeYes {
-		if confirmPush(target) {
-			assumeYes = true
-		}
-	}
-
 	client, err := newChronicleClient()
 	if err != nil {
 		return err
 	}
 	ctx := baseContext()
 
+	// For a live mutation without --yes, offer an interactive confirmation when a
+	// TTY is attached — called only AFTER the data-dir check below, so the operator
+	// is never asked to confirm a push that is then refused. A "yes" promotes the
+	// run to assumeYes; anything else (incl. no TTY / --non-interactive) leaves it
+	// false so the mirror layer aborts cleanly.
+	maybeConfirm := func() {
+		if !dryRun && !assumeYes && confirmPush(target) {
+			assumeYes = true
+		}
+	}
+
 	// Engine-backed SIEM surfaces (reference_lists, …): reconcile local files to
 	// live (create/update; --prune to delete) through the shared reconcile engine.
 	if s, ok := mirror.BuildSIEMSurface(target, client); ok {
-		dir := filepath.Join(mirror.DataRoot(""), s.Dir)
+		dir := filepath.Join(mirror.DataRoot(pushOut), s.Dir)
+		if err := ensureDataDir(target, dir, dryRun); err != nil {
+			return err
+		}
+		maybeConfirm()
 		_, err = reconcile.Push(ctx, s, dir, reconcile.PushOpts{
 			DryRun: dryRun, AssumeYes: assumeYes, Prune: pushPrune,
 		}, os.Stdout)
 		return err
 	}
 
+	switch target {
+	case "rules-create", "rules-update", "rules-deploy", "rules-disable":
+	default:
+		return fmt.Errorf("unknown push target %q (want one of: %s)",
+			target, strings.Join(append([]string{"rules-create", "rules-update", "rules-deploy", "rules-disable"}, mirror.SIEMSurfaceNames()...), ", "))
+	}
 	rulesDir := pushRulesDir
 	if rulesDir == "" {
-		rulesDir = filepath.Join(mirror.DataRoot(""), mirror.DirRules)
+		rulesDir = filepath.Join(mirror.DataRoot(pushOut), mirror.DirRules)
 	}
+	if err := ensureDataDir(target, rulesDir, dryRun); err != nil {
+		return err
+	}
+	maybeConfirm()
 	switch target {
 	case "rules-create":
 		_, err = mirror.PushRulesCreate(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
@@ -111,9 +130,6 @@ func runPush(cmd *cobra.Command, args []string) error {
 		_, err = mirror.PushRulesDeploy(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
 	case "rules-disable":
 		_, err = mirror.PushRulesDisable(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
-	default:
-		return fmt.Errorf("unknown push target %q (want one of: %s)",
-			target, strings.Join(append([]string{"rules-create", "rules-update", "rules-deploy", "rules-disable"}, mirror.SIEMSurfaceNames()...), ", "))
 	}
 	return err
 }
@@ -123,7 +139,7 @@ func runPush(cmd *cobra.Command, args []string) error {
 // prompt and returns false, so non-interactive runs fall through to the mirror
 // layer's abort-without-confirmation path.
 func confirmPush(target string) bool {
-	if !stdinIsTerminal() {
+	if nonInteractive || !stdinIsTerminal() {
 		return false
 	}
 	fmt.Fprintf(os.Stdout, "Apply LIVE %q to the production tenant? [y/N] ", target)
@@ -137,6 +153,21 @@ func confirmPush(target string) bool {
 	default:
 		return false
 	}
+}
+
+// ensureDataDir refuses a LIVE push when the resolved local data directory does
+// not exist — almost always a wrong --out or working directory, which (with
+// --prune) would read zero local files and delete live objects. A dry run is
+// always allowed: it previews and mutates nothing.
+func ensureDataDir(target, dir string, dryRun bool) error {
+	if dryRun {
+		return nil
+	}
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		return fmt.Errorf("push %s: local data dir %q not found — pass --out <data root> or run from it "+
+			"(refusing a live push that would read no local files)", target, dir)
+	}
+	return nil
 }
 
 // stdinIsTerminal reports whether stdin is an interactive character device,

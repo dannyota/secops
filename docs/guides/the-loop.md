@@ -109,10 +109,11 @@ git add -A && git commit -m "snapshot live state"
 secopsctl drift reference_lists data_tables parsers feeds dashboards
 ```
 
-Exit-code contract: `drift` exits non-zero on divergence, when a surface cannot be
-verified (an incomplete live list), or on a config/auth error. Today all three
-share exit code `1`, so a CI job should treat **any** non-zero as "investigate"
-rather than distinguishing the cause from the code alone.
+Exit-code contract (git-style): `drift` exits **0** when local matches live,
+**2** when drift is detected (the actionable signal — reconcile), and **1** on an
+error or when a surface could not be verified (an incomplete live list — retry).
+A CI gate fails the build on any non-zero; a smarter pipeline can branch on `2`
+(act) vs `1` (fix/retry).
 
 `forwarders` is a drift surface but has no `pull forwarders` target, so `pull all`
 never writes local forwarder files — a bare `secopsctl drift` then flags

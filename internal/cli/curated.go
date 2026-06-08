@@ -110,7 +110,7 @@ func newCuratedListCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&filter, "filter", "", "case-insensitive substring filter on the rule-set display name")
-	f.BoolVar(&asJSON, "json", false, "emit rows as JSON (for scripting the ids into `curated set`)")
+	f.BoolVar(&asJSON, "json", false, "emit rows as JSON (for scripting the ids into 'curated set')")
 	return cmd
 }
 

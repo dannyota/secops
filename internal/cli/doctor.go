@@ -30,11 +30,14 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	ctx := baseContext()
 	allOK := true
 
-	step := func(name string, fn func() (string, error)) {
+	step := func(name, hint string, fn func() (string, error)) {
 		detail, err := fn()
 		if err != nil {
 			allOK = false
 			fmt.Printf("  %-13s ✗  %v\n", name, err)
+			if hint != "" {
+				fmt.Printf("  %-13s    ↳ %s\n", "", hint)
+			}
 			return
 		}
 		fmt.Printf("  %-13s ✓  %s\n", name, detail)
@@ -57,7 +60,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	// Google auth library — no gcloud shell-out, no token persisted).
 	creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
 	var client *chronicle.Client
-	step("auth (OAuth)", func() (string, error) {
+	step("auth (OAuth)", "run `gcloud auth application-default login` (or export SECOPS_ACCESS_TOKEN), then retry", func() (string, error) {
 		// A throwaway request object only to mint+attach the token (never sent);
 		// host is derived from the configured region, not hard-coded.
 		probeURL := fmt.Sprintf("https://%s-chronicle.googleapis.com/", inst.Region)
@@ -74,7 +77,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	})
 
 	if client != nil {
-		step("SIEM reach", func() (string, error) {
+		step("SIEM reach", "check the region/project_id in your config and that the Chronicle API is enabled for the project", func() (string, error) {
 			rules, err := client.ListRules(ctx)
 			if err != nil {
 				return "", err
@@ -88,7 +91,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	if inst.SOARURL == "" {
 		skip("SOAR reach", "soar_url not set; skipped")
 	} else {
-		step("SOAR reach", func() (string, error) {
+		step("SOAR reach", "check soar_url and the SOAR AppKey (soar_app_key in config or $SECOPS_SOAR_APP_KEY)", func() (string, error) {
 			sc, err := newSOARClient()
 			if err != nil {
 				return "", err

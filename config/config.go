@@ -41,7 +41,13 @@ type Instance struct {
 	BaseURL       string  `yaml:"base_url,omitempty"`     // derived from region when empty
 	UIURL         string  `yaml:"ui_url,omitempty"`
 	ForceIPv4     bool    `yaml:"force_ipv4,omitempty"` // pin the dialer to IPv4 (corporate-VPN fix; also via SECOPS_FORCE_IPV4)
+
+	source string // file Load read this from ("" = environment only); unexported → never persisted
 }
+
+// SourcePath returns the config file this instance was loaded from, or "" when
+// the configuration came only from the environment.
+func (i *Instance) SourcePath() string { return i.source }
 
 // flexStr is a string that also accepts a YAML scalar written as a bare number,
 // so project_number: 000000000000 (unquoted) loads without error and keeps its
@@ -130,6 +136,34 @@ func Find(explicit string) string {
 	return ""
 }
 
+// requireExplicitExists errors when an explicitly requested config path (--config,
+// else $SECOPSCTL_CONFIG) is set but does not exist — rather than silently falling
+// through to discovery and loading a different (possibly wrong-tenant) config. Only
+// the highest-precedence explicit path is enforced; the other is shadowed by it.
+func requireExplicitExists(explicit string) error {
+	path, src := explicit, "--config"
+	if path == "" {
+		path, src = os.Getenv("SECOPSCTL_CONFIG"), "$SECOPSCTL_CONFIG"
+	}
+	if path == "" {
+		return nil
+	}
+	if fi, err := os.Stat(path); err != nil || fi.IsDir() {
+		return fmt.Errorf("config %q (set via %s) not found — fix the path or unset it", path, src)
+	}
+	return nil
+}
+
+// ResolvedSource returns the config file Load would read (after enforcing that an
+// explicit path, if given, exists), or "" when the config comes only from the
+// environment. Used by `info` / `config --show-path` to confirm the active file.
+func ResolvedSource(explicit string) (string, error) {
+	if err := requireExplicitExists(explicit); err != nil {
+		return "", err
+	}
+	return Find(explicit), nil
+}
+
 // applyEnvOverrides overlays real environment variables onto inst; a set
 // variable always wins over the file value. .env files are never consulted.
 func applyEnvOverrides(inst *Instance) {
@@ -171,6 +205,11 @@ func readFile(path string) (*Instance, error) {
 // explicit may be empty to use discovery. A fully env-provided config needs no
 // file.
 func Load(explicit string) (*Instance, error) {
+	// An explicitly named config path must exist — never silently fall through to
+	// a different file (a typo'd --config could point pull/push at the wrong tenant).
+	if err := requireExplicitExists(explicit); err != nil {
+		return nil, err
+	}
 	var inst Instance
 	path := Find(explicit)
 	if path != "" {
@@ -180,6 +219,7 @@ func Load(explicit string) (*Instance, error) {
 		}
 		inst = *fileInst
 	}
+	inst.source = path
 	applyEnvOverrides(&inst)
 
 	var missing []string

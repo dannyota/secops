@@ -19,6 +19,11 @@ func init() {
 				return err
 			}
 			m := inst.AsMap()
+			src := inst.SourcePath()
+			if src == "" {
+				src = "(none — environment only)"
+			}
+			m["config_source"] = src
 
 			if jsonOut {
 				b, err := json.MarshalIndent(m, "", "  ")

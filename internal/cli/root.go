@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -18,9 +19,10 @@ import (
 
 // Global persistent-flag values, shared across subcommands.
 var (
-	cfgFile     string // --config
-	jsonOut     bool   // --json
-	forceLegacy bool   // --legacy: force the legacy AppKey path, skip modern v1alpha
+	cfgFile        string // --config
+	jsonOut        bool   // --json
+	forceLegacy    bool   // --legacy: force the legacy AppKey path, skip modern v1alpha
+	nonInteractive bool   // --non-interactive: never prompt (no TTY confirmation)
 )
 
 var rootCmd = &cobra.Command{
@@ -34,13 +36,45 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 }
 
-// Execute runs the CLI and returns a process exit code.
+// Execute runs the CLI and returns a process exit code: 0 success, 2 divergence
+// (drift / would-change), 1 any other error.
 func Execute() int {
+	// Cobra adds `help` and `completion` lazily during Execute; materialize them
+	// first so the guard below covers them too (else `completion bogus` exits 0).
+	rootCmd.InitDefaultHelpCmd()
+	rootCmd.InitDefaultCompletionCmd()
+	requireSubcommand(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
+		var ec *exitCoder
+		if errors.As(err, &ec) {
+			fmt.Fprintf(os.Stderr, "secopsctl: %v\n", err)
+			return ec.ExitCode()
+		}
 		fmt.Fprintf(os.Stderr, "secopsctl: error: %v\n", err)
 		return 1
 	}
 	return 0
+}
+
+// requireSubcommand makes every parent command (one that has subcommands and no
+// run of its own) reject an unknown or extra argument, so a typo'd subcommand
+// (`soar bogus`) exits non-zero instead of silently printing help with status 0.
+// A bare parent (`soar`) still prints its help and exits 0.
+func requireSubcommand(cmd *cobra.Command) {
+	for _, c := range cmd.Commands() {
+		requireSubcommand(c)
+	}
+	if cmd.HasSubCommands() && cmd.Run == nil && cmd.RunE == nil {
+		// cobra short-circuits a non-runnable parent to "print help, exit 0" BEFORE
+		// validating args, so a typo'd subcommand passes. Giving it a RunE makes it
+		// runnable so arg validation runs; NoArgs then reports `unknown command "x"`.
+		// (Set RunE even when Args is already NoArgs — e.g. cobra's own `completion`
+		// group — since the miss is the non-runnable short-circuit, not the validator.)
+		if cmd.Args == nil {
+			cmd.Args = cobra.NoArgs
+		}
+		cmd.RunE = func(c *cobra.Command, _ []string) error { return c.Help() }
+	}
 }
 
 func init() {
@@ -51,6 +85,8 @@ func init() {
 	pf.BoolVar(&jsonOut, "json", false, "emit machine-readable JSON where supported")
 	pf.BoolVar(&forceLegacy, "legacy", false,
 		"force the legacy AppKey path only, skipping the modern v1alpha API (for surfaces that support both)")
+	pf.BoolVar(&nonInteractive, "non-interactive", false,
+		"never prompt; a guarded mutation without --yes is refused rather than asking")
 }
 
 func initViper() {

@@ -19,11 +19,17 @@ Set on any command:
 
 | Flag | Effect |
 |---|---|
-| `--config <path>` | Use this instance config YAML (overrides `$SECOPSCTL_CONFIG` and discovery). |
+| `--config <path>` | Use this instance config YAML. An explicit path that does not exist is an error (no silent fall-through). |
 | `--json` | Emit machine-readable JSON where supported (shape is per-command). |
 | `--legacy` | Force the legacy AppKey path only, skipping the modern v1alpha API — for surfaces that support both. Reach for it when a New-API call 500s. |
+| `--non-interactive` | Never prompt; a guarded mutation without `--yes` is refused rather than asking. For CI/agents. |
 | `-v, --version` | Print version and exit. |
 | `-h, --help` | Help for any command. |
+
+**Exit codes** (git-style): `0` success / in sync · `2` divergence — `drift`
+detected a difference (act) · `1` any error. A typo'd subcommand also exits
+non-zero. Confirm the active config with `secopsctl info` (`config_source` line)
+or `secopsctl config --show-path`.
 
 `--json` is honored by the read commands: `info`, `query udm`, `alerts list`,
 `alerts get`, `iocs find`, `iocs get`, `ti collections`, `ti collection`,

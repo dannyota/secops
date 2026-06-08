@@ -16,12 +16,12 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
   `+/~/-`/untracked/incomplete + a `drifted`/`indeterminate` summary; doctor:
   `{config,auth,siem,soar}` statuses; push: the dry-run plan; pull: what was
   mirrored) — or stop advertising `--json` where it does nothing.
-- [ ] **P1 — Exit codes all collapse to `1`.** `Execute()` returns 1 for every
+- [x] **P1 — Exit codes all collapse to `1`.** `Execute()` returns 1 for every
   error, so "drift detected" can't be told from "auth expired", "indeterminate",
   or "bad flag". Give `drift` (and dry-run `push`) a detailed-exit-code scheme like
   `terraform plan -detailed-exitcode` / `git diff --exit-code` (e.g. 0 = in sync,
   2 = drift / would-change, 3 = indeterminate/retryable, 1 = error) and document it.
-- [ ] **P1 — Unknown subcommand exits `0`.** A typo'd subcommand under any group
+- [x] **P1 — Unknown subcommand exits `0`.** A typo'd subcommand under any group
   (`soar bogus`, `query bogus`, `soar case bogus`, …) prints help and exits 0,
   while an unknown top-level command exits 1. A scripted caller treats the no-op as
   success. Make parent groups error (non-zero) on an unknown/missing subcommand.
@@ -33,7 +33,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
   whether it supports pull / push / prune and whether it's read-only — sourced from
   the surface-family registry — so "what's reconcilable vs read-only" is answerable
   without opening `design/catalog.md`.
-- [ ] **P3 — Global `--non-interactive`.** Prompts are TTY-guarded today, but a
+- [x] **P3 — Global `--non-interactive`.** Prompts are TTY-guarded today, but a
   harness that attaches a PTY has no single switch to guarantee no prompt. Add a
   global `--non-interactive` (or honor an env) that forces the push confirmation off.
 - [ ] **P3 — Standardize `--json` help.** Some subcommands redeclare a local
@@ -42,12 +42,12 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## Config & safety
 
-- [ ] **P1 — Explicit `--config` / `$SECOPSCTL_CONFIG` to a missing path silently
+- [x] **P1 — Explicit `--config` / `$SECOPSCTL_CONFIG` to a missing path silently
   falls through to discovery.** A typo'd path loads the *default* config (exit 0) —
   a wrong-tenant footgun given every push is a live deploy. Fail loudly when an
   explicitly-named config path does not exist; reserve fall-through for the
   no-explicit-path case.
-- [ ] **P1 — Show the resolved config source.** Add `config --show-path` (or a
+- [x] **P1 — Show the resolved config source.** Add `config --show-path` (or a
   `source: <path>` line to `info`) so an operator can confirm which file won —
   i.e. which tenant they're pointed at — before any deploy.
 - [ ] **P2 — `doctor` remediation + `--json`.** On a failed check, append a next
@@ -118,7 +118,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## Help-text polish
 
-- [ ] **P3 — `curated list --json` help renders as `--json curated set`.** Backticks
+- [x] **P3 — `curated list --json` help renders as `--json curated set`.** Backticks
   in the flag-description string are taken by cobra as the flag's value-name
   placeholder. Drop backticks from flag-description strings repo-wide.
 - [ ] **P3 — Per-target help for `push rules-*`.** The four `rules-create/update/
@@ -133,7 +133,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## Safety footguns (found in round 2)
 
-- [ ] **P1 — `push` has no `--out` / data-root flag.** `pull` and `drift` take
+- [x] **P1 — `push` has no `--out` / data-root flag.** `pull` and `drift` take
   `--out` (data root, default cwd) but `push` always resolves the data root to the
   current directory. `pull dashboards --out /data` writes `/data/dashboards/`, yet
   `push dashboards` run from elsewhere silently reads `./dashboards/` — and with

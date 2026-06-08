@@ -86,11 +86,13 @@ func newDriftCmd() *cobra.Command {
 					indet++
 				}
 			}
+			// Exit codes (git-style): drift present → 2 (divergence, "act");
+			// indeterminate-only → 1 (error, "retry/fix"); clean → 0.
 			switch {
 			case drifted > 0 && indet > 0:
-				return fmt.Errorf("drift detected in %d surface(s); %d could not be verified — review, then `pull`/`push`", drifted, indet)
+				return divergence("drift detected in %d surface(s); %d could not be verified — review, then `pull`/`push`", drifted, indet)
 			case drifted > 0:
-				return fmt.Errorf("drift detected in %d surface(s) — review and `pull`/`push` to reconcile", drifted)
+				return divergence("drift detected in %d surface(s) — review and `pull`/`push` to reconcile", drifted)
 			case indet > 0:
 				return fmt.Errorf("could not verify %d surface(s) (live list incomplete) — re-run", indet)
 			}
