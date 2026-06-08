@@ -158,6 +158,8 @@ func newDriftCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&siemOnly, "siem", false, "check only SIEM surfaces (needs only ADC creds)")
 	cmd.Flags().BoolVar(&soarOnly, "soar", false, "check only SOAR surfaces (needs only the AppKey)")
 	cmd.MarkFlagsMutuallyExclusive("siem", "soar")
+	// `drift <target> --help` appends the target's behavior note.
+	attachTargetHelp(cmd, all)
 	return cmd
 }
 

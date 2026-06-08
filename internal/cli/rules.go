@@ -185,7 +185,7 @@ func newRulesDetectionsCmd() *cobra.Command {
 	f.IntVar(&hours, "hours", 24, "look-back window in hours")
 	f.IntVar(&limit, "limit", 100, "max detections (page size)")
 	f.StringVar(&state, "state", "", "filter by alert state (e.g. ALERTING)")
-	f.BoolVar(&asJSON, "json", false, "emit raw JSON")
+	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return cmd
 }
 
@@ -226,7 +226,7 @@ func newRulesErrorsCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.IntVar(&hours, "hours", 24, "look-back window in hours")
-	f.BoolVar(&asJSON, "json", false, "emit raw JSON")
+	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return cmd
 }
 
@@ -296,7 +296,7 @@ func newRetrohuntListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, "emit raw JSON")
+	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return cmd
 }
 
@@ -323,7 +323,7 @@ func newRetrohuntGetCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, "emit raw JSON")
+	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return cmd
 }
 

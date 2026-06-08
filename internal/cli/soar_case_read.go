@@ -117,7 +117,7 @@ func newCaseListCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&status, "status", "open", "status filter: open|closed|all")
 	f.IntVar(&limit, "limit", 100, "max cases to fetch/show (first page; 0 = up to 100)")
-	f.BoolVar(&asJSON, "json", false, "emit the raw queue JSON")
+	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return cmd
 }
 
@@ -221,7 +221,7 @@ func newCaseGetCmd() *cobra.Command {
 			return emitSOARCaseFull(os.Stdout, raw)
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the raw full-details JSON")
+	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	cmd.Flags().IntVar(&idFlag, "id", 0, "SOAR case id (alternative to the positional arg)")
 	return cmd
 }

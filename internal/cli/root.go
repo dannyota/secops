@@ -84,7 +84,8 @@ func init() {
 		"path to the instance config YAML (overrides $SECOPSCTL_CONFIG and discovery)")
 	pf.BoolVar(&jsonOut, "json", false, "emit machine-readable JSON where supported")
 	pf.BoolVar(&forceLegacy, "legacy", false,
-		"force the legacy AppKey path only, skipping the modern v1alpha API (for surfaces that support both)")
+		"force the legacy AppKey path on dual-generation surfaces (currently `soar case list`); "+
+			"ignored where a command has no modern/legacy split")
 	pf.BoolVar(&nonInteractive, "non-interactive", false,
 		"never prompt; a guarded mutation without --yes is refused rather than asking")
 }

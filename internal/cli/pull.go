@@ -195,6 +195,8 @@ func init() {
 		"filter expression (only used by 'curated_rules')")
 	pf.StringVar(&outDir, "out", "",
 		"output root directory for pulled artifacts (default: cwd)")
+	// `pull <target> --help` appends the target's behavior note.
+	attachTargetHelp(pullCmd, names)
 
 	rootCmd.AddCommand(pullCmd)
 }

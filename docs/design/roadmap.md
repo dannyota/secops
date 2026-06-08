@@ -634,7 +634,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
 value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
-Waves 25–32 are shipped; 33–36 are the remaining forward plan.
+Waves 25–33 are shipped; 34–36 are the remaining forward plan.
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
@@ -744,7 +744,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   `:fetchIocMatchMetadata` enrichment RPCs aren't built in the SDK yet), and a
   typed `ListCases` view (cases stay `[]json.RawMessage` + the typed `soar.Case`).
 
-### Wave 33 — CLI UX & help completeness *(planned)*
+### Wave 33 — CLI UX & help completeness *(done — doctor already complete from W25/W26)*
 
 - **Goal.** Make `--help` and machine output self-consistent at the point of use, so
   surface-specific behavior and capabilities are discoverable without opening the catalog.
@@ -767,8 +767,19 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
     from the binary.
   - **`doctor` completeness** — remediation hints on every failed check and finish any
     remaining `doctor --json` gaps for CI.
+- **Done.** `push` / `pull` / `drift` / `soar push <surface> --help` append a
+  registry-driven per-target note (plane / version + the `--prune`/etag capabilities
+  + a one-line write gotcha), composed in `internal/cli/surface_help.go`; both the
+  `<cmd> <target> --help` and `help <cmd> <target>` forms render it. `--prune` help and
+  the up-front dry-run notice are capability-aware off a single `pruneNoOp` helper that
+  mirrors the engine's prune-skip predicate (prune deletes only on a PruneEligible
+  surface; NoDelete and not-eligible both say "no-op"). Local `--json` flag help is
+  unified to one canonical string; `--legacy` help states it is ignored where a command
+  has no modern/legacy split. A doc↔CLI guard test asserts every reconcile surface is a
+  real CLI target and vice-versa, and that every per-target note keys off a live target.
+  `doctor` remediation hints + `--json` already shipped in W25/W26.
 - **Exit.** `push <target> --help` is target-specific; the prune/`--legacy`/`--json`
-  help matches actual behavior; a guard fails on doc↔CLI drift.
+  help matches actual behavior; a guard fails on doc↔CLI drift. ✅
 - **Docs.** CATALOG, ARCHITECTURE.
 
 ### Wave 34 — SOAR triage & discovery UX *(planned)*

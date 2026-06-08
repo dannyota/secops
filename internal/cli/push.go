@@ -51,7 +51,8 @@ func init() {
 	f.BoolVar(&pushYes, "yes", false,
 		"skip the interactive confirmation and apply the change for real")
 	f.BoolVar(&pushPrune, "prune", false,
-		"engine surfaces: also delete live objects with no local file (guarded)")
+		"engine surfaces: also delete live objects with no local file (guarded; "+
+			"a no-op on surfaces without a delete API — see `push <target> --help`)")
 	f.StringVar(&pushRulesDir, "rules-dir", "",
 		"directory of local rule files (default: <dataRoot>/rules)")
 	f.StringVar(&pushOut, "out", "",
@@ -59,6 +60,8 @@ func init() {
 	// --dry-run and --yes are conceptually opposed; --dry-run always wins (see
 	// the dryRun/assumeYes derivation below), mirroring the legacy tool.
 	pushCmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	// `push <target> --help` appends the target's write semantics + prune/etag caps.
+	attachTargetHelp(pushCmd, valid)
 
 	rootCmd.AddCommand(pushCmd)
 }
@@ -108,6 +111,15 @@ func runPush(cmd *cobra.Command, args []string) error {
 		dir := filepath.Join(mirror.DataRoot(pushOut), s.Dir)
 		if err := ensureDataDir(target, dir, dryRun); err != nil {
 			return err
+		}
+		// Say up front when --prune can't delete on this surface, so the operator
+		// isn't left expecting a sweep the engine will silently skip (it prunes only
+		// PruneEligible surfaces — both NoDelete and not-eligible are no-ops).
+		if pushPrune && !jsonOut {
+			if reason, noop := pruneNoOp(s.Caps); noop {
+				fmt.Fprintf(out, "note: --prune is a no-op for %q (%s); "+
+					"live-only objects are reported, never deleted\n", target, reason)
+			}
 		}
 		maybeConfirm()
 		sum, perr := reconcile.Push(ctx, s, dir, reconcile.PushOpts{

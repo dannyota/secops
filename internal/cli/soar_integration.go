@@ -129,7 +129,7 @@ func newSOARConnectorDefListCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&integration, "integration", "", "integration key/identifier (required)")
-	f.BoolVar(&asJSON, "json", false, "emit JSON")
+	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	_ = cmd.MarkFlagRequired("integration")
 	return cmd
 }
@@ -220,7 +220,7 @@ func newSOARIntegrationListCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.BoolVar(&custom, "custom", false, "show only deletable (custom pack or clone) integrations")
-	f.BoolVar(&asJSON, "json", false, "emit JSON")
+	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return cmd
 }
 

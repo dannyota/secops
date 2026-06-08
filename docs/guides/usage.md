@@ -21,10 +21,10 @@ Set on any command:
 |---|---|
 | `--config <path>` | Use this instance config YAML. An explicit path that does not exist is an error (no silent fall-through). |
 | `--json` | Emit machine-readable JSON where supported (shape is per-command). |
-| `--legacy` | Force the legacy AppKey path only, skipping the modern v1alpha API — for surfaces that support both. Reach for it when a New-API call 500s. |
+| `--legacy` | Force the legacy AppKey path on dual-generation surfaces (currently `soar case list`); ignored where a command has no modern/legacy split. Reach for it when a New-API call 500s. |
 | `--non-interactive` | Never prompt; a guarded mutation without `--yes` is refused rather than asking. For CI/agents. |
 | `-v, --version` | Print version and exit. |
-| `-h, --help` | Help for any command. |
+| `-h, --help` | Help for any command. `<cmd> <target> --help` (e.g. `push feeds --help`) adds a per-target note: the surface's plane/version, whether `--prune` can delete it, and its write gotchas. |
 
 **Exit codes** (git-style): `0` success / in sync · `2` divergence — `drift`
 detected a difference (act) · `1` any error. A typo'd subcommand also exits
@@ -89,7 +89,7 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 | `push rules-update` | Update live YARA-L text where a tracked `*.yaral` changed (etag-guarded). |
 | `push rules-deploy` | Reconcile each tracked rule's deployment (enabled/alerting/frequency). |
 | `push rules-disable` | Disable locally-tracked rules with `deployment.enabled=true`. |
-| `push <reconcile-target>` | Reconcile local files to live (create/update; `--prune` to delete). Targets: `reference_lists`, `data_tables`, `parsers`, `feeds`, `forwarders`, `dashboards`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`. |
+| `push <reconcile-target>` | Reconcile local files to live (create/update; `--prune` deletes on prune-eligible surfaces only — `push <target> --help` says which). Targets: `reference_lists`, `data_tables`, `parsers`, `feeds`, `forwarders`, `dashboards`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`. |
 | `curated set` | Toggle a curated deployment's `enabled`/`alerting` per precision (`--category`, `--ruleset`, `--precision`). |
 | `rules retrohunt` | Manage retrohunts (run a rule over historical data). |
 | `parsers activate <log-type> <id>` | Make a parser version ACTIVE (live ingestion switches; use `parsers versions` to find a prior id to roll back to). |
@@ -127,7 +127,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 
 | Command | What it does |
 |---|---|
-| `soar push <surface>` | Reconcile local files to live (create/update; `--prune` to delete). Surfaces: `blacklists`, `case-stages`, `case-tags`, `close-root-causes`, `connectors`, `environments`, `idp`, `jobs`, `networks`, `playbook-categories`, `playbooks`, `sla-definitions`, `soc-roles`, `tracking-lists`, `visual-families`, `webhooks`. |
+| `soar push <surface>` | Reconcile local files to live (create/update; `--prune` deletes on prune-eligible surfaces only — `soar push <surface> --help` says which). Surfaces: `blacklists`, `case-stages`, `case-tags`, `close-root-causes`, `connectors`, `environments`, `idp`, `jobs`, `networks`, `playbook-categories`, `playbooks`, `sla-definitions`, `soc-roles`, `tracking-lists`, `visual-families`, `webhooks`. |
 | `soar push playbooks` (plural) | Reconcile the **whole** playbooks directory: create/update every changed playbook, `--prune` to delete server-only ones. (One of the reconcile surfaces above.) |
 | `soar push playbook` (singular) | Imperative whole-body save of **one** playbook from `--file <playbook.json>`; mints a new version. Not a directory reconcile — use `playbooks` for the loop. |
 | `soar push bulk-close` | Bulk-close cases by id (`--ids`, `--reason` ∈ malicious\|not-malicious\|maintenance\|inconclusive\|unknown). |

@@ -41,9 +41,20 @@ func newSOAREnginePushCmd(name string) *cobra.Command {
 		prune  bool
 		out    string
 	)
+	// Read the surface capabilities once (nil client) to make the help and the
+	// --prune handling capability-aware: --prune only deletes on a PruneEligible
+	// surface, so anything else (NoDelete or not-eligible) is a no-op.
+	caps, _ := surfaceCaps(name)
+	short := "Reconcile local " + name + " files to live (create/update; --prune to delete)"
+	pruneHelp := "also delete live objects with no local file (guarded; gated on a complete pull)"
+	if reason, noop := pruneNoOp(caps); noop {
+		short = "Reconcile local " + name + " files to live (create/update; --prune is a no-op: " + reason + ")"
+		pruneHelp = "no-op for this surface (" + reason + "); live-only objects are reported, never deleted"
+	}
 	cmd := &cobra.Command{
 		Use:   name + " [--prune]",
-		Short: "Reconcile local " + name + " files to live (create/update; --prune to delete)",
+		Short: short,
+		Long:  short + "\n" + surfaceNote(name),
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lc, err := newSOARLegacyClient()
@@ -53,6 +64,12 @@ func newSOAREnginePushCmd(name string) *cobra.Command {
 			s, ok := mirror.BuildSOARSurface(name, lc)
 			if !ok {
 				return fmt.Errorf("unknown engine surface %q", name)
+			}
+			if prune && !jsonOut {
+				if reason, noop := pruneNoOp(s.Caps); noop {
+					fmt.Fprintf(os.Stdout, "note: --prune is a no-op for %q (%s); "+
+						"live-only objects are reported, never deleted\n", name, reason)
+				}
 			}
 			dr, ay := soarGuard(name+" reconcile", dryRun, yes)
 			dir := filepath.Join(mirror.DataRoot(out), mirror.DirSOAR, s.Dir)
@@ -65,7 +82,7 @@ func newSOAREnginePushCmd(name string) *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
-	f.BoolVar(&prune, "prune", false, "also delete live objects with no local file (guarded; gated on a complete pull)")
+	f.BoolVar(&prune, "prune", false, pruneHelp)
 	f.StringVar(&out, "out", "", "data root directory (default: cwd)")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return cmd
