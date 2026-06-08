@@ -31,6 +31,7 @@ func newSOARLegacyCallCmd() *cobra.Command {
 		readOnly bool
 		yes      bool
 		out      string
+		dryRun   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "call <op>",
@@ -60,11 +61,39 @@ func newSOARLegacyCallCmd() *cobra.Command {
 				payload = json.RawMessage(raw)
 			}
 
+			// --read asserts a read-only call; it cannot apply to an inherently
+			// mutating method (a contradiction the user should resolve, not us).
+			if readOnly && (method == "PUT" || method == "DELETE") {
+				return fmt.Errorf("--read is a read-only assertion and cannot be combined with --method %s", method)
+			}
+
 			// A POST can read or write on this API, so it is fail-closed: without an
 			// explicit --read or --write it is refused rather than run ungated (a
 			// forgotten --write on a write-POST would otherwise deploy live silently).
 			if method == "POST" && !write && !readOnly {
 				return fmt.Errorf("POST on the legacy API can read OR write; pass --read for a read-only call or --write (with --yes) for a mutation")
+			}
+
+			// Dry-run previews the composed request and sends nothing (the only
+			// mutating path in the tool that previously lacked a dry-run).
+			if dryRun {
+				if jsonOut {
+					return emitJSON(struct {
+						Method string          `json:"method"`
+						Op     string          `json:"op"`
+						Write  bool            `json:"write"`
+						DryRun bool            `json:"dry_run"`
+						Body   json.RawMessage `json:"body,omitempty"`
+					}{Method: method, Op: op, Write: write || method == "PUT" || method == "DELETE", DryRun: true, Body: bodyRaw(payload)})
+				}
+				fmt.Fprintf(os.Stdout, "DRY RUN — would send:\n  %s %s\n", method, op)
+				if payload != nil {
+					fmt.Fprintf(os.Stdout, "  body:\n%s\n", indentJSON(payload.(json.RawMessage)))
+				} else {
+					fmt.Fprintln(os.Stdout, "  body: (none)")
+				}
+				fmt.Fprintln(os.Stdout, "Re-run without --dry-run to send.")
+				return nil
 			}
 
 			if write || method == "PUT" || method == "DELETE" {
@@ -85,7 +114,9 @@ func newSOARLegacyCallCmd() *cobra.Command {
 			}
 			pretty := indentJSON(resp)
 			if out != "" {
-				if err := os.WriteFile(out, pretty, 0o644); err != nil {
+				// 0600: a legacy response can carry sensitive operational data
+				// (case/entity content, settings), so don't leave it world-readable.
+				if err := os.WriteFile(out, pretty, 0o600); err != nil {
 					return err
 				}
 				fmt.Fprintf(os.Stdout, "wrote %d bytes -> %s\n", len(pretty), out)
@@ -101,9 +132,22 @@ func newSOARLegacyCallCmd() *cobra.Command {
 	f.BoolVar(&write, "write", false, "mark this call as mutating (LIVE banner + --yes); required for a write-POST")
 	f.BoolVar(&readOnly, "read", false, "assert a read-only POST (skips the mutation guard)")
 	f.BoolVar(&yes, "yes", false, "confirm a mutating call")
-	f.StringVar(&out, "out", "", "write the response to this file instead of stdout")
+	f.StringVar(&out, "out", "", "write the response to this file (0600) instead of stdout")
+	f.BoolVar(&dryRun, "dry-run", false, "preview the composed request (method, op, body); send nothing")
 	cmd.MarkFlagsMutuallyExclusive("read", "write")
 	return cmd
+}
+
+// bodyRaw returns the request payload as json.RawMessage for the --json preview,
+// or nil when there is no body.
+func bodyRaw(payload any) json.RawMessage {
+	if payload == nil {
+		return nil
+	}
+	if rm, ok := payload.(json.RawMessage); ok {
+		return rm
+	}
+	return nil
 }
 
 // legacyCallBanner warns before a mutating raw external-API call.

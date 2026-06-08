@@ -716,10 +716,18 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   field names need live confirmation), typed single-close reason, value completion
   for `--tag`/`--stage`/`--root-cause`, `marketplace contentpacks get`.
 
-### Wave 31 — Legacy escape-hatch hardening  *(planned)*
+### Wave 31 — Legacy escape-hatch hardening  *(done — op index deferred)*
 
-`soar legacy call --dry-run`; bundled op index + `soar legacy list`; `--out` `0600`;
-`--read`/DELETE semantics.
+- `soar legacy call --dry-run` — preview the composed request (method + op + body)
+  and send nothing; the one mutating path that previously lacked a dry-run. Honors
+  `--json`.
+- `--out` now writes the response `0600` (legacy responses can carry sensitive
+  operational data).
+- `--read` is rejected with `--method PUT|DELETE` (a read-only assertion can't
+  apply to an inherently mutating method).
+- **Deferred:** a bundled op index + `soar legacy list` — needs a sanitized op
+  catalog to ship (the upstream swagger is git-ignored and not published); op
+  discovery stays via the SecOps UI Network tab for now.
 
 ### Wave 32 — SDK ergonomics & enrichment  *(planned)*
 

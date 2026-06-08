@@ -139,7 +139,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar integration delete` | Delete an integration instance (warns if playbooks use it). |
 | `soar integration uninstall` | Delete a custom integration pack (clone) by its key. |
 | `soar settings case-assignment` / `move-case-policy` set | Set the case-routing policy (set form is guarded). |
-| `soar legacy call <op> --write --yes` | Escape hatch: call any Siemplify external-API mutation. |
+| `soar legacy call <op> --write --yes` | Escape hatch: call any Siemplify external-API mutation. Add `--dry-run` to preview the composed request (method + op + body) without sending; `--out <file>` writes the response `0600`. |
 
 ## 🛠️ Utility
 
@@ -226,7 +226,8 @@ secopsctl soar legacy call <list-op> --method POST --read --body page.json
 
 # Guarded write (POST): mutation — refused without --yes; --yes deploys live
 printf '{"caseId": 1234, "tag": "triaged"}' > req.json
-secopsctl soar legacy call <write-op> --method POST --write --body req.json --yes
+secopsctl soar legacy call <write-op> --method POST --write --body req.json --dry-run  # preview, sends nothing
+secopsctl soar legacy call <write-op> --method POST --write --body req.json --yes      # deploy live
 ```
 
 ## 🔗 See also

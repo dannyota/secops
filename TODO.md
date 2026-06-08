@@ -187,7 +187,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## SOAR — legacy escape hatch (round 2)
 
-- [ ] **P1 — `soar legacy call --dry-run`.** Every other mutating path is
+- [x] **P1 — `soar legacy call --dry-run`.** Every other mutating path is
   dry-run-first, but the escape hatch jumps from `--write` straight to a
   banner + `--yes` live call with no way to preview the resolved method + URL + body
   first. Add `--dry-run` that prints (and validates) the composed request.
@@ -196,9 +196,9 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
   **git-ignored and not shipped**, so a clean-clone user has no way to discover ops.
   Bundle a tenant-neutral op index powering `soar legacy list [--grep]` + completion,
   and/or point at the SecOps UI Network tab.
-- [ ] **P3 — `soar legacy call --out` writes `0644`.** Responses can carry sensitive
+- [x] **P3 — `soar legacy call --out` writes `0644`.** Responses can carry sensitive
   operational data; write the dump `0600` (matching the config file's posture).
-- [ ] **P3 — `--read`/`--write` flag semantics.** `--read` is silently ignored on
+- [x] **P3 — `--read`/`--write` flag semantics.** `--read` is silently ignored on
   GET and is not mutually exclusive with `--method PUT|DELETE` (an accepted
   contradiction). Reject the contradiction or document that the intent flags apply to
   POST only.
