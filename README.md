@@ -14,7 +14,7 @@
 
 A single Go binary **and** an importable Go SDK that treat your SIEM/SOAR like
 Terraform treats infrastructure. The core loop is **pull live state → review the
-`git diff` → push it back**, reconciled by one product-neutral engine. Live
+`git diff` → push it back** — one reconciliation engine, every surface. Live
 events, alerts, and cases are read and acted on directly — never reconciled from
 a file. It's **tenant-neutral** (nothing baked in; everything comes from one
 config file) and built for humans and LLM agents alike: deterministic flags,
@@ -39,21 +39,50 @@ page; build verification and signature-checking steps are in the
 
 ## Quickstart
 
+**1. Configure your tenant.** `secopsctl config` (alias `init`) opens a one-screen
+form → `~/.secopsctl/instance.yaml` (`0600`, git-ignored). Or pass every field as
+flags:
+
 ```bash
-secopsctl config            # set up ~/.secopsctl/instance.yaml (0600); `init` is an alias
-secopsctl doctor            # read-only smoke test of config + connectivity
-secopsctl pull rules        # pull live config into local files (read-only)
-secopsctl query udm 'metadata.event_type = "USER_LOGIN"' --hours 24 --json
-secopsctl soar pull connectors   # SOAR snapshot — needs soar_url + the AppKey
+secopsctl config \
+  --project-id your-project-id \
+  --project-number 000000000000 \
+  --region us \
+  --customer-id 00000000-0000-0000-0000-000000000000 \
+  --soar-url https://<tenant>.siemplify-soar.com \
+  --non-interactive
 ```
 
-**Two surfaces, two credentials** (resolved lazily — `--help`/`info`/`config`
-never touch the network): SIEM uses **Google ADC** (`gcloud auth
-application-default login` — the token is minted in-process, nothing on disk);
-SOAR uses an **AppKey** (stored `0600` in the git-ignored config, or
-`$SECOPS_SOAR_APP_KEY`). Full setup — including how to find your SOAR host — is in
-the [configure guide](docs/guides/configure.md). The complete command list lives
-in the [command reference](docs/guides/usage.md).
+The four identifiers come from the Cloud Console and SecOps **Settings → SIEM
+Settings** (customer UUID); set both `project_id` and `project_number`. Where to
+find each: [configure.md](docs/guides/configure.md#find-your-secops-identifiers).
+
+**2. Two credentials.** SIEM uses **Google ADC** (minted in-process, nothing on
+disk); SOAR uses a long-lived **AppKey** (SOAR UI **Settings → Advanced → API
+Keys**; stored in the config or `$SECOPS_SOAR_APP_KEY`):
+
+```bash
+gcloud auth application-default login
+gcloud auth application-default set-quota-project your-project-id
+```
+
+**3. Find your SOAR host.** `soar_url` is tenant-specific and not in the public
+docs — read it off a live request:
+
+1. Sign in to the **SecOps Web UI**.
+2. Open **dev-tools → Network** and click any case.
+3. Requests go to `https://<tenant>.siemplify-soar.com` — that's your `soar_url`.
+
+**4. Verify.** A read-only smoke test of config + both planes — clean means you're
+wired up:
+
+```bash
+secopsctl doctor
+```
+
+Then run the loop (`pull` → review the `git diff` → `push`); see the
+[command reference](docs/guides/usage.md) and
+[configure guide](docs/guides/configure.md).
 
 ## Use as a Go SDK
 
