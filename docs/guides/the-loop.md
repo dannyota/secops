@@ -115,10 +115,9 @@ error or when a surface could not be verified (an incomplete live list — retry
 A CI gate fails the build on any non-zero; a smarter pipeline can branch on `2`
 (act) vs `1` (fix/retry).
 
-`forwarders` is a drift surface but has no `pull forwarders` target, so `pull all`
-never writes local forwarder files — a bare `secopsctl drift` then flags
-`forwarders` as live-only drift. Name the surfaces you mirror explicitly (as above)
-to keep `forwarders` out of the drift set.
+A no-argument `drift` checks both planes, so it needs both SIEM (ADC) and SOAR
+(AppKey) credentials. Scope a single-plane CI runner with `secopsctl drift --siem`
+or `--soar`.
 
 ## Pull before edit
 

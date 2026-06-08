@@ -53,10 +53,12 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `info` | Show the resolved instance config (no API call; AppKey redacted). |
 | `doctor` | Live smoke test: config + auth + SIEM/SOAR reachability. |
 | `pull <target>` | Snapshot live state to local files. Targets: `rules`, `reference_lists`, `data_tables`, `dashboards`, `curated`, `curated_rules`, `feeds`, `parsers`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`, `all`. `--filter` applies to `curated_rules` only. |
-| `drift [target...]` | Report how live state has drifted from local files (CI gate; non-zero exit on drift). No target = every engine surface. |
+| `drift [target...]` | Report how live state has drifted from local files (CI gate; exit 2 on drift). No target = every engine surface; `--siem`/`--soar` scope to one plane. |
 | `query udm <filter>` | Point-in-time UDM event search over `--hours` / `--from` / `--to` (default last 24h), capped by `--limit`. |
 | `curated list` | List curated (Google-managed) rule-set deployments + enable/alerting state. |
 | `curated rules` | List the individual curated rules. |
+| `rules list` | List detection rules (rule id · display name · slug · type) — maps a name/slug to the `ru_` id the inspect verbs need. |
+| `rules validate <file.yaral>` | Validate a YARA-L file against the API (no mutation); non-zero exit if invalid. |
 | `rules detections` | List detections a deployed rule produced in a time window. |
 | `rules errors` | List execution errors a rule produced. |
 | `rules alerts` | Search alerts a rule generated (raw, rule-dependent shape). |
@@ -64,7 +66,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `alerts get` | Get one alert by id. |
 | `ti collections` | List Mandiant threat collections (campaigns/reports/…). |
 | `ti collection <id>` | Show one threat collection by id. |
-| `iocs find <value>` | Resolve indicator value(s) to IoC records (`--type` to force md5/sha1/sha256/domain/ip). |
+| `iocs find <value>` | Resolve indicator value(s) to IoC records (`--type` to force md5/sha1/sha256/domain/ip; `--from-file <path>`/`-` for a list or stdin). |
 | `iocs get <id>` | Get one IoC by its resource id (from `iocs find --json`). |
 | `watchlists list` | List SIEM entity watchlists. |
 | `watchlists get` | Get one watchlist by id. |

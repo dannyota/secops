@@ -101,6 +101,15 @@ var pullOrder = []pullTarget{
 		}
 		return reconcile.Pull(baseContext(), s, out, os.Stdout)
 	}},
+	{"forwarders", mirror.DirForwarders, func(c *chronicle.Client, out, _ string) (int, error) {
+		// Symmetry with `push forwarders` / `drift forwarders`: pull the engine
+		// surface so `pull all` mirrors forwarders too (otherwise drift flags them).
+		s, ok := mirror.BuildSIEMSurface("forwarders", c)
+		if !ok {
+			return 0, fmt.Errorf("forwarders surface not registered")
+		}
+		return reconcile.Pull(baseContext(), s, out, os.Stdout)
+	}},
 }
 
 // targetByName indexes pullOrder for the explicit single-target dispatch.

@@ -55,30 +55,30 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## SIEM — rules, query, curated, forwarders
 
-- [ ] **P1 — `forwarders` has no `pull` target.** It is a `push`/`drift` target but
+- [x] **P1 — `forwarders` has no `pull` target.** It is a `push`/`drift` target but
   not a `pull` one, so the documented `pull all` → `drift` CI loop reports
   forwarders as permanently drifted (prune-eligible → live-only = delete). Add
   `pull forwarders` for pull/drift/push symmetry (or drop it from `drift`).
-- [ ] **P2 — `rules list [--json]`.** No way to map a rule's display name / slug to
+- [x] **P2 — `rules list [--json]`.** No way to map a rule's display name / slug to
   the `rule_id` the inspect verbs (`rules detections/errors/alerts`) require without
   opening companion files. Add a read-only `rules list` (displayName · slug ·
   rule_id · enabled) and let the inspect verbs accept a slug/name.
 - [ ] **P2 — Per-rule targeting for `push rules-deploy` / `rules-disable`.** Both
   sweep *every* tracked rule whose state differs; add `--rule <slug-or-id>` to scope
   a deploy/disable to one rule.
-- [ ] **P2 — `drift` / `pull` plane selector (`--siem` / `--soar`).** No-arg `drift`
+- [x] **P2 — `drift` / `pull` plane selector (`--siem` / `--soar`).** No-arg `drift`
   spans both planes and needs both credentials; a single-plane CI runner must
   enumerate every surface name by hand. Add a plane flag.
 - [ ] **P2 — Indicator/entity enrichment pivot.** Expose the deferred
   `:fetchRelated` / `:fetchIocMatchMetadata` RPCs as `iocs related` / `ti related`
   so a hunt can pivot indicator → campaign/report instead of three disconnected
   lookups.
-- [ ] **P3 — `iocs find --from-file` / stdin.** Bulk indicator lookup from a file or
+- [x] **P3 — `iocs find --from-file` / stdin.** Bulk indicator lookup from a file or
   stdin (one per line); document the 1000-per-request chunking/cap.
 - [ ] **P3 — Wire `entity summarize` / NL search into the CLI.** The SDK already has
   them (`chronicle/nl_search.go`, `log_search.go`) and the design docs reference
   them, but they're not reachable from the CLI.
-- [ ] **P3 — `rules validate <file.yaral>`.** Standalone pre-push YARA-L validation
+- [x] **P3 — `rules validate <file.yaral>`.** Standalone pre-push YARA-L validation
   (today validation only happens inside `push rules-update`).
 - [ ] **P3 — Reconcilable curated deployments (`push curated`).** The deployment
   state is already pulled to a file and the SDK has a batch-update primitive; close

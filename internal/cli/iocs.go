@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,18 +36,36 @@ func newIoCsCmd() *cobra.Command {
 }
 
 func newIoCsFindCmd() *cobra.Command {
-	var typ string
+	var (
+		typ      string
+		fromFile string
+	)
 	cmd := &cobra.Command{
-		Use:   "find <value> [value...]",
+		Use:   "find [value...]",
 		Short: "Resolve indicator value(s) to IoC records (iocs:find)",
-		Args:  cobra.MinimumNArgs(1),
+		Long: "Resolve one or more indicators (hash/domain/IP) to their IoC records. Pass\n" +
+			"values as arguments and/or read them from a file (or stdin with `--from-file -`),\n" +
+			"one per line (blank lines and # comments skipped). Requests are chunked at\n" +
+			"1000 indicators (the endpoint's per-request cap) and the results aggregated.",
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			values := append([]string{}, args...)
+			if fromFile != "" {
+				fileVals, ferr := readIndicatorList(cmd, fromFile)
+				if ferr != nil {
+					return ferr
+				}
+				values = append(values, fileVals...)
+			}
+			if len(values) == 0 {
+				return fmt.Errorf("no indicators given (pass values as arguments or --from-file <path>)")
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
 			}
-			lookups := make([]chronicle.FieldAndValue, 0, len(args))
-			for _, v := range args {
+			lookups := make([]chronicle.FieldAndValue, 0, len(values))
+			for _, v := range values {
 				vt, terr := iocValueType(v, typ)
 				if terr != nil {
 					return terr
@@ -68,7 +87,35 @@ func newIoCsFindCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&typ, "type", "", "indicator type: md5|sha1|sha256|domain|ip (default: auto-detect)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "read indicators from a file (one per line; '-' for stdin)")
 	return cmd
+}
+
+// readIndicatorList reads newline-delimited indicators from path (or stdin when
+// path is "-"), skipping blank lines and # comments.
+func readIndicatorList(cmd *cobra.Command, path string) ([]string, error) {
+	var r io.Reader
+	if path == "-" {
+		r = cmd.InOrStdin()
+	} else {
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = f.Close() }()
+		r = f
+	}
+	var out []string
+	sc := bufio.NewScanner(r)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		out = append(out, line)
+	}
+	return out, sc.Err()
 }
 
 func newIoCsGetCmd() *cobra.Command {

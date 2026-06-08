@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"danny.vn/secops/internal/mirror"
 )
 
 // The `rules` command is the operational + lifecycle read surface for detection
@@ -28,11 +32,107 @@ func newRulesCmd() *cobra.Command {
 			"config-as-code is `pull rules` / `push rules-create|update|deploy|disable`.",
 	}
 	cmd.AddCommand(
+		newRulesListCmd(),
+		newRulesValidateCmd(),
 		newRulesDetectionsCmd(),
 		newRulesErrorsCmd(),
 		newRulesAlertsCmd(),
 		newRulesRetrohuntCmd(),
 	)
+	return cmd
+}
+
+// newRulesListCmd lists detection rules with the ids the inspect verbs need —
+// mapping a display name / slug back to the ru_ rule id without opening files.
+func newRulesListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Read-only: list detection rules (rule id, display name, slug)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			rules, err := c.ListRules(baseContext())
+			if err != nil {
+				return err
+			}
+			type row struct {
+				RuleID      string `json:"rule_id"`
+				DisplayName string `json:"display_name"`
+				Slug        string `json:"slug"`
+				Type        string `json:"type,omitempty"`
+			}
+			rows := make([]row, 0, len(rules))
+			for i := range rules {
+				r := &rules[i]
+				rows = append(rows, row{RuleID: r.RuleID(), DisplayName: r.DisplayName, Slug: mirror.Slugify(r.DisplayName), Type: r.Type})
+			}
+			sort.Slice(rows, func(i, j int) bool { return rows[i].DisplayName < rows[j].DisplayName })
+			if jsonOut {
+				return emitJSON(rows)
+			}
+			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+			fmt.Fprintln(tw, "RULE ID\tDISPLAY NAME\tSLUG\tTYPE")
+			for _, r := range rows {
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", r.RuleID, r.DisplayName, r.Slug, r.Type)
+			}
+			if err := tw.Flush(); err != nil {
+				return err
+			}
+			fmt.Printf("\n%d rule(s).\n", len(rows))
+			return nil
+		},
+	}
+	return cmd
+}
+
+// newRulesValidateCmd validates a local YARA-L file against the API without
+// creating or changing anything — a fast pre-push syntax check.
+func newRulesValidateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "validate <file.yaral>",
+		Short: "Validate a YARA-L file against the API (no mutation)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			text, err := os.ReadFile(args[0])
+			if err != nil {
+				return err
+			}
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			res, err := c.ValidateRule(baseContext(), string(text))
+			if err != nil {
+				return err
+			}
+			ok := res != nil && res.Success
+			msg := ""
+			if res != nil {
+				msg = res.Message
+			}
+			if jsonOut {
+				if jerr := emitJSON(struct {
+					File    string `json:"file"`
+					Valid   bool   `json:"valid"`
+					Message string `json:"message,omitempty"`
+				}{File: args[0], Valid: ok, Message: msg}); jerr != nil {
+					return jerr
+				}
+				if !ok {
+					return fmt.Errorf("rule is invalid")
+				}
+				return nil
+			}
+			if ok {
+				fmt.Printf("OK: %s is valid YARA-L.\n", args[0])
+				return nil
+			}
+			return fmt.Errorf("invalid: %s", msg)
+		},
+	}
 	return cmd
 }
 

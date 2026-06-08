@@ -151,16 +151,15 @@ Output marks each object: `+` local-only (would create), `~` changed, `-` live-o
 (would delete). It covers the same SIEM and SOAR engine surfaces as `push` — see
 `secopsctl drift --help` for the full target list.
 
-Two things to plan for in CI:
+One thing to plan for in CI:
 
-- **`forwarders` is a `push`/`drift` target but not a `pull` target.** A `pull all`
-  never writes forwarder files, so a following `drift` reports every live forwarder as
-  drifted (`+`, local-only). Exclude it from the loop — name the surfaces you do pull,
-  e.g. `secopsctl drift reference_lists data_tables feeds parsers …` — or pull
-  forwarder files some other way before the gate.
 - **A no-argument `drift` spans both planes.** It checks every SIEM *and* SOAR engine
   surface, so it needs both sets of credentials: SIEM (ADC/OAuth) and SOAR (AppKey).
-  To gate one plane only, pass that plane's surface names explicitly.
+  To gate one plane only, pass `--siem` or `--soar` (e.g. a SIEM-only runner with
+  just ADC runs `secopsctl drift --siem`).
+
+(`forwarders` is a full `pull`/`push`/`drift` target, so `pull all` mirrors it and
+the gate stays clean.)
 
 ## See also
 

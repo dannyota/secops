@@ -18,7 +18,11 @@ import (
 // exiting non-zero when any surface has drifted. Intended for CI (pull → commit →
 // drift). It never mutates the tenant.
 func newDriftCmd() *cobra.Command {
-	var out string
+	var (
+		out      string
+		siemOnly bool
+		soarOnly bool
+	)
 	siem := mirror.SIEMSurfaceNames()
 	soar := mirror.SOARSurfaceNames()
 	all := append(append([]string{}, siem...), soar...)
@@ -42,6 +46,14 @@ func newDriftCmd() *cobra.Command {
 				// otherwise let the gate pass without checking what the caller meant.
 				return fmt.Errorf("drift: unknown target(s): %s\nvalid: %s",
 					strings.Join(unknown, ", "), strings.Join(all, ", "))
+			}
+			// Plane selectors scope a no-arg run to one plane so a single-plane CI
+			// runner needs only that plane's credentials.
+			if siemOnly {
+				wantSOAR = nil
+			}
+			if soarOnly {
+				wantSIEM = nil
 			}
 
 			var targets []mirror.DriftTarget
@@ -142,6 +154,9 @@ func newDriftCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&out, "out", "", "data root directory (default: cwd)")
+	cmd.Flags().BoolVar(&siemOnly, "siem", false, "check only SIEM surfaces (needs only ADC creds)")
+	cmd.Flags().BoolVar(&soarOnly, "soar", false, "check only SOAR surfaces (needs only the AppKey)")
+	cmd.MarkFlagsMutuallyExclusive("siem", "soar")
 	return cmd
 }
 

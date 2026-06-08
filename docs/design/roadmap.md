@@ -672,10 +672,18 @@ puller-output refactor; `pull`'s real output is the files it writes (`git diff`)
   design makes `push <x> --help` generic), and a catalog-parsing drift-guard — the
   registry view + the existing drift-guard test cover the consistency need for now.
 
-### Wave 28 — SIEM reads & symmetry  *(planned)*
+### Wave 28 — SIEM reads & symmetry  *(done — per-rule scoping deferred)*
 
-`rules list`; per-rule `--rule` for deploy/disable; `--siem`/`--soar` plane
-selector; `pull forwarders`; `iocs find --from-file`; `rules validate`.
+- `rules list [--json]` (rule id · display name · slug · type) — maps a name/slug
+  to the `ru_` id the inspect verbs need; `rules validate <file.yaral>` (API
+  validate, no mutation, non-zero on invalid).
+- `pull forwarders` — full pull/push/drift symmetry, so `pull all` mirrors
+  forwarders and the drift gate stays clean.
+- `drift --siem` / `--soar` — scope the gate to one plane (one credential set).
+- `iocs find --from-file <path>` / `-` (stdin) — bulk indicator lookup, one per
+  line (blank/`#` lines skipped), chunked at the 1000/request cap.
+- **Deferred:** per-rule `--rule` for `push rules-deploy`/`rules-disable` (needs a
+  filter through the mirror push functions).
 
 ### Wave 29 — Ingestion & dashboard operability  *(planned)*
 
