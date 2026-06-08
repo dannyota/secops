@@ -36,10 +36,12 @@ or `secopsctl config --show-path`.
 `watchlists list`, `watchlists get`, `curated list`, `curated rules`,
 `rules detections`, `rules errors`, `rules retrohunt list`,
 `rules retrohunt get`, `soar case list`, `soar case get`,
-`soar integration list`, `soar settings api-keys`, and `version`. It is **not**
-emitted by `doctor`, `drift`, `pull`, or `push` (SIEM and SOAR) — those print
-human-readable text only. (`rules alerts` always emits raw JSON, with or without
-the flag.)
+`soar integration list`, `soar settings api-keys`, and `version`. It is **also**
+emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
+`drifted_surfaces`), `push` (the reconcile plan/result + `would_change`), and the
+`soar case` mutating verbs (`{action, dry_run, applied}`). Only `pull` is
+text-only — its output is the files it writes (review with `git diff`). (`rules
+alerts` always emits raw JSON, with or without the flag.)
 
 ## 🔒 SIEM — read-only
 

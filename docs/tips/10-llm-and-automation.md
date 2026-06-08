@@ -16,7 +16,7 @@ needs:
 | Property | What it gives an agent |
 |---|---|
 | **Deterministic flags, no hidden interactivity** | Every action is a flag, not a menu. The only prompt is the push confirmation, skippable with `--yes` — an agent never stalls on a prompt it can't see. |
-| **`--json` on reads** | The global `--json` flag emits machine-readable JSON on the read commands that support it (`query udm`, `alerts`, `cases`, `iocs`, `ti`, `rules`, `watchlists`, `curated`, `info`, `version`, the `soar` read verbs). Parse that JSON instead of scraping pretty output. `pull`, `push`, `drift`, and `doctor` print human text, not JSON — for those, key on the exit code and the text (below). |
+| **`--json`** | The global `--json` flag emits machine-readable JSON on the read commands (`query udm`, `alerts`, `cases`, `iocs`, `ti`, `rules`, `watchlists`, `curated`, `info`, `version`, the `soar` read verbs) **and** on `doctor`, `drift`, `push`, and the `soar case` mutating verbs (`push` reports the plan/result; case verbs report `{action, dry_run, applied}`). Parse that JSON instead of scraping pretty output. `pull` still prints human text — its real output is the files it writes (inspect with `git diff`). |
 | **`--help` on every command** | Introspect the surface (`secopsctl --help`, `secopsctl pull --help`, …) to discover targets and flags rather than guessing. |
 | **Lazy imports / offline-safe** | `--help` and `info` work with no auth or network, so an agent can explore the surface before any credential is in play. |
 | **Explicit read/write asymmetry** | `pull`/`query`/`drift` never mutate; only `push` does, and it says so loudly. |
@@ -27,8 +27,9 @@ Treat every mutation as a two-phase operation:
 
 1. **Preview.** Run the mutating command in its default `--dry-run` mode. The
    tool prints a `LIVE DEPLOY` banner and exactly what *would* change — which
-   rules get created, which get disabled, which cases close. The preview is human
-   text, not JSON.
+   rules get created, which get disabled, which cases close. Add `--json` to get
+   the plan as structured output (`push` reports created/updated/deleted +
+   `would_change`; `soar case` reports `dry_run`/`applied`).
 2. **Decide, then deploy.** Read the preview text. If — and only if — it matches the
    intended change, re-run with `--yes`. If it touches anything unexpected,
    **stop and surface the preview** to a human.
@@ -85,9 +86,9 @@ secopsctl's *own* unattended role is narrow and read-mostly:
   (an out-of-band UI edit, or an undeployed local change) as human text, then
   **exits non-zero**. In automation, branch on the **exit code** (git-style):
   `0` = in sync, `2` = drift detected (act — reconcile), `1` = error or a surface
-  that could not be verified (incomplete live list — retry/fix). It does not emit a
-  JSON body, so gate on the exit code plus the printed report, not on parsed output.
-  Pair it with `pull` in CI.
+  that could not be verified (incomplete live list — retry/fix). Add `--json` for a
+  per-surface report (`drifted_surfaces`, `surfaces[]` with `+/~/-`/untracked) to
+  parse alongside the exit code. Pair it with `pull` in CI.
 - **Ingest-health checks** — pull feeds on a schedule and alert on any
   `state: FAILED` ([08-feeds-parsers.md](08-feeds-parsers.md)). Read-only; safe to
   run often.

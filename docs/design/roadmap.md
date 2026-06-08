@@ -652,10 +652,14 @@ are the shared contract.
 - **`doctor` remediation hints** on a failed auth/SIEM/SOAR check; `curated list`
   `--json` help no longer mis-renders a value name.
 
-### Wave 26 — Machine-readable output  *(planned)*
+### Wave 26 — Machine-readable output  *(done — pull deferred)*
 
-`--json` for `doctor`/`drift`/`pull`/`push`; structured push plan + `soar case`
-verb results.
+`--json` now on `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report
++ `drifted_surfaces`/`indeterminate_surfaces`), `push` (the reconcile plan/result
+with `would_change`; the engine reports the plan in dry-run too), and the
+`soar case` mutating verbs (`{action, dry_run, applied}`). `pull --json` is
+deferred — its pullers write progress straight to stdout, so clean JSON needs a
+puller-output refactor; `pull`'s real output is the files it writes (`git diff`).
 
 ### Wave 27 — Self-describing surfaces  *(planned)*
 

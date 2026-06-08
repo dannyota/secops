@@ -80,3 +80,13 @@ func TestConfirmPushNonInteractive(t *testing.T) {
 		t.Error("--non-interactive must not auto-confirm a guarded mutation")
 	}
 }
+
+// TestConfirmPushJSON: --json must not prompt (the y/N would corrupt stdout JSON).
+func TestConfirmPushJSON(t *testing.T) {
+	old := jsonOut
+	defer func() { jsonOut = old }()
+	jsonOut = true
+	if confirmPush("t") {
+		t.Error("--json must not prompt for confirmation")
+	}
+}

@@ -296,8 +296,9 @@ func TestPushDryRunMakesNoChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sum.Created != 0 {
-		t.Errorf("dry run must not create; created=%d", sum.Created)
+	// Dry-run reports the PLAN (one would-be create) but mutates nothing live.
+	if sum.Created != 1 {
+		t.Errorf("dry run should report the planned create; created=%d, want 1", sum.Created)
 	}
 	if len(srv.objects) != 1 {
 		t.Errorf("dry run must not mutate the server; objects=%d", len(srv.objects))

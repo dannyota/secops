@@ -60,22 +60,43 @@ func caseBody(caseID int, alert string) map[string]any {
 func caseAction(action string, body map[string]any, dryRun, yes bool, do func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error)) error {
 	dr, ay := soarGuard(action, dryRun, yes)
 
-	w := os.Stdout
-	bar := strings.Repeat("!", 72)
-	fmt.Fprintln(w, bar)
-	fmt.Fprintln(w, "!! LIVE SOAR case action against a PRODUCTION tenant !!")
-	fmt.Fprintf(w, "!! Action: %s\n", action)
-	fmt.Fprintln(w, bar)
-	pretty, _ := json.MarshalIndent(body, "", "  ")
-	fmt.Fprintf(w, "Request body:\n%s\n\n", pretty)
+	// emit prints the machine-readable result under --json so the dry-run → --yes →
+	// verify loop is scriptable. applied = the mutation actually ran.
+	emit := func(applied bool) error {
+		if !jsonOut {
+			return nil
+		}
+		return emitJSON(struct {
+			Action  string         `json:"action"`
+			Request map[string]any `json:"request"`
+			DryRun  bool           `json:"dry_run"`
+			Applied bool           `json:"applied"`
+			OK      bool           `json:"ok"`
+		}{Action: action, Request: body, DryRun: dr, Applied: applied, OK: true})
+	}
+
+	if !jsonOut {
+		w := os.Stdout
+		bar := strings.Repeat("!", 72)
+		fmt.Fprintln(w, bar)
+		fmt.Fprintln(w, "!! LIVE SOAR case action against a PRODUCTION tenant !!")
+		fmt.Fprintf(w, "!! Action: %s\n", action)
+		fmt.Fprintln(w, bar)
+		pretty, _ := json.MarshalIndent(body, "", "  ")
+		fmt.Fprintf(w, "Request body:\n%s\n\n", pretty)
+	}
 
 	if dr {
-		fmt.Fprintln(w, "DRY RUN -- no API call made. Re-run without --dry-run to apply.")
-		return nil
+		if !jsonOut {
+			fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run without --dry-run to apply.")
+		}
+		return emit(false)
 	}
 	if !ay {
-		fmt.Fprintln(w, "Refusing to act without confirmation (pass --yes). Aborted.")
-		return nil
+		if !jsonOut {
+			fmt.Fprintln(os.Stdout, "Refusing to act without confirmation (pass --yes). Aborted.")
+		}
+		return emit(false)
 	}
 	// Build the client only when actually applying — dry runs need no credentials.
 	lc, err := newSOARLegacyClient()
@@ -85,8 +106,10 @@ func caseAction(action string, body map[string]any, dryRun, yes bool, do func(ct
 	if _, err := do(baseContext(), lc); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "Done: %s.\n", action)
-	return nil
+	if !jsonOut {
+		fmt.Fprintf(os.Stdout, "Done: %s.\n", action)
+	}
+	return emit(true)
 }
 
 // caseGuardFlags wires the shared --id/--alert/--dry-run/--yes flags onto a verb.

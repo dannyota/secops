@@ -18,7 +18,7 @@ func init() {
 		Long: "doctor runs a quick end-to-end sanity check against the configured live\n" +
 			"instance: it loads config, acquires a token, and makes one read-only call to\n" +
 			"the SIEM (list rules) and, if soar_url is set, to SOAR (list integrations).\n" +
-			"It never mutates anything.",
+			"It never mutates anything. --json emits {ok, version, checks[]}.",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE:         runDoctor,
@@ -26,89 +26,116 @@ func init() {
 	rootCmd.AddCommand(doctorCmd)
 }
 
+// doctorCheck is one health check's outcome. Name is the machine key (--json);
+// label is the human heading for the text view; hint is shown on failure.
+type doctorCheck struct {
+	Name    string `json:"name"`
+	OK      bool   `json:"ok"`
+	Skipped bool   `json:"skipped,omitempty"`
+	Detail  string `json:"detail,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Hint    string `json:"hint,omitempty"`
+
+	label string // text-view heading (not serialized)
+}
+
 func runDoctor(cmd *cobra.Command, args []string) error {
 	ctx := baseContext()
-	allOK := true
+	var checks []doctorCheck
 
-	step := func(name, hint string, fn func() (string, error)) {
-		detail, err := fn()
-		if err != nil {
-			allOK = false
-			fmt.Printf("  %-13s ✗  %v\n", name, err)
-			if hint != "" {
-				fmt.Printf("  %-13s    ↳ %s\n", "", hint)
-			}
-			return
-		}
-		fmt.Printf("  %-13s ✓  %s\n", name, detail)
-	}
-	skip := func(name, why string) {
-		fmt.Printf("  %-13s -  %s\n", name, why)
-	}
+	inst, cfgErr := loadInstance()
+	if cfgErr != nil {
+		checks = append(checks, doctorCheck{Name: "config", label: "config", Error: cfgErr.Error()})
+	} else {
+		checks = append(checks, doctorCheck{Name: "config", label: "config", OK: true, Detail: inst.Region + " / " + inst.ProjectID})
 
-	fmt.Println("secopsctl doctor")
-	fmt.Printf("  %-13s    %s\n", "version", versionLine())
+		creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
+		var client *chronicle.Client
 
-	inst, err := loadInstance()
-	if err != nil {
-		fmt.Printf("  %-13s ✗  %v\n", "config", err)
-		return errors.New("doctor: config check failed")
-	}
-	fmt.Printf("  %-13s ✓  %s / %s\n", "config", inst.Region, inst.ProjectID)
-
-	// Auth: acquire a token without sending any request (Apply mints it via the
-	// Google auth library — no gcloud shell-out, no token persisted).
-	creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
-	var client *chronicle.Client
-	step("auth (OAuth)", "run `gcloud auth application-default login` (or export SECOPS_ACCESS_TOKEN), then retry", func() (string, error) {
+		auc := doctorCheck{Name: "auth", label: "auth (OAuth)", Hint: "run `gcloud auth application-default login` (or export SECOPS_ACCESS_TOKEN), then retry"}
 		// A throwaway request object only to mint+attach the token (never sent);
 		// host is derived from the configured region, not hard-coded.
-		probeURL := fmt.Sprintf("https://%s-chronicle.googleapis.com/", inst.Region)
-		probe, _ := http.NewRequestWithContext(ctx, http.MethodGet, probeURL, nil)
+		probe, _ := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s-chronicle.googleapis.com/", inst.Region), nil)
 		if err := creds.Apply(probe); err != nil {
-			return "", err
+			auc.Error = err.Error()
+		} else if c, cerr := chronicle.NewClient(inst.Settings(), creds); cerr != nil {
+			auc.Error = cerr.Error()
+		} else {
+			client, auc.OK, auc.Detail = c, true, "token acquired"
 		}
-		c, cerr := chronicle.NewClient(inst.Settings(), creds)
-		if cerr != nil {
-			return "", cerr
-		}
-		client = c
-		return "token acquired", nil
-	})
+		checks = append(checks, auc)
 
-	if client != nil {
-		step("SIEM reach", "check the region/project_id in your config and that the Chronicle API is enabled for the project", func() (string, error) {
-			rules, err := client.ListRules(ctx)
-			if err != nil {
-				return "", err
+		if client != nil {
+			sc := doctorCheck{Name: "siem", label: "SIEM reach", Hint: "check the region/project_id in your config and that the Chronicle API is enabled for the project"}
+			if rules, err := client.ListRules(ctx); err != nil {
+				sc.Error = err.Error()
+			} else {
+				sc.OK, sc.Detail = true, fmt.Sprintf("list rules OK (%d rule(s))", len(rules))
 			}
-			return fmt.Sprintf("list rules OK (%d rule(s))", len(rules)), nil
-		})
-	} else {
-		skip("SIEM reach", "auth failed; skipped")
+			checks = append(checks, sc)
+		} else {
+			checks = append(checks, doctorCheck{Name: "siem", label: "SIEM reach", Skipped: true, Detail: "auth failed; skipped"})
+		}
+
+		if inst.SOARURL == "" {
+			checks = append(checks, doctorCheck{Name: "soar", label: "SOAR reach", Skipped: true, Detail: "soar_url not set; skipped"})
+		} else {
+			soc := doctorCheck{Name: "soar", label: "SOAR reach", Hint: "check soar_url and the SOAR AppKey (soar_app_key in config or $SECOPS_SOAR_APP_KEY)"}
+			if scl, err := newSOARClient(); err != nil {
+				soc.Error = err.Error()
+			} else if integs, err := scl.ListIntegrations(ctx); err != nil {
+				soc.Error = err.Error()
+			} else {
+				soc.OK, soc.Detail = true, fmt.Sprintf("list integrations OK (%d)", len(integs))
+			}
+			checks = append(checks, soc)
+		}
 	}
 
-	if inst.SOARURL == "" {
-		skip("SOAR reach", "soar_url not set; skipped")
-	} else {
-		step("SOAR reach", "check soar_url and the SOAR AppKey (soar_app_key in config or $SECOPS_SOAR_APP_KEY)", func() (string, error) {
-			sc, err := newSOARClient()
-			if err != nil {
-				return "", err
-			}
-			integs, err := sc.ListIntegrations(ctx)
-			if err != nil {
-				return "", err
-			}
-			return fmt.Sprintf("list integrations OK (%d)", len(integs)), nil
-		})
+	allOK := true
+	for _, c := range checks {
+		if !c.Skipped && !c.OK {
+			allOK = false
+		}
 	}
 
-	fmt.Println()
+	if jsonOut {
+		if err := emitJSON(struct {
+			OK      bool          `json:"ok"`
+			Version string        `json:"version"`
+			Checks  []doctorCheck `json:"checks"`
+		}{OK: allOK, Version: versionLine(), Checks: checks}); err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("secopsctl doctor")
+		fmt.Printf("  %-13s    %s\n", "version", versionLine())
+		for _, c := range checks {
+			switch {
+			case c.Skipped:
+				fmt.Printf("  %-13s -  %s\n", c.label, c.Detail)
+			case c.OK:
+				fmt.Printf("  %-13s ✓  %s\n", c.label, c.Detail)
+			default:
+				fmt.Printf("  %-13s ✗  %s\n", c.label, c.Error)
+				if c.Hint != "" {
+					fmt.Printf("  %-13s    ↳ %s\n", "", c.Hint)
+				}
+			}
+		}
+		fmt.Println()
+		if allOK {
+			fmt.Println("  → all checks passed.")
+		} else {
+			fmt.Println("  → some checks failed.")
+		}
+	}
+
+	if cfgErr != nil {
+		return errors.New("doctor: config check failed")
+	}
 	if !allOK {
-		fmt.Println("  → some checks failed.")
 		return errors.New("doctor: one or more checks failed")
 	}
-	fmt.Println("  → all checks passed.")
 	return nil
 }

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -74,8 +75,13 @@ func newDriftCmd() *cobra.Command {
 				return fmt.Errorf("drift: no matching reconcile surfaces")
 			}
 
-			fmt.Fprintf(os.Stdout, "Drift check (%d surface(s)) — local vs live:\n", len(targets))
-			rep := mirror.Drift(ctx, targets, os.Stdout)
+			var w io.Writer = os.Stdout
+			if jsonOut {
+				w = io.Discard // suppress the human report; emit JSON below
+			} else {
+				fmt.Fprintf(os.Stdout, "Drift check (%d surface(s)) — local vs live:\n", len(targets))
+			}
+			rep := mirror.Drift(ctx, targets, w)
 
 			drifted, indet := 0, 0
 			for _, it := range rep.Items {
@@ -86,6 +92,39 @@ func newDriftCmd() *cobra.Command {
 					indet++
 				}
 			}
+
+			if jsonOut {
+				type surf struct {
+					Name       string `json:"name"`
+					Created    int    `json:"created"`
+					Updated    int    `json:"updated"`
+					Deleted    int    `json:"deleted"`
+					Untracked  int    `json:"untracked"`
+					Incomplete bool   `json:"incomplete"`
+					Drifted    bool   `json:"drifted"`
+					Error      string `json:"error,omitempty"`
+				}
+				out := struct {
+					DriftedSurfaces       int    `json:"drifted_surfaces"`
+					IndeterminateSurfaces int    `json:"indeterminate_surfaces"`
+					Surfaces              []surf `json:"surfaces"`
+				}{DriftedSurfaces: drifted, IndeterminateSurfaces: indet}
+				for _, it := range rep.Items {
+					s := surf{
+						Name: it.Name, Created: it.Created, Updated: it.Updated,
+						Deleted: it.Deleted, Untracked: it.Untracked,
+						Incomplete: it.Incomplete, Drifted: it.Drifted(),
+					}
+					if it.Err != nil {
+						s.Error = it.Err.Error()
+					}
+					out.Surfaces = append(out.Surfaces, s)
+				}
+				if err := emitJSON(out); err != nil {
+					return err
+				}
+			}
+
 			// Exit codes (git-style): drift present → 2 (divergence, "act");
 			// indeterminate-only → 1 (error, "retry/fix"); clean → 0.
 			switch {
@@ -96,7 +135,9 @@ func newDriftCmd() *cobra.Command {
 			case indet > 0:
 				return fmt.Errorf("could not verify %d surface(s) (live list incomplete) — re-run", indet)
 			}
-			fmt.Fprintln(os.Stdout, "\nNo drift — local matches live.")
+			if !jsonOut {
+				fmt.Fprintln(os.Stdout, "\nNo drift — local matches live.")
+			}
 			return nil
 		},
 	}

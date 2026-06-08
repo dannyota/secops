@@ -9,13 +9,11 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## CLI-wide & automation
 
-- [ ] **P1 — `--json` is a no-op on `doctor`, `drift`, `pull`, `push`.** The global
-  `--json` flag is advertised on every command, but these four ignore it and print
-  human text. They are exactly the bootstrap / CI-gate / deploy commands a script
-  or agent most needs to parse. Implement structured JSON (drift: per-surface
-  `+/~/-`/untracked/incomplete + a `drifted`/`indeterminate` summary; doctor:
-  `{config,auth,siem,soar}` statuses; push: the dry-run plan; pull: what was
-  mirrored) — or stop advertising `--json` where it does nothing.
+- [x] **P1 — `--json` on `doctor`, `drift`, `push` (W26).** Implemented: doctor
+  `{ok, version, checks[]}`, drift per-surface report + `drifted_surfaces`, push
+  the reconcile plan/result + `would_change`. `pull --json` is **deferred** — its
+  pullers write progress straight to stdout, so clean JSON needs a puller-output
+  refactor (its real output is the files it writes; review with `git diff`).
 - [x] **P1 — Exit codes all collapse to `1`.** `Execute()` returns 1 for every
   error, so "drift detected" can't be told from "auth expired", "indeterminate",
   or "bad flag". Give `drift` (and dry-run `push`) a detailed-exit-code scheme like
@@ -25,10 +23,10 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
   (`soar bogus`, `query bogus`, `soar case bogus`, …) prints help and exits 0,
   while an unknown top-level command exits 1. A scripted caller treats the no-op as
   success. Make parent groups error (non-zero) on an unknown/missing subcommand.
-- [ ] **P2 — Machine-readable results on writes.** The dry-run `push` preview and
-  the `soar case` mutating verbs emit prose only. Add a `--json` plan to push
-  (creates/updates/deletes per surface) and a `{ok, action, id}` result to the case
-  verbs, so the dry-run → `--yes` → verify loop is fully machine-readable.
+- [x] **P2 — Machine-readable results on writes (W26).** `push --json` emits the
+  reconcile plan/result (creates/updates/deletes per surface, `would_change`); the
+  `soar case` verbs emit `{action, dry_run, applied, ok}`. The engine now reports
+  the plan in dry-run too, so the preview is machine-readable.
 - [ ] **P2 — `secopsctl surfaces [--json]` capability view.** Print, per surface,
   whether it supports pull / push / prune and whether it's read-only — sourced from
   the surface-family registry — so "what's reconcilable vs read-only" is answerable

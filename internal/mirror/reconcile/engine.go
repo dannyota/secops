@@ -177,6 +177,16 @@ func Push(ctx context.Context, s Surface, dir string, opts PushOpts, w io.Writer
 	}
 	if opts.DryRun {
 		fmt.Fprintln(w, "\nDRY RUN — no API calls made. Re-run without --dry-run to apply.")
+		// Reflect the plan in the returned Summary so callers (e.g. --json) can see
+		// what WOULD change: creates/updates always, deletes only if prune is
+		// satisfied; otherwise the deletes are reported as skipped.
+		sum.Created, sum.Updated = len(creates), len(updates)
+		if canPrune {
+			sum.Deleted = len(deletes)
+		} else if len(deletes) > 0 {
+			sum.SkippedDeletes = deletes
+			sum.SkipReason = reason
+		}
 		if len(deletes) > 0 {
 			finalSummary(w, deletes, canPrune, reason)
 		}

@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,16 +96,45 @@ func runPush(cmd *cobra.Command, args []string) error {
 
 	// Engine-backed SIEM surfaces (reference_lists, …): reconcile local files to
 	// live (create/update; --prune to delete) through the shared reconcile engine.
+	out := io.Writer(os.Stdout)
+	if jsonOut {
+		out = io.Discard // suppress human text; emit JSON below
+	}
+
 	if s, ok := mirror.BuildSIEMSurface(target, client); ok {
 		dir := filepath.Join(mirror.DataRoot(pushOut), s.Dir)
 		if err := ensureDataDir(target, dir, dryRun); err != nil {
 			return err
 		}
 		maybeConfirm()
-		_, err = reconcile.Push(ctx, s, dir, reconcile.PushOpts{
+		sum, perr := reconcile.Push(ctx, s, dir, reconcile.PushOpts{
 			DryRun: dryRun, AssumeYes: assumeYes, Prune: pushPrune,
-		}, os.Stdout)
-		return err
+		}, out)
+		if perr != nil {
+			return perr
+		}
+		if jsonOut {
+			return emitJSON(struct {
+				Target      string `json:"target"`
+				DryRun      bool   `json:"dry_run"`
+				Applied     bool   `json:"applied"`
+				Created     int    `json:"created"`
+				Updated     int    `json:"updated"`
+				Deleted     int    `json:"deleted"`
+				Unchanged   int    `json:"unchanged"`
+				Failed      int    `json:"failed"`
+				Skipped     int    `json:"skipped_deletes"`
+				SkipReason  string `json:"skip_reason,omitempty"`
+				WouldChange bool   `json:"would_change"`
+			}{
+				Target: target, DryRun: dryRun, Applied: !dryRun && assumeYes,
+				Created: sum.Created, Updated: sum.Updated, Deleted: sum.Deleted,
+				Unchanged: sum.Unchanged, Failed: sum.Failed,
+				Skipped: len(sum.SkippedDeletes), SkipReason: sum.SkipReason,
+				WouldChange: sum.Created+sum.Updated+sum.Deleted > 0,
+			})
+		}
+		return nil
 	}
 
 	switch target {
@@ -121,15 +151,27 @@ func runPush(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	maybeConfirm()
+	var n int
 	switch target {
 	case "rules-create":
-		_, err = mirror.PushRulesCreate(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
+		n, err = mirror.PushRulesCreate(ctx, client, rulesDir, dryRun, assumeYes, out)
 	case "rules-update":
-		_, err = mirror.PushRulesUpdate(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
+		n, err = mirror.PushRulesUpdate(ctx, client, rulesDir, dryRun, assumeYes, out)
 	case "rules-deploy":
-		_, err = mirror.PushRulesDeploy(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
+		n, err = mirror.PushRulesDeploy(ctx, client, rulesDir, dryRun, assumeYes, out)
 	case "rules-disable":
-		_, err = mirror.PushRulesDisable(ctx, client, rulesDir, dryRun, assumeYes, os.Stdout)
+		n, err = mirror.PushRulesDisable(ctx, client, rulesDir, dryRun, assumeYes, out)
+	}
+	if err != nil {
+		return err
+	}
+	if jsonOut {
+		return emitJSON(struct {
+			Target  string `json:"target"`
+			DryRun  bool   `json:"dry_run"`
+			Applied bool   `json:"applied"`
+			Count   int    `json:"count"`
+		}{Target: target, DryRun: dryRun, Applied: !dryRun && assumeYes, Count: n})
 	}
 	return err
 }
@@ -139,7 +181,9 @@ func runPush(cmd *cobra.Command, args []string) error {
 // prompt and returns false, so non-interactive runs fall through to the mirror
 // layer's abort-without-confirmation path.
 func confirmPush(target string) bool {
-	if nonInteractive || !stdinIsTerminal() {
+	// Never prompt in non-interactive or --json mode (a y/N prompt on stdout would
+	// corrupt machine-readable output); the mutation is then refused without --yes.
+	if nonInteractive || jsonOut || !stdinIsTerminal() {
 		return false
 	}
 	fmt.Fprintf(os.Stdout, "Apply LIVE %q to the production tenant? [y/N] ", target)
