@@ -33,8 +33,11 @@ func parseQueryTS(value string) (time.Time, error) {
 func init() {
 	queryCmd := &cobra.Command{
 		Use:   "query",
-		Short: "Run queries against the tenant (currently: udm)",
-		Long:  "Query the tenant. The only kind today is `udm` (point-in-time UDM event search).",
+		Short: "Run read-only queries against the tenant (udm, nl)",
+		Long: "Query the tenant (read-only). Two kinds:\n" +
+			"  udm  point-in-time UDM event search over a time window\n" +
+			"  nl   natural-language search — describe what you want; it translates to UDM\n" +
+			"       (`--translate-only` prints the UDM without running it).",
 	}
 
 	var (

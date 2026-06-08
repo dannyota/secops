@@ -31,7 +31,8 @@ func init() {
 		Use:   "push <target>",
 		Short: "MUTATING (guarded): create/disable rules, reconcile config. Dry-run by default",
 		Long: "Push changes to the LIVE tenant. Defaults to a dry run; pass --yes to\n" +
-			"actually apply (or confirm interactively).\n\n" +
+			"actually apply (or confirm interactively). Exit codes: 0 ok · 1 error\n" +
+			"(`drift` reports divergence with exit 2 without mutating).\n\n" +
 			"Targets:\n" +
 			"  rules-create     create live rules from *.yaral with no companion *.yaml\n" +
 			"  rules-update     update live YARA-L text where a tracked *.yaral changed (etag-guarded)\n" +

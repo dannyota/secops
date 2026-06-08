@@ -31,11 +31,11 @@ detected a difference (act) · `1` any error. A typo'd subcommand also exits
 non-zero. Confirm the active config with `secopsctl info` (`config_source` line)
 or `secopsctl config --show-path`.
 
-`--json` is honored by the read commands: `info`, `query udm`, `alerts list`,
-`alerts get`, `iocs find`, `iocs get`, `ti collections`, `ti collection`,
-`watchlists list`, `watchlists get`, `curated list`, `curated rules`,
-`rules detections`, `rules errors`, `rules retrohunt list`,
-`rules retrohunt get`, `soar case list`, `soar case get`,
+`--json` is honored by the read commands: `info`, `query udm`, `query nl`,
+`entity summarize`, `alerts list`, `alerts get`, `iocs find`, `iocs get`,
+`ti collections`, `ti collection`, `watchlists list`, `watchlists get`,
+`curated list`, `curated rules`, `rules detections`, `rules errors`,
+`rules retrohunt list`, `rules retrohunt get`, `soar case list`, `soar case get`,
 `soar integration list`, `soar settings api-keys`, and `version`. It is **also**
 emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
 `drifted_surfaces`), `push` (the reconcile plan/result + `would_change`), and the

@@ -32,7 +32,8 @@ func newDriftCmd() *cobra.Command {
 		Short: "Read-only: report how live state has drifted from local files (CI gate)",
 		Long: "Compare committed local files to live state across the reconcile surfaces\n" +
 			"and report divergence (local-only +, changed ~, live-only -). Never mutates.\n" +
-			"Exits non-zero when any surface has drifted — run it after `pull` in CI.\n\n" +
+			"Exit codes (git-style): 0 in sync · 2 drift detected (act) · 1 error.\n" +
+			"Run it after `pull` in CI.\n\n" +
 			"With no target, checks every engine surface; otherwise the named ones.\n" +
 			"Targets: " + strings.Join(all, ", "),
 		ValidArgs: all,

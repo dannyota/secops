@@ -92,9 +92,11 @@ func init() {
 	soarCmd := &cobra.Command{
 		Use:   "soar",
 		Short: "Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC)",
-		Long: "Operate the SOAR surface: read-only `pull` of connectors, jobs, grouping\n" +
-			"rules, cases, and playbooks, and guarded mutating `push`. SOAR uses a\n" +
-			"long-lived AppKey ($SECOPS_SOAR_APP_KEY) and the soar_url config host.",
+		Long: "Operate the SOAR surface: read-only `pull` of a wide set of config\n" +
+			"surfaces (connectors, jobs, grouping rules, cases, playbooks, webhooks,\n" +
+			"environments, networks, SLA, and more — run `soar pull --help` for the\n" +
+			"full list) and guarded mutating `push`. SOAR uses a long-lived AppKey\n" +
+			"($SECOPS_SOAR_APP_KEY) and the soar_url config host (no ADC).",
 	}
 	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARCaseCmd(), newSOARLegacyCmd(),
 		newSOARIntegrationCmd(), newSOARSettingsCmd(), newSOARMarketplaceCmd())

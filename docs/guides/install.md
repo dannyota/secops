@@ -9,7 +9,7 @@ importable SDK (see [sdk.md](sdk.md)).
 | Prereq | Why |
 |---|---|
 | Go 1.26+ (toolchain pinned `go1.26.4`) | `go install` / `go build` the binary from source |
-| Google Cloud SDK (`gcloud`) | SIEM auth via ADC (OAuth) — the chronicle plane needs it |
+| [Google Cloud SDK (`gcloud`)](https://cloud.google.com/sdk/docs/install) | SIEM auth via ADC (OAuth) — the chronicle plane needs it |
 | SOAR AppKey | SOAR plane auth (key-based, no `gcloud`); only needed for `soar` commands |
 
 The two planes are independent: SOAR works with just an AppKey, no `gcloud`. See
@@ -69,7 +69,10 @@ sha256sum -c checksums.txt --ignore-missing   # then verify the downloaded binar
 secopsctl version
 ```
 
-Prints the version, commit, and build info — confirms the binary runs.
+Prints the version, commit, and build info — confirms the binary runs. A binary
+built from source (`go install` / `go build`) reports version `dev` / commit
+`unknown` by design; the signed [release binaries](#release-binaries-signed) carry
+the real tag and commit (stamped at build time).
 
 ```bash
 secopsctl doctor
@@ -87,6 +90,10 @@ flowchart LR
   cfg --> doc["secopsctl doctor"]
   doc -->|config + auth + SIEM/SOAR reach| ok["✅ ready"]
 ```
+
+To get oriented before wiring auth, `secopsctl surfaces` (fully offline, no
+config or credentials) lists every API family with its plane, host, auth, and
+whether it is reconcilable.
 
 ## Next
 

@@ -45,6 +45,13 @@ The `config` flags:
 The mintable OAuth/ADC SIEM token is **never** written to disk — `gcloud` handles
 that. The AppKey is the only secret the file may hold.
 
+A few optional keys are **hand-edit only** (no `config` flag): `ui_url` (Chronicle
+web-UI host, used to build human-facing links), `base_url` (override the derived
+API endpoint), `domain` (your org's primary domain, used by some example queries),
+and `org_id`. Set them by editing `instance.yaml` directly — see the annotated
+[`config/instance.example.yaml`](https://github.com/dannyota/secops/blob/master/config/instance.example.yaml)
+and the example below.
+
 ## Two auth planes
 
 secopsctl talks to two backends with two different credentials. This is the core
@@ -68,10 +75,12 @@ The two-host split is the central design constraint — see
 
 ### SIEM auth (ADC / OAuth)
 
-Sign in once so ADC can mint tokens in-process:
+Sign in once so ADC can mint tokens in-process, and set the quota/billing project
+(a common first-run Chronicle failure is a missing quota project):
 
 ```bash
 gcloud auth application-default login
+gcloud auth application-default set-quota-project your-project-id
 ```
 
 Or mint a token explicitly and export it **in the same shell as the run** (env set
@@ -92,6 +101,20 @@ prompt) or override at run time:
 export SECOPS_SOAR_APP_KEY=your-soar-app-key
 secopsctl soar case list
 ```
+
+## Find your SecOps identifiers
+
+The four required keys identify your Chronicle/SecOps instance. Where to find each:
+
+| Key | Where |
+|---|---|
+| `project_id` | The GCP project that hosts SecOps — the project picker in the [Cloud Console](https://console.cloud.google.com), or `gcloud config get-value project`. |
+| `project_number` | The numeric form of that project — the project Dashboard in the Cloud Console, or `gcloud projects describe <project-id> --format='value(projectNumber)'`. |
+| `region` | Your SecOps tenant's region — e.g. `us`, `europe`, `asia-southeast1`. It is the prefix of your SecOps API host (`{region}-chronicle.googleapis.com`). |
+| `customer_id` | The Chronicle customer/instance UUID — in the SecOps console under **Settings → SIEM Settings** (instance/profile details). |
+
+Keep `project_id` **and** `project_number` both set — some endpoints want the
+string form, others the numeric form (see [Project number vs ID](#project-number-vs-id)).
 
 ## Find your SOAR host
 
@@ -160,6 +183,12 @@ customer_id: 00000000-0000-0000-0000-000000000000
 # Optional — SOAR plane
 soar_url: https://<tenant>.siemplify-soar.com
 # soar_app_key: prefer the hidden prompt or $SECOPS_SOAR_APP_KEY
+
+# Optional — hand-edit only (no `config` flag)
+# ui_url: https://your-tenant.backstory.chronicle.security  # builds human-facing links
+# base_url: https://us-chronicle.googleapis.com/v1alpha     # override the derived endpoint
+# domain: example.com                                       # used by some example queries
+# org_id: "000000000000"
 
 # Optional — network workaround
 # force_ipv4: true

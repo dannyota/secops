@@ -230,7 +230,19 @@ raw, err := c.CloseCase(ctx, map[string]any{
 > would with `chronicle.APIError` / `chronicle.IsNotFound`:
 
 ```go
-_, err := c.GetCustomField(ctx, "does-not-exist")
+// soar.IsNotFound / soar.Error work on the modern soar.Client. Build one the
+// same way as the legacy client above (soar.Settings == legacy.Settings):
+sc, err := soar.NewClient(soar.Settings{
+	BaseURL:       "https://your-tenant.siemplify-soar.com",
+	ProjectNumber: "000000000000",
+	Region:        "us",
+	CustomerID:    "00000000-0000-0000-0000-000000000000",
+}, auth.SOARAppKey("YOUR_APP_KEY"))
+if err != nil {
+	log.Fatal(err)
+}
+
+_, err = sc.GetCustomField(ctx, "does-not-exist")
 if soar.IsNotFound(err) {
 	// not found — create it, or skip
 }

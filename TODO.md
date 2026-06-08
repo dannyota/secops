@@ -205,6 +205,11 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
 
 ## Doc ↔ CLI consistency (round 2)
 
+- [ ] **P3 — Scope the global `--legacy` flag to dual-plane surfaces.** The
+  persistent `--legacy` flag is a no-op on commands with no modern/legacy split
+  (`soar legacy call`, legacy-only engine pushes, most pulls) yet its help implies
+  behavior everywhere; effectively it only changes `soar case list`. Either scope it
+  to the surfaces that honor it, or note in its help that it is a no-op elsewhere.
 - [ ] **P3 — Extend the `surfaces` capability view to assert doc↔CLI consistency.**
   The catalog's "Function (CLI)" column lists SDK-only rows (enrichment_controls,
   governance, riskConfig, idp-mappings, analytics) that have no CLI verb. Have the
