@@ -43,6 +43,7 @@ var soarSurfaceDefs = []soarSurfaceDef{
 	{"playbooks", playbooksSurface},
 	// Operational config surfaces (defined in soar_operational_surfaces.go).
 	{"connectors", connectorsSurface},
+	{"connector-allowlist", connectorAllowlistSurface},
 	{"jobs", jobsSurface},
 }
 

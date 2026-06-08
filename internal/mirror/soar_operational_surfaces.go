@@ -3,6 +3,10 @@ package mirror
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"danny.vn/secops/internal/mirror/reconcile"
 	"danny.vn/secops/soar/legacy"
@@ -44,6 +48,77 @@ func connectorsSurface(lc *legacy.Client) reconcile.Surface {
 	})
 }
 
+// connectorAllowlistSurface projects only the connector alert allow-list into a
+// separate reconcile target. The source of truth is still the connector instance:
+// writes fetch the current full connector body, replace allowList, and save it
+// back so parameters/secrets/runtime settings are preserved.
+func connectorAllowlistSurface(lc *legacy.Client) reconcile.Surface {
+	return reconcile.Surface{
+		Name:    "connector-allowlist",
+		Dir:     DirSOARConnAllowlist,
+		Product: reconcile.ProductSOAR,
+		Caps:    reconcile.Capabilities{NoDelete: true, WholeBodyWrite: true},
+		List: func(ctx context.Context) (reconcile.ListResult, error) {
+			raw, err := flattenedConnectorCards(lc)(ctx)
+			if err != nil {
+				return reconcile.ListResult{}, err
+			}
+			cards, err := decodeRawList(raw)
+			if err != nil {
+				return reconcile.ListResult{}, err
+			}
+			var objs []reconcile.Object
+			incomplete := false
+			for _, card := range cards {
+				id := jsonField(card, "identifier")
+				if id == "" {
+					incomplete = true
+					warnf("connector-allowlist: card missing identifier")
+					continue
+				}
+				full, gerr := lc.GetConnector(ctx, id)
+				if gerr != nil {
+					incomplete = true
+					warnf("connector-allowlist: get %q: %v", id, gerr)
+					continue
+				}
+				obj, berr := buildConnectorAllowlistObject(full)
+				if berr != nil {
+					incomplete = true
+					warnf("connector-allowlist: build %q: %v", id, berr)
+					continue
+				}
+				objs = append(objs, obj)
+			}
+			return reconcile.ListResult{Objects: objs, Incomplete: incomplete}, nil
+		},
+		LoadDir: loadConnectorAllowlists,
+		Write:   writeConnectorAllowlist,
+		Update: func(ctx context.Context, local, live reconcile.Object) (reconcile.Object, error) {
+			full := live.Raw
+			if live.ServerID != "" {
+				refreshed, err := lc.GetConnector(ctx, live.ServerID)
+				if err != nil {
+					return reconcile.Object{}, err
+				}
+				full = refreshed
+			}
+			body, err := applyConnectorAllowlist(full, local.Canonical)
+			if err != nil {
+				return reconcile.Object{}, err
+			}
+			if _, err := lc.SaveConnector(ctx, body); err != nil {
+				return reconcile.Object{}, err
+			}
+			after, err := lc.GetConnector(ctx, live.ServerID)
+			if err != nil {
+				return reconcile.Object{}, err
+			}
+			return buildConnectorAllowlistObject(after)
+		},
+	}
+}
+
 // flattenedConnectorCards adapts ListConnectorCards, whose response groups the
 // cards by integration ([{integration, cards:[...]}, …]), into the flat
 // connector-card list the engine expects. It tolerates a flat response too (an
@@ -73,6 +148,207 @@ func flattenedConnectorCards(lc *legacy.Client) rawListFn {
 		}
 		return json.Marshal(cards)
 	}
+}
+
+func buildConnectorAllowlistObject(full json.RawMessage) (reconcile.Object, error) {
+	proj, err := connectorAllowlistProjection(full)
+	if err != nil {
+		return reconcile.Object{}, err
+	}
+	canon, err := connectorAllowlistCanonical(proj)
+	if err != nil {
+		return reconcile.Object{}, err
+	}
+	id := jsonField(full, "identifier")
+	name := jsonField(full, "displayName")
+	if id == "" {
+		return reconcile.Object{}, fmt.Errorf("connector has no identifier")
+	}
+	if name == "" {
+		name = id
+	}
+	return reconcile.Object{Slug: Slugify(name), ServerID: id, Canonical: canon, Raw: full}, nil
+}
+
+func connectorAllowlistProjection(full json.RawMessage) (json.RawMessage, error) {
+	var m map[string]any
+	if err := json.Unmarshal(full, &m); err != nil {
+		return nil, err
+	}
+	allow, err := parseConnectorAllowlistValues(m["allowList"])
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]any{
+		"displayName":             stringField(m, "displayName"),
+		"connectorDefinitionName": stringField(m, "connectorDefinitionName"),
+		"environment":             connectorEnvironment(m["environment"]),
+		"integration":             connectorIntegration(m["integration"]),
+		"isAllowlistSupported":    boolFieldValue(m["isAllowlistSupported"]),
+		"allowList":               allow,
+	}
+	return json.Marshal(out)
+}
+
+func connectorAllowlistCanonical(raw json.RawMessage) ([]byte, error) {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, err
+	}
+	allow, err := parseConnectorAllowlistValues(m["allowList"])
+	if err != nil {
+		return nil, err
+	}
+	body, err := json.Marshal(map[string]any{"allowList": allow})
+	if err != nil {
+		return nil, err
+	}
+	return reconcile.Canonicalize(body)
+}
+
+func loadConnectorAllowlists(dir string) ([]reconcile.Object, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var objs []reconcile.Object
+	for _, e := range entries {
+		if e.IsDir() || strings.HasPrefix(e.Name(), ".") || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		id, _ := serverBlock(b)
+		canon, err := connectorAllowlistCanonical(b)
+		if err != nil {
+			return nil, fmt.Errorf("connector-allowlist %s: %w", e.Name(), err)
+		}
+		objs = append(objs, reconcile.Object{
+			Slug:      strings.TrimSuffix(e.Name(), ".json"),
+			ServerID:  id,
+			Canonical: canon,
+		})
+	}
+	return objs, nil
+}
+
+func writeConnectorAllowlist(dir string, o reconcile.Object) error {
+	if _, err := EnsureDir(dir); err != nil {
+		return err
+	}
+	var fields map[string]any
+	if len(o.Raw) > 0 {
+		proj, err := connectorAllowlistProjection(o.Raw)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(proj, &fields); err != nil {
+			return err
+		}
+	} else {
+		if err := json.Unmarshal(o.Canonical, &fields); err != nil {
+			return err
+		}
+	}
+	fields["_server"] = map[string]any{"id": o.ServerID}
+	b, err := json.MarshalIndent(fields, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, o.Slug+".json"), append(b, '\n'), 0o644)
+}
+
+func applyConnectorAllowlist(full, localCanonical json.RawMessage) (json.RawMessage, error) {
+	var body map[string]any
+	if err := json.Unmarshal(full, &body); err != nil {
+		return nil, err
+	}
+	allow, err := connectorAllowlistFromCanonical(localCanonical)
+	if err != nil {
+		return nil, err
+	}
+	if !boolFieldValue(body["isAllowlistSupported"]) && len(allow) > 0 {
+		return nil, fmt.Errorf("connector %q does not support allowList", stringField(body, "displayName"))
+	}
+	body["allowList"] = allow
+	out, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func connectorAllowlistFromCanonical(raw json.RawMessage) ([]string, error) {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, err
+	}
+	return parseConnectorAllowlistValues(m["allowList"])
+}
+
+func parseConnectorAllowlistValues(v any) ([]string, error) {
+	switch t := v.(type) {
+	case nil:
+		return []string{}, nil
+	case []string:
+		return append([]string(nil), t...), nil
+	case []any:
+		out := make([]string, 0, len(t))
+		for i, item := range t {
+			s, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("allowList[%d] is %T, want string", i, item)
+			}
+			out = append(out, s)
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("allowList is %T, want array", v)
+	}
+}
+
+func stringField(m map[string]any, key string) string {
+	if s, ok := m[key].(string); ok {
+		return s
+	}
+	return ""
+}
+
+func boolFieldValue(v any) bool {
+	b, _ := v.(bool)
+	return b
+}
+
+func connectorEnvironment(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case map[string]any:
+		for _, key := range []string{"name", "displayName"} {
+			if s, ok := t[key].(string); ok {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func connectorIntegration(v any) map[string]string {
+	out := map[string]string{}
+	if m, ok := v.(map[string]any); ok {
+		for _, key := range []string{"identifier", "displayName"} {
+			if s, ok := m[key].(string); ok && s != "" {
+				out[key] = s
+			}
+		}
+	}
+	return out
 }
 
 // jobsSurface: installed jobs (scheduled background automation) as config-as-code.

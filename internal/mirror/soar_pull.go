@@ -20,6 +20,7 @@ const (
 	DirSOARGrouping      = "grouping"
 	DirSOARCases         = "cases"
 	DirSOARPlaybooks     = "playbooks"
+	DirSOARConnAllowlist = "connector_allowlist"
 	DirSOARWebhooks      = "webhooks"
 	DirSOAREnvironments  = "environments"
 	DirSOARNetworks      = "networks"

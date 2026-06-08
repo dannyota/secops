@@ -857,7 +857,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   templates and secret-at-push support are built + offline-tested.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 36 — SOAR automation-as-code completion *(partial — `info soar-integrations` + `info cron` + playbook name guardrails + `soar package-integration` built + offline-tested)*
+### Wave 36 — SOAR automation-as-code completion *(partial — `connector-allowlist` + `info soar-integrations` + `info cron` + playbook name guardrails + `soar package-integration` built + offline-tested)*
 
 The Wave-23 design stance holds: SOAR *runs* recurring automation; secopsctl's job is
 to **build, track, and push** that automation as code. This wave gives the CLI the
@@ -871,7 +871,10 @@ break it.
   - **Ingestion-connector alert allowlist** (`pull` / `push connector-allowlist`) — the
     connector mapping that decides which SIEM rules become SOAR cases is UI-only and
     silently drifts (the largest detection→response gap); track it as a reconcile
-    surface — read-only + drift first, then a guarded push.
+    surface — read-only + drift first, then a guarded push. **Done:** derived
+    `connector-allowlist` surface pulls sanitized allow-list files, drift-detects
+    `allowList` only, and guarded push replaces only `allowList` on a fresh full
+    connector body. Built + offline-tested; live write-smoke pending.
   - **Integration runtime/health introspection** (`info soar-integrations`) — per
     integration: installed? runtime bound to which environment? config-only? Flag
     config-without-runtime and unconfigured-but-referenced — the failures that otherwise

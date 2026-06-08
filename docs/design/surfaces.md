@@ -159,6 +159,11 @@ read-only, no secret; swagger-absent, confirmed live). Lanes: reconcile (per-obj
 config), raw (batch/bundle/selector via `soar legacy call`), imperative (case verbs,
 settings, store).
 
+`connector-allowlist` is a derived reconcile target on this lane: it projects the
+connector instance `allowList` field into sanitized files, drift-checks only that
+field, and guarded push writes it back through the existing connector save path
+after a fresh full connector read.
+
 | Status | Detail |
 |---|---|
 | ✅ | the whole reliable SOAR surface — see [catalog.md](catalog.md) for per-command rows |
