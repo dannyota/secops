@@ -22,7 +22,9 @@ jobs:
       - uses: sigstore/cosign-installer@v3
       - uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
+          # Pin the goreleaser major (the action warns against `latest`); this keeps
+          # a future goreleaser v3 with breaking changes from silently breaking a release.
+          version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
