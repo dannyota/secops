@@ -86,6 +86,9 @@
       display:grid; grid-template-columns:232px minmax(0,1fr) 208px; gap:28px; }
     .layout.no-toc { grid-template-columns:232px minmax(0,1fr); }
     .layout.no-toc .toc { display:none; }
+    /* TOC hidden: shrink layout + header to the nav+content width so the block
+       stays centered (content keeps its width) instead of sprawling right. */
+    html.toc-hidden .layout, html.toc-hidden header .hbar { max-width:calc(var(--maxw) - 236px); }
 
     .rail { position:sticky; top:var(--header-h); align-self:start;
       max-height:calc(100vh - var(--header-h)); overflow:auto; padding:26px 0 40px; font-size:13px; }
@@ -276,7 +279,7 @@
           var a = document.createElement('a'); a.href = '#' + h.id; a.textContent = h.textContent;
           li.appendChild(a); list.appendChild(li); items.push({ el: h, link: a });
         });
-        if (!items.length) document.getElementById('layout').classList.add('no-toc');
+        if (!items.length) { document.getElementById('layout').classList.add('no-toc'); document.documentElement.classList.add('toc-hidden'); }
 
         function spy() {
           if (!items.length) return;
@@ -310,6 +313,7 @@
         function apply() {
           var hidden = pref() === 'hide';
           layout.classList.toggle('no-toc', hidden);
+          document.documentElement.classList.toggle('toc-hidden', hidden);
           btn.textContent = (hidden ? '⊞' : '⊟') + ' TOC';
           btn.setAttribute('aria-pressed', String(!hidden));
         }
