@@ -82,8 +82,8 @@ secopsctl soar push webhooks --prune --yes       # apply deletions (LIVE)
 - It is **gated on a complete pull**: prune refuses to run against a partial snapshot,
   so a half-finished pull can't be read as "delete the rest."
 
-Only **prune-eligible** surfaces honor `--prune`; everywhere else it is a no-op. The
-split:
+Only **prune-eligible** surfaces honor `--prune`; everywhere else it is a no-op.
+Run `secopsctl surfaces` for the live list (the `PRUNE` column). The split:
 
 | Honors `--prune` (prune-eligible) | Ignores `--prune` (NoDelete) |
 |---|---|

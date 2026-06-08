@@ -37,7 +37,9 @@ func init() {
 			"  rules-update     update live YARA-L text where a tracked *.yaral changed (etag-guarded)\n" +
 			"  rules-deploy     reconcile each tracked rule's deployment (enabled/alerting/frequency)\n" +
 			"  rules-disable    disable locally-tracked rules with deployment.enabled=true\n" +
-			"  " + strings.Join(engine, ", ") + "   reconcile local files to live (create/update; --prune to delete)",
+			"  " + strings.Join(engine, ", ") + "   reconcile local files to live (create/update; --prune to delete)\n\n" +
+			"Not every surface is prune-eligible; run `secopsctl surfaces` to see which\n" +
+			"`--prune` can delete (the rest report orphans but never delete them).",
 		Args:      cobra.ExactArgs(1),
 		ValidArgs: valid,
 		RunE:      runPush,

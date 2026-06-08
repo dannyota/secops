@@ -661,11 +661,16 @@ with `would_change`; the engine reports the plan in dry-run too), and the
 deferred — its pullers write progress straight to stdout, so clean JSON needs a
 puller-output refactor; `pull`'s real output is the files it writes (`git diff`).
 
-### Wave 27 — Self-describing surfaces  *(planned)*
+### Wave 27 — Self-describing surfaces  *(partial)*
 
-`secopsctl surfaces [--json]`; per-target help for reconcile targets;
-capability-aware `--prune` help; a drift-guard assertion that catalog CLI entries
-map to real commands.
+- **`secopsctl surfaces [--json]`** — the registry as a live table: per family the
+  plane (host + auth), API version, lane, status, and (for reconcile surfaces, read
+  offline from the engine `Capabilities` with a nil client) whether `--prune` can
+  delete it. The offline answer to "what's reconcilable vs read-only / prune-eligible".
+- `push --help` points at `secopsctl surfaces` for prune-eligibility.
+- **Deferred:** full per-target help for each reconcile target (the positional-arg
+  design makes `push <x> --help` generic), and a catalog-parsing drift-guard — the
+  registry view + the existing drift-guard test cover the consistency need for now.
 
 ### Wave 28 — SIEM reads & symmetry  *(planned)*
 

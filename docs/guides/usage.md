@@ -137,7 +137,8 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 
 | Command | What it does |
 |---|---|
-| `config` (alias `init`) | Set up / edit the config (`~/.secopsctl/instance.yaml`, `0600`). Single-screen form, or flags + `--non-interactive`. See [configure](configure.md). |
+| `config` (alias `init`) | Set up / edit the config (`~/.secopsctl/instance.yaml`, `0600`). Single-screen form, or flags + `--non-interactive`. See [configure](configure.md). `config --show-path` prints the active config file. |
+| `surfaces [--json]` | List every API surface family — plane (host + auth), API version, lane (reconcile/imperative/raw/operational), status, and whether `--prune` can delete it. Reads nothing live; the map of reconcilable vs read-only. |
 | `completion` | Generate the shell autocompletion script. |
 | `help` | Help about any command. |
 

@@ -27,7 +27,7 @@ Priorities: **P1** = correctness/safety or a headline use case that doesn't hold
   reconcile plan/result (creates/updates/deletes per surface, `would_change`); the
   `soar case` verbs emit `{action, dry_run, applied, ok}`. The engine now reports
   the plan in dry-run too, so the preview is machine-readable.
-- [ ] **P2 — `secopsctl surfaces [--json]` capability view.** Print, per surface,
+- [x] **P2 — `secopsctl surfaces [--json]` capability view.** Print, per surface,
   whether it supports pull / push / prune and whether it's read-only — sourced from
   the surface-family registry — so "what's reconcilable vs read-only" is answerable
   without opening `design/catalog.md`.
