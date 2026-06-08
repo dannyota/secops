@@ -209,6 +209,7 @@ stays on the legacy lane, which is reliable. So far that means:
 | Family | Status | Gaps (modern) |
 |---|---|---|
 | integrations catalog (list/get/delete) | ✅ | `updateCustomIntegration`, `:export`/`:download` ⬜ (low) |
+| scheduled playbook builder (`soar build-playbook`) | 🔨 offline utility | exported base playbook + exported integration-action step molds only; no API call, no tenant validation |
 | custom integration package ZIP (`soar package-integration`) | 🔨 offline utility | deterministic local ZIP builder for an already-shaped IDE integration directory; no API call, no tenant validation |
 | scheduler references (`info cron`) | 🔨 offline utility | local scheduler-file scan plus pulled SOAR job/playbook `cronSchedule` scan; no host scheduler ownership or heartbeat yet |
 | connector **definitions** (list/get/delete) | ✅ | create/patch ⬜ (med) |
