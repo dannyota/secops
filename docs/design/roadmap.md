@@ -629,12 +629,13 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 
 ---
 
-## Waves 25–36 — operability, UX & coverage completion
+## Waves 25–37 — operability, UX & coverage completion
 
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
 value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
-Waves 25–34 are shipped; 35–36 are the remaining forward plan.
+Waves 25–34 + 37 are shipped; 35–36 remain on the forward plan (Wave 37 — parser
+development & raw-log access — landed ahead of them as operational work).
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
@@ -891,6 +892,37 @@ break it.
   surfaced by `info`; a builder splices wired steps and a scheduled-trigger playbook;
   packaging produces an importable zip.
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
+
+### Wave 37 — Parser development & raw-log access *(done)*
+
+- **Goal.** Make the full parser-development loop runnable from the terminal: pull the
+  raw logs a parser must handle, test a CBN, then read *why* a submitted parser failed
+  validation — closing the loop that previously required the console.
+- **Scope (done).**
+  - **`query udm '<filter>' --raw`** — print each matched event's FULL raw ingested log
+    line (UDM-metadata scoped, e.g. `metadata.log_type = "<TYPE>" AND
+    metadata.event_type = "GENERIC_EVENT"` to target a log type whose parser is
+    missing/broken and normalizes to GENERIC_EVENT), one per line → `parsers run
+    --logs -`. Two-step: `:udmSearch` → each event's `udm.metadata.id` →
+    `legacyFindRawLogs` for the complete bytes (the in-search snippet is truncated to
+    80 chars). The `:searchRawLogs` `logTypes` filter is **ignored server-side**
+    (re-confirmed across code / displayName / resource-name forms), so log-type scoping
+    rides the UDM query.
+  - **`query raw '<regex>'`** — content-based raw-log search (`:searchRawLogs`
+    `raw = /<regex>/`); reaches even log types with no parser at all (no UDM event),
+    scoped by a distinctive content pattern.
+  - **`parsers sample-logs <log-type>`** — list a log type's recent raw logs directly
+    (`logTypes/<type>/logs`, `data` base64-decoded); the simplest raw-log path, a plain
+    list with no search.
+  - **`parsers validate <log-type>`** — surface the parsing errors of the most recently
+    submitted parser's validation report (`Parser.validationReport` + `…/parsingErrors`:
+    the per-log error message + a failing-log preview), the detail behind a
+    `push parsers` / `parsers activate` `FAILED_PRECONDITION`.
+- **Done.** Shipped v0.1.2 (`query udm --raw`), v0.1.3 (`query raw`), v0.1.4
+  (`parsers sample-logs` / `parsers validate`). SDK: `chronicle/log_search.go` (raw-log
+  fetch), `chronicle/logs.go` (logTypes logs list), `chronicle/parsers.go` (validation
+  reports). Live read-validated; offline-tested.
+- **Docs.** SIEM-DESIGN, CATALOG, usage guide.
 
 ---
 
