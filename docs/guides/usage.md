@@ -32,7 +32,7 @@ non-zero. Confirm the active config with `secopsctl info` (`config_source` line)
 or `secopsctl config --show-path`.
 
 `--json` is honored by the read commands: `info`, `query udm`, `query nl`,
-`query raw`, `entity summarize`, `alerts list`, `alerts get`, `iocs find`, `iocs get`,
+`query raw`, `parsers sample-logs`, `parsers validate`, `entity summarize`, `alerts list`, `alerts get`, `iocs find`, `iocs get`,
 `ti collections`, `ti collection`, `watchlists list`, `watchlists get`,
 `curated list`, `curated rules`, `rules detections`, `rules errors`,
 `rules retrohunt list`, `rules retrohunt get`, `soar case list`, `soar case get`,
@@ -63,6 +63,8 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `curated rules` | List the individual curated rules. |
 | `rules list` | List detection rules (rule id · display name · slug · type) — maps a name/slug to the `ru_` id the inspect verbs need. |
 | `rules validate <file.yaral>` | Validate a YARA-L file against the API (no mutation); non-zero exit if invalid. |
+| `parsers sample-logs <log-type>` | Fetch recent RAW sample logs for a log type directly (`logTypes/<type>/logs`) — full bytes, one per line, to develop a parser against (`--limit` / `--since`). The simplest raw-log path. |
+| `parsers validate <log-type>` | Show the parsing errors from the most recently submitted parser's validation report — the detail behind a `push parsers` / `parsers activate` `FAILED_PRECONDITION` (per-log error + a failing-log preview; `--show-logs` for the full sample). |
 | `parsers versions <log-type>` | List a log type's parser versions (id · state · created). |
 | `parsers run <log-type>` | Validate a CBN parser against sample logs (`--cbn`, `--logs`); no server change. |
 | `feeds schemas` | List feed source types (or one source type's log types with `--source-type`) — the field reference for authoring a feed. |

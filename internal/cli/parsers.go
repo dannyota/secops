@@ -1,13 +1,18 @@
 package cli
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path"
 	"sort"
+	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"danny.vn/secops/chronicle"
 )
 
 // The `parsers` command operates parser versions directly: list a log type's
@@ -21,12 +26,155 @@ func newParsersCmd() *cobra.Command {
 		Use:   "parsers <verb>",
 		Short: "Inspect and activate log parsers (versions / run / activate)",
 		Long: "Operate parser versions directly:\n" +
-			"  versions  list a log type's parser versions (id, state, created)\n" +
-			"  run       validate a CBN parser against sample logs (no server change)\n" +
-			"  activate  make a specific parser version ACTIVE (guarded)\n\n" +
-			"Config-as-code (edit + create-new-version + activate) is `push parsers`.",
+			"  sample-logs  fetch recent RAW sample logs for a log type (to develop against)\n" +
+			"  versions     list a log type's parser versions (id, state, created)\n" +
+			"  run          validate a CBN parser against sample logs (no server change)\n" +
+			"  validate     show parsing errors from a submitted parser's validation report\n" +
+			"  activate     make a specific parser version ACTIVE (guarded)\n\n" +
+			"Parser-dev loop: sample-logs → write CBN → run → `push parsers` (submit) →\n" +
+			"validate (why a submit's FAILED_PRECONDITION failed). Config-as-code is\n" +
+			"`push parsers` (edit + create-new-version + activate).",
 	}
-	cmd.AddCommand(newParsersVersionsCmd(), newParsersRunCmd(), newParsersActivateCmd())
+	cmd.AddCommand(newParsersVersionsCmd(), newParsersRunCmd(), newParsersActivateCmd(),
+		newParsersSampleLogsCmd(), newParsersValidateCmd())
+	return cmd
+}
+
+// newParsersValidateCmd surfaces the parsing errors from a submitted parser's
+// validation report — the detail behind a `push parsers` / `parsers activate`
+// FAILED_PRECONDITION, which otherwise gives no reason.
+func newParsersValidateCmd() *cobra.Command {
+	var (
+		limit    int
+		showLogs bool
+	)
+	cmd := &cobra.Command{
+		Use:   "validate <log-type>",
+		Short: "Show parsing errors from a submitted parser's validation report (why a submit failed)",
+		Long: "After `push parsers` / `parsers activate` fails with FAILED_PRECONDITION (a\n" +
+			"validation failure with no detail), this surfaces WHY: the most recently\n" +
+			"submitted parser's validation report and its parsing errors — the per-log error\n" +
+			"message plus a preview of the failing raw log (--show-logs for the full sample).\n" +
+			"Closes the parser-dev loop in-tool.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			logType := strings.TrimSpace(args[0])
+			if logType == "" {
+				return fmt.Errorf("a LOG_TYPE is required")
+			}
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			ps, err := c.ListParsers(baseContext(), logType)
+			if err != nil {
+				return err
+			}
+			// The parser carrying a validation report is the submitted one; pick the
+			// most recent if several have run validation.
+			var target *chronicle.Parser
+			for i := range ps {
+				if ps[i].ValidationReport == "" {
+					continue
+				}
+				if target == nil || ps[i].CreateTime > target.CreateTime {
+					target = &ps[i]
+				}
+			}
+			if target == nil {
+				fmt.Fprintf(os.Stderr, "no validation report for %q — nothing recently submitted, or it validated cleanly\n", logType)
+				return nil
+			}
+			errs, err := c.ListParsingErrors(baseContext(), target.ValidationReport, limit)
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return emitJSON(struct {
+					ParserID        string                   `json:"parser_id"`
+					ValidationStage string                   `json:"validation_stage"`
+					ParsingErrors   []chronicle.ParsingError `json:"parsing_errors"`
+				}{parserID(target.Name), target.ValidationStage, errs})
+			}
+			fmt.Printf("Parser %s — validation stage: %s — %d parsing error(s)\n\n",
+				parserID(target.Name), dashIfEmpty(target.ValidationStage), len(errs))
+			for i, e := range errs {
+				fmt.Printf("  [%d] %s\n", i+1, e.Message())
+				if sample := decodeLogData(e.LogData); sample != "" {
+					if showLogs {
+						fmt.Printf("      log: %s\n", sample)
+					} else {
+						fmt.Printf("      log: %s\n", truncate(sample, 120))
+					}
+				}
+			}
+			if len(errs) == 0 {
+				fmt.Println("  (no parsing errors listed — the failure may be elsewhere; check `parsers versions`)")
+			}
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.IntVar(&limit, "limit", 100, "max parsing errors to fetch")
+	f.BoolVar(&showLogs, "show-logs", false, "print the full failing raw log per error (default: a 120-char preview)")
+	return cmd
+}
+
+// decodeLogData base64-decodes a ParsingError.logData to text (verbatim fallback),
+// trimming a trailing newline.
+func decodeLogData(s string) string {
+	if dec, err := base64.StdEncoding.DecodeString(s); err == nil {
+		return strings.TrimRight(string(dec), "\r\n")
+	}
+	return s
+}
+
+// newParsersSampleLogsCmd fetches recent raw sample logs for a log type directly
+// (logTypes/<type>/logs) — the simplest raw-log path, no search.
+func newParsersSampleLogsCmd() *cobra.Command {
+	var (
+		limit int
+		since time.Duration
+	)
+	cmd := &cobra.Command{
+		Use:   "sample-logs <log-type>",
+		Short: "Fetch recent RAW sample logs for a log type (to develop/validate a parser)",
+		Long: "List recent raw (ingested) logs for a log type directly (logTypes/<type>/logs)\n" +
+			"and print each one's FULL raw bytes, one per line — the sample to develop or\n" +
+			"validate a parser against. Pipe into a parser test:\n\n" +
+			"  secopsctl parsers sample-logs KONG_GATEWAY --limit 50 | \\\n" +
+			"    secopsctl parsers run KONG_GATEWAY --cbn parser.conf --logs -\n\n" +
+			"The simplest raw-log path — a direct list, no search (cf. `query udm --raw` /\n" +
+			"`query raw`, which scope by UDM metadata / content). --json emits structured\n" +
+			"records (use it for logs with embedded newlines).",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			logType := strings.TrimSpace(args[0])
+			if logType == "" {
+				return fmt.Errorf("a LOG_TYPE is required (e.g. KONG_GATEWAY, NGINX, WINDOWS)")
+			}
+			var filter string
+			if since > 0 {
+				filter = fmt.Sprintf("collectionTime.seconds >= %d", time.Now().Add(-since).Unix())
+			}
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			lines, err := c.FetchSampleLogLines(baseContext(), logType, limit, filter)
+			if err != nil {
+				return err
+			}
+			if len(lines) == 0 {
+				fmt.Fprintf(os.Stderr, "no logs for %q — widen --since or check the log type with `parsers versions %s`\n", logType, logType)
+				return nil
+			}
+			return emitRawLines(lines)
+		},
+	}
+	f := cmd.Flags()
+	f.IntVar(&limit, "limit", 100, "max sample logs to fetch")
+	f.DurationVar(&since, "since", 0, "only logs collected within this window (e.g. 2h); default: most recent")
 	return cmd
 }
 
