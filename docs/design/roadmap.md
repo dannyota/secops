@@ -629,11 +629,12 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 
 ---
 
-## Waves 25–32 — operability & UX hardening
+## Waves 25–36 — operability, UX & coverage completion
 
-A backlog surfaced by using the tool against its own help and docs (tracked in
-`TODO.md`). Sequenced by value + dependency; git-style exit codes (`0`/`1`/`2`)
-are the shared contract.
+A backlog surfaced by dogfooding the tool against its own help and docs, plus the
+config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
+value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
+Waves 25–32 are shipped; 33–36 are the remaining forward plan.
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
@@ -742,6 +743,124 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
 - **Deferred:** `iocs related` / `ti related` (the `:fetchRelated` /
   `:fetchIocMatchMetadata` enrichment RPCs aren't built in the SDK yet), and a
   typed `ListCases` view (cases stay `[]json.RawMessage` + the typed `soar.Case`).
+
+### Wave 33 — CLI UX & help completeness *(planned)*
+
+- **Goal.** Make `--help` and machine output self-consistent at the point of use, so
+  surface-specific behavior and capabilities are discoverable without opening the catalog.
+- **Scope.**
+  - **Per-target help** for every positional reconcile target — `push rules-update
+    --help`, `push dashboards --help`, `push feeds --help`, … print surface-specific
+    behavior (CUSTOM-only, access immutable, charts replaced wholesale, NoEtag, parser
+    create-and-activate, prune-eligibility) instead of the generic parent help.
+  - **Capability-aware `--prune` help** — only the prune-eligible surfaces (webhooks ·
+    connectors · visual-families · networks) advertise `--prune`; NoDelete surfaces
+    drop/annotate it and dry-run states up front that `--prune` is a no-op for the target.
+  - **Canonical `--json` help** — one description repo-wide (rely on the single global
+    flag; drop divergent local redeclarations).
+  - **`--legacy` scoped to dual-plane surfaces** — the persistent flag is a no-op on
+    commands with no modern/legacy split; either scope it to the surfaces that honor it
+    or have its help say it is a no-op elsewhere.
+  - **doc↔CLI consistency guard** — extend `secopsctl surfaces` (or a test, like the
+    drift-guard) to assert every advertised CLI entry maps to a real command and every
+    surface's catalog section matches its registry plane, so docs can't silently drift
+    from the binary.
+  - **`doctor` completeness** — remediation hints on every failed check and finish any
+    remaining `doctor --json` gaps for CI.
+- **Exit.** `push <target> --help` is target-specific; the prune/`--legacy`/`--json`
+  help matches actual behavior; a guard fails on doc↔CLI drift.
+- **Docs.** CATALOG, ARCHITECTURE.
+
+### Wave 34 — SOAR triage & discovery UX *(planned)*
+
+- **Goal.** Close the daily SOAR triage loop's discovery gaps — every flag value an
+  operator must supply should be discoverable in-tool.
+- **Scope.**
+  - **`soar users list`** (read-only assignee directory) — `soar case assign --user`
+    needs a userId with no in-tool way to find one; add the directory and reference it
+    from `assign --help`.
+  - **Modern `soar case list` output parity** — bring the default (modern) lane to the
+    legacy table's parity (TITLE/ASSIGNEE columns, typed priority instead of raw
+    strings, header row).
+  - **Typed close-reason on single `close`** — single `close --reason` becomes the same
+    typed enum as `push bulk-close` (free text demoted to an optional comment) so
+    metrics aggregate.
+  - **Value discovery** for `--tag` / `--stage` / `--root-cause` — shell completion or a
+    `--list-values` helper sourced from `soar pull case-tags` / `close-root-causes`,
+    with discovery pointers in the flag help.
+  - **`soar marketplace contentpacks get <id>`** — inspect a content pack before install
+    (today packs are list-only).
+  - **Op discovery for the legacy escape hatch** — bundle a tenant-neutral op index
+    powering `soar legacy list [--grep]` + completion (the upstream swagger is
+    git-ignored and not shipped).
+  - **Minimal typed SOAR case view (SDK)** — a small `id · displayName · status` struct
+    over `ListCases`'s `[]json.RawMessage` so every consumer stops defining its own.
+- **Exit.** Every `soar case` / `marketplace` / `legacy` flag value is discoverable
+  in-tool; modern `case list` matches legacy output.
+- **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
+
+### Wave 35 — Detection-state & curated reconcile *(planned)*
+
+- **Goal.** Make detection *deployment state* — not just rule bodies — fully
+  diff-and-push-able, closing the last places where a live toggle bypasses git review.
+- **Scope.**
+  - **`push rules-update-deployment` + per-rule `--rule`** — read each tracked rule's
+    `deployment` block (`enabled` / `alerting` / `runFrequency`) and apply it live for
+    drifted rules, scoped to one rule or swept; closes the silent local↔live divergence
+    where hand-editing a rule's yaml is a no-op. Extends the existing
+    `rules-deploy` / `rules-disable` sweeps with targeting.
+  - **`push curated` (reconcilable deployments)** — diff `curated/deployments.yaml` vs
+    live and call `BatchUpdateCuratedRuleSetDeployments` for changed (category, set,
+    precision) tuples, so curated enable/alerting is detection-as-code like every other
+    surface; fix the curated read path so the check-first diff (list the rules in a set
+    before flipping a tier) works.
+  - **Enrichment pivot** — expose `:fetchRelated` / `:fetchIocMatchMetadata` as
+    `iocs related` / `ti related` so a hunt pivots indicator → campaign/report instead
+    of three disconnected lookups (SDK methods first, then CLI).
+  - **Feed authoring ergonomics** — ship feed/parser file templates under `examples/`
+    (with the writable-field schema), and source feed secrets from env / Secret Manager
+    **at push time** (never the YAML) so a feed carrying a credential can be reconciled.
+- **Exit.** A rule's deployment block and a curated-deployment file each reconcile
+  through pull → diff → push; enrichment pivot read-validated; feed templates +
+  secret-at-push documented.
+- **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
+
+### Wave 36 — SOAR automation-as-code completion *(planned)*
+
+The Wave-23 design stance holds: SOAR *runs* recurring automation; secopsctl's job is
+to **build, track, and push** that automation as code. This wave gives the CLI the
+surfaces to do that faithfully, and surfaces the runtime-health gaps that silently
+break it.
+
+- **Goal.** Bring the SOAR ingestion→response config and the playbook/integration
+  content an operator authors under the same pull → diff → push loop as the rest of the
+  tool.
+- **Scope.**
+  - **Ingestion-connector alert allowlist** (`pull` / `push connector-allowlist`) — the
+    connector mapping that decides which SIEM rules become SOAR cases is UI-only and
+    silently drifts (the largest detection→response gap); track it as a reconcile
+    surface — read-only + drift first, then a guarded push.
+  - **Integration runtime/health introspection** (`info soar-integrations`) — per
+    integration: installed? runtime bound to which environment? config-only? Flag
+    config-without-runtime and unconfigured-but-referenced — the failures that otherwise
+    surface only when a playbook fails at runtime.
+  - **Trigger-wiring manifest** (`info cron` / orphan check) — list each push subcommand
+    or scheduled job and whether a cron / SOAR trigger references it (plus a
+    last-run/heartbeat check), so an orphaned or broken-path automation is visible.
+    Introspection only — secopsctl owns no scheduler (W23).
+  - **Playbook & integration authoring as code** — a step-mold library so playbook
+    builders splice a fully-wired integration-action step (never mold an integration
+    action from a built-in) instead of a placeholder; a scheduled-trigger-playbook
+    builder (cronSchedule on the trigger) — the faithful native home for recurring
+    case-hygiene logic per W23; a custom-integration packaging helper
+    (`soar package-integration <dir>` → importable zip) for a generic outbound-HTTP /
+    Send-Request action; and name-charset guardrails (warn on `[ ] ( ) : /` that import
+    but break a later edit-save). All tenant-neutral — no bundled third-party EDR or
+    chat/notify integration (non-goals).
+- **Exit.** The alert allowlist tracked + drift-detected; integration runtime gaps
+  surfaced by `info`; a builder splices wired steps and a scheduled-trigger playbook;
+  packaging produces an importable zip.
+- **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
 ---
 
