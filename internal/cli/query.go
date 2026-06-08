@@ -232,9 +232,11 @@ func newQueryRawCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			q := "raw = /" + pattern + "/"
+			// Escape the regex delimiter so a `/` in the pattern (e.g. a URL path like
+			// `GET /healthz`) doesn't terminate the `/…/` literal early.
+			q := "raw = /" + strings.ReplaceAll(pattern, "/", `\/`) + "/"
 			if unparsed {
-				q += " parsed = false"
+				q += " parsed = false" // searchRawLogs joins predicates by space, not AND
 			}
 			c, err := newChronicleClient()
 			if err != nil {

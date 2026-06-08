@@ -10,6 +10,10 @@ import (
 // Log is one telemetry log entry from logTypes/{logType}/logs.list — the direct,
 // search-free way to sample a log type's RAW (ingested) logs for parser
 // development. Data is the base64-encoded raw bytes.
+//
+// NOTE: logs.list returns logs ORDERED BY RESOURCE NAME, not by time, and this
+// fetches only the first page — so it is a SAMPLE of the log type's logs, not
+// necessarily the most recent. Pass a collectionTime filter to bound by time.
 type Log struct {
 	Name           string `json:"name"`           // …/logTypes/{logType}/logs/{log}
 	Data           string `json:"data"`           // base64-encoded raw log bytes
@@ -17,12 +21,12 @@ type Log struct {
 	CollectionTime string `json:"collectionTime"` // RFC3339, when SecOps collected it
 }
 
-// ListLogs lists recent raw logs for a log type (GET logTypes/{logType}/logs).
-// Unlike the raw-log search, this is a plain list of the log type's logs — no
-// query needed. pageSize bounds the page; filter is an AIP-160 filter on
-// collectionTime only (e.g. `collectionTime.seconds >= 123 AND
-// collectionTime.seconds <= 456`). Returns the first page (caller caps via
-// pageSize); each Log.Data is base64-encoded raw bytes.
+// ListLogs lists a page of a log type's raw logs (GET logTypes/{logType}/logs).
+// Unlike the raw-log search, this is a plain list — no query needed. pageSize
+// bounds the page; filter is an AIP-160 filter on collectionTime only (e.g.
+// `collectionTime.seconds >= 123 AND collectionTime.seconds <= 456`). Logs are
+// ordered by resource name (not time) and only the first page is returned, so the
+// result is a SAMPLE; use filter to bound by time. Each Log.Data is base64 bytes.
 //
 // DEVIATION: parsers/logs use the project NUMBER form (numeric=true), matching
 // ListParsers and the console request.

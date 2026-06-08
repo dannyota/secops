@@ -26,7 +26,7 @@ func newParsersCmd() *cobra.Command {
 		Use:   "parsers <verb>",
 		Short: "Inspect and activate log parsers (versions / run / activate)",
 		Long: "Operate parser versions directly:\n" +
-			"  sample-logs  fetch recent RAW sample logs for a log type (to develop against)\n" +
+			"  sample-logs  fetch a sample of RAW logs for a log type (to develop against)\n" +
 			"  versions     list a log type's parser versions (id, state, created)\n" +
 			"  run          validate a CBN parser against sample logs (no server change)\n" +
 			"  validate     show parsing errors from a submitted parser's validation report\n" +
@@ -77,7 +77,13 @@ func newParsersValidateCmd() *cobra.Command {
 				if ps[i].ValidationReport == "" {
 					continue
 				}
-				if target == nil || ps[i].CreateTime > target.CreateTime {
+				// Most recent by createTime (RFC3339 Z → lexicographic = chronological);
+				// a populated time always beats an empty one, so an unset createTime can't
+				// shadow a real candidate.
+				switch {
+				case target == nil, target.CreateTime == "":
+					target = &ps[i]
+				case ps[i].CreateTime != "" && ps[i].CreateTime > target.CreateTime:
 					target = &ps[i]
 				}
 			}
@@ -138,15 +144,16 @@ func newParsersSampleLogsCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "sample-logs <log-type>",
-		Short: "Fetch recent RAW sample logs for a log type (to develop/validate a parser)",
-		Long: "List recent raw (ingested) logs for a log type directly (logTypes/<type>/logs)\n" +
+		Short: "Fetch a sample of RAW logs for a log type (to develop/validate a parser)",
+		Long: "List a sample of a log type's raw (ingested) logs directly (logTypes/<type>/logs)\n" +
 			"and print each one's FULL raw bytes, one per line — the sample to develop or\n" +
 			"validate a parser against. Pipe into a parser test:\n\n" +
 			"  secopsctl parsers sample-logs KONG_GATEWAY --limit 50 | \\\n" +
 			"    secopsctl parsers run KONG_GATEWAY --cbn parser.conf --logs -\n\n" +
 			"The simplest raw-log path — a direct list, no search (cf. `query udm --raw` /\n" +
-			"`query raw`, which scope by UDM metadata / content). --json emits structured\n" +
-			"records (use it for logs with embedded newlines).",
+			"`query raw`, which scope by UDM metadata / content). NOTE: logs are ordered by\n" +
+			"resource name, not time, so this is a sample — pass --since to bound by time.\n" +
+			"--json emits structured records (use it for logs with embedded newlines).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logType := strings.TrimSpace(args[0])
