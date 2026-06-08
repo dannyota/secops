@@ -99,7 +99,7 @@ func init() {
 			"($SECOPS_SOAR_APP_KEY) and the soar_url config host (no ADC).",
 	}
 	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARCaseCmd(), newSOARLegacyCmd(),
-		newSOARIntegrationCmd(), newSOARSettingsCmd(), newSOARMarketplaceCmd())
+		newSOARIntegrationCmd(), newSOARSettingsCmd(), newSOARMarketplaceCmd(), newSOARUsersCmd())
 	rootCmd.AddCommand(soarCmd)
 }
 

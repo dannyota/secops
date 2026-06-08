@@ -2,13 +2,47 @@ package cli
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 )
+
+// legacyOpsJSON is the bundled, tenant-neutral index of Siemplify external-API
+// operations (path · method · tag · summary), generated from the OpenAPI spec.
+// It ships so a clean-clone user can DISCOVER ops for `soar legacy call` without
+// the upstream swagger (which is git-ignored and not shipped). Vendor-generic
+// metadata only — no tenant data, no schemas.
+//
+//go:embed legacy_ops.json
+var legacyOpsJSON []byte
+
+// legacyOp is one external-API operation in the bundled index.
+type legacyOp struct {
+	Op      string `json:"op"`
+	Method  string `json:"method"`
+	Tag     string `json:"tag"`
+	Summary string `json:"summary"`
+}
+
+type legacyOpIndex struct {
+	Count int        `json:"count"`
+	Ops   []legacyOp `json:"ops"`
+}
+
+// loadLegacyOps decodes the embedded op index.
+func loadLegacyOps() ([]legacyOp, error) {
+	var idx legacyOpIndex
+	if err := json.Unmarshal(legacyOpsJSON, &idx); err != nil {
+		return nil, fmt.Errorf("decode bundled legacy op index: %w", err)
+	}
+	return idx.Ops, nil
+}
 
 // newSOARLegacyCmd is the raw escape hatch for external-API operations not yet
 // modeled as engine surfaces — so the full Siemplify surface is reachable as
@@ -19,7 +53,76 @@ func newSOARLegacyCmd() *cobra.Command {
 		Use:   "legacy",
 		Short: "Escape hatch: call any Siemplify external-API op (/api/external/v1)",
 	}
-	cmd.AddCommand(newSOARLegacyCallCmd())
+	cmd.AddCommand(newSOARLegacyCallCmd(), newSOARLegacyListCmd())
+	return cmd
+}
+
+// newSOARLegacyListCmd lists the bundled external-API op index so `soar legacy
+// call` targets are discoverable offline (no live call, no swagger needed).
+func newSOARLegacyListCmd() *cobra.Command {
+	var (
+		grep   string
+		tag    string
+		method string
+	)
+	cmd := &cobra.Command{
+		Use:   "list [--grep TEXT] [--tag TAG] [--method M]",
+		Short: "List external-API ops for `legacy call` (offline, from the bundled index)",
+		Long: "Browse the bundled, tenant-neutral index of Siemplify external-API\n" +
+			"operations so `soar legacy call <op>` targets are discoverable without the\n" +
+			"upstream swagger. Filters: --grep (substring over op/tag/summary),\n" +
+			"--tag (exact, case-insensitive), --method (GET/POST/...). Reads nothing live.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ops, err := loadLegacyOps()
+			if err != nil {
+				return err
+			}
+			g := strings.ToLower(strings.TrimSpace(grep))
+			tg := strings.ToLower(strings.TrimSpace(tag))
+			mt := strings.ToUpper(strings.TrimSpace(method))
+			out := ops[:0:0]
+			for _, o := range ops {
+				if g != "" && !strings.Contains(strings.ToLower(o.Op+" "+o.Tag+" "+o.Summary), g) {
+					continue
+				}
+				if tg != "" && strings.ToLower(o.Tag) != tg {
+					continue
+				}
+				if mt != "" && o.Method != mt {
+					continue
+				}
+				out = append(out, o)
+			}
+			sort.SliceStable(out, func(i, j int) bool {
+				if out[i].Tag != out[j].Tag {
+					return out[i].Tag < out[j].Tag
+				}
+				return out[i].Op < out[j].Op
+			})
+			if jsonOut {
+				return emitJSON(out)
+			}
+			if len(out) == 0 {
+				fmt.Fprintln(os.Stdout, "no ops match the filter")
+				return nil
+			}
+			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+			fmt.Fprintln(tw, "TAG\tMETHOD\tOP\tSUMMARY")
+			for _, o := range out {
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", o.Tag, o.Method, o.Op, o.Summary)
+			}
+			if err := tw.Flush(); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stdout, "\n%d op(s). Call one with: secopsctl soar legacy call <op> --read   (POST reads need --read)\n", len(out))
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&grep, "grep", "", "substring filter over op/tag/summary (case-insensitive)")
+	f.StringVar(&tag, "tag", "", "filter to one tag (case-insensitive), e.g. Cases, Jobs, Ontology")
+	f.StringVar(&method, "method", "", "filter to one HTTP method (GET/POST/PUT/DELETE)")
 	return cmd
 }
 
@@ -39,7 +142,8 @@ func newSOARLegacyCallCmd() *cobra.Command {
 		Long: "op is the path under /api/external/v1 (leading slash optional). GET is\n" +
 			"read-only. The legacy API uses POST for BOTH reads and writes, so a POST\n" +
 			"must declare intent: --read for a read-only call, or --write for a mutation.\n" +
-			"PUT/DELETE/--write print the LIVE banner and require --yes.",
+			"PUT/DELETE/--write print the LIVE banner and require --yes.\n\n" +
+			"Discover ops with `secopsctl soar legacy list [--grep TEXT] [--tag TAG]`.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			op := args[0]

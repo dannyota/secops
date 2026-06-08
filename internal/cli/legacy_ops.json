@@ -1,0 +1,2904 @@
+{
+"note":"Siemplify external API (/api/external/v1) operation index \u2014 vendor-generic, tenant-neutral. Generated from the OpenAPI spec.",
+"count":483,
+"ops":[
+{
+"op":"/agents/AddAgent",
+"method":"POST",
+"tag":"Agents",
+"summary":"Adds an Agent to your environment."
+},
+{
+"op":"/agents/AddOrUpdatePublisher",
+"method":"POST",
+"tag":"Agents",
+"summary":"Adds or updates the publisher settings"
+},
+{
+"op":"/agents/DeleteAgent",
+"method":"POST",
+"tag":"Agents",
+"summary":"Deletes an Agent in your environment."
+},
+{
+"op":"/agents/DeletePublishers",
+"method":"POST",
+"tag":"Agents",
+"summary":"Deletes the publisher configured in your environment."
+},
+{
+"op":"/agents/GetAgentByIdentifier/{agentIdentifier}",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns a list of all the Agents configured in your environment (enabled and disabled) by their identifier."
+},
+{
+"op":"/agents/GetAgentInformationByIdentifier/{agentIdentifier}",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns the Agent settings by agent identifiers."
+},
+{
+"op":"/agents/GetAgentInformationByIntegrationInstance/{integrationInstanceId}",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns the Agent settings for each integration instance."
+},
+{
+"op":"/agents/GetAgents",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns the list of all Agents configured in your environment (enabled and disabled)."
+},
+{
+"op":"/agents/GetAgentsByEnvironment",
+"method":"POST",
+"tag":"Agents",
+"summary":"Returns a list of all Agents by their environment."
+},
+{
+"op":"/agents/GetAgentsInformationByIdentifiers",
+"method":"POST",
+"tag":"Agents",
+"summary":"Returns List of Agent information data by agent identifiers."
+},
+{
+"op":"/agents/GetAvailableEnvironmentsForAgents",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns a list of all the optional environments to create an Agent on."
+},
+{
+"op":"/agents/GetEnabledAgents",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns a list of all the enabled Agents in your environment."
+},
+{
+"op":"/agents/GetPublisherById/{publisherId}",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns the list of publishers configured in your environment by their identifier."
+},
+{
+"op":"/agents/GetPublishers",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns the list of publishers configured in your environment."
+},
+{
+"op":"/agents/GetSecondaryAgentsByPrimaryIdentifiers",
+"method":"POST",
+"tag":"Agents",
+"summary":"Returns a list of Secondary Agents by the given Primary Agent's identifiers."
+},
+{
+"op":"/agents/GetValidAgentsForConnector/{environment}/{integration}",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns a list with all agents, flagged for connector installation as: available, non available over connection\nerror and non available over misconfiguration(integration was not installed on agent), in a specific env,\nfor a specific integration."
+},
+{
+"op":"/agents/GetValidAgentsForIdeConnector/{environment}/{integration}",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns a list with all agents, flagged for connector test in ide as: available, non available over connection\nerror, non available over misconfiguration(integration was not installed on agent), or non supported versions\nof agents and publisher, in a specific env, for a specific integration."
+},
+{
+"op":"/agents/integration-upgrade-unsupported-agents",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns a list of agents that are configured with a remote instance\nof the integration and do not support the required Python version.\ntoggleStagingProduction indicates if the API was called from pushToProduction/Staging"
+},
+{
+"op":"/agents/RedeployAgent",
+"method":"POST",
+"tag":"Agents",
+"summary":""
+},
+{
+"op":"/agents/TestPublisherConnectivity/{publisherId}",
+"method":"GET",
+"tag":"Agents",
+"summary":"Test connectivity with the publisher by publisher identifier."
+},
+{
+"op":"/agents/UpdateAgent",
+"method":"POST",
+"tag":"Agents",
+"summary":"Updates the Agent settings."
+},
+{
+"op":"/agents/valid-for-jobs",
+"method":"GET",
+"tag":"Agents",
+"summary":"Returns a list with all agents, flagged for job installation as: available, non available over connection\nerror, non available over misconfiguration(integration was not installed on agent), non available over unsupported agent version\nfor a specific integration."
+},
+{
+"op":"/approval-link/Apply",
+"method":"POST",
+"tag":"Approval Links",
+"summary":""
+},
+{
+"op":"/attackssimulator/CreateSimulatedCustomCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Creates a custom (simulated) case."
+},
+{
+"op":"/attackssimulator/DeleteUseCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Deletes a given use case."
+},
+{
+"op":"/attackssimulator/ExportCustomCase/{customCaseName}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Exports a custom (simulated) case as a json file."
+},
+{
+"op":"/attackssimulator/GenerateUseCases",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Simulates a case (the case will be presented in the case queue)."
+},
+{
+"op":"/attackssimulator/GetCustomCaseDetails",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Returns the details of a custom (simulated) case in your environment."
+},
+{
+"op":"/attackssimulator/GetCustomCases",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns a list of all of the custom (simulated) cases you have in your environment."
+},
+{
+"op":"/attackssimulator/ImportCustomCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Import a custom (simulated) case from a json file."
+},
+{
+"op":"/attackssimulator/IsCustomCaseExists/{alertName}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns true if customCase name already exists."
+},
+{
+"op":"/attackssimulator/SimulateAlert",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Simulate a specific alert within a case in your environment (the alert is then presented as a Test case in your case queue)."
+},
+{
+"op":"/case-overview/GetAlertOverviewData",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/case-overview/GetAlertsEntities",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/case-overview/GetCaseEntities/{caseId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/case-overview/GetCaseOverviewData",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/case-overview/GetFullOverviewTemplateDetails/{templateIdentifier}",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/case-overview/GetOverviewTemplate",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/case-overview/GetOverviewTemplateCards",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/case-overview/PreviewOverviewWidget",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/case-overview/ResolveOverviewWidget",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/case-overview/SaveOverviewTemplate",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/casechat/attachments/preview/{attachmentId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/casechat/attachments/{attachmentId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/casechat/pin/{messageId}",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/casechat/unpin/{messageId}",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/casechat/{caseId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/casechat/{caseId}",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/casechat/{caseId}/new-messages-count",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases-queue/alert-vendors",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns all alert vendors."
+},
+{
+"op":"/cases-queue/bulk-operations/ExecuteBulkAssignCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases-queue/bulk-operations/ExecuteBulkCloseCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to perform bulk close case action on several cases at once."
+},
+{
+"op":"/cases-queue/bulk-operations/MergeCases",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Merge cases into a new Case."
+},
+{
+"op":"/cases-queue/bulk-operations/ValidateCasesAssigneeForCloseCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to perform bulk close case action on several cases at once."
+},
+{
+"op":"/cases-queue/GetAlertNames",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Returns the list of alert names by environment."
+},
+{
+"op":"/cases-queue/GetCaseCardsByRequest",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Returns minimal data related to the case (CaseCard Object).\nTo fetch the entire case data, use the \u2018GetCaseFullDetails\u2019 method. For a more comprehensive query, you can use the search Controller."
+},
+{
+"op":"/cases-queue/saved-filter",
+"method":"DELETE",
+"tag":"Case Management",
+"summary":"Delete filter by filterId."
+},
+{
+"op":"/cases-queue/saved-filter",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Return saved filters for user."
+},
+{
+"op":"/cases-queue/saved-filter",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Add or Update filter."
+},
+{
+"op":"/cases/AddCaseComment",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Adds a comment to the case that will be presented in the case wall."
+},
+{
+"op":"/cases/AddCaseTag",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Adds a tag to the given case which can later on be used for filtering cases."
+},
+{
+"op":"/cases/AddEvidence",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Adds an attachment to a given case."
+},
+{
+"op":"/cases/AddOrUpdateCaseTask",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Adds or updates a task  assigned to a specific user in a given case."
+},
+{
+"op":"/cases/AssignUserToCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Assigns a specific user to a case (the user assigned to the case can be viewed in the case top bar)."
+},
+{
+"op":"/cases/ChangeCaseDescription",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Change the description of a given case (the description is presented in the top bar)."
+},
+{
+"op":"/cases/ChangeCaseImportanceStatus",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Changes the \"is important\" status of a case. You can mark or unmark the \"is important\" flag."
+},
+{
+"op":"/cases/ChangeCasePriority",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to change the priority of a given case (for example - informative, low, medium, high and critical)."
+},
+{
+"op":"/cases/ChangeCaseStage",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Changes the case handling stage (for example, \"Investigation, Triage, etc.\"). The case stages are set in the settings screen under the Case Data tab."
+},
+{
+"op":"/cases/CloseAlert",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Moves the requested alert in a given case to a new closed case."
+},
+{
+"op":"/cases/CloseCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Changes the given case status to closed."
+},
+{
+"op":"/cases/comments",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Get all case comments by filter"
+},
+{
+"op":"/cases/comments",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Create case comment"
+},
+{
+"op":"/cases/comments/file/{fileId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Download file attached to a comment"
+},
+{
+"op":"/cases/comments/mark-as-deleted/{id}",
+"method":"PATCH",
+"tag":"Case Management",
+"summary":"Mark case comment as deleted"
+},
+{
+"op":"/cases/comments/{id}",
+"method":"PUT",
+"tag":"Case Management",
+"summary":"Update case comment"
+},
+{
+"op":"/cases/CreateCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to inject cases into the Siemplify Data Processing Engine Service."
+},
+{
+"op":"/cases/CreateCaseEntity",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to manually add an entity to an alert in a given case."
+},
+{
+"op":"/cases/CreateCaseInsight",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Creates an insight for a case."
+},
+{
+"op":"/cases/CreateManualCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Creates a manual case that will be displayed in your case queue in the same way as other cases."
+},
+{
+"op":"/cases/CreateWarRoomIncidentFromCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Creates an incident in the Command Center from a given case."
+},
+{
+"op":"/cases/ExecuteBulkAddCaseTag",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to perform bulk tag addition on several cases at once."
+},
+{
+"op":"/cases/ExecuteBulkAssign",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to perform bulk assign case action on several cases at once."
+},
+{
+"op":"/cases/ExecuteBulkChangeCasePriority",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to perform bulk case priority change action on several cases at once."
+},
+{
+"op":"/cases/ExecuteBulkChangeCaseStage",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to perform bulk case stage changes on several cases at once."
+},
+{
+"op":"/cases/ExecuteBulkCloseCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to perform bulk close case action on several cases at once."
+},
+{
+"op":"/cases/ExecuteBulkReopenCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to perform bulk reopen case action on several cases at once."
+},
+{
+"op":"/cases/ExecuteManualAction",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Execute a given playbook action."
+},
+{
+"op":"/cases/ExecuteStep",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Executes a single step which is part of a playbook (will trigger the re-calculation of a playbook's status)."
+},
+{
+"op":"/cases/GenerateCaseReport",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Generate a report for a specific case. The report will include information about the case, the entities involved, case history etc."
+},
+{
+"op":"/cases/GetActionResultById/{resultIdStr}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns the action result details by identifier."
+},
+{
+"op":"/cases/GetCaseCardsByRequest",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Returns minimal data related to the case (CaseCard Object).\nTo fetch the entire case data, use the \u2018GetCaseFullDetails\u2019 method. For a more comprehensive query, you can use the search Controller."
+},
+{
+"op":"/cases/GetCaseExists/{caseId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns a bool value if case exists filtered by caseId"
+},
+{
+"op":"/cases/GetCaseFullDetails/{caseId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns all the data related to a single case, based on a given Case identifier"
+},
+{
+"op":"/cases/GetEvidenceData/{evidenceId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns the attachment file content in a case as a byte array."
+},
+{
+"op":"/cases/GetWallItemsForWarRoom/{id}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns all the wall items (Case history) and transfers them into the incident in the Command Center."
+},
+{
+"op":"/cases/GetWorkflowInstanceSummary",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Returns the summary of an executed playbook for a given case including the alert and playbook Identifiers."
+},
+{
+"op":"/cases/insights/{caseId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns all case insights by case id and filter parameters."
+},
+{
+"op":"/cases/IsCaseUpdated",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Checks the modification time of a given case identifier."
+},
+{
+"op":"/cases/PauseAlertSla",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to pause alert sla."
+},
+{
+"op":"/cases/RaiseIncident",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Raises the case to \"Incident\" stage. Raising an incident assigns the SOC Manager as the case assignee and changes the case stage to \"Incident\"."
+},
+{
+"op":"/cases/ReassignCaseTask",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Reassigns a case task to a specific user or role."
+},
+{
+"op":"/cases/RemoveCaseTag",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Removes a case tag that was added to a given case."
+},
+{
+"op":"/cases/RenameCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Changes the case title as presented in the case queue."
+},
+{
+"op":"/cases/requests/GenerateCollaboratorRequest",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Generate alert of the request template in your environment."
+},
+{
+"op":"/cases/requests/GetByRequest",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases/requests/GetCollaboratorRequestCount",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases/ResumeAlertSla",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to resume alert sla."
+},
+{
+"op":"/cases/Skip",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Will skip a pending playbook action, resulting in the execution of the following steps."
+},
+{
+"op":"/cases/tasks",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases/tasks",
+"method":"PUT",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases/tasks/GetByRequest",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases/tasks/GetTasksCountForUser",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases/tasks/MarkAsDone",
+"method":"PUT",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases/tasks/{id}",
+"method":"DELETE",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases/tasks/{id}",
+"method":"GET",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/cases/UnraiseIncident",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Removes the incident flag from a case."
+},
+{
+"op":"/cases/UpdateAlertPriority",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to update the priority of an alert."
+},
+{
+"op":"/cases/wall/favourite",
+"method":"PATCH",
+"tag":"Case Management",
+"summary":"Sets a wall item as favorite"
+},
+{
+"op":"/cases/wall/{caseId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Get case wall activities"
+},
+{
+"op":"/dynamic-cases/AddCaseComment",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/dynamic-cases/AddCaseTag",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Adds a tag to the given case which can later on be used for filtering cases"
+},
+{
+"op":"/dynamic-cases/AddComment",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Adds a comment (could be with attachment) to a given case."
+},
+{
+"op":"/dynamic-cases/AddEvidence",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Adds an evidence (attachment) to a given case."
+},
+{
+"op":"/dynamic-cases/AddOrUpdateCaseTask",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Adds or updates a task assigned to a specific user in a given case"
+},
+{
+"op":"/dynamic-cases/AddOrUpdateEntityProperty",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Add or update property of involved entity and unique entity"
+},
+{
+"op":"/dynamic-cases/AssignUserToCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Assigns a specific user to a case - the user assigned to the case can be viewed in the case top bar"
+},
+{
+"op":"/dynamic-cases/ChangeCaseDescription",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Change the description of a given case - the description is presented in the top bar"
+},
+{
+"op":"/dynamic-cases/ChangeCaseImportanceStatus",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Changes the \"is important\" status of a case. You can mark or unmark the \"is important\" flag."
+},
+{
+"op":"/dynamic-cases/ChangeCaseStage",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Changes the case handling stage (for example, \"Investigation, Triage, etc.\"). The case stages are set in the settings screen under the Case Data tab."
+},
+{
+"op":"/dynamic-cases/CloseAlert",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Close alert in a case. New alert related operations are not allowed on a closed alert."
+},
+{
+"op":"/dynamic-cases/CloseCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Close a case. New case related operations are not allowed on a closed case."
+},
+{
+"op":"/dynamic-cases/CreateCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to inject cases into the Siemplify Data Processing Engine Service."
+},
+{
+"op":"/dynamic-cases/CreateCaseEntity",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Used to manually add an entity to an alert in a given case"
+},
+{
+"op":"/dynamic-cases/ExecuteBulkReopenCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Reopen alert cases in bulk"
+},
+{
+"op":"/dynamic-cases/GenerateCaseReport",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Generate case report"
+},
+{
+"op":"/dynamic-cases/GetAlertEvents",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Provides information for the alert events"
+},
+{
+"op":"/dynamic-cases/GetCaseDetails/{caseId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Provides Detailed information for the requested case"
+},
+{
+"op":"/dynamic-cases/GetCaseWallActivities",
+"method":"POST",
+"tag":"Case Management",
+"summary":""
+},
+{
+"op":"/dynamic-cases/GetCaseWallActivities/count",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Gets the count of wall activities for a case, filtered by type, alert, and user.\nThe count is returned as a dictionary containing the count of wall activities for each filter type."
+},
+{
+"op":"/dynamic-cases/GetEvidenceData/{evidenceId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Get file attached to a comment"
+},
+{
+"op":"/dynamic-cases/GetWallActivities/{caseId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Get all wall activity of the case"
+},
+{
+"op":"/dynamic-cases/GetWallActivitiesForCommandCenter/{id}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Returns all the wall items (Case history) and transfers them into the incident in the Command Center."
+},
+{
+"op":"/dynamic-cases/GetWallActivitiesV2/{caseId}",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Get all wall activity of the case"
+},
+{
+"op":"/dynamic-cases/IngestCaseInOtherEnvironment",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Move the requested case to a new environment"
+},
+{
+"op":"/dynamic-cases/IsCaseUpdated",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Checks the modification time of a given case identifier"
+},
+{
+"op":"/dynamic-cases/MarkCommentAsDeleted/{id}",
+"method":"PUT",
+"tag":"Case Management",
+"summary":"Mark comment as deleted."
+},
+{
+"op":"/dynamic-cases/MarkTaskAsDone",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Mark task as done in case wall by the logged-in user"
+},
+{
+"op":"/dynamic-cases/MoveAlertToNewCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Move alert to new case"
+},
+{
+"op":"/dynamic-cases/RaiseIncident",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Raises the case to \"Incident\" stage. Raising an incident assigns the SOC Manager as the case assignee and changes the case stage to \"Incident\"."
+},
+{
+"op":"/dynamic-cases/RemoveCaseTag",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Removes a case tag that was added to a given case"
+},
+{
+"op":"/dynamic-cases/RenameCase",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Changes the case title"
+},
+{
+"op":"/dynamic-cases/ReopenAlert",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Reopen alert in a case"
+},
+{
+"op":"/dynamic-cases/request",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Adds an evidence (attachment) to a given case."
+},
+{
+"op":"/dynamic-cases/UnraiseIncident",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Removes the incident flag from a case"
+},
+{
+"op":"/dynamic-cases/UpdateAlertPriority",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Change the priority of the alert"
+},
+{
+"op":"/dynamic-cases/UpdateCasePriority",
+"method":"POST",
+"tag":"Case Management",
+"summary":"Change the priority of the case"
+},
+{
+"op":"/dynamic-cases/UpdateComment",
+"method":"PUT",
+"tag":"Case Management",
+"summary":"Updates a comment and it's attachment(if needed) in a given case."
+},
+{
+"op":"/predefined-widgets/cases",
+"method":"GET",
+"tag":"Case Management",
+"summary":"Retrieves all case predefined widgets."
+},
+{
+"op":"/logging/agents/{agentIdentifier}",
+"method":"GET",
+"tag":"Cloud Logging",
+"summary":"Downloads logs of remote agents."
+},
+{
+"op":"/logging/python",
+"method":"POST",
+"tag":"Cloud Logging",
+"summary":"Returns the logs of python executions."
+},
+{
+"op":"/warroom/CloseIncident",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Closes an existing Command Center incident."
+},
+{
+"op":"/warroom/CreateIncident",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Creates a Command Center incident."
+},
+{
+"op":"/warroom/CreateWarRoomAssessment",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Creates a Command Center Assessment."
+},
+{
+"op":"/warroom/CreateWarRoomComment",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Creates a comment in the Command Center."
+},
+{
+"op":"/warroom/CreateWarRoomDecision",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Creates a Command Center Decision."
+},
+{
+"op":"/warroom/CreateWarRoomFact",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Creates a Command Center Fact."
+},
+{
+"op":"/warroom/CreateWarRoomReport/{incidentId}",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Creates a Command Center Report for a given incident identifier."
+},
+{
+"op":"/warroom/CreateWarRoomTask",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Creates a Command Center Task under a specific user."
+},
+{
+"op":"/warroom/GetChatChannelCards/{incidentId}",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Returns a summary of the Command Center incident chat according to a specific identifier."
+},
+{
+"op":"/warroom/GetChatChannelConversation",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Returns the conversation records of a specific chat."
+},
+{
+"op":"/warroom/GetDepartments",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Returns a list of the departments in an incident workstation."
+},
+{
+"op":"/warroom/GetFilterDepartments/{incidentId}",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Returns a list of people involved in an incident workstation filtered by departments."
+},
+{
+"op":"/warroom/GetForgotPasswordTimeLimit",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Returns the forgotten password time limit in hours."
+},
+{
+"op":"/warroom/GetIncident/{id}",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Retrieves data regarding a Command Center incident by identifer."
+},
+{
+"op":"/warroom/GetIncidentUserById/{id}",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Returns users associated with an incident according to their ID."
+},
+{
+"op":"/warroom/GetLastSeverityScore/{id}",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Returns the last severity score for a given incident by identifer."
+},
+{
+"op":"/warroom/GetWarRoomAuditors",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Returns a list of Command Center auditors."
+},
+{
+"op":"/warroom/GetWarRoomUserForIncident/{incidentId}",
+"method":"GET",
+"tag":"CommandCenter",
+"summary":"Returns Command Center user for an incident based on incident ID."
+},
+{
+"op":"/warroom/GetWarRoomWallItems",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Returns the Command Center Wall Items for a given incident."
+},
+{
+"op":"/warroom/SaveSeverityScore",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Saves a severity score for a given incident by identifer."
+},
+{
+"op":"/warroom/SendChatMessage",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Sends a chat message for a specific incident in the Command Center."
+},
+{
+"op":"/warroom/UpdateWarRoomAssessment",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Updates a given Command Center Assessment."
+},
+{
+"op":"/warroom/UpdateWarRoomComment",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Updates a given Comment in the Command Center."
+},
+{
+"op":"/warroom/UpdateWarRoomDecision",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Updates a given Command Center Decision."
+},
+{
+"op":"/warroom/UpdateWarRoomFact",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Updates a given Command Center Fact."
+},
+{
+"op":"/warroom/UpdateWarRoomTask",
+"method":"POST",
+"tag":"CommandCenter",
+"summary":"Updates a given Command Center Task under a specific user."
+},
+{
+"op":"/configuration-items/{tenantId}",
+"method":"GET",
+"tag":"ConfigurationItemsManagement",
+"summary":""
+},
+{
+"op":"/configuration-items/{tenantId}",
+"method":"PUT",
+"tag":"ConfigurationItemsManagement",
+"summary":""
+},
+{
+"op":"/{tenantId}/configuration-items:batchUpdate",
+"method":"POST",
+"tag":"ConfigurationItemsManagement",
+"summary":""
+},
+{
+"op":"/connectors",
+"method":"POST",
+"tag":"Connectors",
+"summary":"Adds a new connector instance or updates an existing one."
+},
+{
+"op":"/connectors/cards",
+"method":"GET",
+"tag":"Connectors",
+"summary":"Provides basic information per each accessible connector."
+},
+{
+"op":"/connectors/fetch-sample-data",
+"method":"POST",
+"tag":"Connectors",
+"summary":"Executes the connector once for testing purposes."
+},
+{
+"op":"/connectors/template",
+"method":"POST",
+"tag":"Connectors",
+"summary":"Retrieves detailed information regarding a specific connector instance."
+},
+{
+"op":"/connectors/template-cards",
+"method":"GET",
+"tag":"Connectors",
+"summary":"Provides basic information per each accessible connector definition."
+},
+{
+"op":"/connectors/update-from-ide",
+"method":"POST",
+"tag":"Connectors",
+"summary":"Updates the connector instance to its connector definition's latest version."
+},
+{
+"op":"/connectors/{identifier}",
+"method":"DELETE",
+"tag":"Connectors",
+"summary":"Deletes a connector instance according to the given instance identifier."
+},
+{
+"op":"/connectors/{identifier}",
+"method":"GET",
+"tag":"Connectors",
+"summary":"Retrieves detailed information regarding a specific connector instance."
+},
+{
+"op":"/connectors/{identifier}/statistics",
+"method":"GET",
+"tag":"Connectors",
+"summary":"Details the statistics associated with the specific connector instance."
+},
+{
+"op":"/dashboards/AddOrUpdateDashboard",
+"method":"POST",
+"tag":"Dashboards",
+"summary":"Adds a new dashboard or updates an existing one (determined by dashboard identifier)."
+},
+{
+"op":"/dashboards/AddOrUpdateDashboardWidget",
+"method":"POST",
+"tag":"Dashboards",
+"summary":"Adds a new dashboard widget or update an existing one (determined by widget identifier)."
+},
+{
+"op":"/dashboards/DeleteDashboard",
+"method":"POST",
+"tag":"Dashboards",
+"summary":"Deletes a dashboard with a given dashboard identifier. Please note that the deletion of a dashboard cannot be undone."
+},
+{
+"op":"/dashboards/DeleteDashboardWidget",
+"method":"POST",
+"tag":"Dashboards",
+"summary":"Deletes a dashboard widget with a given widget ID. Please note that the deletion of a dashboard widget cannot be undone."
+},
+{
+"op":"/dashboards/GetDashboardWidgetCaseIds",
+"method":"POST",
+"tag":"Dashboards",
+"summary":"Returns a list of the Case IDs involved in the widgets presented in the dashboard."
+},
+{
+"op":"/dashboards/GetDashboardWidgetDefinitions",
+"method":"GET",
+"tag":"Dashboards",
+"summary":"Returns all available widget definitions. Please note that this doesn\u2019t refer to a specific dashboard."
+},
+{
+"op":"/dashboards/GetDashboardWidgetValues",
+"method":"POST",
+"tag":"Dashboards",
+"summary":"Returns specific dashboard widget (including filters, order etc) and a list of values for graph representation (array of strings).\nThis api is being called either for a specific playbook, or for multiple playbook filters selection"
+},
+{
+"op":"/dashboards/ImportDashboard",
+"method":"POST",
+"tag":"Dashboards",
+"summary":"Imports a dashboard into the platform (json file)."
+},
+{
+"op":"/dashboards/SaveDashboardAsReportTemplate",
+"method":"POST",
+"tag":"Dashboards",
+"summary":"Saves the dashboard as a report template. The report template can be viewed in the Reports module."
+},
+{
+"op":"/entity-search/count",
+"method":"POST",
+"tag":"EntitySearch",
+"summary":"Return the total amount of relevant entities given the request payload."
+},
+{
+"op":"/entity-search/entities",
+"method":"POST",
+"tag":"EntitySearch",
+"summary":"Returns relevant page of entities given the request payload."
+},
+{
+"op":"/federation/cases",
+"method":"GET",
+"tag":"Federation",
+"summary":""
+},
+{
+"op":"/federation/cases/batch-patch",
+"method":"PATCH",
+"tag":"Federation",
+"summary":""
+},
+{
+"op":"/federation/platforms",
+"method":"GET",
+"tag":"Federation",
+"summary":""
+},
+{
+"op":"/federation/platforms/{id}",
+"method":"DELETE",
+"tag":"Federation",
+"summary":""
+},
+{
+"op":"/cases/homepagecases/GetByRequest",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/cases/homepagecases/GetHomepageCasesCount",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/attachments",
+"method":"POST",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/attachments",
+"method":"PUT",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/attachments/GetByRequest",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/attachments/{id}",
+"method":"DELETE",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/attachments/{id}",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/contacts",
+"method":"POST",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/contacts",
+"method":"PUT",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/contacts/GetByRequest",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/contacts/{id}",
+"method":"DELETE",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/contacts/{id}",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/links",
+"method":"POST",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/links",
+"method":"PUT",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/links/GetByRequest",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/links/{id}",
+"method":"DELETE",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/links/{id}",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/notes",
+"method":"POST",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/notes",
+"method":"PUT",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/notes/GetByRequest",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/notes/{id}",
+"method":"DELETE",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/notes/{id}",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/rss",
+"method":"POST",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/rss",
+"method":"PUT",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/rss/GetByRequest",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/rss/GetRssCount",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/rss/{id}",
+"method":"DELETE",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/homepage/rss/{id}",
+"method":"GET",
+"tag":"Homepage",
+"summary":""
+},
+{
+"op":"/idpMapping",
+"method":"GET",
+"tag":"IdpMappingManagement",
+"summary":""
+},
+{
+"op":"/idpMapping",
+"method":"POST",
+"tag":"IdpMappingManagement",
+"summary":""
+},
+{
+"op":"/integrations/CreateIntegrationInstance",
+"method":"POST",
+"tag":"Integrations",
+"summary":"Creates a new integration instance."
+},
+{
+"op":"/integrations/DeleteIntegrationInstance",
+"method":"POST",
+"tag":"Integrations",
+"summary":"Deletes a specific integration instance."
+},
+{
+"op":"/integrations/GetAllEnvironmentCards",
+"method":"POST",
+"tag":"Integrations",
+"summary":"Returns all the environments as cards (a summary of the environment data)."
+},
+{
+"op":"/integrations/GetEnvironmentInstalledIntegrations",
+"method":"POST",
+"tag":"Integrations",
+"summary":"Returns all the environments of the installed integrations in the platform."
+},
+{
+"op":"/integrations/GetInstalledIntegrations",
+"method":"GET",
+"tag":"Integrations",
+"summary":"Returns all the details of the installed integrations in the platform."
+},
+{
+"op":"/integrations/GetIntegrationDefaultInstance/{integrationIdentifier}",
+"method":"GET",
+"tag":"Integrations",
+"summary":"Returns the integration's default instance by a given integration identifier."
+},
+{
+"op":"/integrations/GetIntegrationInstanceSettings/{integrationInstanceId}",
+"method":"GET",
+"tag":"Integrations",
+"summary":"Returns the settings of an integration instance."
+},
+{
+"op":"/integrations/GetOptionalIntegrationInstances",
+"method":"POST",
+"tag":"Integrations",
+"summary":"Returns a list of the instances that are available for a specific integration according to its environment."
+},
+{
+"op":"/integrations/GetPlaybooksNamesUsingIntegrationInstance/{integrationInstanceId}",
+"method":"GET",
+"tag":"Integrations",
+"summary":"Returns the names of the playbooks using a specific integration instance by their integration instance identifier."
+},
+{
+"op":"/jobs/DeleteJobData",
+"method":"POST",
+"tag":"Jobs",
+"summary":"Removes a job from the platform. Please note that this action cannot be undone."
+},
+{
+"op":"/jobs/GetInstalledJobs",
+"method":"GET",
+"tag":"Jobs",
+"summary":"Returns a list of the installed jobs in the platform."
+},
+{
+"op":"/jobs/GetJobTemplates",
+"method":"GET",
+"tag":"Jobs",
+"summary":"Returns a list of the job templates in the system that were configured in the IDE."
+},
+{
+"op":"/jobs/instances",
+"method":"GET",
+"tag":"Jobs",
+"summary":"Returns a list of the installed jobs instances in the platform."
+},
+{
+"op":"/jobs/instances",
+"method":"POST",
+"tag":"Jobs",
+"summary":"Adds a new Job instance"
+},
+{
+"op":"/jobs/instances",
+"method":"PUT",
+"tag":"Jobs",
+"summary":"Updates existing job instance"
+},
+{
+"op":"/jobs/instances/run",
+"method":"POST",
+"tag":"Jobs",
+"summary":"Runs a specific job instance."
+},
+{
+"op":"/jobs/instances/{id}",
+"method":"DELETE",
+"tag":"Jobs",
+"summary":"Removes a job from the platform. Please note that this action cannot be undone."
+},
+{
+"op":"/jobs/RunJob",
+"method":"POST",
+"tag":"Jobs",
+"summary":"Runs a specific job according to a specific job identifier."
+},
+{
+"op":"/jobs/SaveOrUpdateJobData",
+"method":"POST",
+"tag":"Jobs",
+"summary":"Adds or updates a job in the platform."
+},
+{
+"op":"/store/ExportUseCase",
+"method":"POST",
+"tag":"Marketplace",
+"summary":"Export a use case as a zip file."
+},
+{
+"op":"/store/GetHtmlViewPresets",
+"method":"GET",
+"tag":"Marketplace",
+"summary":""
+},
+{
+"op":"/store/GetIntegrationDependencies/{integrationIdentifier}",
+"method":"GET",
+"tag":"Marketplace",
+"summary":"Returns a list of dependencies of a given integration."
+},
+{
+"op":"/store/GetIntegrationFullDetails",
+"method":"POST",
+"tag":"Marketplace",
+"summary":"Returns all the data related to an integration (actions, connectors etc...)."
+},
+{
+"op":"/store/GetIntegrationsStoreData",
+"method":"GET",
+"tag":"Marketplace",
+"summary":"Returns a list of integrations that can be installed and configured from the Marketplace."
+},
+{
+"op":"/store/GetPowerUpsStoreData",
+"method":"GET",
+"tag":"Marketplace",
+"summary":"Returns a list of powerups that can be installed and configured from the Marketplace."
+},
+{
+"op":"/store/GetReportsStoreData",
+"method":"GET",
+"tag":"Marketplace",
+"summary":"Returns a list of reports that can be installed and configured from the Marketplace."
+},
+{
+"op":"/store/GetUsecasesCards",
+"method":"GET",
+"tag":"Marketplace",
+"summary":"Returns a list of the use cases in the system and their summary."
+},
+{
+"op":"/store/ReinstallAllIntegrations",
+"method":"POST",
+"tag":"Marketplace",
+"summary":"Reinstall all the installed integrations in order to be up-to-date."
+},
+{
+"op":"/store/SaveIntegrationConfigurationProperties",
+"method":"POST",
+"tag":"Marketplace",
+"summary":"Save the integration configuration fields."
+},
+{
+"op":"/store/TestIntegration/{integrationInstanceId}",
+"method":"GET",
+"tag":"Marketplace",
+"summary":"Test an integration by running a test action."
+},
+{
+"op":"/notifications/CloseAllNotifications",
+"method":"GET",
+"tag":"Notifications",
+"summary":"Closes all System and User notifications which will prevent them from popping up in the UI."
+},
+{
+"op":"/notifications/CloseSystemNotification/{recordId}",
+"method":"GET",
+"tag":"Notifications",
+"summary":"Closes a System Notification based on a given notification identifier to prevent it from popping up again."
+},
+{
+"op":"/notifications/CloseUserNotification/{recordId}",
+"method":"GET",
+"tag":"Notifications",
+"summary":"Closes a User Notification based on a given notification identifier to prevent it from popping up again."
+},
+{
+"op":"/notifications/GetUnreadNotificationCount",
+"method":"GET",
+"tag":"Notifications",
+"summary":"Counts the number of unread user notifications."
+},
+{
+"op":"/notifications/GetUserNotifications",
+"method":"GET",
+"tag":"Notifications",
+"summary":"Returns the last 30 User notifications."
+},
+{
+"op":"/notifications/GetUserNotificationSettings",
+"method":"GET",
+"tag":"Notifications",
+"summary":"Returns the current user's notification preferences."
+},
+{
+"op":"/notifications/SaveUserNotificationSettings",
+"method":"POST",
+"tag":"Notifications",
+"summary":"Updates the user's notification preferences."
+},
+{
+"op":"/ontology/AddOrUpdateMappingRules",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/AddOrUpdateVisualFamily",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/AddOrUpdateVisualFamilyRules",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/DeleteFamilyData/{familyId}",
+"method":"GET",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/DeleteMappingRule",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/DeleteVisualFamilyRule",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/DuplicateVisualFamilyForSettings",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/ExportOntology",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/ExportVisualFamily",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/GetFamily",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/GetMappingRules",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/GetRelatedEntitiesByFamilyName/{familyName}",
+"method":"GET",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/GetVisualFamilies",
+"method":"GET",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/ImportOntology",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/ImportVisualFamily",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/IsOntologyOrVisualFamilyExists",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/IsVisualFamilyExists",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/ontology/UpdateVisualFamilyImage",
+"method":"POST",
+"tag":"Ontology",
+"summary":""
+},
+{
+"op":"/permissions",
+"method":"POST",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/permissions",
+"method":"PUT",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/permissions/Duplicate/{id}",
+"method":"POST",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/permissions/GetAllEnvironmentStatus",
+"method":"GET",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/permissions/GetAllEnvironmentStatus/{permissionGroupId}",
+"method":"GET",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/permissions/GetPermissionsGroupCards",
+"method":"GET",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/permissions/GetPermissionsGroupTemplateByType/{permissionType}",
+"method":"GET",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/permissions/GetPermissionsGroupTypes",
+"method":"GET",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/permissions/{id}",
+"method":"DELETE",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/permissions/{id}",
+"method":"GET",
+"tag":"Permissions",
+"summary":""
+},
+{
+"op":"/playbooks/action-widget-template",
+"method":"GET",
+"tag":"Playbooks",
+"summary":""
+},
+{
+"op":"/playbooks/AddOrUpdatePlaybookCategory",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Adds or Updates a playbook category."
+},
+{
+"op":"/playbooks/AttacheNestedWorkflowToCase",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Attaches a nested workflow (Playbook block) to a case."
+},
+{
+"op":"/playbooks/AttacheWorkflowToCase",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Attaches a workflow (playbook) to a case and starts the execution of the workflow."
+},
+{
+"op":"/playbooks/CheckWorkflowNameInDifferentEnvironments",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Checks if the workflow's name already exists in a different environment (also environments that the user is not permitted to see)."
+},
+{
+"op":"/playbooks/DeleteWorkflow",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Deletes workflow"
+},
+{
+"op":"/playbooks/DeleteWorkflows",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Deletes a list of workflows (playbooks)."
+},
+{
+"op":"/playbooks/DuplicateNestedWorkflows",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Duplicates a list of nested workflows (Playbook blocks)"
+},
+{
+"op":"/playbooks/DuplicateWorkflow",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Duplicate a workflow (playbook)."
+},
+{
+"op":"/playbooks/DuplicateWorkflows",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Duplicates a list of workflows (playbooks)."
+},
+{
+"op":"/playbooks/ExecuteStep",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Runs the playbook step."
+},
+{
+"op":"/playbooks/ExportDefinitions",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Export workflows (playbooks) as a zip file."
+},
+{
+"op":"/playbooks/ExportWorkflowWithBlocksByIdentifier/{apiWfIdentifier}",
+"method":"GET",
+"tag":"Playbooks",
+"summary":"Exports a workflow (playbook) including the full definition, steps and blocks ."
+},
+{
+"op":"/playbooks/GetActionResultsOfWFId/{wfInstanceId}",
+"method":"GET",
+"tag":"Playbooks",
+"summary":"Returns action results by workflow (playbook) instance id."
+},
+{
+"op":"/playbooks/GetCaseEntities/{caseId}",
+"method":"GET",
+"tag":"Playbooks",
+"summary":"Returns case entities by case id."
+},
+{
+"op":"/playbooks/GetContextGroupByKey/{key}",
+"method":"GET",
+"tag":"Playbooks",
+"summary":"Returns the context group by key."
+},
+{
+"op":"/playbooks/GetDebugStepCaseData",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Returns the simulated playbook step case data."
+},
+{
+"op":"/playbooks/GetEnabledWFCards",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Returns a list of all the enabled workflows (playbooks)."
+},
+{
+"op":"/playbooks/GetOverviewTemplate",
+"method":"POST",
+"tag":"Playbooks",
+"summary":""
+},
+{
+"op":"/playbooks/GetOverviewTemplate/{templateIdentifier}",
+"method":"GET",
+"tag":"Playbooks",
+"summary":""
+},
+{
+"op":"/playbooks/GetPendingStep",
+"method":"POST",
+"tag":"Playbooks",
+"summary":""
+},
+{
+"op":"/playbooks/GetPendingStepsCountForUser",
+"method":"GET",
+"tag":"Playbooks",
+"summary":""
+},
+{
+"op":"/playbooks/GetPendingStepsUserRelated",
+"method":"GET",
+"tag":"Playbooks",
+"summary":""
+},
+{
+"op":"/playbooks/GetPlaybookSimulationEnrichment",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Returns the enrichment of playbook simulation."
+},
+{
+"op":"/playbooks/GetPlaybookStatsMap",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Return statistic data related to the workflow (such as number of runs, distribution by time, etc.)."
+},
+{
+"op":"/playbooks/GetTestCases",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Return a list of test cases available in the system."
+},
+{
+"op":"/playbooks/GetTriggerTags",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Returns a list of all the tags that are relevant to the trigger type tag."
+},
+{
+"op":"/playbooks/GetWorkflowCategories",
+"method":"GET",
+"tag":"Playbooks",
+"summary":"Returns a list of all workflow categories available in the system."
+},
+{
+"op":"/playbooks/GetWorkflowFullInfoByIdentifier/{apiWfIdentifier}",
+"method":"GET",
+"tag":"Playbooks",
+"summary":"Returns a workflow\u2019s (playbook) full definition, including the details of the steps in the playbook."
+},
+{
+"op":"/playbooks/GetWorkflowFullInfoWithEnvFilterByIdentifier/{apiWfIdentifier}",
+"method":"GET",
+"tag":"Playbooks",
+"summary":"Returns a workflow\u2019s (playbook) full definition, including the details of the steps in the playbook."
+},
+{
+"op":"/playbooks/GetWorkflowsInvolvingAction",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Returns a list of actions that are part of the workflow."
+},
+{
+"op":"/playbooks/GetWorkflowStepInstance",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Returns all workflow (playbook) steps instances."
+},
+{
+"op":"/playbooks/GetWorkFlowVersionLogs",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Returns a list of versions for a specific workflow."
+},
+{
+"op":"/playbooks/ImportDefinitions",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Import workflows from a zip file."
+},
+{
+"op":"/playbooks/MoveDefinitionsToCategory",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Move workflows to a selected category."
+},
+{
+"op":"/playbooks/permissions",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Add or update permissions for a given workflow.\n* Recreates all specific user permissions for that workflow\n* Updates the default permissions"
+},
+{
+"op":"/playbooks/permissions/options",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Return playbook access permission options. This should be used to fetch information when creating a\nnew playbook, where we do not have yet workflow guid."
+},
+{
+"op":"/playbooks/permissions/{identifier}",
+"method":"DELETE",
+"tag":"Playbooks",
+"summary":"Removes all access permissions for the given workflow. Note the permissions for the notebook will be the default\npermissions that is set for the playbook"
+},
+{
+"op":"/playbooks/RemoveCategories",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Removes a list of categories."
+},
+{
+"op":"/playbooks/RerunBlock",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Rerun block on a given alert."
+},
+{
+"op":"/playbooks/RerunPlaybook",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Rerun playbook on a given alert."
+},
+{
+"op":"/playbooks/RestoreWorkflowDefinition",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Restore workflow to a previous version."
+},
+{
+"op":"/playbooks/RunPlaybookInDebug",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Runs the playbook in simulation mode."
+},
+{
+"op":"/playbooks/SaveLogVersionOfWorkflowDefinitions",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Save a new version of the workflow."
+},
+{
+"op":"/playbooks/SaveWorkflowDefinitions",
+"method":"POST",
+"tag":"Playbooks",
+"summary":"Save workflow (Playbook)."
+},
+{
+"op":"/{tenantId}/pubsub-backfill:trigger",
+"method":"POST",
+"tag":"PubSubBackfill",
+"summary":""
+},
+{
+"op":"/reports/AddOrUpdateReportSchedule",
+"method":"POST",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/AddOrUpdateReportTemplate",
+"method":"POST",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/AddOrUpdateReportWidget",
+"method":"POST",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/DeleteReportSchedule/{id}",
+"method":"GET",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/DuplicateReportTemplate",
+"method":"POST",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/GenerateReportTemplate",
+"method":"POST",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/GetReportSchedules",
+"method":"POST",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/GetReportTemplates",
+"method":"GET",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/ImportReportTemplate",
+"method":"POST",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/RefreshAdvancedReports",
+"method":"GET",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/RemoveReportTemplate/{templateId}",
+"method":"GET",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/RemoveReportWidget/{widgetId}",
+"method":"GET",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/reports/ShareAdvancedReport",
+"method":"POST",
+"tag":"Reports",
+"summary":""
+},
+{
+"op":"/resources/DownloadAuditControllerActionsCsv",
+"method":"GET",
+"tag":"Resources",
+"summary":"Returns a CSV file that contains a list of all controllers and actions that have an AuditAttribute action filter."
+},
+{
+"op":"/resources/GetActionResultsById/{caseId}/{actionResultId}",
+"method":"GET",
+"tag":"Resources",
+"summary":"Returns action results by ID and by action result ID."
+},
+{
+"op":"/resources/GetCaseFullDetailsById/{parentId}/{caseId}",
+"method":"GET",
+"tag":"Resources",
+"summary":"Returns a case with full details by its ID."
+},
+{
+"op":"/resources/GetEntityInsightsById/{caseId}/{insightsId}",
+"method":"GET",
+"tag":"Resources",
+"summary":"Returns a case entity insight by insight ID."
+},
+{
+"op":"/retention/delete-cases",
+"method":"POST",
+"tag":"Retention",
+"summary":""
+},
+{
+"op":"/retention/system",
+"method":"POST",
+"tag":"Retention",
+"summary":"Performs manual system data retention."
+},
+{
+"op":"/retention/user",
+"method":"POST",
+"tag":"Retention",
+"summary":"Performs manual user data retention."
+},
+{
+"op":"/search/CaseSearchEverything",
+"method":"POST",
+"tag":"Search",
+"summary":"Return a list of cases by given filters"
+},
+{
+"op":"/search/EntitySearchEverything",
+"method":"POST",
+"tag":"Search",
+"summary":"Return a list of entities by given filters."
+},
+{
+"op":"/search/GetCasesFilterUserAndRoles",
+"method":"POST",
+"tag":"Search",
+"summary":"Return a list of values."
+},
+{
+"op":"/search/GetCasesFilterValues",
+"method":"POST",
+"tag":"Search",
+"summary":"Return a list of values for the cases filters."
+},
+{
+"op":"/search/GetEntitiesFilterValues",
+"method":"POST",
+"tag":"Search",
+"summary":"Return a list of values for the entities filters."
+},
+{
+"op":"/search/GetSearchResultsAsCsv",
+"method":"POST",
+"tag":"Search",
+"summary":"Return a list of cases as a csv file."
+},
+{
+"op":"/external-authentication-settings",
+"method":"GET",
+"tag":"Settings",
+"summary":"Retrieves all the external authentication providers available."
+},
+{
+"op":"/external-authentication-settings",
+"method":"POST",
+"tag":"Settings",
+"summary":"Adds a new external provider instance."
+},
+{
+"op":"/external-authentication-settings/{id}",
+"method":"DELETE",
+"tag":"Settings",
+"summary":"Deletes a specific external provider instance from the system."
+},
+{
+"op":"/external-authentication-settings/{id}",
+"method":"GET",
+"tag":"Settings",
+"summary":"Retrieves detailed information on a specific external provider."
+},
+{
+"op":"/external-authentication-settings/{id}",
+"method":"PATCH",
+"tag":"Settings",
+"summary":"Patches an existing external provider instance."
+},
+{
+"op":"/external-authentication-settings/{id}",
+"method":"PUT",
+"tag":"Settings",
+"summary":"Updates an existing external provider instance."
+},
+{
+"op":"/idp-group-mapping",
+"method":"GET",
+"tag":"Settings",
+"summary":"Retrieves a list of idp-group-mappings."
+},
+{
+"op":"/idp-group-mapping",
+"method":"POST",
+"tag":"Settings",
+"summary":"Creates a new mapping configuration between Identity Provider and SOAR."
+},
+{
+"op":"/idp-group-mapping/count",
+"method":"GET",
+"tag":"Settings",
+"summary":"Retrieves count of idp-group-mappings."
+},
+{
+"op":"/idp-group-mapping/{id}",
+"method":"DELETE",
+"tag":"Settings",
+"summary":"Deletes a mapping configuration according to a given identifier."
+},
+{
+"op":"/idp-group-mapping/{id}",
+"method":"GET",
+"tag":"Settings",
+"summary":"Retrieves specific mapping configuration by id."
+},
+{
+"op":"/idp-group-mapping/{id}",
+"method":"PUT",
+"tag":"Settings",
+"summary":"Updates an existing mapping configuration between Identity Provider and SOAR."
+},
+{
+"op":"/settings/AddCaseStageDefinitionRecord",
+"method":"POST",
+"tag":"Settings",
+"summary":"Adds a case stage record in the system."
+},
+{
+"op":"/settings/AddCollaboratorRequest",
+"method":"POST",
+"tag":"Settings",
+"summary":"AddCollaboratorRequest"
+},
+{
+"op":"/settings/AddLicenseAgreementSignature",
+"method":"POST",
+"tag":"Settings",
+"summary":"AddLicenseAgreementSignature"
+},
+{
+"op":"/settings/AddOrUpdateCaseAssignmentPolicySettings",
+"method":"POST",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/AddOrUpdateEnvironmentRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/AddOrUpdateModelBlockRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Adds or updates a block item record."
+},
+{
+"op":"/settings/AddOrUpdateMoveCaseBetweenEnvironmentsPolicySettings",
+"method":"POST",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/AddOrUpdateNetworkDetailsRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Adds or updates organizational network records."
+},
+{
+"op":"/settings/AddOrUpdateRootCauseClose",
+"method":"POST",
+"tag":"Settings",
+"summary":"Adds or updates a case close root cause record."
+},
+{
+"op":"/settings/AddOrUpdateTrackingListRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Adds or updates a custom list record."
+},
+{
+"op":"/settings/AddOrUpdateUserProfile",
+"method":"POST",
+"tag":"Settings",
+"summary":"Adds or update fields in a given user profile."
+},
+{
+"op":"/settings/AddSlaDefinitionsRecord",
+"method":"POST",
+"tag":"Settings",
+"summary":"Adds an SLA record."
+},
+{
+"op":"/settings/AddTagDefinitionsRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Adds a tag."
+},
+{
+"op":"/settings/batch-delete-custom-lists",
+"method":"POST",
+"tag":"Settings",
+"summary":"Deletes custom list records."
+},
+{
+"op":"/settings/DeleteCollaboratorRequest/{id}",
+"method":"DELETE",
+"tag":"Settings",
+"summary":"AddCollaboratorRequest"
+},
+{
+"op":"/settings/environment-load-balancing-status",
+"method":"GET",
+"tag":"Settings",
+"summary":"Retrieves the current status (enabled/disabled) of the environment load balancing algorithm"
+},
+{
+"op":"/settings/environment-priorities",
+"method":"GET",
+"tag":"Settings",
+"summary":"Get environments' queues priority"
+},
+{
+"op":"/settings/environment-priorities/{environment}",
+"method":"GET",
+"tag":"Settings",
+"summary":"Get environment's queue priority"
+},
+{
+"op":"/settings/environment-priorities/{environment}",
+"method":"PATCH",
+"tag":"Settings",
+"summary":"Update environment's priority for queue resources"
+},
+{
+"op":"/settings/ExportAuditLastWeekAsCsv",
+"method":"POST",
+"tag":"Settings",
+"summary":"Exports audit info from last week as a CSV file."
+},
+{
+"op":"/settings/ExportAuditLastWeekAsCsvV2",
+"method":"POST",
+"tag":"Settings",
+"summary":"Exports audit info from last week as a CSV file."
+},
+{
+"op":"/settings/form-dynamic-parameters",
+"method":"GET",
+"tag":"Settings",
+"summary":"Gets a list of ActionFormParameters by FormType."
+},
+{
+"op":"/settings/form-dynamic-parameters",
+"method":"POST",
+"tag":"Settings",
+"summary":"Creates a new ActionFormParameter."
+},
+{
+"op":"/settings/form-dynamic-parameters/{id}",
+"method":"DELETE",
+"tag":"Settings",
+"summary":"Deletes an existing ActionFormParameter."
+},
+{
+"op":"/settings/form-dynamic-parameters/{id}",
+"method":"GET",
+"tag":"Settings",
+"summary":"Gets an ActionFormParameter by its ID."
+},
+{
+"op":"/settings/form-dynamic-parameters/{id}",
+"method":"PUT",
+"tag":"Settings",
+"summary":"Updates an existing ActionFormParameter."
+},
+{
+"op":"/settings/GetAdvancedReportsSettings",
+"method":"GET",
+"tag":"Settings",
+"summary":"Returns advanced reports settings."
+},
+{
+"op":"/settings/GetAllCollaboratorRequests",
+"method":"GET",
+"tag":"Settings",
+"summary":"GetAllCollaboratorRequests"
+},
+{
+"op":"/settings/GetAllModelBlockRecords",
+"method":"GET",
+"tag":"Settings",
+"summary":"Returns a list of entities which the system will not group alerts by or entities which shouldn\u2019t be displayed in the system."
+},
+{
+"op":"/settings/GetAnalysts",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns the list of analysts in the User Management tab."
+},
+{
+"op":"/settings/GetBlockListDetails",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns a list of the entities listed in the blocklist and their details."
+},
+{
+"op":"/settings/GetCaseAssigmentPolicySettings",
+"method":"GET",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/GetCaseStageDefinitionRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Return a list of the case stages configured in the system."
+},
+{
+"op":"/settings/GetCollaboratorRequestsByUser",
+"method":"GET",
+"tag":"Settings",
+"summary":"GetCollaboratorRequestsByUser"
+},
+{
+"op":"/settings/GetEnvironmentInstanceUrls",
+"method":"GET",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/GetEnvironments",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns a list of all the environments configured in the platform."
+},
+{
+"op":"/settings/GetLatestLicenseAgreement",
+"method":"GET",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/GetMaximumAlertsGroupingConfiguration",
+"method":"GET",
+"tag":"Settings",
+"summary":"Returns maximum alerts grouping configuration."
+},
+{
+"op":"/settings/GetMoveCaseBetweenEnvironmentsPolicySettings",
+"method":"GET",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/GetNetworkDetails",
+"method":"POST",
+"tag":"Settings",
+"summary":"Return a list of the organizational networks configured in the system."
+},
+{
+"op":"/settings/GetProxySettings",
+"method":"GET",
+"tag":"Settings",
+"summary":"Returns the current proxy settings."
+},
+{
+"op":"/settings/GetPublicCertificate",
+"method":"GET",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/GetRootCauseCloseRecords",
+"method":"GET",
+"tag":"Settings",
+"summary":"Returns a list of the case close root cause configured in the system."
+},
+{
+"op":"/settings/GetSlaDefinitions",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns SLA definitions."
+},
+{
+"op":"/settings/GetSlaDefinitionsRecords",
+"method":"GET",
+"tag":"Settings",
+"summary":"Returns the fields configured for an SLA record."
+},
+{
+"op":"/settings/GetSystemEventEntityTypes",
+"method":"GET",
+"tag":"Settings",
+"summary":"Returns system event entity types."
+},
+{
+"op":"/settings/GetSystemVersion",
+"method":"GET",
+"tag":"Settings",
+"summary":"Returns the Siemplify version of the platform."
+},
+{
+"op":"/settings/GetTagDefinitionsRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns the fields configured for a tag in the system."
+},
+{
+"op":"/settings/GetTrackingListRecords",
+"method":"GET",
+"tag":"Settings",
+"summary":"Returns a list of entities listed in the custom list (relevant for Custom Trigger in playbooks and Settings)."
+},
+{
+"op":"/settings/GetTrackingListRecordsFiltered",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns a list of entities listed in the custom list filtered by environments."
+},
+{
+"op":"/settings/GetUserImage",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns the image that is configured for a user."
+},
+{
+"op":"/settings/GetUserProfileCards",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns a summary of all the users profile cards including whether or not the user account is disabled."
+},
+{
+"op":"/settings/GetUserProfiles",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns all the users profile fields."
+},
+{
+"op":"/settings/GetUserProfilesByEnvironments",
+"method":"POST",
+"tag":"Settings",
+"summary":"Returns the user's profile fields configured for an analyst filtered by environments."
+},
+{
+"op":"/settings/IsPermittedToEnvironment/{environmentName}",
+"method":"GET",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/networks/permitted",
+"method":"DELETE",
+"tag":"Settings",
+"summary":"Deletes organizational network records for all permitted environments."
+},
+{
+"op":"/settings/networks/{identifier}",
+"method":"DELETE",
+"tag":"Settings",
+"summary":"Deletes organizational network record"
+},
+{
+"op":"/settings/RemoveAllNetworkDetailsRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Remove all the organizational network records configured in the system."
+},
+{
+"op":"/settings/RemoveCaseStageDefinitionRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Deletes a case stage record."
+},
+{
+"op":"/settings/RemoveEnvironmentRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":""
+},
+{
+"op":"/settings/RemoveModelBlockRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Deletes a block item record."
+},
+{
+"op":"/settings/RemoveNetworkDetailsRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Deletes organizational network records."
+},
+{
+"op":"/settings/RemoveRootCauseClose",
+"method":"POST",
+"tag":"Settings",
+"summary":"Deletes case close root cause record."
+},
+{
+"op":"/settings/RemoveSlaDefinitionRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Deletes an SLA record."
+},
+{
+"op":"/settings/RemoveTagDefinitionRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Deletes a tag."
+},
+{
+"op":"/settings/RemoveTrackingListRecords",
+"method":"POST",
+"tag":"Settings",
+"summary":"Deletes a custom list record."
+},
+{
+"op":"/settings/reset-environment-priorities",
+"method":"POST",
+"tag":"Settings",
+"summary":"Reset all environment priorities to 1 (default)"
+},
+{
+"op":"/settings/SaveAdvancedReportsSettings",
+"method":"POST",
+"tag":"Settings",
+"summary":"Saves advanced reports settings."
+},
+{
+"op":"/settings/tag-definition/names",
+"method":"GET",
+"tag":"Settings",
+"summary":"Get all tag definitions names.\nSupports federation tag names of remote and local cases when includeFederationData=true query param is passed."
+},
+{
+"op":"/settings/TestAdvancedReportsSettings",
+"method":"GET",
+"tag":"Settings",
+"summary":"Validates advanced reports settings."
+},
+{
+"op":"/settings/TestProxySettings",
+"method":"POST",
+"tag":"Settings",
+"summary":"Test the settings configured for the proxy."
+},
+{
+"op":"/settings/toggle-environment-load-balancing",
+"method":"POST",
+"tag":"Settings",
+"summary":"Enable or disable environment load balancing algorithm"
+},
+{
+"op":"/settings/UpdateAlertGroupingRule",
+"method":"POST",
+"tag":"Settings",
+"summary":"Updates alert grouping rule."
+},
+{
+"op":"/settings/UpdateCollaboratorRequest",
+"method":"PUT",
+"tag":"Settings",
+"summary":"UpdateCollaboratorRequest"
+},
+{
+"op":"/settings/UpdateUserImage",
+"method":"POST",
+"tag":"Settings",
+"summary":"Update a user image in a given user profile."
+},
+{
+"op":"/settings/UploadCustomActionResultJson",
+"method":"POST",
+"tag":"Settings",
+"summary":"Uploads custom action result in JSON format."
+},
+{
+"op":"/socroles/AddOrUpdateSocRole",
+"method":"POST",
+"tag":"SOC Roles",
+"summary":"Adds or update a SOC role in the system."
+},
+{
+"op":"/socroles/DeleteSocRole",
+"method":"POST",
+"tag":"SOC Roles",
+"summary":"Deletes a SOC role defined in the platform."
+},
+{
+"op":"/socroles/GetSocRole/{id}",
+"method":"GET",
+"tag":"SOC Roles",
+"summary":"Return a list of the SOC roles by their identifier."
+},
+{
+"op":"/socroles/GetSocRoles",
+"method":"GET",
+"tag":"SOC Roles",
+"summary":"Return a list of the SOC roles configured in the system."
+},
+{
+"op":"/socroles/GetSocRolesByEnvironments",
+"method":"POST",
+"tag":"SOC Roles",
+"summary":"Return a list of the SOC roles configured in the system filtered by environments."
+},
+{
+"op":"/socroles/HasAssignedUsers/{id}",
+"method":"GET",
+"tag":"SOC Roles",
+"summary":"Checks if a specific SOC role has users assigned to it."
+},
+{
+"op":"/webhooks-management",
+"method":"POST",
+"tag":"Webhooks",
+"summary":""
+},
+{
+"op":"/webhooks-management",
+"method":"PUT",
+"tag":"Webhooks",
+"summary":""
+},
+{
+"op":"/webhooks-management/Cards",
+"method":"GET",
+"tag":"Webhooks",
+"summary":""
+},
+{
+"op":"/webhooks-management/ExportLogs/{identifier}",
+"method":"GET",
+"tag":"Webhooks",
+"summary":""
+},
+{
+"op":"/webhooks-management/Logs",
+"method":"GET",
+"tag":"Webhooks",
+"summary":""
+},
+{
+"op":"/webhooks-management/Revoke/{identifier}",
+"method":"POST",
+"tag":"Webhooks",
+"summary":""
+},
+{
+"op":"/webhooks-management/{identifier}",
+"method":"DELETE",
+"tag":"Webhooks",
+"summary":""
+},
+{
+"op":"/webhooks-management/{identifier}",
+"method":"GET",
+"tag":"Webhooks",
+"summary":""
+},
+{
+"op":"/webhooks-management/{identifier}/statistics",
+"method":"GET",
+"tag":"Webhooks",
+"summary":""
+}
+]
+}

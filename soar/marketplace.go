@@ -118,6 +118,17 @@ type contentPacksList struct {
 	NextPageToken string        `json:"nextPageToken"`
 }
 
+// GetContentPack fetches one Content-Hub content pack by its identifier (GET
+// contentHub/contentPacks/{id} on the SOAR host, v1alpha) — the inspect-before-
+// install read the list-only surface lacked. Read-only.
+func (c *Client) GetContentPack(ctx context.Context, identifier string) (*ContentPack, error) {
+	var out ContentPack
+	if err := c.t.V1Alpha(ctx, "GET", "contentHub/contentPacks/"+identifier, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // ListContentPacks returns the Content-Hub content packs (GET
 // contentHub/contentPacks on the SOAR host, v1alpha). Read-only.
 func (c *Client) ListContentPacks(ctx context.Context) ([]ContentPack, error) {

@@ -13,6 +13,8 @@ package legacy
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 )
@@ -67,6 +69,66 @@ func (c *Client) SettingXAddOrUpdateUserProfile(ctx context.Context, body any) (
 // freeform legacy filter payload.
 func (c *Client) SettingXGetUserProfiles(ctx context.Context, body any) (RawJSON, error) {
 	return c.externalPost(ctx, "/settings/GetUserProfiles", body)
+}
+
+// UserProfile is the assignee-directory view of a SOAR user (a subset of
+// GetUserProfiles). It is metadata only — no image blob and no secret (House
+// Rule 4). UserName is the login identifier and the value `soar case assign
+// --user` consumes.
+type UserProfile struct {
+	UserName        string `json:"userName"`
+	FirstName       string `json:"firstName"`
+	LastName        string `json:"lastName"`
+	Email           string `json:"email"`
+	SOCRole         string `json:"socRole"`
+	PermissionGroup string `json:"permissionGroup"`
+	IsDisabled      bool   `json:"isDisabled"`
+}
+
+// FullName joins first and last name (trimmed) for the directory's NAME column.
+func (u UserProfile) FullName() string {
+	switch {
+	case u.FirstName != "" && u.LastName != "":
+		return u.FirstName + " " + u.LastName
+	case u.FirstName != "":
+		return u.FirstName
+	default:
+		return u.LastName
+	}
+}
+
+// ListUserProfiles returns the SOAR user directory as a typed view (over
+// SettingXGetUserProfiles) — the assignee lookup `soar case assign --user` needs,
+// since the case read shows an assignee's display NAME but not the id. Read-only;
+// metadata only (no image, no secret). It pages through every user (no silent
+// truncation), bounded by a runaway backstop.
+func (c *Client) ListUserProfiles(ctx context.Context) ([]UserProfile, error) {
+	const pageSize = 500
+	const maxPages = 200 // backstop: 100k users, far beyond any real tenant
+	var all []UserProfile
+	for page := range maxPages {
+		body := map[string]any{
+			"searchTerm":          "",
+			"requestedPage":       page,
+			"pageSize":            pageSize,
+			"filterDisabledUsers": false,
+		}
+		raw, err := c.SettingXGetUserProfiles(ctx, body)
+		if err != nil {
+			return nil, err
+		}
+		var resp struct {
+			ObjectsList []UserProfile `json:"objectsList"`
+		}
+		if err := json.Unmarshal(raw, &resp); err != nil {
+			return nil, fmt.Errorf("decode user profiles: %w", err)
+		}
+		all = append(all, resp.ObjectsList...)
+		if len(resp.ObjectsList) < pageSize { // last (short) page
+			break
+		}
+	}
+	return all, nil
 }
 
 // SettingXGetUserProfilesByEnvironments returns user profiles filtered by

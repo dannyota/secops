@@ -634,7 +634,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
 value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
-Waves 25–33 are shipped; 34–36 are the remaining forward plan.
+Waves 25–34 are shipped; 35–36 are the remaining forward plan.
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
@@ -782,7 +782,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   help matches actual behavior; a guard fails on doc↔CLI drift. ✅
 - **Docs.** CATALOG, ARCHITECTURE.
 
-### Wave 34 — SOAR triage & discovery UX *(planned)*
+### Wave 34 — SOAR triage & discovery UX *(done — live read-validation + value-lister deferred)*
 
 - **Goal.** Close the daily SOAR triage loop's discovery gaps — every flag value an
   operator must supply should be discoverable in-tool.
@@ -806,8 +806,25 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
     git-ignored and not shipped).
   - **Minimal typed SOAR case view (SDK)** — a small `id · displayName · status` struct
     over `ListCases`'s `[]json.RawMessage` so every consumer stops defining its own.
+- **Done.** `soar users list` (typed `legacy.ListUserProfiles` over `GetUserProfiles`,
+  paged, metadata-only — no avatar/secret; `assign --help` points at it). Modern
+  `soar case list` reaches parity — TITLE/ASSIGNEE columns + prettified priority over a
+  new typed `soar.Case` view (`ListCasesTyped`; Title/Assignee decoded tolerantly across
+  schema revisions). Single `soar case close --reason` now takes the same fixed enum as
+  `bulk-close` (sent as the legacy `Api*` PascalCase wire name, e.g. `NotMalicious`,
+  per the swagger `ApiCloseAlertRequest` example). `soar marketplace contentpacks get
+  <id>` (+ `GetContentPack`). `soar legacy list [--grep] [--tag] [--method]` over a
+  bundled, tenant-neutral op index (`internal/cli/legacy_ops.json`, 483 ops embedded)
+  so clean-clone users can discover ops without the unshipped swagger; `legacy call
+  --help` points at it. Value-discovery **pointers** added to the `--tag` / `--stage` /
+  `--root-cause` flag help (→ the matching `soar pull` surface).
+- **Deferred.** Live read-validation of the new reads (users list / case-list parity /
+  contentpacks get) — built + offline-tested, pending a gated live AppKey read. A live
+  `--list-values` lister for `--tag`/`--stage`/`--root-cause` (the pull surfaces +
+  flag-help pointers cover discovery for now; a live lister awaits per-kind value
+  decoders).
 - **Exit.** Every `soar case` / `marketplace` / `legacy` flag value is discoverable
-  in-tool; modern `case list` matches legacy output.
+  in-tool; modern `case list` matches legacy output. ✅
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
 ### Wave 35 — Detection-state & curated reconcile *(planned)*

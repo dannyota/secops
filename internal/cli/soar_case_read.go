@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -148,41 +149,59 @@ func runModernCaseList(pageSize int, status string, asJSON bool) error {
 	if want != "" {
 		opt.Filter = "status = '" + want + "'"
 	}
-	raws, err := c.ListCasesOpts(baseContext(), opt)
+	cases, err := c.ListCasesTyped(baseContext(), opt)
 	if err != nil {
 		return err // preferModern falls back to legacy
 	}
-	type row struct {
-		id, priority, stat, stage string
-	}
-	var rows []row
-	kept := make([]json.RawMessage, 0, len(raws))
-	for _, r := range raws {
-		var cs soar.Case
-		if err := json.Unmarshal(r, &cs); err != nil {
-			continue
-		}
+	kept := make([]soar.Case, 0, len(cases))
+	for _, cs := range cases {
 		if want != "" && !strings.EqualFold(cs.Status, want) {
 			continue
 		}
+		kept = append(kept, cs)
+	}
+	if asJSON {
+		raws := make([]json.RawMessage, 0, len(kept))
+		for _, cs := range kept {
+			raws = append(raws, cs.Raw)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(raws)
+	}
+	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintln(tw, "ID\tTITLE\tPRIORITY\tSTATUS\tSTAGE\tASSIGNEE")
+	for _, cs := range kept {
 		id := cs.DisplayID
 		if id == "" { // modern payload keys the id under the resource name
 			id = cs.Name[strings.LastIndex(cs.Name, "/")+1:]
 		}
-		rows = append(rows, row{id, cs.Priority, cs.Status, cs.Stage})
-		kept = append(kept, r)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			id, truncate(cs.Title, 40), prettyPriority(cs.Priority), cs.Status, cs.Stage, dashIfEmpty(cs.Assignee))
 	}
-	if asJSON {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(kept)
+	if err := tw.Flush(); err != nil {
+		return err
 	}
-	fmt.Fprintf(os.Stdout, "%-14s %-16s %-8s %s\n", "ID", "PRIORITY", "STATUS", "STAGE")
-	for _, rw := range rows {
-		fmt.Fprintf(os.Stdout, "%-14s %-16s %-8s %s\n", rw.id, rw.priority, rw.stat, rw.stage)
-	}
-	fmt.Fprintf(os.Stdout, "\n%d case(s) (modern v1alpha)\n", len(rows))
+	fmt.Fprintf(os.Stdout, "\n%d case(s) (modern v1alpha)\n", len(kept))
 	return nil
+}
+
+// prettyPriority renders a modern priority token (e.g. "PRIORITY_HIGH") as a short
+// label ("High"); unknown/empty values pass through (a dash for empty).
+func prettyPriority(p string) string {
+	s := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(p, "PRIORITY_")), "_", " ")
+	if s == "" {
+		return "-"
+	}
+	return strings.ToUpper(s[:1]) + s[1:] // ASCII enum token; cap the first letter
+}
+
+// dashIfEmpty renders "-" for an empty cell so columns read cleanly.
+func dashIfEmpty(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
 }
 
 func newCaseGetCmd() *cobra.Command {

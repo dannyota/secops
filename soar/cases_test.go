@@ -2,6 +2,7 @@ package soar_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,6 +12,76 @@ import (
 	"danny.vn/secops/auth"
 	"danny.vn/secops/soar"
 )
+
+// TestCaseUnmarshalTolerant locks the schema-tolerant decode of Title/Assignee:
+// the v1alpha case schema has used different keys across revisions, so Case picks
+// the first present one and always preserves the full body in Raw.
+func TestCaseUnmarshalTolerant(t *testing.T) {
+	cases := []struct {
+		name           string
+		body           string
+		wantTitle      string
+		wantAssignee   string
+		wantStatus     string
+		wantPriorityID string
+	}{
+		{"displayName+assignee", `{"displayId":"42","displayName":"Phishing wave","assignee":"alice","status":"OPENED","priority":"PRIORITY_HIGH"}`, "Phishing wave", "alice", "OPENED", "42"},
+		{"title+assignedUser", `{"displayId":"7","title":"Beacon","assignedUser":"bob","status":"CLOSED"}`, "Beacon", "bob", "CLOSED", "7"},
+		{"owner-fallback", `{"displayId":"9","displayName":"X","owner":"carol"}`, "X", "carol", "", "9"},
+		{"none", `{"displayId":"1"}`, "", "", "", "1"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var c soar.Case
+			if err := json.Unmarshal([]byte(tc.body), &c); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			if c.Title != tc.wantTitle {
+				t.Errorf("Title = %q, want %q", c.Title, tc.wantTitle)
+			}
+			if c.Assignee != tc.wantAssignee {
+				t.Errorf("Assignee = %q, want %q", c.Assignee, tc.wantAssignee)
+			}
+			if c.Status != tc.wantStatus {
+				t.Errorf("Status = %q, want %q", c.Status, tc.wantStatus)
+			}
+			if c.DisplayID != tc.wantPriorityID {
+				t.Errorf("DisplayID = %q, want %q", c.DisplayID, tc.wantPriorityID)
+			}
+			if len(c.Raw) == 0 {
+				t.Error("Raw not preserved")
+			}
+		})
+	}
+}
+
+// TestListCasesTyped locks that the typed list decodes the page into Case values
+// (with the tolerant Title/Assignee) rather than raw JSON.
+func TestListCasesTyped(t *testing.T) {
+	rt := &fixedBodyRT{body: `{"cases":[{"displayId":"5","displayName":"Recon","assignee":"dave","status":"OPENED"}],"nextPageToken":""}`}
+	c := newCaptureClient(t, rt)
+	got, err := c.ListCasesTyped(context.Background(), soar.CaseListOptions{PageSize: 10})
+	if err != nil {
+		t.Fatalf("ListCasesTyped: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d cases, want 1", len(got))
+	}
+	if got[0].Title != "Recon" || got[0].Assignee != "dave" || got[0].DisplayID != "5" {
+		t.Errorf("decoded case = %+v", got[0])
+	}
+}
+
+// fixedBodyRT returns a fixed body for any request (offline, no auth).
+type fixedBodyRT struct{ body string }
+
+func (r *fixedBodyRT) RoundTrip(*http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(r.body)),
+		Header:     make(http.Header),
+	}, nil
+}
 
 // captureRT records the last request's query and returns an empty cases page, so
 // a test can assert which query parameters ListCasesOpts sent — offline, no auth.

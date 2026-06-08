@@ -87,10 +87,13 @@ The reason is one of `malicious | not-malicious | maintenance | inconclusive |
 unknown` (typed enum, not free text). This is a guarded `soar push` surface — see
 [reconcile](reconcile.md) for the dry-run → review → `--yes` model.
 
-Note the close-reason difference between the two verbs: single-case `soar case
-close --reason` is **free text**, while `soar push bulk-close --reason` is the
-**fixed enum** above. For consistent reporting, prefer the enum vocabulary
-(`malicious`, `not-malicious`, …) even in the free-text single-case reason.
+Both verbs take the **same fixed enum**: single-case `soar case close --reason`
+and `soar push bulk-close --reason` each accept `malicious | not-malicious |
+maintenance | inconclusive | unknown`, so single and bulk closes aggregate
+consistently in metrics. Put a custom root-cause in `--root-cause` and a free-text
+note in `--comment`. (List your tags / stages / root-causes with `soar pull
+case-tags` / `case-stages` / `close-root-causes`; find an assignee id for
+`assign --user` with `soar users list`.)
 
 ## 🔀 One case, two APIs
 

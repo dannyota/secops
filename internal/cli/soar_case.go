@@ -145,7 +145,7 @@ func newCaseAssignCmd() *cobra.Command {
 		},
 	}
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
-	cmd.Flags().StringVar(&user, "user", "", "target user id (required)")
+	cmd.Flags().StringVar(&user, "user", "", "target user id — a username (list them with `soar users list`) or a role as @RoleName (required)")
 	_ = cmd.MarkFlagRequired("user")
 	return cmd
 }
@@ -194,7 +194,7 @@ func newCaseStageCmd() *cobra.Command {
 		},
 	}
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
-	cmd.Flags().StringVar(&stage, "stage", "", "target stage (required)")
+	cmd.Flags().StringVar(&stage, "stage", "", "target stage (required) — list valid stages with `soar pull case-stages`")
 	_ = cmd.MarkFlagRequired("stage")
 	return cmd
 }
@@ -227,7 +227,7 @@ func newCaseTagCmd(remove bool) *cobra.Command {
 		},
 	}
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
-	cmd.Flags().StringVar(&tag, "tag", "", "tag value (required)")
+	cmd.Flags().StringVar(&tag, "tag", "", "tag value (required) — list existing tags with `soar pull case-tags`")
 	_ = cmd.MarkFlagRequired("tag")
 	return cmd
 }
@@ -289,15 +289,27 @@ func newCaseCloseCmd() *cobra.Command {
 		dryRun, yes        bool
 	)
 	cmd := &cobra.Command{
-		Use:   "close --id N --reason <s>",
-		Short: "Close a single case (string reason; see `soar push bulk-close` for queue bulk-close)",
-		Args:  cobra.NoArgs,
+		Use:   "close --id N --reason <enum>",
+		Short: "Close a single case (typed reason enum, same vocabulary as `soar push bulk-close`)",
+		Long: "Close one case. --reason is the fixed close-reason enum (the same set\n" +
+			"`soar push bulk-close` uses) so single and bulk closes aggregate in metrics:\n" +
+			"malicious | not-malicious | maintenance | inconclusive | unknown. Put your\n" +
+			"custom root-cause name in --root-cause and any free-text note in --comment.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			cr, err := parseCloseReason(reason)
+			if err != nil {
+				return err
+			}
 			body := caseBody(caseID, alert)
-			body["reason"] = reason
+			// The legacy external CloseCase types `reason` as a free string, but the
+			// Api* close family puts the PascalCase enum NAME on the wire (the sibling
+			// ApiCloseAlertRequest examples reason="NotMalicious" in the swagger) — which
+			// is exactly CloseReason.String(), so the typed token maps straight through.
+			body["reason"] = cr.String()
 			body["rootCause"] = rootCause
 			body["comment"] = comment
-			return caseAction(fmt.Sprintf("close case %d (reason=%q)", caseID, reason), body, dryRun, yes,
+			return caseAction(fmt.Sprintf("close case %d (reason=%s)", caseID, cr), body, dryRun, yes,
 				func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
 					return lc.CloseCase(ctx, body)
 				})
@@ -305,9 +317,9 @@ func newCaseCloseCmd() *cobra.Command {
 	}
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
 	f := cmd.Flags()
-	f.StringVar(&reason, "reason", "", "close reason (required)")
-	f.StringVar(&rootCause, "root-cause", "", "close root cause")
-	f.StringVar(&comment, "comment", "", "close comment")
+	f.StringVar(&reason, "reason", "", "close reason: malicious | not-malicious | maintenance | inconclusive | unknown (required)")
+	f.StringVar(&rootCause, "root-cause", "", "close root cause (your custom root-cause name) — list options with `soar pull close-root-causes`")
+	f.StringVar(&comment, "comment", "", "close comment (free-text note)")
 	_ = cmd.MarkFlagRequired("reason")
 	return cmd
 }

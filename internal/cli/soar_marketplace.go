@@ -97,11 +97,13 @@ func newSOARMarketplaceGetCmd() *cobra.Command {
 	return cmd
 }
 
+// newSOARContentPacksCmd lists content packs by default (bare `contentpacks`) and
+// hosts `contentpacks get <id>` to inspect one before install.
 func newSOARContentPacksCmd() *cobra.Command {
 	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "contentpacks",
-		Short: "List Content Hub content packs (read-only)",
+		Short: "List Content Hub content packs (read-only); `get <id>` to inspect one",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newSOARClient()
@@ -123,6 +125,36 @@ func newSOARContentPacksCmd() *cobra.Command {
 				fmt.Fprintf(os.Stdout, "%-44s %s%s\n", p.Identifier, p.DisplayName, tag)
 			}
 			fmt.Fprintf(os.Stdout, "\n%d content pack(s)\n", len(packs))
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
+	cmd.AddCommand(newSOARContentPackGetCmd())
+	return cmd
+}
+
+func newSOARContentPackGetCmd() *cobra.Command {
+	var asJSON bool
+	cmd := &cobra.Command{
+		Use:   "get <identifier>",
+		Short: "Show one Content Hub content pack (read-only)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
+			p, err := c.GetContentPack(baseContext(), args[0])
+			if err != nil {
+				return err
+			}
+			if asJSON {
+				return json.NewEncoder(os.Stdout).Encode(p.Raw)
+			}
+			fmt.Printf("Identifier:  %s\n", p.Identifier)
+			fmt.Printf("Name:        %s\n", p.DisplayName)
+			fmt.Printf("Installed:   %v\n", p.IsInstalled)
+			fmt.Println("\n(--json for the full record)")
 			return nil
 		},
 	}

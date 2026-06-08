@@ -23,7 +23,44 @@ type Case struct {
 	Priority  string          `json:"priority"`
 	Stage     string          `json:"stage"`
 	Status    string          `json:"status"`
+	Title     string          `json:"-"` // tolerant: displayName/title
+	Assignee  string          `json:"-"` // tolerant: assignee/assignedUser/owner
 	Raw       json.RawMessage `json:"-"` // full case object as returned
+}
+
+// UnmarshalJSON fills the stable typed fields, keeps the full object in Raw, and
+// resolves Title/Assignee tolerantly — the v1alpha case schema has used different
+// keys for those across revisions (and the existing "cases"/"items" envelope split
+// shows the surface still moves), so we pick the first present key rather than pin
+// one that a future revision renames.
+func (c *Case) UnmarshalJSON(data []byte) error {
+	type alias Case // alias drops this method, so the inner Unmarshal won't recurse
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*c = Case(a)
+	c.Raw = append(json.RawMessage(nil), data...)
+	var m map[string]json.RawMessage
+	if json.Unmarshal(data, &m) == nil {
+		c.Title = firstStringField(m, "displayName", "title")
+		c.Assignee = firstStringField(m, "assignee", "assignedUser", "assigneeUsername", "owner")
+	}
+	return nil
+}
+
+// firstStringField returns the first key in keys whose value decodes to a
+// non-empty string. Used for schema-tolerant field resolution.
+func firstStringField(m map[string]json.RawMessage, keys ...string) string {
+	for _, k := range keys {
+		if raw, ok := m[k]; ok {
+			var s string
+			if json.Unmarshal(raw, &s) == nil && s != "" {
+				return s
+			}
+		}
+	}
+	return ""
 }
 
 // listCasesPage is the Google-style list envelope. The v1alpha surface has used
@@ -55,6 +92,25 @@ type CaseListOptions struct {
 // request; <=0 lets the server choose). It is a thin wrapper over ListCasesOpts.
 func (c *Client) ListCases(ctx context.Context, pageSize int) ([]json.RawMessage, error) {
 	return c.ListCasesOpts(ctx, CaseListOptions{PageSize: pageSize})
+}
+
+// ListCasesTyped is ListCasesOpts decoded into the typed Case view (id ·
+// displayName · status · priority · stage · assignee, plus Raw), so every consumer
+// gets the same minimal struct instead of redefining its own over the raw JSON.
+func (c *Client) ListCasesTyped(ctx context.Context, opt CaseListOptions) ([]Case, error) {
+	raws, err := c.ListCasesOpts(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Case, 0, len(raws))
+	for _, r := range raws {
+		var cs Case
+		if err := json.Unmarshal(r, &cs); err != nil {
+			continue // skip an unparseable record rather than fail the whole list
+		}
+		out = append(out, cs)
+	}
+	return out, nil
 }
 
 // ListCasesOpts returns cases as raw JSON, paging through the v1alpha
