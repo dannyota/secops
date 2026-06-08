@@ -31,7 +31,7 @@ func newIoCsCmd() *cobra.Command {
 		Long: "Look up an indicator (hash, domain, IP) against the tenant's IoC matches.\n" +
 			"Read-only — Threat Intelligence is Google/Mandiant-sourced.",
 	}
-	cmd.AddCommand(newIoCsFindCmd(), newIoCsGetCmd())
+	cmd.AddCommand(newIoCsFindCmd(), newIoCsGetCmd(), newIoCsRelatedCmd())
 	return cmd
 }
 
@@ -164,6 +164,54 @@ func newIoCsGetCmd() *cobra.Command {
 	return cmd
 }
 
+func newIoCsRelatedCmd() *cobra.Command {
+	var (
+		collectionType string
+		limit          int
+		orderBy        string
+	)
+	cmd := &cobra.Command{
+		Use:   "related <ioc-id>",
+		Short: "List threat collections related to an IoC resource",
+		Long: "List campaigns and/or reports related to an IoC resource id. The id is the\n" +
+			"resource id from `iocs find --json`, not the raw indicator value.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 1 || limit > 40 {
+				return fmt.Errorf("--limit must be between 1 and 40")
+			}
+			types, err := relatedThreatCollectionTypes(collectionType)
+			if err != nil {
+				return err
+			}
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			var out []chronicle.ThreatCollection
+			for _, typ := range types {
+				tcs, terr := c.FetchRelatedThreatCollections(baseContext(), chronicle.RelatedThreatCollectionQuery{
+					Type:     typ,
+					Ioc:      args[0],
+					OrderBy:  orderBy,
+					PageSize: limit,
+					MaxPages: 1,
+				})
+				if terr != nil {
+					return terr
+				}
+				out = append(out, tcs...)
+			}
+			return emitThreatCollections(os.Stdout, out)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&collectionType, "collection-type", "all", "related threat collection type: campaign|report|all")
+	f.IntVar(&limit, "limit", 25, "maximum related collections per type (API max 40)")
+	f.StringVar(&orderBy, "order", "last_modification_date-", "server order key")
+	return cmd
+}
+
 // iocValueType resolves the IoCValueType for value v: an explicit --type override
 // wins; otherwise it is inferred from the value's shape (IP, hex hash length, or
 // a dotted name → domain). Returns an error when the type can't be inferred.
@@ -201,6 +249,22 @@ func iocValueType(v, override string) (chronicle.IoCValueType, error) {
 		return chronicle.IoCValueDomain, nil
 	}
 	return "", fmt.Errorf("cannot infer indicator type for %q — pass --type", v)
+}
+
+func relatedThreatCollectionTypes(v string) ([]chronicle.RelatedThreatCollectionType, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", "all":
+		return []chronicle.RelatedThreatCollectionType{
+			chronicle.RelatedThreatCollectionCampaign,
+			chronicle.RelatedThreatCollectionReport,
+		}, nil
+	case "campaign", "campaigns":
+		return []chronicle.RelatedThreatCollectionType{chronicle.RelatedThreatCollectionCampaign}, nil
+	case "report", "reports":
+		return []chronicle.RelatedThreatCollectionType{chronicle.RelatedThreatCollectionReport}, nil
+	default:
+		return nil, fmt.Errorf("unknown --collection-type %q (want campaign|report|all)", v)
+	}
 }
 
 // isHex reports whether s is a non-empty lowercase hex string.

@@ -33,7 +33,7 @@ or `secopsctl config --show-path`.
 
 `--json` is honored by the read commands: `info`, `query udm`, `query nl`,
 `query raw`, `parsers sample-logs`, `parsers validate`, `entity summarize`, `alerts list`, `alerts get`, `iocs find`, `iocs get`,
-`ti collections`, `ti collection`, `watchlists list`, `watchlists get`,
+`iocs related`, `ti collections`, `ti collection`, `ti related`, `watchlists list`, `watchlists get`,
 `curated list`, `curated rules`, `rules detections`, `rules errors`,
 `rules retrohunt list`, `rules retrohunt get`, `soar case list`, `soar case get`,
 `soar case values`, `soar users list`, `soar marketplace contentpacks get`,
@@ -75,8 +75,10 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `alerts get` | Get one alert by id. |
 | `ti collections` | List Mandiant threat collections (campaigns/reports/…). |
 | `ti collection <id>` | Show one threat collection by id. |
+| `ti related <collection-alt-name-or-id>` | Show IoC match counts for threat collection alt names such as `CAMP.00.001`; resource ids are resolved to alt names first. |
 | `iocs find <value>` | Resolve indicator value(s) to IoC records (`--type` to force md5/sha1/sha256/domain/ip; `--from-file <path>`/`-` for a list or stdin). |
 | `iocs get <id>` | Get one IoC by its resource id (from `iocs find --json`). |
+| `iocs related <ioc-id>` | List campaigns/reports related to an IoC resource id (`--collection-type campaign|report|all`). |
 | `watchlists list` | List SIEM entity watchlists. |
 | `watchlists get` | Get one watchlist by id. |
 | `cases get` / `cases list` / `cases search` | Reach a case on the Chronicle host by UUID — alternate path that 500s today; prefer `soar case`. |

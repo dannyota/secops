@@ -43,3 +43,37 @@ func TestIoCValueType(t *testing.T) {
 		})
 	}
 }
+
+func TestRelatedThreatCollectionTypes(t *testing.T) {
+	cases := []struct {
+		in      string
+		want    []chronicle.RelatedThreatCollectionType
+		wantErr bool
+	}{
+		{"", []chronicle.RelatedThreatCollectionType{chronicle.RelatedThreatCollectionCampaign, chronicle.RelatedThreatCollectionReport}, false},
+		{"all", []chronicle.RelatedThreatCollectionType{chronicle.RelatedThreatCollectionCampaign, chronicle.RelatedThreatCollectionReport}, false},
+		{"campaign", []chronicle.RelatedThreatCollectionType{chronicle.RelatedThreatCollectionCampaign}, false},
+		{"reports", []chronicle.RelatedThreatCollectionType{chronicle.RelatedThreatCollectionReport}, false},
+		{"bogus", nil, true},
+	}
+	for _, c := range cases {
+		got, err := relatedThreatCollectionTypes(c.in)
+		if c.wantErr {
+			if err == nil {
+				t.Fatalf("relatedThreatCollectionTypes(%q) = %v, want error", c.in, got)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("relatedThreatCollectionTypes(%q): %v", c.in, err)
+		}
+		if len(got) != len(c.want) {
+			t.Fatalf("relatedThreatCollectionTypes(%q) len = %d, want %d", c.in, len(got), len(c.want))
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Fatalf("relatedThreatCollectionTypes(%q)[%d] = %q, want %q", c.in, i, got[i], c.want[i])
+			}
+		}
+	}
+}

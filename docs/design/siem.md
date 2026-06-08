@@ -143,7 +143,9 @@ secopsctl alerts get  <alert-id> [--detections] [--json]                        
 secopsctl soar case list [--status open|closed|all] [--limit N] [--json]                   # cases (built, default open)
 secopsctl iocs find <value> [value…] [--type md5|sha1|sha256|domain|ip] [--json]           # IoC lookup (built, read)
 secopsctl iocs get  <ioc-id> [--json]                                                      # one IoC (built, read)
+secopsctl iocs related <ioc-id> [--collection-type campaign|report|all] [--json]           # IoC → campaigns/reports (built, read)
 secopsctl ti collections [--types campaign,report,…] [--limit N] [--json]                  # threat intel (built, read)
+secopsctl ti related <collection-alt-name-or-id> [--json]                                  # collection match counts (built, read)
 secopsctl query nl '<question>'    [--hours N] [--limit N] [--translate-only] [--json]     # NL → UDM → search (built, read)
 secopsctl stats     '<query>'      [--hours N]                                             # aggregations (planned)
 secopsctl entity summarize <type> <value> [--hours N] [--json]                             # built, read
@@ -210,7 +212,7 @@ today — prefer `soar case`. Authoritative per-command status is in
 [catalog.md](catalog.md).*
 
 ```
-secopsctl query udm | alerts list/get | iocs find/get | ti collections | entity summarize   # read
+secopsctl query udm | alerts list/get | iocs find/get/related | ti collections/related | entity summarize # read
 secopsctl query udm '<filter>' --raw [--limit N]                                             # raw log line per matched event (UDM-scoped) -> parsers run --logs -
 secopsctl query raw '<regex>' [--unparsed] [--limit N]                                        # content-based raw log search (reaches no-parser logs) -> parsers run --logs -
 secopsctl alerts    update | bulk <close|verdict|priority|comment>                           # act (planned)

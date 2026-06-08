@@ -731,7 +731,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   catalog to ship (the upstream swagger is git-ignored and not published); op
   discovery stays via the SecOps UI Network tab for now.
 
-### Wave 32 — SDK ergonomics & enrichment  *(done — pivot + typed-case deferred)*
+### Wave 32 — SDK ergonomics & enrichment  *(done — enrichment pivot closed in W35; typed-case deferred)*
 
 - **`soar.Error` / `soar.IsNotFound`** (and `legacy.Error` / `legacy.IsNotFound`) —
   the internal transport error is now re-exported via a type alias plus an
@@ -741,9 +741,10 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   prevalence over a window (wraps `SummarizeEntity`).
 - **`query nl <text>`** — natural-language → UDM → search (`--translate-only` to
   just print the UDM); wraps `TranslateNLToUDM` / `NLSearch`.
-- **Deferred:** `iocs related` / `ti related` (the `:fetchRelated` /
-  `:fetchIocMatchMetadata` enrichment RPCs aren't built in the SDK yet), and a
-  typed `ListCases` view (cases stay `[]json.RawMessage` + the typed `soar.Case`).
+- **Deferred closed in Wave 35:** `iocs related` / `ti related` (the
+  `:fetchRelated` / `:fetchIocMatchMetadata` enrichment RPCs).
+- **Deferred:** a typed `ListCases` view (cases stay `[]json.RawMessage` + the
+  typed `soar.Case`).
 
 ### Wave 33 — CLI UX & help completeness *(done — doctor already complete from W25/W26)*
 
@@ -830,7 +831,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   in-tool; modern `case list` matches legacy output. ✅
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
-### Wave 35 — Detection-state & curated reconcile *(partial — rule targeting + curated push shipped)*
+### Wave 35 — Detection-state & curated reconcile *(partial — rule targeting + curated push + enrichment shipped)*
 
 - **Goal.** Make detection *deployment state* — not just rule bodies — fully
   diff-and-push-able, closing the last places where a live toggle bypasses git review.
@@ -842,16 +843,17 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
     `curated/deployments.yaml` vs live and calls
     `BatchUpdateCuratedRuleSetDeployments` for changed (category, set, precision)
     tuples, so curated enable/alerting is detection-as-code like every other surface.
-  - **Enrichment pivot** — expose `:fetchRelated` / `:fetchIocMatchMetadata` as
-    `iocs related` / `ti related` so a hunt pivots indicator → campaign/report instead
-    of three disconnected lookups (SDK methods first, then CLI).
+  - **Done — enrichment pivot** — `iocs related` uses
+    `threatCollections:fetchRelated` to pivot from an IoC resource id to related
+    campaigns/reports, and `ti related` uses `:fetchIocMatchMetadata` to show
+    tenant IoC match counts for collection alt names. The SDK also exposes
+    `iocs:fetchRelated` for the reverse collection/association → IoC lookup.
   - **Feed authoring ergonomics** — ship feed/parser file templates under `examples/`
     (with the writable-field schema), and source feed secrets from env / Secret Manager
     **at push time** (never the YAML) so a feed carrying a credential can be reconciled.
 - **Exit.** A rule's deployment block and a curated-deployment file each reconcile
-  through pull → diff → push; enrichment pivot read-validated; feed templates +
-  secret-at-push documented. First half is complete; enrichment and feed authoring
-  remain.
+  through pull → diff → push; enrichment pivot is built + offline-tested. Feed
+  templates + secret-at-push remain.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
 ### Wave 36 — SOAR automation-as-code completion *(planned)*

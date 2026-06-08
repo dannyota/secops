@@ -71,8 +71,8 @@ All read-only. Each fetches live records over a window or by id; none deploy.
 | Command | Reads |
 |---|---|
 | `secopsctl alerts list` · `alerts get` | SIEM detection alerts over a window, or one by id (snapshot view) |
-| `secopsctl iocs find` · `iocs get` | resolve an indicator value (hash / domain / IP) to its IoC record, or fetch one by resource id (the id comes from `iocs find --json`, not the raw value) |
-| `secopsctl ti collections` · `ti collection` | Google/Mandiant threat collections (campaigns, reports, actors, malware, vulns) |
+| `secopsctl iocs find` · `iocs get` · `iocs related` | resolve an indicator value (hash / domain / IP) to its IoC record, fetch one by resource id, or list related campaigns/reports (the id comes from `iocs find --json`, not the raw value) |
+| `secopsctl ti collections` · `ti collection` · `ti related` | Google/Mandiant threat collections (campaigns, reports, actors, malware, vulns) and IoC match counts for collection alt names |
 | `secopsctl watchlists list` · `watchlists get` | SIEM entity watchlists |
 | `secopsctl cases list` · `cases get` · `cases search` | a case on the **Chronicle** host by UUID — alternate path; see note below |
 
@@ -87,10 +87,12 @@ secopsctl alerts list
 # The plain table shows TYPE + INDICATOR only; add --json for the resource id.
 secopsctl iocs find <value>
 secopsctl iocs find <value> --json   # ids here feed `iocs get`
+secopsctl iocs related <ioc-id> --collection-type all
 
 # Browse threat collections, then open one by id.
 secopsctl ti collections
 secopsctl ti collection <collection-id>
+secopsctl ti related CAMP.00.001
 
 # List entity watchlists.
 secopsctl watchlists list
@@ -117,8 +119,11 @@ secopsctl query udm '<filter>' --hours 48 --json
 # 3. Resolve that value to its IoC record; --json carries the resource id.
 secopsctl iocs find <value> --json
 
-# 4. Open the threat collection an IoC references (id from the iocs find JSON).
-secopsctl ti collection <collection-id>
+# 4. Pivot from the IoC resource id to related campaigns/reports.
+secopsctl iocs related <ioc-id> --collection-type all --json
+
+# 5. Show tenant match counts for a related collection alt name.
+secopsctl ti related CAMP.00.001
 ```
 
 Each step is independent — run any one on its own, or chain them when you want to

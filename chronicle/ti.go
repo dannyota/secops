@@ -32,14 +32,19 @@ const (
 // associations, targetedIndustries/Regions, content, executiveSummary) is kept in
 // Raw. Read-only.
 type ThreatCollection struct {
-	Name        string          `json:"name"`                 // full resource name (.../threatCollections/{id})
-	ID          string          `json:"-"`                    // short id (last name segment), e.g. "report--26-10031441"
-	Type        string          `json:"threatCollectionType"` // campaign | report | actor | malware | vulnerability | …
-	DisplayName string          `json:"displayName"`
-	Description string          `json:"description"`
-	CreateTime  string          `json:"createTime"`
-	UpdateTime  string          `json:"updateTime"`
-	Raw         json.RawMessage `json:"-"` // full server object, untrimmed
+	Name               string          `json:"name"`                 // full resource name (.../threatCollections/{id})
+	ID                 string          `json:"-"`                    // short id (last name segment), e.g. "report--26-10031441"
+	Type               string          `json:"threatCollectionType"` // campaign | report | actor | malware | vulnerability | …
+	DisplayName        string          `json:"displayName"`
+	Description        string          `json:"description"`
+	CreateTime         string          `json:"createTime"`
+	UpdateTime         string          `json:"updateTime"`
+	AltNames           []string        `json:"altNames,omitempty"` // GTI/Mandiant ids, e.g. CAMP.22.147
+	Associations       []string        `json:"associations,omitempty"`
+	Iocs               []string        `json:"iocs,omitempty"`
+	TargetedIndustries []string        `json:"targetedIndustries,omitempty"`
+	TargetedRegions    []string        `json:"targetedRegions,omitempty"`
+	Raw                json.RawMessage `json:"-"` // full server object, untrimmed
 }
 
 // UnmarshalJSON decodes the typed fields, derives the short ID from the resource
@@ -74,6 +79,41 @@ type ThreatCollectionQuery struct {
 type threatCollectionsList struct {
 	Items         []ThreatCollection `json:"threatCollections"`
 	NextPageToken string             `json:"nextPageToken"`
+}
+
+// RelatedThreatCollectionType is the campaign/report type selector accepted by
+// threatCollections:fetchRelated.
+type RelatedThreatCollectionType string
+
+const (
+	RelatedThreatCollectionCampaign RelatedThreatCollectionType = "CAMPAIGN"
+	RelatedThreatCollectionReport   RelatedThreatCollectionType = "REPORT"
+)
+
+// RelatedThreatCollectionQuery are the fetchRelated options. Exactly one threat
+// resource must be set. PageSize is capped by the API at 40; MaxPages bounds the
+// local sweep.
+type RelatedThreatCollectionQuery struct {
+	Type             RelatedThreatCollectionType
+	Ioc              string
+	IocAssociation   string
+	ThreatCollection string
+	OrderBy          string
+	PageSize         int
+	MaxPages         int
+}
+
+// IocMatchMetadata is the match-count record returned for a GTI/Mandiant
+// collection alt name (for example CAMP.22.147).
+type IocMatchMetadata struct {
+	ThreatCollection string `json:"threatCollection"`
+	IocMatchesCount  int64  `json:"iocMatchesCount"`
+}
+
+type threatCollectionRelatedList struct {
+	Items         []ThreatCollection `json:"threatCollections"`
+	NextPageToken string             `json:"nextPageToken"`
+	TotalSize     int64              `json:"totalSize"`
 }
 
 // tcFilter builds the `(collection_type:a OR collection_type:b)` filter for the
@@ -154,6 +194,106 @@ func lastSegment(s string) string {
 	return s
 }
 
+// FetchRelatedThreatCollections lists campaigns or reports related to one threat
+// artifact (an IoC, IoC association, or another threat collection). Read-only.
+func (c *Client) FetchRelatedThreatCollections(ctx context.Context, q RelatedThreatCollectionQuery) ([]ThreatCollection, error) {
+	if strings.TrimSpace(string(q.Type)) == "" {
+		return nil, fmt.Errorf("chronicle: related threat collection type is required")
+	}
+	if countNonEmpty(q.Ioc, q.IocAssociation, q.ThreatCollection) != 1 {
+		return nil, fmt.Errorf("chronicle: set exactly one of Ioc, IocAssociation, or ThreatCollection")
+	}
+	maxPages := q.MaxPages
+	if maxPages <= 0 {
+		maxPages = 50
+	}
+	var all []ThreatCollection
+	err := paginate(maxPages, func(token string) (string, error) {
+		vals := url.Values{}
+		vals.Set("threatCollectionType", strings.TrimSpace(string(q.Type)))
+		if q.Ioc != "" {
+			vals.Set("ioc", c.iocResourceName(q.Ioc))
+		}
+		if q.IocAssociation != "" {
+			vals.Set("iocAssociation", c.iocAssociationResourceName(q.IocAssociation))
+		}
+		if q.ThreatCollection != "" {
+			vals.Set("threatCollection", c.threatCollectionResourceName(q.ThreatCollection))
+		}
+		if q.OrderBy != "" {
+			vals.Set("orderBy", q.OrderBy)
+		}
+		if q.PageSize > 0 {
+			vals.Set("pageSize", fmt.Sprintf("%d", q.PageSize))
+		}
+		if token != "" {
+			vals.Set("pageToken", token)
+		}
+		var page threatCollectionRelatedList
+		if err := c.get(ctx, c.resourcePath("threatCollections:fetchRelated", true), &page, withQuery(vals), withVersion(tiAPIVersion)); err != nil {
+			return "", err
+		}
+		all = append(all, page.Items...)
+		return page.NextPageToken, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return all, nil
+}
+
+// FetchIocMatchMetadata returns IoC match counts for GTI/Mandiant collection alt
+// names such as CAMP.22.147. Read-only.
+func (c *Client) FetchIocMatchMetadata(ctx context.Context, altNames ...string) ([]IocMatchMetadata, error) {
+	q := url.Values{}
+	for _, name := range altNames {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			q.Add("threatCollections", name)
+		}
+	}
+	if len(q) == 0 {
+		return nil, nil
+	}
+	var resp struct {
+		Items []IocMatchMetadata `json:"iocMatchMetadata"`
+	}
+	if err := c.get(ctx, c.resourcePath("threatCollections:fetchIocMatchMetadata", true), &resp, withQuery(q), withVersion(tiAPIVersion)); err != nil {
+		return nil, err
+	}
+	return resp.Items, nil
+}
+
+func countNonEmpty(vals ...string) int {
+	n := 0
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			n++
+		}
+	}
+	return n
+}
+
+func (c *Client) threatCollectionResourceName(id string) string {
+	return c.tiResourceName("threatCollections", id, true)
+}
+
+func (c *Client) iocResourceName(id string) string {
+	return c.tiResourceName("iocs", id, false)
+}
+
+func (c *Client) iocAssociationResourceName(id string) string {
+	return c.tiResourceName("iocAssociations", id, false)
+}
+
+func (c *Client) tiResourceName(kind, id string, numeric bool) string {
+	id = strings.TrimSpace(id)
+	if strings.Contains(id, "/") {
+		return id
+	}
+	return c.resourcePath(kind+"/"+url.PathEscape(lastSegment(id)), numeric)
+}
+
 // --- modern IoCs ------------------------------------------------------------
 //
 // The modern `iocs` resource is the per-indicator IoC surface (lookup an indicator
@@ -172,6 +312,19 @@ const (
 	IoCValueIP     IoCValueType = "RESOLVED_IP_ADDRESS"
 )
 
+// RelatedIoCType is the IocType enum accepted by iocs:fetchRelated.
+type RelatedIoCType string
+
+const (
+	RelatedIoCDomain     RelatedIoCType = "DOMAIN"
+	RelatedIoCIP         RelatedIoCType = "IP"
+	RelatedIoCURL        RelatedIoCType = "URL"
+	RelatedIoCFileHash   RelatedIoCType = "FILE_HASH"
+	RelatedIoCFileMD5    RelatedIoCType = "FILE_HASH_MD5"
+	RelatedIoCFileSHA1   RelatedIoCType = "FILE_HASH_SHA1"
+	RelatedIoCFileSHA256 RelatedIoCType = "FILE_HASH_SHA256"
+)
+
 // FieldAndValue is one indicator lookup: the value plus its type.
 type FieldAndValue struct {
 	Value     string       `json:"value"`
@@ -187,6 +340,23 @@ type Ioc struct {
 	IocType           string          `json:"iocType"`
 	ArtifactIndicator json.RawMessage `json:"artifactIndicator"`
 	Raw               json.RawMessage `json:"-"`
+}
+
+// RelatedIoCQuery are the fetchRelated options. Exactly one threat resource must
+// be set. PageSize is capped by the API at 40; MaxPages bounds the local sweep.
+type RelatedIoCQuery struct {
+	IocType          RelatedIoCType
+	ThreatCollection string
+	IocAssociation   string
+	OrderBy          string
+	PageSize         int
+	MaxPages         int
+}
+
+type relatedIoCList struct {
+	Iocs          []Ioc  `json:"iocs"`
+	NextPageToken string `json:"nextPageToken"`
+	TotalSize     int64  `json:"totalSize"`
 }
 
 // UnmarshalJSON decodes typed fields, derives ID from the name, keeps Raw.
@@ -249,4 +419,49 @@ func (c *Client) BatchGetIoCs(ctx context.Context, names ...string) ([]Ioc, erro
 		return nil, err
 	}
 	return resp.Iocs, nil
+}
+
+// FetchRelatedIoCs lists IoCs of a requested type related to a threat collection
+// or IoC association. Read-only.
+func (c *Client) FetchRelatedIoCs(ctx context.Context, q RelatedIoCQuery) ([]Ioc, error) {
+	if strings.TrimSpace(string(q.IocType)) == "" {
+		return nil, fmt.Errorf("chronicle: related IoC type is required")
+	}
+	if countNonEmpty(q.ThreatCollection, q.IocAssociation) != 1 {
+		return nil, fmt.Errorf("chronicle: set exactly one of ThreatCollection or IocAssociation")
+	}
+	maxPages := q.MaxPages
+	if maxPages <= 0 {
+		maxPages = 50
+	}
+	var all []Ioc
+	err := paginate(maxPages, func(token string) (string, error) {
+		vals := url.Values{}
+		vals.Set("iocType", strings.TrimSpace(string(q.IocType)))
+		if q.ThreatCollection != "" {
+			vals.Set("threatCollection", c.threatCollectionResourceName(q.ThreatCollection))
+		}
+		if q.IocAssociation != "" {
+			vals.Set("iocAssociation", c.iocAssociationResourceName(q.IocAssociation))
+		}
+		if q.OrderBy != "" {
+			vals.Set("orderBy", q.OrderBy)
+		}
+		if q.PageSize > 0 {
+			vals.Set("pageSize", fmt.Sprintf("%d", q.PageSize))
+		}
+		if token != "" {
+			vals.Set("pageToken", token)
+		}
+		var page relatedIoCList
+		if err := c.get(ctx, c.resourcePath("iocs:fetchRelated", false), &page, withQuery(vals), withVersion(tiAPIVersion)); err != nil {
+			return "", err
+		}
+		all = append(all, page.Iocs...)
+		return page.NextPageToken, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return all, nil
 }
