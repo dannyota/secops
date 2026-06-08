@@ -173,6 +173,8 @@ bridge/playbooks    coercePlaybookTypes(): id/priority/version/*UnixTimeInMs int
   `id`/`priority`/`version`/`*UnixTimeInMs` (top-level, `trigger`, each `step`);
   `templateName` must be `""`, never `null`.
 - **Playbook name charset** — letters/digits/space/`-`/`_` only; reject `.()[]:/`.
+  Singular `soar push playbook --dry-run` and the local `soar push playbooks`
+  reconcile load validate this offline before any live save.
 - **One case, two ids** — a case is a single record reachable by two APIs: the
   SOAR API (integer id, the working path secopsctl uses — `soar.ListCases` on
   siemplify v1alpha plus the `soar/legacy` verbs; the CLI's `soar case list`

@@ -857,7 +857,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   templates and secret-at-push support are built + offline-tested.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 36 — SOAR automation-as-code completion *(partial — `info soar-integrations` + `info cron` + `soar package-integration` built + offline-tested)*
+### Wave 36 — SOAR automation-as-code completion *(partial — `info soar-integrations` + `info cron` + playbook name guardrails + `soar package-integration` built + offline-tested)*
 
 The Wave-23 design stance holds: SOAR *runs* recurring automation; secopsctl's job is
 to **build, track, and push** that automation as code. This wave gives the CLI the
@@ -898,7 +898,8 @@ break it.
     chat/notify integration (non-goals). **Done:** `soar package-integration <dir>`
     builds a deterministic local ZIP for an already-shaped custom integration
     directory; it is offline, refuses symlinks, and leaves schema/import validation to
-    SOAR.
+    SOAR. **Done:** local playbook save/reconcile planning validates the name charset
+    before any live API call.
 - **Exit.** The alert allowlist tracked + drift-detected; integration runtime gaps
   surfaced by `info`; a builder splices wired steps and a scheduled-trigger playbook;
   packaging produces an importable zip.

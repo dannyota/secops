@@ -149,6 +149,25 @@ func (c *Client) GetPlaybookByName(ctx context.Context, name string, enabledOnly
 // you sent goes stale immediately; re-resolve the playbook by name (see
 // GetPlaybookByName) after saving rather than reusing the old identifier.
 func (c *Client) SavePlaybook(ctx context.Context, body json.RawMessage) (json.RawMessage, error) {
+	coerced, err := preparePlaybookForSave(body)
+	if err != nil {
+		return nil, err
+	}
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", playbookSaveRPC, coerced, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ValidatePlaybookForSave performs the same local body checks as SavePlaybook
+// without making an API call. Use it for dry-runs and local reconcile planning.
+func ValidatePlaybookForSave(body json.RawMessage) error {
+	_, err := preparePlaybookForSave(body)
+	return err
+}
+
+func preparePlaybookForSave(body json.RawMessage) (json.RawMessage, error) {
 	coerced, err := coercePlaybookTypes(body)
 	if err != nil {
 		return nil, err
@@ -158,11 +177,7 @@ func (c *Client) SavePlaybook(ctx context.Context, body json.RawMessage) (json.R
 			return nil, err
 		}
 	}
-	var out json.RawMessage
-	if err := c.t.V1Alpha(ctx, "POST", playbookSaveRPC, coerced, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return coerced, nil
 }
 
 // AttachPlaybookToCase attaches a workflow to a case. body is a freeform request

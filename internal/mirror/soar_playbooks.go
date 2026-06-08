@@ -116,6 +116,9 @@ func playbooksSurface(lc *legacy.Client) reconcile.Surface {
 				if rerr != nil {
 					return nil, rerr
 				}
+				if verr := legacy.ValidatePlaybookForSave(raw); verr != nil {
+					return nil, fmt.Errorf("playbook %s: %w", e.Name(), verr)
+				}
 				o, berr := build(raw)
 				if berr != nil {
 					return nil, fmt.Errorf("playbook %s: %w", e.Name(), berr)

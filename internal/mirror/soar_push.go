@@ -52,6 +52,9 @@ func PushSOARPlaybookSave(ctx context.Context, lc *legacy.Client, file string, d
 	if !json.Valid(data) {
 		return fmt.Errorf("%s is not valid JSON", file)
 	}
+	if err := legacy.ValidatePlaybookForSave(json.RawMessage(data)); err != nil {
+		return err
+	}
 
 	liveBanner(w, "SAVE SOAR playbook (whole-body replace; mints a new version)")
 	fmt.Fprintf(w, "Source: %s (%d bytes)\n\n", file, len(data))
