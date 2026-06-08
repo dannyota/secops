@@ -3,15 +3,20 @@ package cli
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -41,25 +46,71 @@ type cronSOARScheduleRow struct {
 	Line          int    `json:"line,omitempty"`
 }
 
+type cronHostScanRow struct {
+	Source     string `json:"source"`
+	Status     string `json:"status"`
+	Files      int    `json:"files,omitempty"`
+	References int    `json:"references"`
+}
+
+type cronHeartbeatRow struct {
+	Label      string `json:"label"`
+	OK         bool   `json:"ok"`
+	StatusCode int    `json:"status_code,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
 type cronInfoReport struct {
 	Root           string                `json:"root"`
 	SchedulerFiles int                   `json:"scheduler_files"`
 	Commands       []cronCommandRow      `json:"commands"`
 	SOARSchedules  []cronSOARScheduleRow `json:"soar_schedules"`
+	HostScans      []cronHostScanRow     `json:"host_scans,omitempty"`
+	Heartbeats     []cronHeartbeatRow    `json:"heartbeats,omitempty"`
+}
+
+type cronInfoOptions struct {
+	Root        string
+	IncludeHost bool
+	Heartbeats  []cronHeartbeatSpec
+
+	hostSources []cronLineSource
+	httpClient  *http.Client
+}
+
+type cronLineSource struct {
+	Ref   string
+	Lines []string
+}
+
+type cronHeartbeatSpec struct {
+	Label string
+	URL   string
 }
 
 func newInfoCronCmd() *cobra.Command {
 	var root string
+	var includeHost bool
+	var heartbeatFlags []string
 	cmd := &cobra.Command{
 		Use:   "cron",
 		Short: "Report local scheduler references to secopsctl automation (offline)",
 		Long: "Scan local scheduler-like files for secopsctl push/drift references.\n" +
-			"Also scan pulled SOAR jobs/playbooks for cronSchedule values. This is\n" +
-			"an offline orphan check: secopsctl does not own or inspect the host\n" +
-			"scheduler, and raw scheduler lines are not echoed.",
+			"Also scan pulled SOAR jobs/playbooks for cronSchedule values. With\n" +
+			"--host, inspect the current user's crontab and user systemd files.\n" +
+			"With --heartbeat-status, check explicit read-only heartbeat status\n" +
+			"endpoints. Raw scheduler lines and heartbeat URLs are not echoed.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			report, err := buildCronInfoReport(root)
+			heartbeats, err := parseCronHeartbeatSpecs(heartbeatFlags)
+			if err != nil {
+				return err
+			}
+			report, err := buildCronInfoReportWithOptions(cronInfoOptions{
+				Root:        root,
+				IncludeHost: includeHost,
+				Heartbeats:  heartbeats,
+			})
 			if err != nil {
 				return err
 			}
@@ -71,10 +122,20 @@ func newInfoCronCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&root, "root", ".", "repository root to scan")
+	cmd.Flags().BoolVar(&includeHost, "host", false, "also inspect current user's crontab and user systemd unit files")
+	cmd.Flags().StringArrayVar(&heartbeatFlags, "heartbeat-status", nil, "check a read-only heartbeat status endpoint as <label>=<url> (repeatable; URL is not printed)")
 	return cmd
 }
 
 func buildCronInfoReport(root string) (cronInfoReport, error) {
+	return buildCronInfoReportWithOptions(cronInfoOptions{Root: root})
+}
+
+func buildCronInfoReportWithOptions(opts cronInfoOptions) (cronInfoReport, error) {
+	root := opts.Root
+	if root == "" {
+		root = "."
+	}
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return cronInfoReport{}, err
@@ -87,6 +148,7 @@ func buildCronInfoReport(root string) (cronInfoReport, error) {
 	if err != nil {
 		return cronInfoReport{}, err
 	}
+	hostScans := addHostCronReferences(refs, opts)
 	schedules, err := scanSOARSchedules(absRoot)
 	if err != nil {
 		return cronInfoReport{}, err
@@ -99,11 +161,14 @@ func buildCronInfoReport(root string) (cronInfoReport, error) {
 		rows[i].References = refs[rows[i].Command]
 		rows[i].Referenced = len(rows[i].References) > 0
 	}
+	heartbeats := checkCronHeartbeats(baseContext(), opts.Heartbeats, opts.httpClient)
 	return cronInfoReport{
 		Root:           absRoot,
 		SchedulerFiles: len(files),
 		Commands:       rows,
 		SOARSchedules:  schedules,
+		HostScans:      hostScans,
+		Heartbeats:     heartbeats,
 	}, nil
 }
 
@@ -121,8 +186,19 @@ func emitCronInfo(w io.Writer, report cronInfoReport) {
 	}
 	_ = tw.Flush()
 
+	if len(report.HostScans) > 0 {
+		fmt.Fprintln(w, "\nHost scheduler scans")
+		tw = tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+		fmt.Fprintln(tw, "SOURCE\tSTATUS\tFILES\tREFERENCES")
+		for _, row := range report.HostScans {
+			fmt.Fprintf(tw, "%s\t%s\t%d\t%d\n", row.Source, row.Status, row.Files, row.References)
+		}
+		_ = tw.Flush()
+	}
+
 	fmt.Fprintf(w, "\nSOAR schedules found: %d\n", len(report.SOARSchedules))
 	if len(report.SOARSchedules) == 0 {
+		emitCronHeartbeats(w, report.Heartbeats)
 		return
 	}
 	tw = tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
@@ -135,6 +211,25 @@ func emitCronInfo(w io.Writer, report cronInfoReport) {
 			row.CronSchedule,
 			formatCronLastRun(row),
 			formatCronFileLine(row.File, row.Line),
+		)
+	}
+	_ = tw.Flush()
+	emitCronHeartbeats(w, report.Heartbeats)
+}
+
+func emitCronHeartbeats(w io.Writer, rows []cronHeartbeatRow) {
+	if len(rows) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "\nHeartbeat status checks: %d\n", len(rows))
+	tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+	fmt.Fprintln(tw, "LABEL\tOK\tSTATUS\tERROR")
+	for _, row := range rows {
+		fmt.Fprintf(tw, "%s\t%t\t%s\t%s\n",
+			row.Label,
+			row.OK,
+			formatCronStatusCode(row.StatusCode),
+			formatCronError(row.Error),
 		)
 	}
 	_ = tw.Flush()
@@ -276,6 +371,196 @@ func scanCronReferences(root string, files []string) (map[string][]cronReference
 		})
 	}
 	return out, nil
+}
+
+func addHostCronReferences(refs map[string][]cronReference, opts cronInfoOptions) []cronHostScanRow {
+	var sources []cronLineSource
+	var scans []cronHostScanRow
+	if opts.IncludeHost {
+		var loaded []cronLineSource
+		loaded, scans = hostSchedulerSources(baseContext())
+		sources = append(sources, loaded...)
+	}
+	if len(opts.hostSources) > 0 {
+		sources = append(sources, opts.hostSources...)
+		scans = append(scans, cronHostScanRow{
+			Source: "test-host-sources",
+			Status: "scanned",
+			Files:  len(opts.hostSources),
+		})
+	}
+	if len(sources) == 0 {
+		return scans
+	}
+	hostRefs := scanCronLineSources(sources)
+	mergeCronRefs(refs, hostRefs)
+	for i := range scans {
+		scans[i].References = countCronReferencesForScan(hostRefs, scans[i])
+	}
+	return scans
+}
+
+func scanCronLineSources(sources []cronLineSource) map[string][]cronReference {
+	out := make(map[string][]cronReference)
+	for _, src := range sources {
+		for i, line := range src.Lines {
+			for _, command := range parseSecopsctlCommands(line) {
+				out[command] = append(out[command], cronReference{File: src.Ref, Line: i + 1})
+			}
+		}
+	}
+	for command := range out {
+		sort.Slice(out[command], func(i, j int) bool {
+			if out[command][i].File != out[command][j].File {
+				return out[command][i].File < out[command][j].File
+			}
+			return out[command][i].Line < out[command][j].Line
+		})
+	}
+	return out
+}
+
+func mergeCronRefs(dst, src map[string][]cronReference) {
+	for command, refs := range src {
+		dst[command] = append(dst[command], refs...)
+		sort.Slice(dst[command], func(i, j int) bool {
+			if dst[command][i].File != dst[command][j].File {
+				return dst[command][i].File < dst[command][j].File
+			}
+			return dst[command][i].Line < dst[command][j].Line
+		})
+	}
+}
+
+func hostSchedulerSources(ctx context.Context) ([]cronLineSource, []cronHostScanRow) {
+	var sources []cronLineSource
+	var scans []cronHostScanRow
+
+	if src, row := currentUserCrontabSource(ctx); row.Source != "" {
+		if src.Ref != "" {
+			sources = append(sources, src)
+		}
+		scans = append(scans, row)
+	}
+	systemdSources, systemdRow := userSystemdSources()
+	sources = append(sources, systemdSources...)
+	scans = append(scans, systemdRow)
+	return sources, scans
+}
+
+func currentUserCrontabSource(ctx context.Context) (cronLineSource, cronHostScanRow) {
+	row := cronHostScanRow{Source: "user-crontab"}
+	if _, err := exec.LookPath("crontab"); err != nil {
+		row.Status = "unavailable"
+		return cronLineSource{}, row
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "crontab", "-l").CombinedOutput()
+	if err != nil {
+		if ctx.Err() != nil {
+			row.Status = "timeout"
+			return cronLineSource{}, row
+		}
+		if strings.Contains(strings.ToLower(string(out)), "no crontab") {
+			row.Status = "no_entries"
+			return cronLineSource{}, row
+		}
+		row.Status = "read_failed"
+		return cronLineSource{}, row
+	}
+	lines := splitCronLines(string(out))
+	if len(lines) == 0 {
+		row.Status = "no_entries"
+		return cronLineSource{}, row
+	}
+	row.Status = "scanned"
+	row.Files = 1
+	return cronLineSource{Ref: "host:user-crontab", Lines: lines}, row
+}
+
+func userSystemdSources() ([]cronLineSource, cronHostScanRow) {
+	row := cronHostScanRow{Source: "user-systemd"}
+	configDir, err := os.UserConfigDir()
+	if err != nil || configDir == "" {
+		row.Status = "unavailable"
+		return nil, row
+	}
+	root := filepath.Join(configDir, "systemd", "user")
+	var sources []cronLineSource
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			row.Status = "not_found"
+			return nil, row
+		}
+		row.Status = "read_failed"
+		return nil, row
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !entry.Type().IsRegular() {
+			continue
+		}
+		base := entry.Name()
+		if !strings.HasSuffix(base, ".service") && !strings.HasSuffix(base, ".timer") {
+			continue
+		}
+		p := filepath.Join(root, entry.Name())
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			row.Status = "read_failed"
+			return nil, row
+		}
+		lines := splitCronLines(string(raw))
+		if len(lines) == 0 {
+			continue
+		}
+		sources = append(sources, cronLineSource{
+			Ref:   "host:systemd-user/" + filepath.ToSlash(entry.Name()),
+			Lines: lines,
+		})
+	}
+	if len(sources) == 0 {
+		row.Status = "no_entries"
+		return nil, row
+	}
+	row.Status = "scanned"
+	row.Files = len(sources)
+	return sources, row
+}
+
+func splitCronLines(s string) []string {
+	raw := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+	lines := raw[:0]
+	for _, line := range raw {
+		if strings.TrimSpace(line) != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}
+
+func countCronReferencesForScan(refs map[string][]cronReference, scan cronHostScanRow) int {
+	prefix := ""
+	switch scan.Source {
+	case "user-crontab":
+		prefix = "host:user-crontab"
+	case "user-systemd":
+		prefix = "host:systemd-user/"
+	case "test-host-sources":
+		prefix = "host:"
+	default:
+		prefix = scan.Source
+	}
+	count := 0
+	for _, rows := range refs {
+		for _, ref := range rows {
+			if ref.File == prefix || strings.HasPrefix(ref.File, prefix) {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 func scanSOARSchedules(root string) ([]cronSOARScheduleRow, error) {
@@ -570,4 +855,98 @@ func formatCronFileLine(file string, line int) string {
 		return file
 	}
 	return fmt.Sprintf("%s:%d", file, line)
+}
+
+func parseCronHeartbeatSpecs(values []string) ([]cronHeartbeatSpec, error) {
+	specs := make([]cronHeartbeatSpec, 0, len(values))
+	for _, value := range values {
+		label, rawURL, ok := strings.Cut(value, "=")
+		label = strings.TrimSpace(label)
+		rawURL = strings.TrimSpace(rawURL)
+		if !ok || label == "" || rawURL == "" {
+			return nil, fmt.Errorf("heartbeat-status must be <label>=<url>")
+		}
+		if !isSafeCronHeartbeatLabel(label) {
+			return nil, fmt.Errorf("heartbeat-status label %q must use only letters, numbers, '.', '_' or '-'", label)
+		}
+		u, err := url.Parse(rawURL)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return nil, fmt.Errorf("heartbeat-status %q has an invalid URL", label)
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return nil, fmt.Errorf("heartbeat-status %q must use http or https", label)
+		}
+		if u.User != nil {
+			return nil, fmt.Errorf("heartbeat-status %q must not include userinfo", label)
+		}
+		specs = append(specs, cronHeartbeatSpec{Label: label, URL: u.String()})
+	}
+	return specs, nil
+}
+
+func isSafeCronHeartbeatLabel(s string) bool {
+	if len(s) > 64 {
+		return false
+	}
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '.', r == '_', r == '-':
+		default:
+			return false
+		}
+	}
+	return s != ""
+}
+
+func checkCronHeartbeats(ctx context.Context, specs []cronHeartbeatSpec, hc *http.Client) []cronHeartbeatRow {
+	if len(specs) == 0 {
+		return nil
+	}
+	if hc == nil {
+		hc = &http.Client{Timeout: 10 * time.Second}
+	}
+	rows := make([]cronHeartbeatRow, 0, len(specs))
+	for _, spec := range specs {
+		rows = append(rows, checkCronHeartbeat(ctx, hc, spec))
+	}
+	return rows
+}
+
+func checkCronHeartbeat(ctx context.Context, hc *http.Client, spec cronHeartbeatSpec) cronHeartbeatRow {
+	row := cronHeartbeatRow{Label: spec.Label}
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, spec.URL, nil)
+	if err != nil {
+		row.Error = "invalid_request"
+		return row
+	}
+	req.Header.Set("User-Agent", "secopsctl")
+	resp, err := hc.Do(req)
+	if err != nil {
+		row.Error = "request_failed"
+		return row
+	}
+	defer func() { _ = resp.Body.Close() }()
+	row.StatusCode = resp.StatusCode
+	row.OK = resp.StatusCode >= 200 && resp.StatusCode < 400
+	if !row.OK {
+		row.Error = "unexpected_status"
+	}
+	return row
+}
+
+func formatCronStatusCode(code int) string {
+	if code == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d", code)
+}
+
+func formatCronError(err string) string {
+	if err == "" {
+		return "-"
+	}
+	return err
 }

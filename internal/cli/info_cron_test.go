@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -134,6 +137,91 @@ func TestBuildCronInfoReport(t *testing.T) {
 	}
 	if jobRow.LastRunStatus != "Success" || jobRow.LastRunTime != "1700000000" {
 		t.Fatalf("job last run = (%q,%q)", jobRow.LastRunStatus, jobRow.LastRunTime)
+	}
+}
+
+func TestBuildCronInfoReportWithHostSources(t *testing.T) {
+	root := t.TempDir()
+	report, err := buildCronInfoReportWithOptions(cronInfoOptions{
+		Root: root,
+		hostSources: []cronLineSource{
+			{
+				Ref: "host:user-crontab",
+				Lines: []string{
+					"secopsctl push curated --yes",
+					"secopsctl soar push connector-allowlist --yes",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("buildCronInfoReportWithOptions: %v", err)
+	}
+	if len(report.HostScans) != 1 {
+		t.Fatalf("HostScans = %#v, want one test scan", report.HostScans)
+	}
+	if report.HostScans[0].References != 2 {
+		t.Fatalf("host references = %d, want 2", report.HostScans[0].References)
+	}
+	rows := map[string]cronCommandRow{}
+	for _, row := range report.Commands {
+		rows[row.Command] = row
+	}
+	for _, command := range []string{"push curated", "soar push connector-allowlist"} {
+		row, ok := rows[command]
+		if !ok {
+			t.Fatalf("missing command row %q", command)
+		}
+		if !row.Referenced {
+			t.Fatalf("%s not marked referenced", command)
+		}
+		if got := row.References[0].File; got != "host:user-crontab" {
+			t.Fatalf("%s ref file = %q, want host:user-crontab", command, got)
+		}
+	}
+}
+
+func TestCronHeartbeatStatus(t *testing.T) {
+	methodCh := make(chan string, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		methodCh <- r.Method
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	specs, err := parseCronHeartbeatSpecs([]string{"nightly=" + srv.URL + "/status"})
+	if err != nil {
+		t.Fatalf("parseCronHeartbeatSpecs: %v", err)
+	}
+	rows := checkCronHeartbeats(baseContext(), specs, srv.Client())
+	if len(rows) != 1 || !rows[0].OK || rows[0].StatusCode != http.StatusNoContent {
+		t.Fatalf("heartbeat rows = %#v", rows)
+	}
+	if got := <-methodCh; got != http.MethodHead {
+		t.Fatalf("method = %s, want HEAD", got)
+	}
+
+	var out bytes.Buffer
+	emitCronInfo(&out, cronInfoReport{Heartbeats: rows})
+	if strings.Contains(out.String(), srv.URL) {
+		t.Fatalf("heartbeat output leaked URL: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "nightly") || !strings.Contains(out.String(), "204") {
+		t.Fatalf("heartbeat output missing label/status: %s", out.String())
+	}
+}
+
+func TestParseCronHeartbeatSpecsRejectsUnsafeInputs(t *testing.T) {
+	tests := [][]string{
+		{"bad label=https://example.com/status"},
+		{"nightly=ftp://example.com/status"},
+		{"nightly=https://user:pass@example.com/status"},
+		{"nightly"},
+	}
+	for _, tt := range tests {
+		if _, err := parseCronHeartbeatSpecs(tt); err == nil {
+			t.Fatalf("parseCronHeartbeatSpecs(%v) succeeded, want error", tt)
+		}
 	}
 }
 

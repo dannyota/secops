@@ -857,7 +857,7 @@ CLI wiring of existing SDK methods (built + offline-tested; the guarded writes �
   templates and secret-at-push support are built + offline-tested.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 36 — SOAR automation-as-code completion *(partial — `connector-allowlist` + `info soar-integrations` + `info cron` local schedules + `soar build-playbook` + playbook name guardrails + `soar package-integration` built + offline-tested)*
+### Wave 36 — SOAR automation-as-code completion *(done — `connector-allowlist` + `info soar-integrations` + `info cron` host/heartbeat checks + `soar build-playbook` + playbook name guardrails + `soar package-integration` built + offline-tested)*
 
 The Wave-23 design stance holds: SOAR *runs* recurring automation; secopsctl's job is
 to **build, track, and push** that automation as code. This wave gives the CLI the
@@ -890,7 +890,9 @@ break it.
     `drift`, SIEM `push`, and SOAR `soar push` commands without echoing raw command
     lines. It also scans pulled `soar/jobs/` and `soar/playbooks/` JSON for
     non-empty `cronSchedule` values, including pulled job last-run fields when
-    present. Host scheduler ownership and external heartbeat checks remain planned.
+    present. `--host` adds current-user crontab/user-systemd inspection, and
+    `--heartbeat-status <label>=<url>` HEAD-checks explicit read-only heartbeat
+    status endpoints without printing endpoint URLs.
   - **Playbook & integration authoring as code** — a step-mold library so playbook
     builders splice a fully-wired integration-action step (never mold an integration
     action from a built-in) instead of a placeholder; a scheduled-trigger-playbook

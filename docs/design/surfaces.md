@@ -196,7 +196,9 @@ stays on the legacy lane, which is reliable. So far that means:
   `push`, and SOAR `soar push` commands have file:line references without echoing
   raw scheduler lines. It also scans pulled `soar/jobs/` and `soar/playbooks/`
   JSON for non-empty `cronSchedule` values, so local SOAR schedules show up in
-  the same report.
+  the same report. `--host` adds current-user crontab/user-systemd inspection,
+  and `--heartbeat-status <label>=<url>` HEAD-checks explicit read-only heartbeat
+  status endpoints without printing endpoint URLs.
 - The reconcile config surfaces are read on modern where validated; their v1alpha
   **writes are also validated** — create→get→delete on customLists / socRoles /
   caseTagDefinitions, environments create reachable (license-capped) — they do
@@ -211,7 +213,7 @@ stays on the legacy lane, which is reliable. So far that means:
 | integrations catalog (list/get/delete) | ✅ | `updateCustomIntegration`, `:export`/`:download` ⬜ (low) |
 | scheduled playbook builder (`soar build-playbook`) | 🔨 offline utility | exported base playbook + exported integration-action step molds only; no API call, no tenant validation |
 | custom integration package ZIP (`soar package-integration`) | 🔨 offline utility | deterministic local ZIP builder for an already-shaped IDE integration directory; no API call, no tenant validation |
-| scheduler references (`info cron`) | 🔨 offline utility | local scheduler-file scan plus pulled SOAR job/playbook `cronSchedule` scan; no host scheduler ownership or heartbeat yet |
+| scheduler references (`info cron`) | 🔨 offline utility | local scheduler-file scan plus pulled SOAR job/playbook `cronSchedule` scan; optional current-user host scheduler scan and heartbeat status HEAD checks; no raw command/URL echo |
 | connector **definitions** (list/get/delete) | ✅ | create/patch ⬜ (med) |
 | connector **instances** (list/get/patch + `:runOnDemand`) | ✅ list+get read-validated (instance GET decodes the `parameters` descriptor array) | create/delete + `:runOnDemand` SDK-built, live-write pending |
 | job **definitions** (list) | 🔨 | get/create/patch/delete ⬜ (med) |

@@ -162,7 +162,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 |---|---|
 | `config` (alias `init`) | Set up / edit the config (`~/.secopsctl/instance.yaml`, `0600`). Single-screen form, or flags + `--non-interactive`. See [configure](configure.md). `config --show-path` prints the active config file. |
 | `surfaces [--json]` | List every API surface family — plane (host + auth), API version, lane (reconcile/imperative/raw/operational), status, and whether `--prune` can delete it. Reads nothing live; the map of reconcilable vs read-only. |
-| `info cron [--root <dir>]` | Offline scan of local scheduler-like files (`.github/workflows/`, `cron/`, systemd units, etc.) for `secopsctl drift`, `push`, and `soar push` references. Also reads pulled `soar/jobs/` and `soar/playbooks/` JSON for non-empty `cronSchedule` values. Reports file:line references only; it does not inspect the host scheduler or echo raw command lines. |
+| `info cron [--root <dir>] [--host] [--heartbeat-status <label>=<url>]` | Scheduler ownership/orphan report. Scans local scheduler-like files for `secopsctl drift`, `push`, and `soar push` references, plus pulled `soar/jobs/` and `soar/playbooks/` cron schedules. `--host` also inspects the current user's crontab and user systemd unit files. `--heartbeat-status` performs a HEAD check against a read-only status endpoint. Reports file:line references and labels only; raw lines and URLs are not printed. |
 | `soar build-playbook --base <playbook.json> --cron <expr> --out <playbook.json>` | Offline SOAR playbook composer. Starts from a full exported base playbook, sets `trigger.cronSchedule`, and can replace placeholder steps with exported, already-wired integration-action step molds via repeated `--replace-step <step>=<step.json>`. |
 | `soar package-integration <dir>` | Offline ZIP builder for an already-shaped SOAR custom integration directory. Defaults to `<dir>.zip`; use `--out <file>` and `--force` to overwrite. |
 | `completion` | Generate the shell autocompletion script. |
@@ -220,6 +220,7 @@ secopsctl --json info soar-integrations
 ```bash
 secopsctl info cron
 secopsctl --json info cron --root .
+secopsctl info cron --host --heartbeat-status nightly=https://example.com/secopsctl/nightly/status
 ```
 
 **Reconcile a SOAR surface** ([reconcile](reconcile.md)):
