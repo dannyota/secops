@@ -349,7 +349,9 @@ func newRetrohuntCreateCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(os.Stdout, "started retrohunt %s (state %s)\n", lastSegment(rh.Name), orDash(rh.State))
+				if !jsonOut {
+					fmt.Fprintf(os.Stdout, "started retrohunt %s (state %s)\n", lastSegment(rh.Name), orDash(rh.State))
+				}
 				return nil
 			})
 		},

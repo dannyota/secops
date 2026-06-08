@@ -629,13 +629,13 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 
 ---
 
-## Waves 25–37 — operability, UX & coverage completion
+## Waves 25–38 — operability, UX & coverage completion
 
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
 value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
-Waves 25–34 + 37 are shipped; 35–36 remain on the forward plan (Wave 37 — parser
-development & raw-log access — landed ahead of them as operational work).
+Waves 25–34 + 37–38 are shipped; 35–36 remain on the forward plan (Waves 37–38
+landed ahead of them as operational work).
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
@@ -923,6 +923,22 @@ break it.
   fetch), `chronicle/logs.go` (logTypes logs list), `chronicle/parsers.go` (validation
   reports). Live read-validated; offline-tested.
 - **Docs.** SIEM-DESIGN, CATALOG, usage guide.
+
+### Wave 38 — Imperative feed delete *(done)*
+
+- **Goal.** Delete a single ingestion feed from the terminal. Feeds are
+  deliberately not `--prune`-eligible (a delete stops that feed's ingestion — high
+  blast radius), so reconcile won't remove one; this is the explicit, guarded
+  one-off path.
+- **Scope (done).** `feeds delete <id>` — accepts the feed UUID or a full resource
+  name. Resolves the feed first (`GetFeed`) so the preview/confirmation names what
+  goes away and a wrong id fails cleanly (404) before any mutation; then the
+  standard SIEM guard (LIVE banner, dry-run by default, `--yes` to apply) over
+  `DeleteFeed`. SDK methods (`GetFeed`/`DeleteFeed`) already existed; this wires the
+  imperative CLI verb onto the existing `feeds` group.
+- **Done.** Live-validated end-to-end on an inert HTTP throwaway: dry-run preview →
+  `--yes` delete → `GetFeed` 404 confirm. Offline-tested; gates green.
+- **Docs.** CATALOG (`feeds` row), usage guide (SIEM guarded mutations).
 
 ---
 

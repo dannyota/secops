@@ -219,6 +219,22 @@ func guardedSIEMMutation(action string, dryRunFlag, yesFlag bool, do func() erro
 	if !dryRun && !assumeYes && confirmPush(action) {
 		assumeYes = true
 	}
+	// In --json mode, emit a single structured result instead of the human banner
+	// so stdout stays valid JSON (confirmPush already declines to prompt under
+	// --json). Callers' do() must not print to stdout in this mode.
+	if jsonOut {
+		switch {
+		case dryRun:
+			return emitGuardedResult(action, true, false)
+		case !assumeYes:
+			return emitGuardedResult(action, false, false)
+		default:
+			if err := do(); err != nil {
+				return err
+			}
+			return emitGuardedResult(action, false, true)
+		}
+	}
 	w := os.Stdout
 	bar := strings.Repeat("!", 72)
 	fmt.Fprintln(w, bar)

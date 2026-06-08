@@ -95,6 +95,7 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 | `push rules-disable` | Disable locally-tracked rules with `deployment.enabled=true`. |
 | `push <reconcile-target>` | Reconcile local files to live (create/update; `--prune` deletes on prune-eligible surfaces only — `push <target> --help` says which). Targets: `reference_lists`, `data_tables`, `parsers`, `feeds`, `forwarders`, `dashboards`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`. |
 | `curated set` | Toggle a curated deployment's `enabled`/`alerting` per precision (`--category`, `--ruleset`, `--precision`). |
+| `feeds delete <id>` | Delete one feed by id (the feed UUID or full resource name). Stops that feed's ingestion — the explicit one-off, since feeds aren't `--prune`-eligible. Resolves and names the feed before acting. |
 | `rules retrohunt` | Manage retrohunts (run a rule over historical data). |
 | `parsers activate <log-type> <id>` | Make a parser version ACTIVE (live ingestion switches; use `parsers versions` to find a prior id to roll back to). |
 | `dashboards duplicate <id>` | Copy a dashboard with a new `--name`/`--access` — the supported way to change the immutable `access`. |
