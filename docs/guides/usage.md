@@ -76,7 +76,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `curated rules` | List the individual curated rules. |
 | `rules list` | List detection rules (rule id · display name · slug · type). The inspect verbs (`detections`/`errors`/`alerts`) accept any of these forms directly. |
 | `rules validate <file.yaral>` | Validate a YARA-L file against the API (no mutation); non-zero exit if invalid. |
-| `parsers sample-logs <log-type>` | Fetch recent RAW sample logs for a log type directly (`logTypes/<type>/logs`) — full bytes, one per line, to develop a parser against (`--limit` / `--since`). The simplest raw-log path. |
+| `parsers sample-logs <log-type>` | Fetch a sample of a log type's RAW logs directly (`logTypes/<type>/logs`) — full bytes, one per line, to develop a parser against (`--limit` / `--since`). Logs are ordered by resource name (not time), so this is a sample — pass `--since` to bound by time. |
 | `parsers validate <log-type>` | Show the parsing errors from the most recently submitted parser's validation report — the detail behind a `push parsers` / `parsers activate` `FAILED_PRECONDITION` (per-log error + a failing-log preview; `--show-logs` for the full sample). |
 | `parsers versions <log-type>` | List a log type's parser versions (id · state · created). |
 | `parsers run <log-type>` | Validate a CBN parser against sample logs (`--cbn`, `--logs`); no server change. |
@@ -128,8 +128,6 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 |---|---|
 | `soar pull <target>` | Snapshot SOAR state to local files. Targets: `grouping`, `cases`, `blacklists`, `case-stages`, `case-tags`, `close-root-causes`, `connector-allowlist`, `connectors`, `environments`, `idp`, `jobs`, `networks`, `playbook-categories`, `playbooks`, `sla-definitions`, `soc-roles`, `tracking-lists`, `visual-families`, `webhooks`, `all`. |
 | `soar playbook list` | List live SOAR playbooks for discovery before editing, saving, or debugging. `--enabled-only` filters to enabled playbooks; `--type regular\|nested` scopes the menu-card query. |
-| `soar playbook delete (--name \| --identifier)` | MUTATING (guarded): delete a playbook permanently. `--name` resolves via the live list. Irreversible — deleting stops any attached case execution. |
-| *(no playbook enable/disable verb)* | There is no lightweight toggle — the only API path (`SaveWorkflowDefinitions`) re-saves the entire playbook and mints a new version. Toggle `isEnabled` in the SecOps UI, or use `soar push playbook` (whole-body save). |
 | `soar playbook validate --file <playbook.json>` | Preflight an exported playbook JSON file before save. Runs the same local save-shape checks as `soar push playbook --dry-run` and reports trigger, step, action, block, relation, automatic/manual counts, and graph warnings. |
 | `soar playbook components integrations` | List installed integration packs that can supply playbook actions, connector definitions, and job definitions. |
 | `soar playbook components actions --integration <key>` | List action definitions for one integration, including parameter counts, mandatory parameters, JSON/script-result flags, async state, and action type. Human output does not print Python script bodies. |
@@ -146,7 +144,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar job list` | List installed SOAR jobs and last-run status without printing job script bodies. |
 | `soar job template list` | List SOAR job templates for component planning without printing job script bodies. |
 | `soar job instance list` | List configured SOAR job instances. |
-| `soar job logs` | Read Python execution logs for SOAR jobs/actions. Use documented filters such as `labels.job_name=~"^."` or `labels.action_name=~"^."`; human output prints counts, `--json` emits the raw payload. |
+| `soar job logs` | Read Python execution logs for SOAR jobs/actions. Use documented filters such as `labels.job_name=~"^."` or `labels.action_name=~"^."`. **Same Cloud Logging caveat as `python-logs`:** can 500 on some instances; for failed playbook/job triage, prefer `soar playbook summary`. |
 | `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). |
 | `soar case get <id>` | Get one case + its alerts (SOAR integer id). |
 | `info soar-integrations` | Report installed SOAR integration packs, connector/job runtime counts, bound environments, and gaps such as `config_without_runtime` or `runtime_disabled`. |
@@ -175,7 +173,8 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 |---|---|
 | `soar push <surface>` | Reconcile local files to live (create/update; `--prune` deletes on prune-eligible surfaces only — `soar push <surface> --help` says which). Surfaces: `blacklists`, `case-stages`, `case-tags`, `close-root-causes`, `connector-allowlist`, `connectors`, `environments`, `idp`, `jobs`, `networks`, `playbook-categories`, `playbooks`, `sla-definitions`, `soc-roles`, `tracking-lists`, `visual-families`, `webhooks`. |
 | `soar push playbooks` (plural) | Reconcile the **whole** playbooks directory: create/update every changed playbook, `--prune` to delete server-only ones. (One of the reconcile surfaces above.) |
-| `soar push playbook` (singular) | Imperative whole-body save of **one** playbook from `--file <playbook.json>`; mints a new version. Dry-run validates JSON and the playbook-name charset offline. Not a directory reconcile — use `playbooks` for the loop. |
+| `soar push playbook` (singular) | Imperative whole-body save of **one** playbook from `--file <playbook.json>`; mints a new version. Dry-run validates JSON and the playbook-name charset offline. Not a directory reconcile — use `playbooks` for the loop. This is also the only path to **enable/disable** a playbook (no lightweight toggle endpoint exists — `SaveWorkflowDefinitions` re-saves and versions the entire definition). |
+| `soar playbook delete (--name \| --identifier)` | Delete a playbook permanently. `--name` resolves via the live list. Irreversible — deleting stops any attached case execution. |
 | `soar playbook run` / `debug` | Attach/run a live playbook on an explicit case/alert, or start SecOps debug mode from an exported playbook and explicit test case. Dry-run is default; `--yes` executes in SecOps. |
 | `soar playbook rerun` / `rerun-block` | Rerun a playbook or nested block on an explicit case/alert. `rerun-block --inputs <file>` accepts a JSON array of block input parameters. |
 | `soar playbook step execute --file <step-instance.json>` | Execute one fetched workflow step instance. Dry-run prints a sanitized summary only; `--yes` sends the exact file body to SecOps. |
@@ -283,7 +282,7 @@ secopsctl soar playbook debug --file playbook.json --test-case-id 123 --yes
 secopsctl soar playbook pending list
 secopsctl --json soar playbook step get --case-id 456 --workflow-identifier <workflow-id> --step-identifier <step-id> > step.json
 secopsctl soar playbook step execute --file step.json --dry-run
-secopsctl soar playbook summary --case-id 456
+secopsctl soar playbook summary --case-id 456 --playbook "My Playbook"
 secopsctl soar playbook results --workflow-instance-id 789
 secopsctl soar job logs --filter 'labels.job_name=~"^."' --page-size 20
 ```
