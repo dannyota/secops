@@ -1097,6 +1097,46 @@ break it.
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG, and a guide for component code →
   package/import in SecOps → playbook → SecOps debug/run → outputs/logs.
 
+### Wave 40 — SIEM safety cleanup and rule deployment gaps *(planned)*
+
+- **Goal.** Close safety and operator-confidence gaps found in real CLI workflows
+  before expanding more SIEM mutation surfaces. The focus is tenant-neutral cleanup,
+  accurate mirrors, and dry-run previews that expose non-deployable state before a
+  guarded write.
+- **Smoke artifact cleanup.** Reconcile/write smokes must not leave unremovable or
+  detection-affecting artifacts behind. Prefer create → assert → defer cleanup on
+  surfaces with hard delete. For no-delete surfaces, add explicit neutralization:
+  archive findings refinements and empty reference lists. Add a guarded cleanup
+  helper that targets only secopsctl-owned smoke prefixes and prints a dry-run plan
+  before changing anything.
+- **Rule exclusions.** Add CLI deployment controls over findings refinements:
+  `rule_exclusions deploy <id> --archive|--enable|--disable`, backed by the existing
+  deployment get/update SDK. Extend `pull rule_exclusions` so mirrored YAML includes
+  deployment state (`enabled`, `archived`) and dry-runs can distinguish active,
+  disabled, and archived refinements.
+- **Reference lists.** Add `reference_lists empty <name>` as the supported
+  neutralization path for no-delete lists. The command must resolve and preview the
+  target, require the standard guarded mutation flow, clear entries with
+  `UpdateReferenceList`, and recommend re-pull after apply.
+- **Rule execution errors.** Make `rules errors <rule-id>` decode both string and
+  structured error payloads. Human output should show compact type/message/details
+  fields without dumping raw server payloads; `--json` should keep the raw record for
+  scripts.
+- **Safe rule creation.** Extend `push rules-create` with deployment controls such
+  as `--enabled=false`, `--alerting=false`, and
+  `--run-frequency=LIVE|HOURLY|DAILY`, or accept a companion deployment stub before
+  create. Dry-run must show the exact initial deployment state so new rules can be
+  created disabled or monitor-only in one guarded operation.
+- **Archived rule awareness.** Pull and mirror archived/deleted rule state where the
+  API exposes it. `push rules-deploy --dry-run` must report archived rules as
+  non-deployable instead of previewing a PATCH that SecOps will reject.
+- **Exit.** Smoke-created artifacts are either cleaned up or neutralized by a
+  first-class command; rule-exclusion deployment state round-trips in mirrors; rule
+  errors render reliably; new rules can be created monitor-first; and dry-runs block
+  archived-rule deployments before any API call.
+- **Docs.** CATALOG (`rules`, `rule_exclusions`, `reference_lists`), SIEM-DESIGN,
+  usage guide, and smoke-test notes in ARCHITECTURE.
+
 ---
 
 ## Non-goals
