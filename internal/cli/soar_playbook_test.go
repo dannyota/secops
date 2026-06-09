@@ -21,6 +21,7 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 	}
 	for _, name := range []string{
 		"list",
+		"delete",
 		"validate",
 		"components",
 		"mold",
@@ -316,14 +317,14 @@ func TestPrintPendingStepCount(t *testing.T) {
 }
 
 func TestPrintFaultedSteps(t *testing.T) {
-	raw := json.RawMessage(`[{"actionName":"Get Techniques","status":"FAULTED",` +
+	raw := json.RawMessage(`[{"actionName":"Enrich Entity","status":"FAULTED",` +
 		`"message":"Execution Failed.\n  Traceback (most recent call last):\n    line 1","` +
-		`integrationInstanceName":"MitreAttck_1","logsExplorerUrl":"https://logs.example/x"}]`)
+		`integrationInstanceName":"ExampleIntegration_1","logsExplorerUrl":"https://logs.example/x"}]`)
 
 	var trunc bytes.Buffer
 	printFaultedSteps(&trunc, raw, false)
 	for _, want := range []string{
-		"faulted (1):", "Get Techniques", "FAULTED", "MitreAttck_1",
+		"faulted (1):", "Enrich Entity", "FAULTED", "ExampleIntegration_1",
 		"https://logs.example/x", "--show-errors",
 	} {
 		if !strings.Contains(trunc.String(), want) {

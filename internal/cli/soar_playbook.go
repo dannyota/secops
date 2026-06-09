@@ -1405,6 +1405,7 @@ func printFaultedSteps(w io.Writer, rawFaulted json.RawMessage, showErrors bool)
 		return
 	}
 	fmt.Fprintf(w, "faulted (%d):\n", len(steps))
+	hasMsg := false
 	for i := range steps {
 		s := &steps[i]
 		fmt.Fprintf(w, "  [%d] %s — %s", i+1, firstNonEmpty(s.ActionName, s.Name, "(step)"), orDash(s.Status))
@@ -1413,6 +1414,7 @@ func printFaultedSteps(w io.Writer, rawFaulted json.RawMessage, showErrors bool)
 		}
 		fmt.Fprintln(w)
 		if msg := strings.TrimSpace(s.Message); msg != "" {
+			hasMsg = true
 			if showErrors {
 				fmt.Fprintf(w, "      error: %s\n", msg)
 			} else {
@@ -1423,7 +1425,7 @@ func printFaultedSteps(w io.Writer, rawFaulted json.RawMessage, showErrors bool)
 			fmt.Fprintf(w, "      logs:  %s\n", s.LogsExplorerURL)
 		}
 	}
-	if !showErrors {
+	if hasMsg && !showErrors {
 		fmt.Fprintln(w, "  (use --show-errors for full messages)")
 	}
 }

@@ -248,7 +248,7 @@ func newSOARIntegrationConfigureCmd() *cobra.Command {
 				lowerOverrides[strings.ToLower(k)] = k
 			}
 			var settings []json.RawMessage
-			matched := map[string]bool{}
+			matchedKeys := map[string]bool{} // user-supplied keys that resolved to a setting
 			for _, it := range items {
 				var se settingEntry
 				if json.Unmarshal(it, &se) != nil {
@@ -264,7 +264,7 @@ func newSOARIntegrationConfigureCmd() *cobra.Command {
 					}
 				}
 				if origKey != "" {
-					matched[se.PropertyName] = true
+					matchedKeys[origKey] = true
 					var m map[string]any
 					if json.Unmarshal(it, &m) == nil {
 						m["value"] = overrides[origKey]
@@ -277,18 +277,18 @@ func newSOARIntegrationConfigureCmd() *cobra.Command {
 			}
 			// Warn on params that didn't match any existing property.
 			for k := range overrides {
-				if !matched[k] {
+				if !matchedKeys[k] {
 					fmt.Fprintf(os.Stderr, "warning: --param %q did not match any setting on instance %s\n", k, instanceID)
 				}
 			}
-			if len(matched) == 0 {
+			if len(matchedKeys) == 0 {
 				return fmt.Errorf("no --param values matched any settings on instance %s (available properties are shown by `soar legacy call integrations/GetIntegrationInstanceSettings/%s --read`)", instanceID, instanceID)
 			}
 
 			dr, ay := soarGuard("integration configure "+integration, dryRun, yes)
 			fmt.Fprintf(os.Stdout, "Instance: %s (integration %s, environment %s)\n", instanceID, integration, env)
-			fmt.Fprintf(os.Stdout, "Setting %d parameter(s):", len(matched))
-			for k := range matched {
+			fmt.Fprintf(os.Stdout, "Setting %d parameter(s):", len(matchedKeys))
+			for k := range matchedKeys {
 				fmt.Fprintf(os.Stdout, " %s", k)
 			}
 			fmt.Fprintln(os.Stdout)
