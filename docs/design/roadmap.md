@@ -1141,12 +1141,16 @@ break it.
   instances and playbooks can be fully operated from the terminal — not only
   created and read. Each mutation is guarded behind the standard dry-run/`--yes`
   flow; secret-valued inputs never land in repo files (House Rule 5).
-- **Integration instance configure.** `soar integration configure <instance>
-  --param k=v …` sets a created instance's parameters behind the SOAR guard. A
-  created instance is otherwise inert (unconfigured), so configuration currently
-  has no in-tool path. Secret-valued params take a **reference** (env var or a
-  secret-manager reference), not a literal — the secret is resolved at apply time
-  and is never written to a tracked file.
+- **Integration instance configure *(done)*.** `soar integration configure
+  --integration <id> --param key=value …` reads an instance's current settings,
+  overlays the given key-value pairs (matched case-insensitively on
+  `propertyName` or `propertyDisplayName`), and saves via
+  `SaveIntegrationConfigurationProperties`. Secret-valued params take an **env-var
+  reference** (`--param 'API_Key=env:MY_SECRET'`) resolved at apply time — the
+  secret never appears in shell history or in a tracked file (House Rule 5).
+  Instance id and environment are auto-resolved when the integration has a single
+  instance. Guarded: dry-run by default, `--yes` to apply. Read+dry-run
+  live-validated; the write is guarded (approval per House Rule 1).
 - **Playbook delete *(done)*.** First-class guarded `soar playbook delete (--name
   <playbook> | --identifier <uuid>)`: `--name` resolves to the definition id via
   the live playbook list, then the standard SOAR guard (dry-run by default, `--yes`

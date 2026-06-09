@@ -190,6 +190,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar users list` | List SOAR users (the USERNAME column is the value for `soar case assign --user`); `--grep` / `--all`. |
 | `soar integration install --identifier <id>` | Install a Content Hub marketplace integration pack (from `soar marketplace list`); pairs with `uninstall`. |
 | `soar integration create` | Create a new, unconfigured (inert) integration instance. |
+| `soar integration configure --integration <id> --param k=v` | MUTATING (guarded): set an instance's parameters. Reads current settings, overlays `--param` values (matched on `propertyName` or display name), and saves. `--param 'key=env:VAR'` resolves secrets from env vars. Instance auto-resolved. |
 | `soar integration delete --integration <id>` | Delete an integration instance (warns if playbooks use it). `--id`/`--environment` are resolved from the integration's instances — a single instance is auto-selected; several list themselves with copy-paste flags to narrow. |
 | `soar integration uninstall` | Delete a custom integration pack (clone) by its key. |
 | `soar settings case-assignment` / `move-case-policy` set | Set the case-routing policy (set form is guarded). |
