@@ -634,8 +634,8 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
 value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
-Waves 25–34 + 37–38 are shipped; 35–36 remain on the forward plan (Waves 37–38
-landed ahead of them as operational work).
+Waves 25–38 are recorded in committed sequence; older waves keep their deferred
+items where a gap remains, and Waves 35–38 are complete.
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
