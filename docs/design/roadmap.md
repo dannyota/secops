@@ -1147,11 +1147,15 @@ break it.
   has no in-tool path. Secret-valued params take a **reference** (env var or a
   secret-manager reference), not a literal — the secret is resolved at apply time
   and is never written to a tracked file.
-- **Playbook delete + enable/disable.** First-class guarded `soar playbook delete
-  <id>` (wraps the legacy `DeleteWorkflow`) and `soar playbook deploy <id>
-  --enable|--disable` — a lightweight `isEnabled` toggle that does not mint a new
-  version (mirrors `rules-deploy`), replacing the whole-body re-save and the raw
-  legacy escape hatch for these two operations.
+- **Playbook delete *(done)*.** First-class guarded `soar playbook delete (--name
+  <playbook> | --identifier <uuid>)`: `--name` resolves to the definition id via
+  the live playbook list, then the standard SOAR guard (dry-run by default, `--yes`
+  to apply) over the v1alpha `legacyDeleteWorkflows` batch endpoint (legacy
+  fallback). Replaces the raw legacy escape hatch for playbook removal.
+  **Enable/disable deferred:** no lightweight toggle endpoint exists; the only path
+  is `SaveWorkflowDefinitions` (whole-body, mints a new version), which risks
+  clobbering concurrent edits — build it carefully when needed, not as a quick
+  toggle.
 - **Integration delete ergonomics *(done)*.** A new `soar integration instances
   --integration <id>` lists an integration's configured instances (id · environment
   · name) — the fields a delete needs, which `integration list` (packs only) does

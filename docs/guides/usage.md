@@ -128,6 +128,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 |---|---|
 | `soar pull <target>` | Snapshot SOAR state to local files. Targets: `grouping`, `cases`, `blacklists`, `case-stages`, `case-tags`, `close-root-causes`, `connector-allowlist`, `connectors`, `environments`, `idp`, `jobs`, `networks`, `playbook-categories`, `playbooks`, `sla-definitions`, `soc-roles`, `tracking-lists`, `visual-families`, `webhooks`, `all`. |
 | `soar playbook list` | List live SOAR playbooks for discovery before editing, saving, or debugging. `--enabled-only` filters to enabled playbooks; `--type regular\|nested` scopes the menu-card query. |
+| `soar playbook delete (--name \| --identifier)` | MUTATING (guarded): delete a playbook permanently. `--name` resolves via the live list. Irreversible — deleting stops any attached case execution. |
 | `soar playbook validate --file <playbook.json>` | Preflight an exported playbook JSON file before save. Runs the same local save-shape checks as `soar push playbook --dry-run` and reports trigger, step, action, block, relation, automatic/manual counts, and graph warnings. |
 | `soar playbook components integrations` | List installed integration packs that can supply playbook actions, connector definitions, and job definitions. |
 | `soar playbook components actions --integration <key>` | List action definitions for one integration, including parameter counts, mandatory parameters, JSON/script-result flags, async state, and action type. Human output does not print Python script bodies. |

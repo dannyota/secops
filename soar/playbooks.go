@@ -26,3 +26,15 @@ func (c *Client) GetWorkflowInstanceSummary(ctx context.Context, body any) (json
 	}
 	return out, nil
 }
+
+// DeleteWorkflows deletes one or more playbook definitions by their identifiers
+// via the v1alpha SOAR-host legacyPlaybooks:legacyDeleteWorkflows surface.
+// identifiers is the list of workflow definition UUIDs to delete.
+func (c *Client) DeleteWorkflows(ctx context.Context, identifiers []string) (json.RawMessage, error) {
+	body := map[string]any{"identifiers": identifiers}
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "legacyPlaybooks:legacyDeleteWorkflows", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

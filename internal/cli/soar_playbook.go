@@ -79,6 +79,7 @@ func newSOARPlaybookCmd() *cobra.Command {
 	}
 	cmd.AddCommand(
 		newSOARPlaybookListCmd(),
+		newSOARPlaybookDeleteCmd(),
 		newSOARPlaybookValidateCmd(),
 		newSOARPlaybookComponentsCmd(),
 		newSOARPlaybookMoldCmd(),
@@ -144,6 +145,88 @@ func newSOARPlaybookListCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVar(&enabledOnly, "enabled-only", false, "show only enabled playbooks")
 	f.StringArrayVar(&types, "type", nil, "playbook type filter: regular or nested (repeatable)")
+	return cmd
+}
+
+func newSOARPlaybookDeleteCmd() *cobra.Command {
+	var (
+		name       string
+		identifier string
+		dryRun     bool
+		yes        bool
+	)
+	cmd := &cobra.Command{
+		Use:   "delete (--name <playbook> | --identifier <uuid>)",
+		Short: "MUTATING (guarded): delete a playbook permanently",
+		Long: "Delete a single playbook definition by name or identifier UUID.\n" +
+			"`--name` resolves to the definition id via the live playbook list (case-\n" +
+			"insensitive exact match). Guarded: dry-run by default, --yes to apply.\n" +
+			"Deleting a playbook that is attached to a case stops its execution —\n" +
+			"irreversible.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name = strings.TrimSpace(name)
+			identifier = strings.TrimSpace(identifier)
+			if name == "" && identifier == "" {
+				return fmt.Errorf("pass --name <playbook> or --identifier <uuid>")
+			}
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			ctx := baseContext()
+			// Resolve name → identifier.
+			if identifier == "" {
+				if identifier, err = resolvePlaybookDefinition(ctx, lc, name); err != nil {
+					return err
+				}
+			}
+			// Show what we're about to delete (read-only).
+			label := name
+			if label == "" {
+				label = identifier
+			}
+			dr, ay := soarGuard("playbook delete "+label, dryRun, yes)
+			if dr {
+				fmt.Fprintf(os.Stdout, "DRY RUN: would delete playbook %q (%s)\n", label, identifier)
+				return nil
+			}
+			if !ay {
+				fmt.Fprintln(os.Stdout, "Refusing to delete without confirmation (pass --yes). Aborted.")
+				return nil
+			}
+			// Prefer the modern v1alpha batch endpoint; fall back to legacy.
+			return preferModern("soar playbook delete",
+				func() error {
+					mc, merr := newSOARClient()
+					if merr != nil {
+						return merr
+					}
+					_, merr = mc.DeleteWorkflows(ctx, []string{identifier})
+					if merr != nil {
+						return merr
+					}
+					fmt.Fprintf(os.Stdout, "deleted playbook %q (%s)\n", label, identifier)
+					return nil
+				},
+				func() error {
+					body := map[string]any{"identifiers": []string{identifier}}
+					_, lerr := lc.DeleteWorkflows(ctx, body)
+					if lerr != nil {
+						return lerr
+					}
+					fmt.Fprintf(os.Stdout, "deleted playbook %q (%s)\n", label, identifier)
+					return nil
+				},
+			)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&name, "name", "", "playbook name (resolved to its id via the live playbook list)")
+	f.StringVar(&identifier, "identifier", "", "playbook definition UUID (overrides --name)")
+	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return cmd
 }
 
