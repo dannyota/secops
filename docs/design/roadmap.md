@@ -968,7 +968,7 @@ break it.
   `--yes` delete → `GetFeed` 404 confirm. Offline-tested; gates green.
 - **Docs.** CATALOG (`feeds` row), usage guide (SIEM guarded mutations).
 
-### Wave 39 — SOAR playbook workflow and component interaction *(started — `soar playbook list` + save preflight/shape summary wired)*
+### Wave 39 — SOAR playbook workflow and component interaction *(started — discovery, save preflight, SecOps run/debug/readback helpers wired)*
 
 - **Goal.** Help users build SOAR automation end to end: author Python-backed
   components, package or import them, compose playbook workflows, run jobs/playbooks
@@ -1017,7 +1017,8 @@ break it.
   **Started:** `soar playbook list` discovers live SecOps playbooks, and
   `soar playbook validate --file` runs the same save preflight as the guarded save
   path while reporting trigger, relation, action/block, and automatic/manual step
-  shape.
+  shape. Still missing: typed component/action catalogs and step insertion/update
+  commands that produce SecOps-wired action step molds without hand-editing raw JSON.
 - **Case/alert test runs and output inspection.** Add `soar playbook run` and
   `soar playbook debug` commands that require an explicit case id and, for alert-scope
   tests, an alert group/id or imported simulation alert. `run` attaches an enabled
@@ -1027,9 +1028,14 @@ break it.
   Add output commands that summarize completed/faulted/pending steps from
   `GetWorkflowInstanceSummary`, fetch workflow action results with
   `GetActionResultsOfWFId`, fetch a specific action result with
-  `resources/GetActionResultsById`, and surface action status, message, script result,
-  JSON result, targeted/result entities, and `pythonExecutionId` without printing
-  secrets.
+  `resources/GetActionResultsById`, and surface action status plus the presence of
+  message/script/JSON/entity/Python-execution fields without printing their contents
+  by default.
+  **Built first slice:** `soar playbook test-cases`, guarded `run`, guarded `debug`,
+  `summary`, `results`, `result`, `python-logs`, `debug-step-data`,
+  `simulation-enrichment`, guarded `rerun`, and guarded `rerun-block`. Human output
+  summarizes counts/status/presence; `--json` keeps raw SecOps payloads available for
+  scripts and deeper troubleshooting.
 - **Auto-trigger deployment.** Let deploy-time playbook changes manage the native
   trigger object rather than only preserving exported JSON. Support `isEnabled`,
   `trigger.type`, `executionMode`, ingestion `conditions`, `reactionConditions`, and
@@ -1048,8 +1054,8 @@ break it.
   step exists before advertising one; until then, Python enters playbooks through
   custom actions/jobs whose definitions carry the script. Keep `form-dynamic-parameters`
   read-only until its unsafe update behavior is solved.
-- **Run and debug.** Add guarded commands for `soar playbook test-cases`, debug run,
-  step data, rerun, action results, workflow-instance summaries, and Python logs; add
+- **Run and debug.** Guarded playbook run/debug/readback commands are built. Remaining:
+  typed `ExecuteStep` helpers once the full step-instance body can be validated,
   `soar job run`, job-instance run, and job logs/status helpers. Prefer simulated or
   throwaway cases with explicit ids/prefixes, never broad live queues, and always
   surface what will run before mutation.
