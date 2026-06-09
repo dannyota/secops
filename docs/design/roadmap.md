@@ -968,7 +968,7 @@ break it.
   `--yes` delete → `GetFeed` 404 confirm. Offline-tested; gates green.
 - **Docs.** CATALOG (`feeds` row), usage guide (SIEM guarded mutations).
 
-### Wave 39 — SOAR playbook workflow and component interaction *(planned)*
+### Wave 39 — SOAR playbook workflow and component interaction *(started — `soar playbook list` + save preflight/shape summary wired)*
 
 - **Goal.** Help users build SOAR automation end to end: author Python-backed
   components, package or import them, compose playbook workflows, run jobs/playbooks
@@ -1014,6 +1014,10 @@ break it.
   choices, output names, and whether an action is automatic or manual. A playbook step
   insert/update command should produce the same wired action shape the SecOps UI would
   save, then keep the final `SaveWorkflowDefinitions` dry-run reviewable.
+  **Started:** `soar playbook list` discovers live SecOps playbooks, and
+  `soar playbook validate --file` runs the same save preflight as the guarded save
+  path while reporting trigger, relation, action/block, and automatic/manual step
+  shape.
 - **Case/alert test runs and output inspection.** Add `soar playbook run` and
   `soar playbook debug` commands that require an explicit case id and, for alert-scope
   tests, an alert group/id or imported simulation alert. `run` attaches an enabled

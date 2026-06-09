@@ -113,6 +113,8 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | Command | What it does |
 |---|---|
 | `soar pull <target>` | Snapshot SOAR state to local files. Targets: `grouping`, `cases`, `blacklists`, `case-stages`, `case-tags`, `close-root-causes`, `connector-allowlist`, `connectors`, `environments`, `idp`, `jobs`, `networks`, `playbook-categories`, `playbooks`, `sla-definitions`, `soc-roles`, `tracking-lists`, `visual-families`, `webhooks`, `all`. |
+| `soar playbook list` | List live SOAR playbooks for discovery before editing, saving, or debugging. `--enabled-only` filters to enabled playbooks; `--type regular\|nested` scopes the menu-card query. |
+| `soar playbook validate --file <playbook.json>` | Preflight an exported playbook JSON file before save. Runs the same local save-shape checks as `soar push playbook --dry-run` and reports trigger, step, action, block, relation, automatic/manual counts, and graph warnings. |
 | `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). |
 | `soar case get <id>` | Get one case + its alerts (SOAR integer id). |
 | `info soar-integrations` | Report installed SOAR integration packs, connector/job runtime counts, bound environments, and gaps such as `config_without_runtime` or `runtime_disabled`. |
