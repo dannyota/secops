@@ -54,6 +54,36 @@ func BuildPlaybookFromMolds(base Playbook, opts PlaybookBuildOptions) (Playbook,
 	return preparePlaybookForSave(out)
 }
 
+// ExtractActionStepMold returns one exported action step from a playbook. The
+// result is suitable for BuildPlaybookFromMolds; that later merge preserves the
+// destination playbook's graph identity fields.
+func ExtractActionStepMold(playbook Playbook, match string) (json.RawMessage, error) {
+	body, err := decodePlaybookObject(playbook, "playbook")
+	if err != nil {
+		return nil, err
+	}
+	steps, ok := body["steps"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("legacy: playbook steps is %T, want array", body["steps"])
+	}
+	idx, err := findPlaybookStep(steps, strings.TrimSpace(match))
+	if err != nil {
+		return nil, err
+	}
+	step, ok := steps[idx].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("legacy: playbook steps[%d] is %T, want object", idx, steps[idx])
+	}
+	if err := validateActionStepMold(step); err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(step)
+	if err != nil {
+		return nil, fmt.Errorf("legacy: marshal step mold: %w", err)
+	}
+	return raw, nil
+}
+
 func setPlaybookCronSchedule(body map[string]any, cron string) error {
 	trigger, ok := body["trigger"].(map[string]any)
 	if !ok || trigger == nil {

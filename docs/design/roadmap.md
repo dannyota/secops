@@ -968,7 +968,7 @@ break it.
   `--yes` delete → `GetFeed` 404 confirm. Offline-tested; gates green.
 - **Docs.** CATALOG (`feeds` row), usage guide (SIEM guarded mutations).
 
-### Wave 39 — SOAR playbook workflow and component interaction *(started — discovery, save preflight, SecOps run/debug/readback helpers wired)*
+### Wave 39 — SOAR playbook workflow and component interaction *(started — discovery, component catalogs, save preflight, SecOps run/debug/readback helpers, mold extraction, and guarded job runs wired)*
 
 - **Goal.** Help users build SOAR automation end to end: author Python-backed
   components, package or import them, compose playbook workflows, run jobs/playbooks
@@ -994,6 +994,9 @@ break it.
   `logging/python`. Jobs use
   `GetJobTemplates`, `SaveOrUpdateJobData`, `RunJob`, `/jobs/instances`,
   `/jobs/instances/run`, and modern `jobInstances:runOnDemand` only after validation.
+  Component/action discovery uses the modern installed integration catalog for
+  package selection and legacy `GetStoreIntegrationFullDetails` for action metadata
+  because action definitions are integration-scoped SecOps components.
   Custom component work should prefer the newer Chronicle integration/action/
   connector/job APIs where they are available, while `legacyPlaybooks` remains the
   practical workflow path until first-class playbook REST docs and live behavior are
@@ -1008,17 +1011,23 @@ break it.
   `soar build-playbook` beyond placeholder replacement into a reusable step/block mold
   library sourced from exported SecOps actions and blocks, preserving graph identity,
   `StepType` values, container/loop fields, `blockStepId`, and nested workflow links.
+  **Built next slice:** `soar playbook mold extract` extracts one exported action
+  step as a reusable mold, and `soar build-playbook` can splice it into a base
+  playbook while preserving graph identity.
 - **Component discovery and insertion.** Add commands that help users find and insert
   real SecOps components instead of hand-editing raw JSON: list installed integrations,
   actions, connectors, jobs, action parameters, entity scopes, dynamic-instance
   choices, output names, and whether an action is automatic or manual. A playbook step
   insert/update command should produce the same wired action shape the SecOps UI would
   save, then keep the final `SaveWorkflowDefinitions` dry-run reviewable.
-  **Started:** `soar playbook list` discovers live SecOps playbooks, and
-  `soar playbook validate --file` runs the same save preflight as the guarded save
-  path while reporting trigger, relation, action/block, and automatic/manual step
-  shape. Still missing: typed component/action catalogs and step insertion/update
-  commands that produce SecOps-wired action step molds without hand-editing raw JSON.
+  **Built next slice:** `soar playbook components integrations` lists installed
+  component sources; `components actions --integration <key>` reads action
+  definitions and summarizes parameter counts, mandatory parameters, JSON/script
+  result flags, async state, and type without printing Python script bodies;
+  `components jobs` and `components connectors` list definitions inside an
+  integration. Still missing: typed step insertion/update commands that produce or
+  patch SecOps-wired action step molds without hand-editing raw JSON, plus dynamic
+  instance/entity-scope/value completion.
 - **Case/alert test runs and output inspection.** Add `soar playbook run` and
   `soar playbook debug` commands that require an explicit case id and, for alert-scope
   tests, an alert group/id or imported simulation alert. `run` attaches an enabled
@@ -1054,11 +1063,15 @@ break it.
   step exists before advertising one; until then, Python enters playbooks through
   custom actions/jobs whose definitions carry the script. Keep `form-dynamic-parameters`
   read-only until its unsafe update behavior is solved.
-- **Run and debug.** Guarded playbook run/debug/readback commands are built. Remaining:
-  typed `ExecuteStep` helpers once the full step-instance body can be validated,
-  `soar job run`, job-instance run, and job logs/status helpers. Prefer simulated or
-  throwaway cases with explicit ids/prefixes, never broad live queues, and always
-  surface what will run before mutation.
+- **Run and debug.** Guarded playbook run/debug/readback commands are built.
+  **Built next slice:** `soar job list`, `soar job instance list`, guarded
+  `soar job run --job <id|uniqueIdentifier|name>`, and guarded
+  `soar job instance run --instance <id|uniqueIdentifier|name>` fetch the live body
+  first, preview the explicit target, and require `--yes` before SecOps executes.
+  Remaining: typed `ExecuteStep` helpers once the full step-instance body can be
+  validated, deeper job logs/status helpers, and a safer job-template authoring
+  path. Prefer simulated or throwaway cases with explicit ids/prefixes, never broad
+  live queues, and always surface what will run before mutation.
 - **Exit.** A user can discover SecOps actions/jobs, scaffold and package a Python
   action/job, import or update it in SecOps, compose a playbook using exported SecOps
   molds, dry-run and save the workflow, run it against an explicit case/alert or

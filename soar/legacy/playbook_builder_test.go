@@ -89,6 +89,36 @@ func TestBuildPlaybookFromMoldsSetsCronAndReplacesStep(t *testing.T) {
 	}
 }
 
+func TestExtractActionStepMold(t *testing.T) {
+	playbook := Playbook(`{
+	  "name": "Source",
+	  "templateName": null,
+	  "steps": [
+	    {"identifier": "s1", "name": "Nested Block", "type": 5},
+	    {
+	      "identifier": "s2",
+	      "originalStepIdentifier": "orig-s2",
+	      "name": "Lookup",
+	      "type": 0,
+	      "integration": "Example",
+	      "actionName": "Lookup Entity",
+	      "parameters": [{"name": "Entity"}]
+	    }
+	  ]
+	}`)
+	mold, err := ExtractActionStepMold(playbook, "Lookup")
+	if err != nil {
+		t.Fatalf("ExtractActionStepMold: %v", err)
+	}
+	var step map[string]any
+	if err := json.Unmarshal(mold, &step); err != nil {
+		t.Fatal(err)
+	}
+	if step["integration"] != "Example" || step["actionName"] != "Lookup Entity" {
+		t.Fatalf("step action = (%q,%q)", step["integration"], step["actionName"])
+	}
+}
+
 func TestBuildPlaybookFromMoldsRejectsUnwiredStepMold(t *testing.T) {
 	base := Playbook(`{"name":"Base","trigger":{},"steps":[{"name":"Placeholder"}]}`)
 	_, err := BuildPlaybookFromMolds(base, PlaybookBuildOptions{

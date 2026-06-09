@@ -79,6 +79,8 @@ func newSOARPlaybookCmd() *cobra.Command {
 	cmd.AddCommand(
 		newSOARPlaybookListCmd(),
 		newSOARPlaybookValidateCmd(),
+		newSOARPlaybookComponentsCmd(),
+		newSOARPlaybookMoldCmd(),
 		newSOARPlaybookTestCasesCmd(),
 		newSOARPlaybookRunCmd(),
 		newSOARPlaybookDebugCmd(),

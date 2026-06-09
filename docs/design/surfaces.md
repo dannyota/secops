@@ -212,8 +212,9 @@ stays on the legacy lane, which is reliable. So far that means:
 | Family | Status | Gaps (modern) |
 |---|---|---|
 | integrations catalog (list/get/delete) | ✅ | `updateCustomIntegration`, `:export`/`:download` ⬜ (low) |
-| playbook interaction helpers (`soar playbook`) | 🔨 legacy operational | SecOps-backed list/validate/test-cases/run/debug/summary/results/result/python-logs/debug-step-data/simulation-enrichment/rerun/rerun-block built; component/action catalogs, typed step insertion, trigger authoring, job run/log helpers still Wave 39 |
-| scheduled playbook builder (`soar build-playbook`) | 🔨 offline utility | exported base playbook + exported integration-action step molds only; no API call, no tenant validation |
+| playbook interaction helpers (`soar playbook`) | 🔨 legacy operational | SecOps-backed list/validate/components/test-cases/run/debug/summary/results/result/python-logs/debug-step-data/simulation-enrichment/rerun/rerun-block built; typed step insertion/update, trigger authoring, Python action/job scaffolding, and fetch-first `ExecuteStep` helpers still Wave 39 |
+| job operational helpers (`soar job`) | 🔨 legacy operational | installed job and job-instance lists plus guarded `run` commands built; deeper job execution logs/status helpers still Wave 39 |
+| scheduled playbook builder (`soar build-playbook`, `soar playbook mold extract`) | 🔨 offline utility | exported base playbook + exported integration-action step molds only; no API call, no tenant validation |
 | custom integration package ZIP (`soar package-integration`) | 🔨 offline utility | deterministic local ZIP builder for an already-shaped IDE integration directory; no API call, no tenant validation |
 | scheduler references (`info cron`) | 🔨 offline utility | local scheduler-file scan plus pulled SOAR job/playbook `cronSchedule` scan; optional current-user host scheduler scan and heartbeat status HEAD checks; no raw command/URL echo |
 | connector **definitions** (list/get/delete) | ✅ | create/patch ⬜ (med) |

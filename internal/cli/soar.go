@@ -100,7 +100,7 @@ func init() {
 	}
 	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARCaseCmd(), newSOARLegacyCmd(),
 		newSOARIntegrationCmd(), newSOARSettingsCmd(), newSOARMarketplaceCmd(), newSOARUsersCmd(),
-		newSOARPlaybookCmd(), newSOARPackageIntegrationCmd(), newSOARBuildPlaybookCmd())
+		newSOARPlaybookCmd(), newSOARJobCmd(), newSOARPackageIntegrationCmd(), newSOARBuildPlaybookCmd())
 	rootCmd.AddCommand(soarCmd)
 }
 

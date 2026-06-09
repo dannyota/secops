@@ -32,8 +32,8 @@ reconcile):
 | Lane | Mechanism | SOAR surfaces |
 |---|---|---|
 | **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **17**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) · `connectors` · `connector-allowlist` (derived allow-list view, write-validated) · `jobs`. (`form-dynamic-parameters` is deferred — its PUT update is unsafe; see CATALOG) |
-| **imperative/read** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar playbook <verb>` · `soar integration` · `soar settings` · `info soar-integrations` | cases: `list` (New API — siemplify v1alpha; the CLI auto-falls back to the Legacy queue on error) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. playbooks: `list`/`validate`/`test-cases`/`summary`/`results`/`result`/`python-logs`/`debug-step-data`/`simulation-enrichment` read SecOps state; `run`/`debug`/`rerun`/`rerun-block` are guarded execution against explicit case/test-case/workflow selectors. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `integration install` (marketplace pack by identifier, guarded) / `list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). runtime health: `info soar-integrations` joins installed packs with connector/job runtime cards and flags `config_without_runtime`, `runtime_without_installed_pack`, `runtime_disabled`, and `unconfigured_runtime`. singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`); **API-key metadata** read: `settings api-keys [list]` (`GET /settings/GetApiKeys`, typed, metadata only — the secret is masked by the server and dropped by the typed view; create/revoke deferred until the console request confirms those endpoints) |
-| **offline utility** (no API call by default) | `info cron` · `soar build-playbook` · `soar package-integration` | `info cron` scans local scheduler-like files for `secopsctl drift`, SIEM `push`, and SOAR `soar push` references, then scans pulled `soar/jobs/` and `soar/playbooks/` JSON for non-empty `cronSchedule` values. `--host` adds current-user crontab and user systemd files; `--heartbeat-status` HEAD-checks explicitly supplied read-only heartbeat status endpoints. It reports file:line matches and labels only, not raw scheduler lines or URLs. `soar build-playbook` composes a scheduled playbook JSON from exported base/step molds. `soar package-integration` builds deterministic ZIPs for already-shaped SOAR custom integration directories, refusing symlinks and leaving tenant import validation to SOAR. |
+| **imperative/read** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar playbook <verb>` · `soar job <verb>` · `soar integration` · `soar settings` · `info soar-integrations` | cases: `list` (New API — siemplify v1alpha; the CLI auto-falls back to the Legacy queue on error) · `get <id>` (case + its alerts); 9 mutate verbs (assign · rename · stage · tag · untag · describe · importance · close · merge) + `soar push bulk-close`. playbooks: `list`/`validate`/`components`/`test-cases`/`summary`/`results`/`result`/`python-logs`/`debug-step-data`/`simulation-enrichment` read SecOps state; `run`/`debug`/`rerun`/`rerun-block` are guarded execution against explicit case/test-case/workflow selectors. jobs: `job list` and `job instance list` are reads; `job run` and `job instance run` are dry-run-first guarded executions after fetching the live body. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `integration install` (marketplace pack by identifier, guarded) / `list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). runtime health: `info soar-integrations` joins installed packs with connector/job runtime cards and flags `config_without_runtime`, `runtime_without_installed_pack`, `runtime_disabled`, and `unconfigured_runtime`. singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`); **API-key metadata** read: `settings api-keys [list]` (`GET /settings/GetApiKeys`, typed, metadata only — the secret is masked by the server and dropped by the typed view; create/revoke deferred until the console request confirms those endpoints) |
+| **offline utility** (no API call by default) | `info cron` · `soar build-playbook` · `soar playbook mold extract` · `soar package-integration` | `info cron` scans local scheduler-like files for `secopsctl drift`, SIEM `push`, and SOAR `soar push` references, then scans pulled `soar/jobs/` and `soar/playbooks/` JSON for non-empty `cronSchedule` values. `--host` adds current-user crontab and user systemd files; `--heartbeat-status` HEAD-checks explicitly supplied read-only heartbeat status endpoints. It reports file:line matches and labels only, not raw scheduler lines or URLs. `soar build-playbook` composes a scheduled playbook JSON from exported base/step molds; `soar playbook mold extract` creates those action-step molds from exported playbook JSON. `soar package-integration` builds deterministic ZIPs for already-shaped SOAR custom integration directories, refusing symlinks and leaving tenant import validation to SOAR. |
 | **raw** (batch upserts / bundles / selector reads) | `soar legacy call <op>` | integrations (reads) · ontology-mapping (selector read + batch upsert + body delete) · environment-priorities · permissions · system/singleton settings · … |
 
 Commands:
@@ -43,9 +43,13 @@ Commands:
 - `soar case list`/`get` — read
 - `soar case <verb>` — guarded mutate
 - `soar playbook <verb>` — discover, validate, debug/run, and inspect SecOps playbook executions
+- `soar playbook components <integrations|actions|jobs|connectors>` — read playbook component catalogs
+- `soar job list` / `soar job instance list` — read job runtime catalogs
+- `soar job run` / `soar job instance run` — guarded job execution after live fetch
 - `info soar-integrations` — read-only integration runtime coverage
 - `info cron [--root <dir>] [--host] [--heartbeat-status <label>=<url>]` — scheduler-reference manifest and optional host/heartbeat check
 - `soar build-playbook --base <playbook.json> --cron <expr> --out <playbook.json>` — offline scheduled-playbook composer
+- `soar playbook mold extract --file <playbook.json> --step <name|id> --out <step.json>` — offline action-step mold extractor
 - `soar package-integration <dir>` — offline custom-integration ZIP builder
 - `soar legacy call <op>` — raw passthrough
 
@@ -207,11 +211,12 @@ bridge/playbooks    coercePlaybookTypes(): id/priority/version/*UnixTimeInMs int
   inspection, and `--heartbeat-status` checks explicit read-only heartbeat status
   endpoints. It reports file:line references and labels, and intentionally does
   not print raw scheduler lines or endpoint URLs.
-- **Playbook builders use exported molds** — `soar build-playbook` starts from a
-  full exported base playbook, sets `trigger.cronSchedule`, and replaces named
-  placeholder steps with exported, already-wired integration-action steps while
-  preserving the base step graph identity. It does not invent integration action
-  bodies or validate tenant importability.
+- **Playbook builders use exported molds** — `soar playbook mold extract` creates
+  a reusable action-step mold from an exported playbook, and `soar build-playbook`
+  starts from a full exported base playbook, sets `trigger.cronSchedule`, and
+  replaces named placeholder steps with those already-wired integration-action
+  steps while preserving the base step graph identity. It does not invent
+  integration action bodies or validate tenant importability.
 - **Custom integration imports are ZIPs, not live config files** — package a
   directory with `soar package-integration <dir>` only after it already matches
   the IDE export/import structure. secopsctl makes the archive deterministic; SOAR
