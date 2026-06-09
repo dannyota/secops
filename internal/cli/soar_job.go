@@ -33,6 +33,19 @@ type soarJobInstanceRow struct {
 	ParameterCount   int    `json:"parameter_count"`
 }
 
+type soarJobTemplateRow struct {
+	ID                   string `json:"id,omitempty"`
+	UniqueIdentifier     string `json:"unique_identifier,omitempty"`
+	Name                 string `json:"name,omitempty"`
+	Integration          string `json:"integration,omitempty"`
+	DefinitionName       string `json:"definition_name,omitempty"`
+	Enabled              *bool  `json:"enabled,omitempty"`
+	Custom               *bool  `json:"custom,omitempty"`
+	SystemJob            *bool  `json:"system_job,omitempty"`
+	RunIntervalInSeconds string `json:"run_interval_in_seconds,omitempty"`
+	ParameterCount       int    `json:"parameter_count"`
+}
+
 func newSOARJobCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "job",
@@ -43,6 +56,7 @@ func newSOARJobCmd() *cobra.Command {
 	cmd.AddCommand(
 		newSOARJobListCmd(),
 		newSOARJobRunCmd(),
+		newSOARJobTemplateCmd(),
 		newSOARJobInstanceCmd(),
 	)
 	return cmd
@@ -125,6 +139,45 @@ func newSOARJobRunCmd() *cobra.Command {
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("job")
+	return cmd
+}
+
+func newSOARJobTemplateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "template",
+		Short: "Inspect SOAR job templates",
+	}
+	cmd.AddCommand(newSOARJobTemplateListCmd())
+	return cmd
+}
+
+func newSOARJobTemplateListCmd() *cobra.Command {
+	var grep string
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List SOAR job templates",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			raw, err := lc.ListJobTemplates(baseContext())
+			if err != nil {
+				return err
+			}
+			rows, err := summarizeSOARJobTemplates(raw, grep)
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return emitJSON(rows)
+			}
+			printSOARJobTemplateRows(cmd.OutOrStdout(), rows)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&grep, "grep", "", "case-insensitive filter over id/name/integration")
 	return cmd
 }
 
@@ -255,6 +308,25 @@ func summarizeSOARJobInstances(raw json.RawMessage, grep string) ([]soarJobInsta
 	return rows, nil
 }
 
+func summarizeSOARJobTemplates(raw json.RawMessage, grep string) ([]soarJobTemplateRow, error) {
+	records, err := rawListRecords(raw)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]soarJobTemplateRow, 0, len(records))
+	for _, record := range records {
+		row, ok := soarJobTemplateRowFromRaw(record)
+		if !ok {
+			continue
+		}
+		if matchesAny(grep, row.ID, row.UniqueIdentifier, row.Name, row.Integration, row.DefinitionName) {
+			rows = append(rows, row)
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool { return strings.ToLower(rows[i].Name) < strings.ToLower(rows[j].Name) })
+	return rows, nil
+}
+
 func findSOARJob(raw json.RawMessage, selector string) (json.RawMessage, soarJobRow, error) {
 	records, err := rawListRecords(raw)
 	if err != nil {
@@ -337,6 +409,35 @@ func soarJobRowFromRaw(raw json.RawMessage) (soarJobRow, bool) {
 	return row, row.ID != "" || row.UniqueIdentifier != "" || row.Name != ""
 }
 
+func soarJobTemplateRowFromRaw(raw json.RawMessage) (soarJobTemplateRow, bool) {
+	m, ok := rawJSONObject(raw)
+	if !ok {
+		return soarJobTemplateRow{}, false
+	}
+	enabled, hasEnabled := rawBoolField(m, "isEnabled")
+	custom, hasCustom := rawBoolField(m, "isCustom")
+	system, hasSystem := rawBoolField(m, "isSystemJob")
+	row := soarJobTemplateRow{
+		ID:                   rawScalarString(m["id"]),
+		UniqueIdentifier:     rawScalarString(m["uniqueIdentifier"]),
+		Name:                 rawScalarString(m["name"]),
+		Integration:          rawScalarString(m["integration"]),
+		DefinitionName:       rawScalarString(m["jobDefinitionName"]),
+		RunIntervalInSeconds: rawScalarString(m["runIntervalInSeconds"]),
+		ParameterCount:       jsonArrayLen(m["parameters"]),
+	}
+	if hasEnabled {
+		row.Enabled = &enabled
+	}
+	if hasCustom {
+		row.Custom = &custom
+	}
+	if hasSystem {
+		row.SystemJob = &system
+	}
+	return row, row.ID != "" || row.UniqueIdentifier != "" || row.Name != ""
+}
+
 func soarJobInstanceRowFromRaw(raw json.RawMessage) (soarJobInstanceRow, bool) {
 	m, ok := rawJSONObject(raw)
 	if !ok {
@@ -386,6 +487,23 @@ func printSOARJobInstanceRows(w io.Writer, rows []soarJobInstanceRow) {
 			boolPtrString(row.Enabled), row.ID, row.UniqueIdentifier, row.Name, row.Category, row.ParameterCount)
 	}
 	fmt.Fprintf(w, "\n%d job instance(s)\n", len(rows))
+}
+
+func printSOARJobTemplateRows(w io.Writer, rows []soarJobTemplateRow) {
+	fmt.Fprintln(w, "ENABLED\tCUSTOM\tSYSTEM\tID\tUNIQUE_IDENTIFIER\tNAME\tINTEGRATION\tRUN_INTERVAL_SECONDS\tPARAMS")
+	for _, row := range rows {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\n",
+			boolPtrString(row.Enabled),
+			boolPtrString(row.Custom),
+			boolPtrString(row.SystemJob),
+			row.ID,
+			row.UniqueIdentifier,
+			row.Name,
+			row.Integration,
+			defaultString(row.RunIntervalInSeconds, "-"),
+			row.ParameterCount)
+	}
+	fmt.Fprintf(w, "\n%d job template(s)\n", len(rows))
 }
 
 func emitSOARJobMutationPreview(action string, row soarJobRow, dryRun, assumeYes bool) error {

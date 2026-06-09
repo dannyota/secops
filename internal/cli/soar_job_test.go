@@ -15,10 +15,14 @@ func TestSOARJobCommandRegistered(t *testing.T) {
 	if job == nil {
 		t.Fatal("soar job command not registered")
 	}
-	for _, name := range []string{"list", "run", "instance"} {
+	for _, name := range []string{"list", "run", "template", "instance"} {
 		if commandChild(job, name) == nil {
 			t.Fatalf("soar job %s command not registered", name)
 		}
+	}
+	template := commandChild(job, "template")
+	if commandChild(template, "list") == nil {
+		t.Fatal("soar job template list command not registered")
 	}
 }
 
@@ -67,6 +71,42 @@ func TestFindSOARJob(t *testing.T) {
 	}
 	if row.ID != "2" || row.Name != "B" {
 		t.Fatalf("row = %#v", row)
+	}
+}
+
+func TestSummarizeSOARJobTemplates(t *testing.T) {
+	raw := json.RawMessage(`[
+	  {
+	    "id": 3,
+	    "uniqueIdentifier": "template-uuid",
+	    "name": "Template",
+	    "integration": "Example",
+	    "jobDefinitionName": "Definition",
+	    "script": "secret script body",
+	    "isEnabled": true,
+	    "isCustom": false,
+	    "isSystemJob": true,
+	    "runIntervalInSeconds": 300,
+	    "parameters": [{"name": "Token"}]
+	  }
+	]`)
+	rows, err := summarizeSOARJobTemplates(raw, "")
+	if err != nil {
+		t.Fatalf("summarizeSOARJobTemplates: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %#v, want 1", rows)
+	}
+	row := rows[0]
+	if row.ID != "3" || row.UniqueIdentifier != "template-uuid" || row.Name != "Template" {
+		t.Fatalf("row = %#v", row)
+	}
+	if row.ParameterCount != 1 || row.RunIntervalInSeconds != "300" {
+		t.Fatalf("row = %#v, want parameter count and interval", row)
+	}
+	encoded, _ := json.Marshal(row)
+	if strings.Contains(string(encoded), "secret script body") {
+		t.Fatalf("summary leaked script body: %s", encoded)
 	}
 }
 

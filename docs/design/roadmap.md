@@ -1064,8 +1064,8 @@ break it.
   custom actions/jobs whose definitions carry the script. Keep `form-dynamic-parameters`
   read-only until its unsafe update behavior is solved.
 - **Run and debug.** Guarded playbook run/debug/readback commands are built.
-  **Built next slice:** `soar job list`, `soar job instance list`, guarded
-  `soar job run --job <id|uniqueIdentifier|name>`, and guarded
+  **Built next slice:** `soar job list`, `soar job template list`,
+  `soar job instance list`, guarded `soar job run --job <id|uniqueIdentifier|name>`, and guarded
   `soar job instance run --instance <id|uniqueIdentifier|name>` fetch the live body
   first, preview the explicit target, and require `--yes` before SecOps executes.
   Remaining: typed `ExecuteStep` helpers once the full step-instance body can be

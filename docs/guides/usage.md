@@ -42,8 +42,8 @@ or `secopsctl config --show-path`.
 `soar playbook mold extract`, `soar playbook test-cases`,
 `soar playbook debug-step-data`, `soar playbook simulation-enrichment`,
 `soar playbook summary`, `soar playbook results`, `soar playbook result`,
-`soar playbook python-logs`, `soar job list`, `soar job instance list`,
-`soar users list`, `soar marketplace contentpacks get`, `soar integration list`,
+`soar playbook python-logs`, `soar job list`, `soar job template list`,
+`soar job instance list`, `soar users list`, `soar marketplace contentpacks get`, `soar integration list`,
 `info soar-integrations`, `info cron`, `soar build-playbook`,
 `soar package-integration`, `soar settings api-keys`, and `version`. It is **also**
 emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
@@ -133,6 +133,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar playbook results` / `result` | Read action results for a workflow instance or one case action-result id; human output summarizes status/presence only, `--json` emits the raw payload. |
 | `soar playbook python-logs` | Read Python execution logs (`--filter`, `--page-size`, `--page-token`); human output prints counts, `--json` emits the raw payload. |
 | `soar job list` | List installed SOAR jobs and last-run status without printing job script bodies. |
+| `soar job template list` | List SOAR job templates for component planning without printing job script bodies. |
 | `soar job instance list` | List configured SOAR job instances. |
 | `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). |
 | `soar case get <id>` | Get one case + its alerts (SOAR integer id). |
