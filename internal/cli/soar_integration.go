@@ -23,7 +23,7 @@ func newSOARIntegrationCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newSOARIntegrationCreateCmd(), newSOARIntegrationDeleteCmd(),
 		newSOARIntegrationListCmd(), newSOARIntegrationInstallCmd(), newSOARIntegrationUninstallCmd(),
-		newSOARIntegrationConnectorCmd())
+		newSOARIntegrationConnectorCmd(), newSOARIntegrationScaffoldCmd())
 	return cmd
 }
 

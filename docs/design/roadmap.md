@@ -1070,6 +1070,11 @@ break it.
   step exists before advertising one; until then, Python enters playbooks through
   custom actions/jobs whose definitions carry the script. Keep `form-dynamic-parameters`
   read-only until its unsafe update behavior is solved.
+  **Built next slice:** `soar integration scaffold` creates local Python action/job
+  templates plus JSON definition placeholders, and the existing
+  `soar package-integration` turns that directory into a deterministic ZIP for
+  SecOps import. Still missing: typed import/update through SecOps APIs and
+  post-import action metadata extraction into step molds.
 - **Run and debug.** Guarded playbook run/debug/readback commands are built.
   **Built next slice:** `soar job list`, `soar job template list`,
   `soar job instance list`, guarded `soar job run --job <id|uniqueIdentifier|name>`, and guarded

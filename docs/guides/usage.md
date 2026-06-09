@@ -45,7 +45,7 @@ or `secopsctl config --show-path`.
 `soar playbook summary`, `soar playbook results`, `soar playbook result`,
 `soar playbook python-logs`, `soar job list`, `soar job template list`,
 `soar job instance list`, `soar users list`, `soar marketplace contentpacks get`, `soar integration list`,
-`info soar-integrations`, `info cron`, `soar build-playbook`,
+`soar integration scaffold`, `info soar-integrations`, `info cron`, `soar build-playbook`,
 `soar package-integration`, `soar settings api-keys`, and `version`. It is **also**
 emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
 `drifted_surfaces`), `push` (the reconcile plan/result + `would_change`), and the
@@ -194,6 +194,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar playbook mold extract --file <playbook.json> --step <name\|id> --out <step.json>` | Extract one exported action step as a reusable mold for `soar build-playbook`. |
 | `soar playbook mold apply --file <playbook.json> --replace-step <step=step.json> --out <playbook.json>` | Replace placeholder steps in an exported playbook with reusable action-step molds, preserving the base step graph identity. |
 | `soar playbook trigger set --file <playbook.json> --out <playbook.json>` | Edit trigger fields in exported playbook JSON (`--enabled`, `--trigger-enabled`, `--type`, `--execution-mode`, `--cron`, `--conditions`, `--reaction-conditions`) before validation and guarded save. |
+| `soar integration scaffold --name <integration> --out <dir> --action <name> --job <name>` | Offline custom integration scaffold for Python-backed actions/jobs. Package the result with `soar package-integration`; SecOps validates it on import. |
 | `soar package-integration <dir>` | Offline ZIP builder for an already-shaped SOAR custom integration directory. Defaults to `<dir>.zip`; use `--out <file>` and `--force` to overwrite. |
 | `completion` | Generate the shell autocompletion script. |
 | `help` | Help about any command. |
@@ -267,6 +268,13 @@ secopsctl soar playbook debug --file playbook.json --test-case-id 123 --dry-run
 secopsctl soar playbook debug --file playbook.json --test-case-id 123 --yes
 secopsctl soar playbook summary --case-id 456
 secopsctl soar playbook results --workflow-instance-id 789
+```
+
+**Scaffold and package a Python-backed SOAR component**:
+
+```bash
+secopsctl soar integration scaffold --name ExampleIntegration --action "Lookup Entity" --job "Nightly Sync" --out integrations/ExampleIntegration
+secopsctl soar package-integration integrations/ExampleIntegration --out ExampleIntegration.zip
 ```
 
 **Reconcile a SOAR surface** ([reconcile](reconcile.md)):
