@@ -15,25 +15,33 @@ import (
 // rule exclusion is a typed object — display name, type, and a UDM query that
 // suppresses matching detections. It has Create and Update (PATCH) but NO delete
 // API, so the surface is NoDelete (deletions surface as drift, never removed) —
-// like reference_lists. The deployment toggle (enabled/archived) is a separate
-// sub-resource and is intentionally out of the diff basis for now.
+// like reference_lists. Deployment state (enabled/archived) is a separate
+// sub-resource, but it is mirrored so dry-runs show active/disabled/archived drift.
 //
-// On disk each exclusion is one `<slug>.yaml` (display_name, name, type, query),
-// pulled and pushed through the engine (there is no separate legacy puller).
+// On disk each exclusion is one `<slug>.yaml` (display_name, name, type, query,
+// deployment), pulled and pushed through the engine (there is no separate legacy
+// puller).
 
 // ruleExclusionSpec is the diff basis: the meaningful exclusion config.
 type ruleExclusionSpec struct {
-	DisplayName string `json:"display_name"`
-	Type        string `json:"type,omitempty"`
-	Query       string `json:"query"`
+	DisplayName string                       `json:"display_name"`
+	Type        string                       `json:"type,omitempty"`
+	Query       string                       `json:"query"`
+	Deployment  *ruleExclusionDeploymentSpec `json:"deployment,omitempty"`
+}
+
+type ruleExclusionDeploymentSpec struct {
+	Enabled  bool `json:"enabled" yaml:"enabled"`
+	Archived bool `json:"archived" yaml:"archived"`
 }
 
 // ruleExclusionMeta is the on-disk `<slug>.yaml` shape (spec + server identity).
 type ruleExclusionMeta struct {
-	DisplayName string `yaml:"display_name"`
-	Name        string `yaml:"name"`
-	Type        string `yaml:"type,omitempty"`
-	Query       string `yaml:"query"`
+	DisplayName string                       `yaml:"display_name"`
+	Name        string                       `yaml:"name"`
+	Type        string                       `yaml:"type,omitempty"`
+	Query       string                       `yaml:"query"`
+	Deployment  *ruleExclusionDeploymentSpec `yaml:"deployment,omitempty"`
 }
 
 func ruleExclusionsSurface(c *chronicle.Client) reconcile.Surface {
@@ -52,7 +60,11 @@ func ruleExclusionsSurface(c *chronicle.Client) reconcile.Surface {
 			}
 			res := reconcile.ListResult{}
 			for i := range exes {
-				o, berr := ruleExclusionObject(exes[i])
+				dep, derr := c.GetRuleExclusionDeployment(ctx, exes[i].ID())
+				if derr != nil {
+					return reconcile.ListResult{}, derr
+				}
+				o, berr := ruleExclusionObject(exes[i], dep)
 				if berr != nil {
 					warnf("rule_exclusions: build %s: %v", exes[i].DisplayName, berr)
 					res.Incomplete = true
@@ -75,7 +87,16 @@ func ruleExclusionsSurface(c *chronicle.Client) reconcile.Surface {
 			if err != nil {
 				return reconcile.Object{}, err
 			}
-			return ruleExclusionObject(*ex)
+			var dep *chronicle.RuleExclusionDeployment
+			if spec.Deployment != nil {
+				dep, err = c.UpdateRuleExclusionDeployment(ctx, ex.ID(), ruleExclusionDeploymentUpdate(*spec.Deployment))
+				if err != nil {
+					return reconcile.Object{}, err
+				}
+			} else {
+				dep, _ = c.GetRuleExclusionDeployment(ctx, ex.ID())
+			}
+			return ruleExclusionObject(*ex, dep)
 		},
 
 		Update: func(ctx context.Context, local, live reconcile.Object) (reconcile.Object, error) {
@@ -83,34 +104,65 @@ func ruleExclusionsSurface(c *chronicle.Client) reconcile.Surface {
 			if err != nil {
 				return reconcile.Object{}, err
 			}
-			ex, err := c.PatchRuleExclusion(ctx, lastSegment(live.ServerID), chronicle.RuleExclusionUpdate{
-				DisplayName: spec.DisplayName,
-				Type:        chronicle.RuleExclusionType(spec.Type),
-				Query:       spec.Query,
-			})
+			liveSpec, err := decodeRuleExclusionSpec(live.Canonical)
 			if err != nil {
 				return reconcile.Object{}, err
 			}
-			return ruleExclusionObject(*ex)
+			ex := chronicle.RuleExclusion{
+				Name:        live.ServerID,
+				DisplayName: liveSpec.DisplayName,
+				Type:        chronicle.RuleExclusionType(liveSpec.Type),
+				Query:       liveSpec.Query,
+			}
+			if ruleExclusionCoreChanged(spec, liveSpec) {
+				patched, perr := c.PatchRuleExclusion(ctx, lastSegment(live.ServerID), chronicle.RuleExclusionUpdate{
+					DisplayName: spec.DisplayName,
+					Type:        chronicle.RuleExclusionType(spec.Type),
+					Query:       spec.Query,
+				})
+				if perr != nil {
+					return reconcile.Object{}, perr
+				}
+				ex = *patched
+			}
+			depSpec := liveSpec.Deployment
+			if spec.Deployment != nil && ruleExclusionDeploymentChanged(spec.Deployment, liveSpec.Deployment) {
+				dep, derr := c.UpdateRuleExclusionDeployment(ctx, lastSegment(live.ServerID), ruleExclusionDeploymentUpdate(*spec.Deployment))
+				if derr != nil {
+					return reconcile.Object{}, derr
+				}
+				depSpec = ruleExclusionDeploymentFromLive(dep)
+			}
+			return ruleExclusionObjectFromSpec(ruleExclusionSpec{
+				DisplayName: ex.DisplayName,
+				Type:        string(ex.Type),
+				Query:       ex.Query,
+				Deployment:  depSpec,
+			}, ex.Name)
 		},
 	}
 }
 
 // ruleExclusionObject builds the engine object for a live exclusion.
-func ruleExclusionObject(ex chronicle.RuleExclusion) (reconcile.Object, error) {
-	canon, err := canonicalRuleExclusion(ruleExclusionSpec{
+func ruleExclusionObject(ex chronicle.RuleExclusion, dep *chronicle.RuleExclusionDeployment) (reconcile.Object, error) {
+	return ruleExclusionObjectFromSpec(ruleExclusionSpec{
 		DisplayName: ex.DisplayName,
 		Type:        string(ex.Type),
 		Query:       ex.Query,
-	})
+		Deployment:  ruleExclusionDeploymentFromLive(dep),
+	}, ex.Name)
+}
+
+func ruleExclusionObjectFromSpec(spec ruleExclusionSpec, serverID string) (reconcile.Object, error) {
+	canon, err := canonicalRuleExclusion(spec)
 	if err != nil {
 		return reconcile.Object{}, err
 	}
-	display := ex.DisplayName
+	display := spec.DisplayName
 	if display == "" {
-		display = lastSegment(ex.Name)
+		display = lastSegment(serverID)
 	}
-	return reconcile.Object{Slug: Slugify(display), ServerID: ex.Name, Canonical: canon}, nil
+	return reconcile.Object{Slug: Slugify(display), ServerID: serverID, Canonical: canon}, nil
 }
 
 func loadRuleExclusions(dir string) ([]reconcile.Object, error) {
@@ -134,6 +186,7 @@ func loadRuleExclusions(dir string) ([]reconcile.Object, error) {
 			DisplayName: meta.DisplayName,
 			Type:        meta.Type,
 			Query:       meta.Query,
+			Deployment:  meta.Deployment,
 		})
 		if cerr != nil {
 			return nil, cerr
@@ -161,7 +214,38 @@ func writeRuleExclusion(dir string, o reconcile.Object) error {
 		Name:        o.ServerID,
 		Type:        spec.Type,
 		Query:       spec.Query,
+		Deployment:  spec.Deployment,
 	})
+}
+
+func ruleExclusionCoreChanged(want, have ruleExclusionSpec) bool {
+	return want.DisplayName != have.DisplayName ||
+		want.Type != have.Type ||
+		want.Query != have.Query
+}
+
+func ruleExclusionDeploymentChanged(want, have *ruleExclusionDeploymentSpec) bool {
+	if want == nil {
+		return false
+	}
+	if have == nil {
+		return true
+	}
+	return want.Enabled != have.Enabled || want.Archived != have.Archived
+}
+
+func ruleExclusionDeploymentFromLive(dep *chronicle.RuleExclusionDeployment) *ruleExclusionDeploymentSpec {
+	if dep == nil {
+		return nil
+	}
+	return &ruleExclusionDeploymentSpec{Enabled: dep.Enabled, Archived: dep.Archived}
+}
+
+func ruleExclusionDeploymentUpdate(spec ruleExclusionDeploymentSpec) chronicle.RuleExclusionDeploymentUpdate {
+	return chronicle.RuleExclusionDeploymentUpdate{
+		Enabled:  &spec.Enabled,
+		Archived: &spec.Archived,
+	}
 }
 
 func canonicalRuleExclusion(spec ruleExclusionSpec) ([]byte, error) {

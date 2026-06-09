@@ -1109,10 +1109,10 @@ break it.
   archive findings refinements and empty reference lists. Add a guarded cleanup
   helper that targets only secopsctl-owned smoke prefixes and prints a dry-run plan
   before changing anything.
-- **Rule exclusions.** Add CLI deployment controls over findings refinements:
-  `rule_exclusions deploy <id> --archive|--enable|--disable`, backed by the existing
-  deployment get/update SDK. Extend `pull rule_exclusions` so mirrored YAML includes
-  deployment state (`enabled`, `archived`) and dry-runs can distinguish active,
+- **Rule exclusions.** Built: `rule_exclusions deploy <id>
+  --archive|--enable|--disable` patches the findings-refinement deployment
+  subresource behind the standard SIEM guard. `pull rule_exclusions` mirrors
+  deployment state (`enabled`, `archived`) so dry-runs distinguish active,
   disabled, and archived refinements.
 - **Reference lists.** Add `reference_lists empty <name>` as the supported
   neutralization path for no-delete lists. The command must resolve and preview the
