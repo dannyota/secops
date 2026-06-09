@@ -96,6 +96,7 @@ func PullRules(ctx context.Context, c *chronicle.Client, outDir string) (int, er
 				Name:           dep.Name,
 				Enabled:        dep.Enabled,
 				Alerting:       dep.Alerting,
+				Archived:       dep.Archived,
 				RunFrequency:   dep.RunFrequency,
 				ExecutionState: dep.ExecutionState,
 			}

@@ -106,7 +106,7 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 |---|---|
 | `push rules-create` | Create live rules from `*.yaral` files that have no companion `*.yaml`; `--enabled`, `--alerting`, and `--run-frequency` set the initial deployment. |
 | `push rules-update` | Update live YARA-L text where a tracked `*.yaral` changed (etag-guarded). |
-| `push rules-deploy` | Reconcile each tracked rule's deployment (enabled/alerting/frequency); `--rule` scopes one rule. |
+| `push rules-deploy` | Reconcile each tracked rule's deployment (enabled/alerting/frequency); `--rule` scopes one rule, and archived rules are reported as non-deployable. |
 | `push rules-disable` | Disable locally-tracked rules with `deployment.enabled=true`. |
 | `push curated` | Reconcile `curated/deployments.yaml` to live curated deployment state (enabled/alerting only). |
 | `push <reconcile-target>` | Reconcile local files to live (create/update; `--prune` deletes on prune-eligible surfaces only — `push <target> --help` says which). Targets: `reference_lists`, `data_tables`, `parsers`, `feeds`, `forwarders`, `dashboards`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`. |

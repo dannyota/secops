@@ -225,6 +225,7 @@ func PushRulesCreateWithOptions(ctx context.Context, c *chronicle.Client, rulesD
 			Deployment: deploymentMeta{
 				Enabled:      opts.Enabled,
 				Alerting:     opts.Alerting,
+				Archived:     false,
 				RunFrequency: opts.RunFrequency,
 			},
 		}
@@ -233,6 +234,7 @@ func PushRulesCreateWithOptions(ctx context.Context, c *chronicle.Client, rulesD
 				Name:           dep.Name,
 				Enabled:        dep.Enabled,
 				Alerting:       dep.Alerting,
+				Archived:       dep.Archived,
 				RunFrequency:   dep.RunFrequency,
 				ExecutionState: dep.ExecutionState,
 			}
@@ -349,6 +351,7 @@ func PushRulesDisable(ctx context.Context, c *chronicle.Client, rulesDir string,
 			t.comp.Deployment.Name = dep.Name
 			t.comp.Deployment.Enabled = dep.Enabled
 			t.comp.Deployment.Alerting = dep.Alerting
+			t.comp.Deployment.Archived = dep.Archived
 			if dep.RunFrequency != "" {
 				t.comp.Deployment.RunFrequency = dep.RunFrequency
 			}

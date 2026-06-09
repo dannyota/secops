@@ -19,7 +19,7 @@ with `--out`) and `push rules-*` reads `./rules/` from there (override with
 | File | Holds | Edit it? |
 |---|---|---|
 | `<slug>.yaral` | the YARA-L source text | yes — this is what you author |
-| `<slug>.yaml` | authoritative `rule_id`, `etag`, and `deployment` (enabled / alerting / runFrequency) | rarely by hand — `pull` rewrites it |
+| `<slug>.yaml` | authoritative `rule_id`, `etag`, and `deployment` (enabled / alerting / archived / runFrequency) | rarely by hand — `pull` rewrites it |
 
 The filename `<slug>` is the slugified `displayName`. The server id lives in the
 companion `.yaml`, never in the filename.
@@ -60,9 +60,12 @@ review surface.
 | `rules-deploy` | reconcile each tracked rule's deployment (enabled / alerting / frequency) from its `*.yaml`; `--rule` scopes one rule | — |
 | `rules-disable` | disable locally-tracked rules whose `deployment.enabled=true` | — |
 
-`rules-deploy` reads `deployment.runFrequency` from each rule's companion `.yaml`.
-The valid values are `LIVE`, `HOURLY`, and `DAILY`; the companion's
-`allowed_run_frequencies` list shows which of these the rule permits.
+`rules-deploy` reads `deployment.enabled`, `deployment.alerting`, and
+`deployment.runFrequency` from each rule's companion `.yaml`. The valid frequency
+values are `LIVE`, `HOURLY`, and `DAILY`; the companion's
+`allowed_run_frequencies` list shows which of these the rule permits. Pulled
+`deployment.archived` is mirror state: dry-runs report archived rules as
+non-deployable instead of attempting a deployment PATCH.
 
 ```bash
 secopsctl push rules-create --dry-run
@@ -106,7 +109,7 @@ re-applying your change, then pushing again.
 
 `rules-deploy` and `rules-disable` patch the deployment subresource (enabled /
 alerting / runFrequency) and carry **no** concurrency token, so they are not
-etag-guarded.
+etag-guarded. `rules-deploy` refuses archived rules before applying.
 
 ## 🔎 Inspect a rule
 

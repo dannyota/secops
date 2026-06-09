@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"danny.vn/secops/chronicle"
 )
 
 func TestSameRuleText(t *testing.T) {
@@ -30,6 +32,23 @@ func TestDeployTriple(t *testing.T) {
 	}
 	if got := deployTriple(false, true, "HOURLY"); got != "en=false al=true HOURLY" {
 		t.Errorf("deployTriple = %q", got)
+	}
+}
+
+func TestRuleDeploymentDiffersIncludesArchived(t *testing.T) {
+	want := deploymentMeta{Enabled: true, Alerting: true, Archived: true, RunFrequency: "HOURLY"}
+	have := chronicle.RuleDeployment{Enabled: true, Alerting: true, Archived: false, RunFrequency: "HOURLY"}
+	if !ruleDeploymentDiffers(want, have) {
+		t.Fatal("archived drift was not detected")
+	}
+	if got := ruleDeployBlockedReason(want, have); got != "local companion marks rule archived" {
+		t.Fatalf("blocked reason = %q", got)
+	}
+
+	want.Archived = false
+	have.Archived = true
+	if got := ruleDeployBlockedReason(want, have); got != "live rule is archived" {
+		t.Fatalf("blocked reason = %q", got)
 	}
 }
 

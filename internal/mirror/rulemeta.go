@@ -26,6 +26,7 @@ type deploymentMeta struct {
 	Name           string `yaml:"name,omitempty"`
 	Enabled        bool   `yaml:"enabled"`
 	Alerting       bool   `yaml:"alerting"`
+	Archived       bool   `yaml:"archived"`
 	RunFrequency   string `yaml:"runFrequency,omitempty"`
 	ExecutionState string `yaml:"executionState,omitempty"`
 }

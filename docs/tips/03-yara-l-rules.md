@@ -31,6 +31,7 @@ time_window_duration: 3600s
 deployment:                              # live deployment state
   enabled:   true
   alerting:  true
+  archived:  false
   runFrequency: LIVE
 ```
 
@@ -44,7 +45,9 @@ The read-only fields are populated by `pull` and you never hand-write them:
 
 Edit detection logic in the `.yaral`. Leave the companion `.yaml` alone except
 where you deliberately intend a deployment-state change a push subcommand reads
-(`deployment.enabled` / `alerting` / `runFrequency`).
+(`deployment.enabled` / `alerting` / `runFrequency`). `deployment.archived` is
+mirrored for safety; `rules-deploy` reports archived rules as non-deployable
+instead of trying to patch them.
 
 ## Writing a rule: conventions
 
@@ -105,7 +108,7 @@ flowchart TD
 |---|---|---|---|
 | `rules-create` | a `.yaral` with **no** companion `.yaml` | `CreateRule(text)` then initial deployment PATCH | the new-rule path; `--enabled`, `--alerting`, and `--run-frequency` set initial state |
 | `rules-update` | tracked rules whose `.yaral` text drifted from live | `UpdateRule(id, text, etag)` | etag-guarded; validates first |
-| `rules-deploy` | tracked rules whose `deployment` block drifted from live | `UpdateRuleDeployment(id, …)` | deployment state as code; `--rule` scopes one rule |
+| `rules-deploy` | tracked rules whose `deployment` block drifted from live | `UpdateRuleDeployment(id, …)` | deployment state as code; `--rule` scopes one rule; archived rules are non-deployable |
 | `rules-disable` | tracked rules with `deployment.enabled: true` | `UpdateRuleDeployment(id, enabled=false)` | fast "turn off this batch"; alerting + frequency preserved |
 
 Common flags: `--dry-run` (preview only — the effective default), `--yes` (apply

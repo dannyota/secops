@@ -186,39 +186,62 @@ func PushRulesDeployFiltered(ctx context.Context, c *chronicle.Client, rulesDir,
 		path string
 		want deploymentMeta
 		have chronicle.RuleDeployment
+		why  string
 	}
 	var cands []cand
+	var blocked []cand
 	for _, tc := range comps {
 		if tc.comp.RuleID == "" {
 			continue
 		}
 		want := tc.comp.Deployment
 		have := live[tc.comp.RuleID]
-		if want.Enabled == have.Enabled && want.Alerting == have.Alerting &&
-			(want.RunFrequency == "" || want.RunFrequency == have.RunFrequency) {
+		if !ruleDeploymentDiffers(want, have) {
+			if ruleFilter != "" && (want.Archived || have.Archived) {
+				blocked = append(blocked, cand{comp: tc.comp, path: tc.path, want: want, have: have, why: ruleDeployBlockedReason(want, have)})
+			}
+			continue
+		}
+		if why := ruleDeployBlockedReason(want, have); why != "" {
+			blocked = append(blocked, cand{comp: tc.comp, path: tc.path, want: want, have: have, why: why})
 			continue
 		}
 		cands = append(cands, cand{comp: tc.comp, path: tc.path, want: want, have: have})
 	}
 
-	if len(cands) == 0 {
+	if len(cands) == 0 && len(blocked) == 0 {
 		fmt.Fprintf(w, "Nothing to deploy -- every tracked rule's deployment matches live.\n")
 		return 0, nil
 	}
 
-	liveBanner(w, fmt.Sprintf("DEPLOY %d rule(s) (enable/alerting/frequency)", len(cands)))
-	fmt.Fprintf(w, "%-3s %-50s %-22s %-22s\n", "#", "Rule", "live (en/al/freq)", "desired (en/al/freq)")
-	fmt.Fprintln(w, strings.Repeat("-", 98))
-	for i, cd := range cands {
-		fmt.Fprintf(w, "%-3d %-50s %-22s %-22s\n", i+1, truncate(cd.comp.DisplayName, 50),
-			deployTriple(cd.have.Enabled, cd.have.Alerting, cd.have.RunFrequency),
-			deployTriple(cd.want.Enabled, cd.want.Alerting, cd.want.RunFrequency))
+	liveBanner(w, fmt.Sprintf("DEPLOY %d rule(s) (enable/alerting/frequency), %d non-deployable", len(cands), len(blocked)))
+	if len(cands) > 0 {
+		fmt.Fprintf(w, "%-3s %-50s %-22s %-22s\n", "#", "Rule", "live (en/al/freq)", "desired (en/al/freq)")
+		fmt.Fprintln(w, strings.Repeat("-", 98))
+		for i, cd := range cands {
+			fmt.Fprintf(w, "%-3d %-50s %-22s %-22s\n", i+1, truncate(cd.comp.DisplayName, 50),
+				deployTriple(cd.have.Enabled, cd.have.Alerting, cd.have.RunFrequency),
+				deployTriple(cd.want.Enabled, cd.want.Alerting, cd.want.RunFrequency))
+		}
+		fmt.Fprintln(w)
 	}
-	fmt.Fprintln(w)
+	if len(blocked) > 0 {
+		fmt.Fprintf(w, "Non-deployable archived rule(s):\n")
+		fmt.Fprintf(w, "%-3s %-50s %-16s %s\n", "#", "Rule", "archived", "reason")
+		fmt.Fprintln(w, strings.Repeat("-", 86))
+		for i, cd := range blocked {
+			fmt.Fprintf(w, "%-3d %-50s %-16s %s\n", i+1, truncate(cd.comp.DisplayName, 50),
+				fmt.Sprintf("live=%v local=%v", cd.have.Archived, cd.want.Archived), cd.why)
+		}
+		fmt.Fprintln(w)
+	}
 
 	if dryRun {
 		fmt.Fprintln(w, "DRY RUN -- no API calls made. Re-run without --dry-run to apply.")
 		return 0, nil
+	}
+	if len(blocked) > 0 {
+		return 0, fmt.Errorf("rules-deploy: %d archived rule(s) are non-deployable; re-pull or unarchive before applying", len(blocked))
 	}
 	if !assumeYes {
 		fmt.Fprintf(w, "Refusing to deploy %d rule(s) without confirmation (pass --yes). Aborted.\n", len(cands))
@@ -242,7 +265,7 @@ func PushRulesDeployFiltered(ctx context.Context, c *chronicle.Client, rulesDir,
 		}
 		if dep != nil {
 			cd.comp.Deployment = deploymentMeta{
-				Name: dep.Name, Enabled: dep.Enabled, Alerting: dep.Alerting,
+				Name: dep.Name, Enabled: dep.Enabled, Alerting: dep.Alerting, Archived: dep.Archived,
 				RunFrequency: dep.RunFrequency, ExecutionState: dep.ExecutionState,
 			}
 			if werr := cd.comp.write(cd.path); werr != nil {
@@ -343,4 +366,22 @@ func deployTriple(enabled, alerting bool, freq string) string {
 		freq = "-"
 	}
 	return fmt.Sprintf("en=%v al=%v %s", enabled, alerting, freq)
+}
+
+func ruleDeploymentDiffers(want deploymentMeta, have chronicle.RuleDeployment) bool {
+	return want.Enabled != have.Enabled ||
+		want.Alerting != have.Alerting ||
+		want.Archived != have.Archived ||
+		(want.RunFrequency != "" && want.RunFrequency != have.RunFrequency)
+}
+
+func ruleDeployBlockedReason(want deploymentMeta, have chronicle.RuleDeployment) string {
+	switch {
+	case have.Archived:
+		return "live rule is archived"
+	case want.Archived:
+		return "local companion marks rule archived"
+	default:
+		return ""
+	}
 }

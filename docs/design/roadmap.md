@@ -1126,9 +1126,9 @@ break it.
   `--run-frequency=LIVE|HOURLY|DAILY`. Dry-run shows the exact initial deployment
   state so new rules can be created disabled or monitor-only in one guarded
   operation.
-- **Archived rule awareness.** Pull and mirror archived/deleted rule state where the
-  API exposes it. `push rules-deploy --dry-run` must report archived rules as
-  non-deployable instead of previewing a PATCH that SecOps will reject.
+- **Archived rule awareness.** Built: `pull rules` mirrors `deployment.archived`
+  where the API exposes it. `push rules-deploy --dry-run` reports archived rules
+  as non-deployable instead of previewing a PATCH that SecOps will reject.
 - **Exit.** Smoke-created artifacts are either cleaned up or neutralized by a
   first-class command; rule-exclusion deployment state round-trips in mirrors; rule
   errors render reliably; new rules can be created monitor-first; and dry-runs block
