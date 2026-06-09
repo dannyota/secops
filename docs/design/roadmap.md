@@ -1114,10 +1114,10 @@ break it.
   subresource behind the standard SIEM guard. `pull rule_exclusions` mirrors
   deployment state (`enabled`, `archived`) so dry-runs distinguish active,
   disabled, and archived refinements.
-- **Reference lists.** Add `reference_lists empty <name>` as the supported
-  neutralization path for no-delete lists. The command must resolve and preview the
-  target, require the standard guarded mutation flow, clear entries with
-  `UpdateReferenceList`, and recommend re-pull after apply.
+- **Reference lists.** Built: `reference_lists empty <name>` is the supported
+  neutralization path for no-delete lists. The command resolves and previews the
+  target, requires the standard guarded mutation flow, clears entries with
+  `UpdateReferenceList`, and recommends re-pull after apply.
 - **Rule execution errors.** Built: `rules errors <rule-id>` decodes both string
   and structured error payloads. Human output shows a compact type/message without
   dumping raw server payloads; `--json` keeps the raw record for scripts.

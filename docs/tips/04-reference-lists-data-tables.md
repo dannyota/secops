@@ -56,6 +56,17 @@ the server-resolved `syntax_type` and `entry_count`). To change membership: edit
 applies as everywhere — a list someone grew in the UI is clobbered if you push stale
 local lines ([01-secops-as-code.md](01-secops-as-code.md)).
 
+Reference lists have no delete API. To neutralize a list without removing the
+object, use the guarded helper:
+
+```bash
+secopsctl reference_lists empty <name> --dry-run
+secopsctl reference_lists empty <name> --yes
+```
+
+The preview resolves the target and prints only the entry count. Re-pull
+`reference_lists` after applying so the local `.txt` is empty too.
+
 ## Data tables
 
 A multi-column, typed table — a small reference database a rule can join against.
