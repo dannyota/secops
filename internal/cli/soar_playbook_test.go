@@ -22,6 +22,7 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 	for _, name := range []string{
 		"list",
 		"delete",
+		"deploy",
 		"validate",
 		"components",
 		"mold",

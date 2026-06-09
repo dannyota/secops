@@ -165,7 +165,7 @@ func newSOARJobLogsCmd() *cobra.Command {
 			}
 			raw, err := lc.CloudLoggingGetPythonLogs(baseContext(), pythonLogsBody(filter, pageToken, sortOrder, pageSize))
 			if err != nil {
-				return err
+				return wrapCloudLogging500(err)
 			}
 			if jsonOut {
 				return writeRawJSON(os.Stdout, raw)

@@ -27,6 +27,28 @@ func (c *Client) GetWorkflowInstanceSummary(ctx context.Context, body any) (json
 	return out, nil
 }
 
+// GetWorkflowFullInfo returns the full definition of a playbook by its identifier
+// via the v1alpha SOAR-host path. The returned object is the same shape that
+// SaveWorkflowDefinitions accepts as its body.
+func (c *Client) GetWorkflowFullInfo(ctx context.Context, identifier string) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "GET", "legacyPlaybooks:legacyGetWorkflowFullInfoByIdentifier/"+identifier, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SaveWorkflowDefinitions saves (creates or updates) a playbook definition via
+// the v1alpha SOAR-host path. body is the full ApiWorkflowDefinitionDataModel.
+// This mints a new version — there is no partial-update or toggle-only path.
+func (c *Client) SaveWorkflowDefinitions(ctx context.Context, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "legacyPlaybooks:legacySaveWorkflowDefinitions", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeleteWorkflows deletes one or more playbook definitions by their identifiers
 // via the v1alpha SOAR-host legacyPlaybooks:legacyDeleteWorkflows surface.
 // identifiers is the list of workflow definition UUIDs to delete.

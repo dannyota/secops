@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -81,6 +82,7 @@ func newSOARPlaybookCmd() *cobra.Command {
 	cmd.AddCommand(
 		newSOARPlaybookListCmd(),
 		newSOARPlaybookDeleteCmd(),
+		newSOARPlaybookDeployCmd(),
 		newSOARPlaybookValidateCmd(),
 		newSOARPlaybookComponentsCmd(),
 		newSOARPlaybookMoldCmd(),
@@ -227,6 +229,121 @@ func newSOARPlaybookDeleteCmd() *cobra.Command {
 	f.StringVar(&identifier, "identifier", "", "playbook definition UUID (overrides --name)")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	return cmd
+}
+
+func newSOARPlaybookDeployCmd() *cobra.Command {
+	var (
+		name       string
+		identifier string
+		enable     bool
+		disable    bool
+		dryRun     bool
+		yes        bool
+	)
+	cmd := &cobra.Command{
+		Use:   "deploy (--name <playbook> | --identifier <uuid>) --enable|--disable",
+		Short: "MUTATING (guarded): enable or disable a playbook",
+		Long: "Toggle a playbook's isEnabled state. Reads the full definition, flips the\n" +
+			"flag, and saves via SaveWorkflowDefinitions (the only API path — this mints a\n" +
+			"new version). Guarded: dry-run by default, --yes to apply.\n\n" +
+			"Mirrors `rules-deploy` for consistency.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name = strings.TrimSpace(name)
+			identifier = strings.TrimSpace(identifier)
+			if name == "" && identifier == "" {
+				return fmt.Errorf("pass --name <playbook> or --identifier <uuid>")
+			}
+			if !enable && !disable {
+				return fmt.Errorf("pass --enable or --disable")
+			}
+			wantEnabled := enable
+
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			ctx := baseContext()
+
+			// Resolve name → identifier.
+			if identifier == "" {
+				if identifier, err = resolvePlaybookDefinition(ctx, lc, name); err != nil {
+					return err
+				}
+			}
+
+			// Read the full definition.
+			raw, err := lc.GetWorkflowFullInfo(ctx, identifier)
+			if err != nil {
+				return err
+			}
+			var def map[string]any
+			if err := json.Unmarshal(raw, &def); err != nil {
+				return fmt.Errorf("decode playbook definition: %w", err)
+			}
+
+			currentEnabled, _ := def["isEnabled"].(bool)
+			pbName, _ := def["name"].(string)
+			if pbName == "" {
+				pbName = identifier
+			}
+
+			toggle := "disable"
+			if wantEnabled {
+				toggle = "enable"
+			}
+
+			if currentEnabled == wantEnabled {
+				fmt.Fprintf(os.Stdout, "playbook %q is already %sd — nothing to do.\n", pbName, toggle)
+				return nil
+			}
+
+			action := fmt.Sprintf("playbook deploy %s → %s", pbName, toggle)
+			dr, ay := soarGuard(action, dryRun, yes)
+			fmt.Fprintf(os.Stdout, "Playbook: %q (%s)\n", pbName, identifier)
+			fmt.Fprintf(os.Stdout, "  isEnabled: %v → %v (mints a new version)\n", currentEnabled, wantEnabled)
+			if dr {
+				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				return nil
+			}
+			if !ay {
+				fmt.Fprintln(os.Stdout, "Refusing to apply without confirmation (pass --yes). Aborted.")
+				return nil
+			}
+
+			def["isEnabled"] = wantEnabled
+			return preferModern("soar playbook deploy",
+				func() error {
+					mc, merr := newSOARClient()
+					if merr != nil {
+						return merr
+					}
+					if _, merr = mc.SaveWorkflowDefinitions(ctx, def); merr != nil {
+						return merr
+					}
+					fmt.Fprintf(os.Stdout, "playbook %q %sd.\n", pbName, toggle)
+					return nil
+				},
+				func() error {
+					if _, lerr := lc.SaveWorkflowDefinitions(ctx, def); lerr != nil {
+						return lerr
+					}
+					fmt.Fprintf(os.Stdout, "playbook %q %sd.\n", pbName, toggle)
+					return nil
+				},
+			)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&name, "name", "", "playbook name (resolved to its id via the live playbook list)")
+	f.StringVar(&identifier, "identifier", "", "playbook definition UUID (overrides --name)")
+	f.BoolVar(&enable, "enable", false, "set isEnabled=true")
+	f.BoolVar(&disable, "disable", false, "set isEnabled=false")
+	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	cmd.MarkFlagsMutuallyExclusive("enable", "disable")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return cmd
 }
@@ -872,6 +989,31 @@ func newSOARPlaybookResultCmd() *cobra.Command {
 	return cmd
 }
 
+// wrapCloudLogging500 intercepts a legacy SOAR 500 from the Cloud Logging proxy
+// (/logging/python) and returns a legible error with the correlation id and a
+// pointer to the working triage alternative, instead of dumping the raw payload.
+func wrapCloudLogging500(err error) error {
+	var apiErr *legacy.Error
+	if !errors.As(err, &apiErr) || apiErr.Status != 500 {
+		return err
+	}
+	cid := ""
+	var body struct {
+		CorrelationID string `json:"correlationId"`
+	}
+	if json.Unmarshal([]byte(apiErr.Body), &body) == nil && body.CorrelationID != "" {
+		cid = body.CorrelationID
+	}
+	hint := "python execution logs are served from Cloud Logging and can 500 " +
+		"on some instances (a backend/access condition, not a request-shape bug).\n" +
+		"  Triage alternative: secopsctl soar playbook summary --case-id N --playbook \"<name>\"\n" +
+		"  (surfaces each faulted step's error + a per-step Logs Explorer deep-link)"
+	if cid != "" {
+		return fmt.Errorf("%s\n  correlation id (for SecOps support): %s", hint, cid)
+	}
+	return fmt.Errorf("%s", hint)
+}
+
 func newSOARPlaybookPythonLogsCmd() *cobra.Command {
 	var (
 		filter    string
@@ -881,7 +1023,7 @@ func newSOARPlaybookPythonLogsCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "python-logs",
-		Short: "Read Python execution logs from SecOps",
+		Short: "Read Python execution logs from SecOps (can 500; see `playbook summary` for triage)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lc, err := newSOARLegacyClient()
@@ -890,7 +1032,7 @@ func newSOARPlaybookPythonLogsCmd() *cobra.Command {
 			}
 			raw, err := lc.CloudLoggingGetPythonLogs(baseContext(), pythonLogsBody(filter, pageToken, sortOrder, pageSize))
 			if err != nil {
-				return err
+				return wrapCloudLogging500(err)
 			}
 			if jsonOut {
 				return writeRawJSON(os.Stdout, raw)

@@ -1135,7 +1135,7 @@ break it.
 - **Docs.** CATALOG (`rules`, `rule_exclusions`, `reference_lists`), SIEM-DESIGN,
   usage guide, and smoke-test notes in ARCHITECTURE.
 
-### Wave 41 — SOAR integration & playbook lifecycle completion *(in progress)*
+### Wave 41 — SOAR integration & playbook lifecycle completion *(done)*
 
 - **Goal.** Close the remaining SOAR config-as-code lifecycle gaps so integration
   instances and playbooks can be fully operated from the terminal — not only
@@ -1156,13 +1156,14 @@ break it.
   the live playbook list, then the standard SOAR guard (dry-run by default, `--yes`
   to apply) over the v1alpha `legacyDeleteWorkflows` batch endpoint (legacy
   fallback). Replaces the raw legacy escape hatch for playbook removal.
-- **Playbook enable/disable toggle.** No lightweight toggle endpoint exists — the
-  only path is `SaveWorkflowDefinitions` (whole-body, mints a new version). Scope:
-  `soar playbook deploy <name-or-id> --enable|--disable` reads the full definition
-  via `legacyGetWorkflowFullInfoByIdentifier`, flips `isEnabled`, and saves via
-  `legacySaveWorkflowDefinitions` behind the standard SOAR guard. Mirrors
-  `rules-deploy` for consistency. The whole-body save is the only API path —
-  documented so operators understand a toggle mints a version.
+- **Playbook enable/disable toggle *(done)*.** `soar playbook deploy (--name
+  <playbook> | --identifier <uuid>) --enable|--disable` reads the full definition
+  via `GetWorkflowFullInfo`, flips `isEnabled`, and saves via
+  `SaveWorkflowDefinitions` behind the standard SOAR guard (dry-run by default,
+  `--yes` to apply). `--name` resolves via the live playbook list. The whole-body
+  save is the only API path — documented so operators understand a toggle mints a
+  new version. Prefers the v1alpha SOAR-host path and falls back to legacy.
+  Read+dry-run live-validated.
 - **Integration delete ergonomics *(done)*.** A new `soar integration instances
   --integration <id>` lists an integration's configured instances (id · environment
   · name) — the fields a delete needs, which `integration list` (packs only) does
@@ -1183,12 +1184,12 @@ break it.
   longer required. Raw python *stdout* retrieval stays a separate Cloud Logging
   concern (`roles/logging.viewer`; deferred) — the per-step Logs Explorer link
   bridges it.
-- **Python-logs 500 hint.** `soar playbook python-logs` and `soar job logs` proxy
-  Cloud Logging and can 500 on some instances regardless of filter (a
-  backend/access condition, not a request-shape bug — confirmed with doc-valid
-  regex and label filters). Scope: on the 500, emit a **clean typed error** carrying
-  the correlation id and pointing to `soar playbook summary` as the working triage
-  path, instead of dumping the raw server payload.
+- **Python-logs 500 hint *(done)*.** `soar playbook python-logs` and `soar job logs`
+  proxy Cloud Logging and can 500 on some instances regardless of filter (a
+  backend/access condition, not a request-shape bug — confirmed with doc-valid regex
+  and label filters; no v1alpha equivalent exists). On the 500, the CLI now emits a
+  **clean typed error** carrying the correlation id and pointing to `soar playbook
+  summary` as the working triage path, instead of dumping the raw server payload.
 - **Exit.** An integration instance can be created **and** configured (incl.
   secret-valued params via reference) from the CLI; playbooks have first-class
   guarded delete and a guarded enable/disable toggle; `integration list --json`
