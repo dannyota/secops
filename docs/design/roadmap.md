@@ -1156,10 +1156,13 @@ break it.
   the live playbook list, then the standard SOAR guard (dry-run by default, `--yes`
   to apply) over the v1alpha `legacyDeleteWorkflows` batch endpoint (legacy
   fallback). Replaces the raw legacy escape hatch for playbook removal.
-  **Enable/disable deferred:** no lightweight toggle endpoint exists; the only path
-  is `SaveWorkflowDefinitions` (whole-body, mints a new version), which risks
-  clobbering concurrent edits — build it carefully when needed, not as a quick
-  toggle.
+- **Playbook enable/disable toggle.** No lightweight toggle endpoint exists — the
+  only path is `SaveWorkflowDefinitions` (whole-body, mints a new version). Scope:
+  `soar playbook deploy <name-or-id> --enable|--disable` reads the full definition
+  via `legacyGetWorkflowFullInfoByIdentifier`, flips `isEnabled`, and saves via
+  `legacySaveWorkflowDefinitions` behind the standard SOAR guard. Mirrors
+  `rules-deploy` for consistency. The whole-body save is the only API path —
+  documented so operators understand a toggle mints a version.
 - **Integration delete ergonomics *(done)*.** A new `soar integration instances
   --integration <id>` lists an integration's configured instances (id · environment
   · name) — the fields a delete needs, which `integration list` (packs only) does
@@ -1180,11 +1183,18 @@ break it.
   longer required. Raw python *stdout* retrieval stays a separate Cloud Logging
   concern (`roles/logging.viewer`; deferred) — the per-step Logs Explorer link
   bridges it.
+- **Python-logs 500 hint.** `soar playbook python-logs` and `soar job logs` proxy
+  Cloud Logging and can 500 on some instances regardless of filter (a
+  backend/access condition, not a request-shape bug — confirmed with doc-valid
+  regex and label filters). Scope: on the 500, emit a **clean typed error** carrying
+  the correlation id and pointing to `soar playbook summary` as the working triage
+  path, instead of dumping the raw server payload.
 - **Exit.** An integration instance can be created **and** configured (incl.
   secret-valued params via reference) from the CLI; playbooks have first-class
-  guarded delete and enable/disable; `integration list --json` carries the fields
-  `delete` needs; and a failed playbook run is triaged in-tool with its faulted
-  steps surfaced.
+  guarded delete and a guarded enable/disable toggle; `integration list --json`
+  carries the fields `delete` needs; a failed playbook run is triaged in-tool with
+  its faulted steps surfaced; and the python-logs 500 produces a legible error with
+  the triage alternative.
 - **Docs.** CATALOG (`soar integration`, `soar playbook`), SOAR-DESIGN, usage guide.
 
 ### Wave 42 — Rule-inspection identifier resolution *(done)*
