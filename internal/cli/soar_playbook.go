@@ -88,6 +88,7 @@ func newSOARPlaybookCmd() *cobra.Command {
 		newSOARPlaybookDebugStepDataCmd(),
 		newSOARPlaybookSimulationEnrichmentCmd(),
 		newSOARPlaybookPendingCmd(),
+		newSOARPlaybookStepCmd(),
 		newSOARPlaybookRerunCmd(),
 		newSOARPlaybookRerunBlockCmd(),
 		newSOARPlaybookSummaryCmd(),

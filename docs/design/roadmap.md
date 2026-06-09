@@ -1043,9 +1043,11 @@ break it.
   by default.
   **Built first slice:** `soar playbook test-cases`, guarded `run`, guarded `debug`,
   `summary`, `results`, `result`, `python-logs`, `debug-step-data`,
-  `simulation-enrichment`, `pending count/list/get`, guarded `rerun`, and guarded
-  `rerun-block`. Human output summarizes counts/status/presence; `--json` keeps raw
-  SecOps payloads available for scripts and deeper troubleshooting.
+  `simulation-enrichment`, `pending count/list/get`, `step get`, guarded `rerun`,
+  guarded `rerun-block`, and guarded `step execute --file <step-instance.json>`.
+  Human output summarizes counts/status/presence; `--json` keeps raw SecOps payloads
+  available for scripts and deeper troubleshooting. Step execution previews only a
+  sanitized step summary; the exact step-instance JSON is sent only with `--yes`.
 - **Auto-trigger deployment.** Let deploy-time playbook changes manage the native
   trigger object rather than only preserving exported JSON. Support `isEnabled`,
   `trigger.type`, `executionMode`, ingestion `conditions`, `reactionConditions`, and
@@ -1082,11 +1084,10 @@ break it.
   `soar job instance run --instance <id|uniqueIdentifier|name>` fetch live data
   first, preview the explicit target for executions, and require `--yes` before
   SecOps executes.
-  Remaining: typed `ExecuteStep` helpers once a pending or failed step instance has
-  been fetched and previewed, deeper job execution status helpers, and a safer
-  job-template authoring path. Prefer simulated or throwaway cases with explicit
-  ids/prefixes, never broad live queues, and always surface what will run before
-  mutation.
+  Remaining: broader step-body validation/live write validation, deeper job
+  execution status helpers, and a safer job-template authoring path. Prefer
+  simulated or throwaway cases with explicit ids/prefixes, never broad live queues,
+  and always surface what will run before mutation.
 - **Exit.** A user can discover SecOps actions/jobs, scaffold and package a Python
   action/job, import or update it in SecOps, compose a playbook using exported SecOps
   molds, dry-run and save the workflow, run it against an explicit case/alert or

@@ -43,7 +43,7 @@ or `secopsctl config --show-path`.
 `soar playbook trigger set`, `soar playbook test-cases`,
 `soar playbook debug-step-data`, `soar playbook simulation-enrichment`,
 `soar playbook pending count`, `soar playbook pending list`,
-`soar playbook pending get`,
+`soar playbook pending get`, `soar playbook step get`,
 `soar playbook summary`, `soar playbook results`, `soar playbook result`,
 `soar playbook python-logs`, `soar job list`, `soar job template list`,
 `soar job instance list`, `soar job logs`, `soar users list`,
@@ -134,6 +134,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar playbook debug-step-data` | Read simulated case data for one debug step by original step identifier. |
 | `soar playbook simulation-enrichment` | Read simulation enrichment for one test case, step, and workflow identifier. |
 | `soar playbook pending count` / `list` / `get` | Read pending playbook steps assigned to the current user. `get --case-id N` can be scoped with `--alert-group` and `--workflow-identifier`. |
+| `soar playbook step get` | Fetch one workflow step instance by case, workflow, and step identifiers. Use `--json` to save the raw body for guarded `step execute`. |
 | `soar playbook summary` | Read workflow-instance summary counts for a case/alert and optional playbook definition. |
 | `soar playbook results` / `result` | Read action results for a workflow instance or one case action-result id; human output summarizes status/presence only, `--json` emits the raw payload. |
 | `soar playbook python-logs` | Read Python execution logs (`--filter`, `--page-size`, `--page-token`); human output prints counts, `--json` emits the raw payload. |
@@ -171,6 +172,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar push playbook` (singular) | Imperative whole-body save of **one** playbook from `--file <playbook.json>`; mints a new version. Dry-run validates JSON and the playbook-name charset offline. Not a directory reconcile — use `playbooks` for the loop. |
 | `soar playbook run` / `debug` | Attach/run a live playbook on an explicit case/alert, or start SecOps debug mode from an exported playbook and explicit test case. Dry-run is default; `--yes` executes in SecOps. |
 | `soar playbook rerun` / `rerun-block` | Rerun a playbook or nested block on an explicit case/alert. `rerun-block --inputs <file>` accepts a JSON array of block input parameters. |
+| `soar playbook step execute --file <step-instance.json>` | Execute one fetched workflow step instance. Dry-run prints a sanitized summary only; `--yes` sends the exact file body to SecOps. |
 | `soar job run --job <id\|uniqueIdentifier\|name>` | Run one installed SOAR job now. Fetches the live job first, previews the target, and requires `--yes` to execute. |
 | `soar job instance run --instance <id\|uniqueIdentifier\|name>` | Run one configured SOAR job instance now. Fetches the live instance first, previews the target, and requires `--yes` to execute. |
 | `soar push bulk-close` | Bulk-close cases by id (`--ids`, `--reason` ∈ malicious\|not-malicious\|maintenance\|inconclusive\|unknown). |
@@ -272,6 +274,8 @@ secopsctl soar playbook test-cases --search smoke --page-size 10
 secopsctl soar playbook debug --file playbook.json --test-case-id 123 --dry-run
 secopsctl soar playbook debug --file playbook.json --test-case-id 123 --yes
 secopsctl soar playbook pending list
+secopsctl --json soar playbook step get --case-id 456 --workflow-identifier <workflow-id> --step-identifier <step-id> > step.json
+secopsctl soar playbook step execute --file step.json --dry-run
 secopsctl soar playbook summary --case-id 456
 secopsctl soar playbook results --workflow-instance-id 789
 secopsctl soar job logs --filter 'labels.job_name=~"^."' --page-size 20

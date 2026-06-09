@@ -31,6 +31,7 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 		"debug-step-data",
 		"simulation-enrichment",
 		"pending",
+		"step",
 		"rerun",
 		"rerun-block",
 		"summary",
@@ -46,6 +47,12 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 	for _, name := range []string{"count", "list", "get"} {
 		if commandChild(pending, name) == nil {
 			t.Fatalf("soar playbook pending %s command not registered", name)
+		}
+	}
+	step := commandChild(playbook, "step")
+	for _, name := range []string{"get", "execute"} {
+		if commandChild(step, name) == nil {
+			t.Fatalf("soar playbook step %s command not registered", name)
 		}
 	}
 }
