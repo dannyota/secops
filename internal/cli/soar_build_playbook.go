@@ -51,7 +51,7 @@ func newSOARBuildPlaybookCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := writePrettyJSONFile(outPath, built, 0o644); err != nil {
+			if err := writePrettyJSONFile(outPath, built); err != nil {
 				return err
 			}
 			res := soarBuildPlaybookResult{Output: outPath, StepReplacements: len(stepRepls)}
@@ -106,7 +106,7 @@ func parsePlaybookStepReplacementArg(arg string) (match, path string, err error)
 	return match, path, nil
 }
 
-func writePrettyJSONFile(path string, raw []byte, perm os.FileMode) error {
+func writePrettyJSONFile(path string, raw []byte) error {
 	if strings.TrimSpace(path) == "" {
 		return fmt.Errorf("empty output path")
 	}
@@ -120,5 +120,5 @@ func writePrettyJSONFile(path string, raw []byte, perm os.FileMode) error {
 			return err
 		}
 	}
-	return os.WriteFile(path, buf.Bytes(), perm)
+	return os.WriteFile(path, buf.Bytes(), 0o644)
 }

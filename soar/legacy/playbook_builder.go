@@ -17,6 +17,18 @@ type PlaybookBuildOptions struct {
 	StepReplacements []PlaybookStepReplacement
 }
 
+// PlaybookTriggerPatchOptions controls an offline trigger-edit pass. Empty fields
+// are preserved; pointer fields distinguish "not provided" from false/empty.
+type PlaybookTriggerPatchOptions struct {
+	PlaybookEnabled    *bool
+	TriggerEnabled     *bool
+	Type               any
+	ExecutionMode      string
+	CronSchedule       *string
+	Conditions         json.RawMessage
+	ReactionConditions json.RawMessage
+}
+
 // PlaybookStepReplacement replaces one step in the base playbook with an
 // exported integration-action step mold while preserving the base step's graph
 // identity fields. Match resolves against the base step name, identifier, or
@@ -50,6 +62,56 @@ func BuildPlaybookFromMolds(base Playbook, opts PlaybookBuildOptions) (Playbook,
 	out, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("legacy: marshal built playbook: %w", err)
+	}
+	return preparePlaybookForSave(out)
+}
+
+// PatchPlaybookTrigger edits the trigger fields that secopsctl can safely
+// represent, preserving every unknown playbook and trigger field. It is offline
+// only; callers should validate/save the returned body through the normal guarded
+// playbook path.
+func PatchPlaybookTrigger(playbook Playbook, opts PlaybookTriggerPatchOptions) (Playbook, error) {
+	body, err := decodePlaybookObject(playbook, "playbook")
+	if err != nil {
+		return nil, err
+	}
+	if opts.PlaybookEnabled != nil {
+		body["isEnabled"] = *opts.PlaybookEnabled
+	}
+	trigger, err := mutablePlaybookTrigger(body)
+	if err != nil {
+		return nil, err
+	}
+	if opts.TriggerEnabled != nil {
+		trigger["isEnabled"] = *opts.TriggerEnabled
+	}
+	if opts.Type != nil {
+		trigger["type"] = opts.Type
+	}
+	if strings.TrimSpace(opts.ExecutionMode) != "" {
+		trigger["executionMode"] = strings.TrimSpace(opts.ExecutionMode)
+	}
+	if opts.CronSchedule != nil {
+		trigger["cronSchedule"] = *opts.CronSchedule
+	}
+	if len(bytes.TrimSpace(opts.Conditions)) > 0 {
+		v, err := decodeJSONValue(opts.Conditions, "conditions")
+		if err != nil {
+			return nil, err
+		}
+		trigger["conditions"] = v
+	}
+	if len(bytes.TrimSpace(opts.ReactionConditions)) > 0 {
+		v, err := decodeJSONValue(opts.ReactionConditions, "reaction conditions")
+		if err != nil {
+			return nil, err
+		}
+		trigger["reactionConditions"] = v
+	}
+	body["trigger"] = trigger
+	out, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("legacy: marshal trigger-patched playbook: %w", err)
 	}
 	return preparePlaybookForSave(out)
 }
@@ -91,6 +153,18 @@ func setPlaybookCronSchedule(body map[string]any, cron string) error {
 	}
 	trigger["cronSchedule"] = cron
 	return nil
+}
+
+func mutablePlaybookTrigger(body map[string]any) (map[string]any, error) {
+	raw, ok := body["trigger"]
+	if !ok || raw == nil {
+		return map[string]any{}, nil
+	}
+	trigger, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("legacy: playbook trigger is %T, want object", raw)
+	}
+	return trigger, nil
 }
 
 func applyActionStepMold(body map[string]any, repl PlaybookStepReplacement) error {
@@ -198,6 +272,19 @@ func decodePlaybookObject(raw json.RawMessage, label string) (map[string]any, er
 	}
 	if out == nil {
 		return nil, fmt.Errorf("legacy: %s is null, want object", label)
+	}
+	return out, nil
+}
+
+func decodeJSONValue(raw json.RawMessage, label string) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var out any
+	if err := dec.Decode(&out); err != nil {
+		return nil, fmt.Errorf("legacy: parse %s: %w", label, err)
+	}
+	if out == nil {
+		return nil, fmt.Errorf("legacy: %s is null, want JSON object/array/scalar", label)
 	}
 	return out, nil
 }

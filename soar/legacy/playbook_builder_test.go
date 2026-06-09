@@ -119,6 +119,62 @@ func TestExtractActionStepMold(t *testing.T) {
 	}
 }
 
+func TestPatchPlaybookTrigger(t *testing.T) {
+	enabled := true
+	triggerEnabled := false
+	cron := "0 9 * * *"
+	patched, err := PatchPlaybookTrigger(Playbook(`{
+	  "name": "Base",
+	  "templateName": null,
+	  "isEnabled": false,
+	  "trigger": {
+	    "id": 2,
+	    "type": 1,
+	    "executionMode": "Manual",
+	    "cronSchedule": "old",
+	    "unknownField": "preserved"
+	  },
+	  "steps": []
+	}`), PlaybookTriggerPatchOptions{
+		PlaybookEnabled:    &enabled,
+		TriggerEnabled:     &triggerEnabled,
+		Type:               json.Number("8"),
+		ExecutionMode:      "Automatic",
+		CronSchedule:       &cron,
+		Conditions:         json.RawMessage(`[{"field":"AlertType","operator":"Equals","value":"Rule"}]`),
+		ReactionConditions: json.RawMessage(`{"operator":"AND","conditions":[]}`),
+	})
+	if err != nil {
+		t.Fatalf("PatchPlaybookTrigger: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(patched, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["isEnabled"] != true {
+		t.Fatalf("isEnabled = %#v, want true", got["isEnabled"])
+	}
+	trigger := got["trigger"].(map[string]any)
+	for k, want := range map[string]any{
+		"id":            "2",
+		"type":          float64(8),
+		"executionMode": "Automatic",
+		"cronSchedule":  cron,
+		"unknownField":  "preserved",
+		"isEnabled":     false,
+	} {
+		if trigger[k] != want {
+			t.Fatalf("trigger[%s] = %#v, want %#v", k, trigger[k], want)
+		}
+	}
+	if _, ok := trigger["conditions"].([]any); !ok {
+		t.Fatalf("conditions = %#v, want array", trigger["conditions"])
+	}
+	if _, ok := trigger["reactionConditions"].(map[string]any); !ok {
+		t.Fatalf("reactionConditions = %#v, want object", trigger["reactionConditions"])
+	}
+}
+
 func TestBuildPlaybookFromMoldsRejectsUnwiredStepMold(t *testing.T) {
 	base := Playbook(`{"name":"Base","trigger":{},"steps":[{"name":"Placeholder"}]}`)
 	_, err := BuildPlaybookFromMolds(base, PlaybookBuildOptions{

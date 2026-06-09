@@ -39,7 +39,8 @@ or `secopsctl config --show-path`.
 `soar case values`, `soar playbook list`, `soar playbook validate`,
 `soar playbook components integrations`, `soar playbook components actions`,
 `soar playbook components jobs`, `soar playbook components connectors`,
-`soar playbook mold extract`, `soar playbook test-cases`,
+`soar playbook mold extract`, `soar playbook mold apply`,
+`soar playbook trigger set`, `soar playbook test-cases`,
 `soar playbook debug-step-data`, `soar playbook simulation-enrichment`,
 `soar playbook summary`, `soar playbook results`, `soar playbook result`,
 `soar playbook python-logs`, `soar job list`, `soar job template list`,
@@ -191,6 +192,8 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `info cron [--root <dir>] [--host] [--heartbeat-status <label>=<url>]` | Scheduler ownership/orphan report. Scans local scheduler-like files for `secopsctl drift`, `push`, and `soar push` references, plus pulled `soar/jobs/` and `soar/playbooks/` cron schedules. `--host` also inspects the current user's crontab and user systemd unit files. `--heartbeat-status` performs a HEAD check against a read-only status endpoint. Reports file:line references and labels only; raw lines and URLs are not printed. |
 | `soar build-playbook --base <playbook.json> --cron <expr> --out <playbook.json>` | Offline SOAR playbook composer. Starts from a full exported base playbook, sets `trigger.cronSchedule`, and can replace placeholder steps with exported, already-wired integration-action step molds via repeated `--replace-step <step>=<step.json>`. |
 | `soar playbook mold extract --file <playbook.json> --step <name\|id> --out <step.json>` | Extract one exported action step as a reusable mold for `soar build-playbook`. |
+| `soar playbook mold apply --file <playbook.json> --replace-step <step=step.json> --out <playbook.json>` | Replace placeholder steps in an exported playbook with reusable action-step molds, preserving the base step graph identity. |
+| `soar playbook trigger set --file <playbook.json> --out <playbook.json>` | Edit trigger fields in exported playbook JSON (`--enabled`, `--trigger-enabled`, `--type`, `--execution-mode`, `--cron`, `--conditions`, `--reaction-conditions`) before validation and guarded save. |
 | `soar package-integration <dir>` | Offline ZIP builder for an already-shaped SOAR custom integration directory. Defaults to `<dir>.zip`; use `--out <file>` and `--force` to overwrite. |
 | `completion` | Generate the shell autocompletion script. |
 | `help` | Help about any command. |
@@ -256,7 +259,9 @@ secopsctl info cron --host --heartbeat-status nightly=https://example.com/secops
 secopsctl soar playbook components integrations --grep example
 secopsctl soar playbook components actions --integration Example --grep lookup
 secopsctl soar playbook mold extract --file exported-playbook.json --step "Lookup" --out molds/lookup.json
-secopsctl soar playbook validate --file playbook.json
+secopsctl soar playbook mold apply --file base-playbook.json --replace-step "Lookup=molds/lookup.json" --out playbook.json
+secopsctl soar playbook trigger set --file playbook.json --enabled true --type 8 --execution-mode Automatic --cron "0 8 * * *" --out playbook-triggered.json
+secopsctl soar playbook validate --file playbook-triggered.json
 secopsctl soar playbook test-cases --search smoke --page-size 10
 secopsctl soar playbook debug --file playbook.json --test-case-id 123 --dry-run
 secopsctl soar playbook debug --file playbook.json --test-case-id 123 --yes

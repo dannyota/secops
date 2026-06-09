@@ -24,6 +24,7 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 		"validate",
 		"components",
 		"mold",
+		"trigger",
 		"test-cases",
 		"run",
 		"debug",
