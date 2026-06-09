@@ -637,10 +637,9 @@ A backlog surfaced by dogfooding the tool against its own help and docs, plus th
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
 value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
 Waves 25–42 are recorded in committed sequence; older waves keep their deferred
-items where a gap remains. Waves 35–38 and 40 are complete; Wave 39 (SOAR playbook
-interaction) is in progress; Wave 41 closes the remaining SOAR integration and
-playbook lifecycle gaps; Wave 42 aligns the rule-inspection verbs' identifier
-handling.
+items where a gap remains. Waves 35–38, 40, and 42 are complete; Wave 39 (SOAR
+playbook interaction) and Wave 41 (SOAR integration & playbook lifecycle) are in
+progress.
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
@@ -1177,18 +1176,20 @@ break it.
   steps surfaced.
 - **Docs.** CATALOG (`soar integration`, `soar playbook`), SOAR-DESIGN, usage guide.
 
-### Wave 42 — Rule-inspection identifier resolution *(planned)*
+### Wave 42 — Rule-inspection identifier resolution *(done)*
 
 - **Goal.** Make the read-side rule-inspection verbs accept the same identifier
   forms as the deploy verbs, so an operator can pass whatever `pull rules` filenames
   use (display name / slug) instead of only the opaque `ru_<uuid>`.
-- **Scope.** `rules errors <rule>` (and the sibling per-rule inspection verbs)
-  resolve **display name / slug / short id → full `ru_<uuid>`** before building the
-  server filter, mirroring `rules-deploy --rule`. Currently only the full id works;
-  a name, slug, or truncated id reaches the API verbatim and returns an opaque
-  `400 invalid rule name in filter` that reads like a tool bug. On an unresolved
-  value, print a clear client-side `no rule matches "<x>"` (exit 2) **before** any
-  API call, never the server 400.
+- **Scope (done).** `rules errors` / `rules detections` / `rules alerts` resolve
+  **display name / slug / short `ru_` id → full `ru_<uuid>`** against the live rule
+  list before building the server filter, mirroring `rules-deploy --rule`'s matcher.
+  Previously only the full id worked; a name, slug, or truncated id reached the API
+  verbatim and returned an opaque `400 invalid rule name in filter` that read like a
+  tool bug. On an unresolved value the resolver now prints a clear client-side
+  `no rule matches "<x>"` **before** any API call (exit 1 — exit 2 stays reserved
+  for drift), never the server 400. A full-id form still passes through even when
+  unlisted (e.g. an archived rule). The pure matcher is unit-tested.
 - **Exit.** Every rule-inspection verb takes id / display name / slug consistently;
   an unknown rule fails fast with a legible client-side message.
 - **Docs.** CATALOG (`rules`), usage guide.

@@ -74,16 +74,16 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `entity summarize <type> <value>` | Summarize an entity (alerts by rule, related entities, prevalence) over `--hours` (default 7d). |
 | `curated list` | List curated (Google-managed) rule-set deployments + enable/alerting state. |
 | `curated rules` | List the individual curated rules. |
-| `rules list` | List detection rules (rule id · display name · slug · type) — maps a name/slug to the `ru_` id the inspect verbs need. |
+| `rules list` | List detection rules (rule id · display name · slug · type). The inspect verbs (`detections`/`errors`/`alerts`) accept any of these forms directly. |
 | `rules validate <file.yaral>` | Validate a YARA-L file against the API (no mutation); non-zero exit if invalid. |
 | `parsers sample-logs <log-type>` | Fetch recent RAW sample logs for a log type directly (`logTypes/<type>/logs`) — full bytes, one per line, to develop a parser against (`--limit` / `--since`). The simplest raw-log path. |
 | `parsers validate <log-type>` | Show the parsing errors from the most recently submitted parser's validation report — the detail behind a `push parsers` / `parsers activate` `FAILED_PRECONDITION` (per-log error + a failing-log preview; `--show-logs` for the full sample). |
 | `parsers versions <log-type>` | List a log type's parser versions (id · state · created). |
 | `parsers run <log-type>` | Validate a CBN parser against sample logs (`--cbn`, `--logs`); no server change. |
 | `feeds schemas` | List feed source types (or one source type's log types with `--source-type`) — the field reference for authoring a feed. Templates are in `examples/feed-templates/`; use `secret_ref` for credentials. |
-| `rules detections` | List detections a deployed rule produced in a time window. |
-| `rules errors` | List execution errors a rule produced, including structured error payloads. |
-| `rules alerts` | Search alerts a rule generated (raw, rule-dependent shape). |
+| `rules detections <rule>` | List detections a deployed rule produced in a time window. `<rule>` is a rule id, display name, or slug (resolved against the live rule list). |
+| `rules errors <rule>` | List execution errors a rule produced, including structured error payloads. Accepts a rule id, display name, or slug; an unknown rule gives a clean client-side `no rule matches` error instead of an opaque API `400 invalid rule name`. |
+| `rules alerts <rule>` | Search alerts a rule generated (raw, rule-dependent shape). Accepts a rule id, display name, or slug. |
 | `alerts list` | List Chronicle detection alerts over a time window (snapshot). |
 | `alerts get` | Get one alert by id. |
 | `ti collections` | List Mandiant threat collections (campaigns/reports/…). |

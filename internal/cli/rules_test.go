@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"danny.vn/secops/chronicle"
+	"danny.vn/secops/internal/mirror"
 )
 
 func TestTimeWindow(t *testing.T) {
@@ -53,5 +56,78 @@ func TestWriteRulesAlerts(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "ruleMetadata") {
 		t.Errorf("alert body not emitted: %q", buf.String())
+	}
+}
+
+func TestMatchRuleID(t *testing.T) {
+	const fullA = "ru_0a1b2c3d-1111-2222-3333-444455556666"
+	const fullB = "ru_0a1b2c3d-9999-2222-3333-444455556666" // shares the ru_0a1b2c3d prefix
+	const fullC = "ru_aa000000-1111-2222-3333-444455556666"
+	rules := []chronicle.Rule{
+		{Name: "projects/p/locations/r/instances/c/rules/" + fullA, DisplayName: "My Test Rule"},
+		{Name: "projects/p/locations/r/instances/c/rules/" + fullC, DisplayName: "Other Rule"},
+	}
+	slug := mirror.Slugify("My Test Rule")
+
+	ok := []struct{ name, ref, want string }{
+		{"full id", fullA, fullA},
+		{"display name", "My Test Rule", fullA},
+		{"display name case-insensitive", "my test rule", fullA},
+		{"slug", slug, fullA},
+		{"unique short prefix", "ru_aa000000", fullC},
+		{"unlisted full id passthrough", fullB, fullB},
+	}
+	for _, tc := range ok {
+		got, err := matchRuleID(rules, tc.ref)
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", tc.name, err)
+		} else if got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+
+	// fullA and fullB share the ru_0a1b2c3d prefix, so a short-prefix lookup is
+	// ambiguous.
+	ambiguous := []chronicle.Rule{
+		{Name: "x/rules/" + fullA, DisplayName: "My Test Rule"},
+		{Name: "x/rules/" + fullB, DisplayName: "Dup"},
+	}
+	if _, err := matchRuleID(ambiguous, "ru_0a1b2c3d"); err == nil ||
+		!strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("ambiguous prefix should error, got %v", err)
+	}
+
+	// Unknown reference → clean client-side error.
+	if _, err := matchRuleID(rules, "no-such-rule"); err == nil ||
+		!strings.Contains(err.Error(), "no rule matches") {
+		t.Errorf("unknown ref should say 'no rule matches', got %v", err)
+	}
+
+	// A display name shared by two rules is ambiguous, not silently first-match.
+	dupName := []chronicle.Rule{
+		{Name: "x/rules/" + fullA, DisplayName: "Same Name"},
+		{Name: "x/rules/" + fullC, DisplayName: "Same Name"},
+	}
+	if _, err := matchRuleID(dupName, "Same Name"); err == nil ||
+		!strings.Contains(err.Error(), "matches 2 rules") {
+		t.Errorf("duplicate display name should error, got %v", err)
+	}
+}
+
+func TestLooksLikeRuleID(t *testing.T) {
+	yes := []string{
+		"ru_0a1b2c3d-1111-2222-3333-444455556666",
+		"RU_0A1B2C3D-1111-2222-3333-444455556666", // uppercase full id still recognized
+	}
+	no := []string{"ru_0a1b2c3d", "My Rule", "", "ru_not-a-uuid", "0a1b2c3d-1111-2222-3333-444455556666"}
+	for _, s := range yes {
+		if !looksLikeRuleID(s) {
+			t.Errorf("looksLikeRuleID(%q) = false, want true", s)
+		}
+	}
+	for _, s := range no {
+		if looksLikeRuleID(s) {
+			t.Errorf("looksLikeRuleID(%q) = true, want false", s)
+		}
 	}
 }

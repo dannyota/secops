@@ -1,16 +1,19 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"sort"
+	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"danny.vn/secops/chronicle"
 	"danny.vn/secops/internal/mirror"
 )
 
@@ -161,7 +164,11 @@ func newRulesDetectionsCmd() *cobra.Command {
 				return err
 			}
 			start, end := timeWindow(hours)
-			dets, err := c.ListDetections(baseContext(), args[0], start, end, state, limit)
+			ruleID, err := resolveRuleID(baseContext(), c, args[0])
+			if err != nil {
+				return err
+			}
+			dets, err := c.ListDetections(baseContext(), ruleID, start, end, state, limit)
 			if err != nil {
 				return err
 			}
@@ -189,6 +196,86 @@ func newRulesDetectionsCmd() *cobra.Command {
 	return cmd
 }
 
+// resolveRuleID maps a rule reference — the full `ru_<uuid>` id, a short `ru_`
+// prefix, the display name, or the slug — to the full rule id the inspection APIs
+// require, by matching the live rule list. It mirrors what `push rules-deploy
+// --rule` accepts, so an operator can pass whatever `rules list` / `pull rules`
+// show. A full-id form is returned even if it is not in the list (e.g. an archived
+// rule); an unknown reference yields a clean client-side error instead of the
+// API's opaque "invalid rule name in filter" 400.
+func resolveRuleID(ctx context.Context, c *chronicle.Client, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", fmt.Errorf("a rule id, display name, or slug is required")
+	}
+	rules, err := c.ListRules(ctx)
+	if err != nil {
+		// Can't resolve names without the list; a full id form can still go through.
+		if looksLikeRuleID(ref) {
+			return ref, nil
+		}
+		return "", err
+	}
+	return matchRuleID(rules, ref)
+}
+
+// matchRuleID resolves a non-empty rule reference against a known rule set: an
+// exact id/display-name/slug match, then a unique short `ru_` id prefix, then a
+// full-id-shape passthrough for an unlisted (e.g. archived) rule. Pure, so the
+// matching is unit-tested without a live client.
+func matchRuleID(rules []chronicle.Rule, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	low := strings.ToLower(ref)
+	// Exact match on id / display name / slug. Collect DISTINCT rule ids so a
+	// display name shared by two rules is reported as ambiguous, not silently
+	// resolved to whichever came first.
+	var exact []string
+	seen := map[string]bool{}
+	for i := range rules {
+		r := &rules[i]
+		for _, cand := range []string{r.RuleID(), r.DisplayName, mirror.Slugify(r.DisplayName)} {
+			if cand != "" && strings.ToLower(strings.TrimSpace(cand)) == low {
+				if id := r.RuleID(); id != "" && !seen[id] {
+					seen[id] = true
+					exact = append(exact, id)
+				}
+				break
+			}
+		}
+	}
+	if len(exact) == 1 {
+		return exact[0], nil
+	}
+	if len(exact) > 1 {
+		return "", fmt.Errorf("%q matches %d rules — use the full id (see `rules list`)", ref, len(exact))
+	}
+	// A short `ru_` prefix (e.g. a truncated id) resolves if exactly one id matches.
+	if strings.HasPrefix(low, "ru_") {
+		var matches []string
+		for i := range rules {
+			if id := rules[i].RuleID(); strings.HasPrefix(strings.ToLower(id), low) {
+				matches = append(matches, id)
+			}
+		}
+		if len(matches) == 1 {
+			return matches[0], nil
+		}
+		if len(matches) > 1 {
+			return "", fmt.Errorf("rule id prefix %q is ambiguous (%d matches) — use the full id (see `rules list`)", ref, len(matches))
+		}
+	}
+	if looksLikeRuleID(ref) {
+		return ref, nil // valid id shape, just not listed (e.g. archived) — let the API try
+	}
+	return "", fmt.Errorf("no rule matches %q (see `secopsctl rules list`)", ref)
+}
+
+// looksLikeRuleID reports whether s has the full rule-id shape ru_<uuid>.
+func looksLikeRuleID(s string) bool {
+	s = strings.TrimSpace(s)
+	return strings.HasPrefix(strings.ToLower(s), "ru_") && len(s) == 39 && strings.Count(s, "-") == 4
+}
+
 func newRulesErrorsCmd() *cobra.Command {
 	var (
 		hours  int
@@ -204,7 +291,11 @@ func newRulesErrorsCmd() *cobra.Command {
 				return err
 			}
 			start, end := timeWindow(hours)
-			errs, err := c.ListErrors(baseContext(), args[0], start, end)
+			ruleID, err := resolveRuleID(baseContext(), c, args[0])
+			if err != nil {
+				return err
+			}
+			errs, err := c.ListErrors(baseContext(), ruleID, start, end)
 			if err != nil {
 				return err
 			}
@@ -242,7 +333,11 @@ func newRulesAlertsCmd() *cobra.Command {
 				return err
 			}
 			start, end := timeWindow(hours)
-			res, err := c.SearchRuleAlerts(baseContext(), args[0], start, end)
+			ruleID, err := resolveRuleID(baseContext(), c, args[0])
+			if err != nil {
+				return err
+			}
+			res, err := c.SearchRuleAlerts(baseContext(), ruleID, start, end)
 			if err != nil {
 				return err
 			}
