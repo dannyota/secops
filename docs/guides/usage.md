@@ -82,7 +82,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `parsers run <log-type>` | Validate a CBN parser against sample logs (`--cbn`, `--logs`); no server change. |
 | `feeds schemas` | List feed source types (or one source type's log types with `--source-type`) — the field reference for authoring a feed. Templates are in `examples/feed-templates/`; use `secret_ref` for credentials. |
 | `rules detections` | List detections a deployed rule produced in a time window. |
-| `rules errors` | List execution errors a rule produced. |
+| `rules errors` | List execution errors a rule produced, including structured error payloads. |
 | `rules alerts` | Search alerts a rule generated (raw, rule-dependent shape). |
 | `alerts list` | List Chronicle detection alerts over a time window (snapshot). |
 | `alerts get` | Get one alert by id. |

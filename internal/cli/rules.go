@@ -218,7 +218,7 @@ func newRulesErrorsCmd() *cobra.Command {
 			for i := range errs {
 				e := &errs[i]
 				fmt.Fprintf(os.Stdout, "%-22s %-26s %s\n", orDash(e.ErrorTime), orDash(e.Category),
-					truncate(orFirst(e.Error, e.Text), 80))
+					truncate(e.Message(), 80))
 			}
 			fmt.Fprintf(os.Stdout, "\n%d error(s).\n", len(errs))
 			return nil

@@ -1118,10 +1118,9 @@ break it.
   neutralization path for no-delete lists. The command must resolve and preview the
   target, require the standard guarded mutation flow, clear entries with
   `UpdateReferenceList`, and recommend re-pull after apply.
-- **Rule execution errors.** Make `rules errors <rule-id>` decode both string and
-  structured error payloads. Human output should show compact type/message/details
-  fields without dumping raw server payloads; `--json` should keep the raw record for
-  scripts.
+- **Rule execution errors.** Built: `rules errors <rule-id>` decodes both string
+  and structured error payloads. Human output shows a compact type/message without
+  dumping raw server payloads; `--json` keeps the raw record for scripts.
 - **Safe rule creation.** Extend `push rules-create` with deployment controls such
   as `--enabled=false`, `--alerting=false`, and
   `--run-frequency=LIVE|HOURLY|DAILY`, or accept a companion deployment stub before

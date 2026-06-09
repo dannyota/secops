@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -159,15 +160,132 @@ type RuleErrorMetadata struct {
 //
 // Field names span two API generations: v1alpha returns name/error, the older
 // shape returns errorId/text. Both are decoded so callers see a populated
-// message regardless of which the instance emits (use Message()).
+// message regardless of which the instance emits (use Message()). Some
+// instances return the v1alpha "error" field as a structured object instead of
+// a string; Error is a compact human summary, while ErrorObject and Raw preserve
+// the unmodified server payload for callers that need it.
 type RuleError struct {
-	Name      string             `json:"name,omitempty"`     // v1alpha resource name
-	ErrorID   string             `json:"errorId,omitempty"`  // legacy id form
-	Error     string             `json:"error,omitempty"`    // v1alpha message
-	Text      string             `json:"text,omitempty"`     // legacy message
-	Category  string             `json:"category,omitempty"` // e.g. RULES_EXECUTION_ERROR
-	ErrorTime string             `json:"errorTime,omitempty"`
-	Metadata  *RuleErrorMetadata `json:"metadata,omitempty"`
+	Name        string             `json:"name,omitempty"`         // v1alpha resource name
+	ErrorID     string             `json:"errorId,omitempty"`      // legacy id form
+	Error       string             `json:"error,omitempty"`        // v1alpha message or compact structured summary
+	ErrorObject json.RawMessage    `json:"error_object,omitempty"` // original structured error field, when present
+	Text        string             `json:"text,omitempty"`         // legacy message
+	Category    string             `json:"category,omitempty"`     // e.g. RULES_EXECUTION_ERROR
+	ErrorTime   string             `json:"errorTime,omitempty"`
+	Metadata    *RuleErrorMetadata `json:"metadata,omitempty"`
+	Raw         json.RawMessage    `json:"raw,omitempty"`
+}
+
+// UnmarshalJSON accepts both observed ruleExecutionErrors shapes:
+// "error": "message" and "error": {"@type":"...","message":"..."}.
+func (e *RuleError) UnmarshalJSON(b []byte) error {
+	var aux struct {
+		Name      string             `json:"name"`
+		ErrorID   string             `json:"errorId"`
+		Error     json.RawMessage    `json:"error"`
+		Text      string             `json:"text"`
+		Category  string             `json:"category"`
+		ErrorTime string             `json:"errorTime"`
+		Metadata  *RuleErrorMetadata `json:"metadata"`
+	}
+	if err := json.Unmarshal(b, &aux); err != nil {
+		return err
+	}
+	*e = RuleError{
+		Name:      aux.Name,
+		ErrorID:   aux.ErrorID,
+		Text:      aux.Text,
+		Category:  aux.Category,
+		ErrorTime: aux.ErrorTime,
+		Metadata:  aux.Metadata,
+		Raw:       append(json.RawMessage(nil), b...),
+	}
+	e.setErrorField(aux.Error)
+	return nil
+}
+
+func (e *RuleError) setErrorField(raw json.RawMessage) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		e.Error = s
+		return
+	}
+	e.ErrorObject = append(json.RawMessage(nil), raw...)
+	e.Error = summarizeRuleErrorObject(raw)
+}
+
+func summarizeRuleErrorObject(raw json.RawMessage) string {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return "structured error"
+	}
+	typ := firstJSONText(obj, "@type", "type", "code", "status", "reason")
+	msg := firstJSONText(obj, "message", "errorMessage", "detail", "details", "description")
+	detail := firstJSONDetail(obj, "details")
+	if msg != "" && detail != "" && !strings.Contains(msg, detail) {
+		msg += " (" + detail + ")"
+	}
+	switch {
+	case typ != "" && msg != "" && typ != msg:
+		return typ + ": " + msg
+	case msg != "":
+		return msg
+	case typ != "":
+		return typ
+	default:
+		return "structured error"
+	}
+}
+
+func firstJSONText(obj map[string]json.RawMessage, keys ...string) string {
+	for _, key := range keys {
+		raw, ok := obj[key]
+		if !ok || len(raw) == 0 || string(raw) == "null" {
+			continue
+		}
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil && s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+func firstJSONDetail(obj map[string]json.RawMessage, keys ...string) string {
+	for _, key := range keys {
+		raw, ok := obj[key]
+		if !ok || len(raw) == 0 || string(raw) == "null" {
+			continue
+		}
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil && s != "" {
+			return s
+		}
+		var items []map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &items); err == nil {
+			for _, item := range items {
+				if txt := firstJSONText(item, "message", "description", "detail", "reason", "field"); txt != "" {
+					return txt
+				}
+				if txt := firstJSONDetail(item, "fieldViolations", "violations", "details"); txt != "" {
+					return txt
+				}
+			}
+		}
+		var nested map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &nested); err == nil {
+			if txt := firstJSONText(nested, "message", "description", "detail", "reason", "field"); txt != "" {
+				return txt
+			}
+			if txt := firstJSONDetail(nested, "fieldViolations", "violations", "details"); txt != "" {
+				return txt
+			}
+		}
+	}
+	return ""
 }
 
 // Message returns the human-readable error text across either API shape.

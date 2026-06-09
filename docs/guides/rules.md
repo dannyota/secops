@@ -121,7 +121,9 @@ secopsctl rules alerts <rule-id> --hours 24
 
 `detections` filters by alert `--state` (e.g. `ALERTING`) and pages with
 `--limit`; both `detections` and `errors` take a `--hours` look-back window
-(default 24). Add `--json` for raw output.
+(default 24). `rules errors` accepts both string and structured SecOps error
+payloads, printing a compact type/message in table output. Add `--json` for the
+typed record plus the raw server record.
 
 ### Retrohunts
 
