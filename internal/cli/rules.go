@@ -364,15 +364,19 @@ func newRulesRetrohuntCmd() *cobra.Command {
 func newRetrohuntListCmd() *cobra.Command {
 	var asJSON bool
 	cmd := &cobra.Command{
-		Use:   "list <rule-id>",
-		Short: "Read-only: list a rule's retrohunts",
+		Use:   "list <rule>",
+		Short: "Read-only: list a rule's retrohunts (accepts id, display name, or slug)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
 			}
-			rhs, err := c.ListRetrohunts(baseContext(), args[0])
+			ruleID, err := resolveRuleID(baseContext(), c, args[0])
+			if err != nil {
+				return err
+			}
+			rhs, err := c.ListRetrohunts(baseContext(), ruleID)
 			if err != nil {
 				return err
 			}
@@ -398,15 +402,19 @@ func newRetrohuntListCmd() *cobra.Command {
 func newRetrohuntGetCmd() *cobra.Command {
 	var asJSON bool
 	cmd := &cobra.Command{
-		Use:   "get <rule-id> <retrohunt-id>",
-		Short: "Read-only: get one retrohunt's status",
+		Use:   "get <rule> <retrohunt-id>",
+		Short: "Read-only: get one retrohunt's status (rule accepts id, name, or slug)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
 			}
-			rh, err := c.GetRetrohunt(baseContext(), args[0], args[1])
+			ruleID, err := resolveRuleID(baseContext(), c, args[0])
+			if err != nil {
+				return err
+			}
+			rh, err := c.GetRetrohunt(baseContext(), ruleID, args[1])
 			if err != nil {
 				return err
 			}
@@ -428,18 +436,21 @@ func newRetrohuntCreateCmd() *cobra.Command {
 		dryRun, yes bool
 	)
 	cmd := &cobra.Command{
-		Use:   "create <rule-id>",
-		Short: "MUTATING (guarded): start a retrohunt over the last --hours of data",
+		Use:   "create <rule>",
+		Short: "MUTATING (guarded): start a retrohunt over the last --hours of data (rule accepts id, name, or slug)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ruleID := args[0]
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			ruleID, err := resolveRuleID(baseContext(), c, args[0])
+			if err != nil {
+				return err
+			}
 			start, end := timeWindow(hours)
 			action := fmt.Sprintf("retrohunt %s over the last %dh", ruleID, hoursOrDefault(hours))
 			return guardedSIEMMutation(action, dryRun, yes, func() error {
-				c, err := newChronicleClient()
-				if err != nil {
-					return err
-				}
 				rh, err := c.CreateRetrohunt(baseContext(), ruleID, start, end)
 				if err != nil {
 					return err

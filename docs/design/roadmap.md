@@ -1192,9 +1192,10 @@ break it.
 - **Goal.** Make the read-side rule-inspection verbs accept the same identifier
   forms as the deploy verbs, so an operator can pass whatever `pull rules` filenames
   use (display name / slug) instead of only the opaque `ru_<uuid>`.
-- **Scope (done).** `rules errors` / `rules detections` / `rules alerts` resolve
-  **display name / slug / short `ru_` id → full `ru_<uuid>`** against the live rule
-  list before building the server filter, mirroring `rules-deploy --rule`'s matcher.
+- **Scope (done).** `rules errors` / `rules detections` / `rules alerts` / `rules
+  retrohunt list` / `get` / `create` resolve **display name / slug / short `ru_` id
+  → full `ru_<uuid>`** against the live rule list before building the server filter,
+  mirroring `rules-deploy --rule`'s matcher.
   Previously only the full id worked; a name, slug, or truncated id reached the API
   verbatim and returned an opaque `400 invalid rule name in filter` that read like a
   tool bug. On an unresolved value the resolver now prints a clear client-side

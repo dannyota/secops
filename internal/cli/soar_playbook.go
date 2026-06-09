@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"sort"
 	"strconv"
@@ -732,38 +733,31 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 			if caseID <= 0 {
 				return fmt.Errorf("--case-id is required")
 			}
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			ctx := baseContext()
 			// Resolve the friendly inputs to the opaque selectors the API needs:
 			// a playbook NAME → its definition id, and (when --alert is omitted) the
 			// case's single alert identifier.
 			if strings.TrimSpace(definition) == "" && strings.TrimSpace(playbook) != "" {
-				lc, lerr := newSOARLegacyClient()
-				if lerr != nil {
-					return lerr
-				}
-				if definition, lerr = resolvePlaybookDefinition(baseContext(), lc, playbook); lerr != nil {
-					return lerr
+				if definition, err = resolvePlaybookDefinition(ctx, lc, playbook); err != nil {
+					return err
 				}
 			}
 			if strings.TrimSpace(alert) == "" {
-				lc, lerr := newSOARLegacyClient()
-				if lerr != nil {
-					return lerr
-				}
-				if alert, lerr = resolveCaseAlert(baseContext(), lc, caseID); lerr != nil {
-					return lerr
+				if alert, err = resolveCaseAlert(ctx, lc, caseID); err != nil {
+					return err
 				}
 			}
 			if strings.TrimSpace(definition) == "" {
 				return fmt.Errorf("select the run: pass --playbook <name> or --definition <id>")
 			}
-			legacyBody, err := workflowSummaryBody(caseID, alert, definition, fetchSteps, collapseBlocks)
+			body, err := workflowSummaryBody(caseID, alert, definition, fetchSteps, collapseBlocks)
 			if err != nil {
 				return err
 			}
-			// The v1alpha legacyPlaybooks path expects caseId as a string (matching the
-			// console request); the legacy external API takes the int form.
-			modernBody, _ := workflowSummaryBody(caseID, alert, definition, fetchSteps, collapseBlocks)
-			modernBody["caseId"] = strconv.Itoa(caseID)
 			render := func(raw json.RawMessage) error {
 				if jsonOut {
 					return writeRawJSON(os.Stdout, raw)
@@ -773,24 +767,24 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 			}
 			return preferModern("soar playbook summary",
 				func() error {
-					mc, err := newSOARClient()
-					if err != nil {
-						return err
+					mc, merr := newSOARClient()
+					if merr != nil {
+						return merr
 					}
-					raw, err := mc.GetWorkflowInstanceSummary(baseContext(), modernBody)
-					if err != nil {
-						return err
+					// The v1alpha path expects caseId as a string; build the
+					// modern body from the same map with the type overridden.
+					modernBody := maps.Clone(body)
+					modernBody["caseId"] = strconv.Itoa(caseID)
+					raw, merr := mc.GetWorkflowInstanceSummary(ctx, modernBody)
+					if merr != nil {
+						return merr
 					}
 					return render(raw)
 				},
 				func() error {
-					lc, err := newSOARLegacyClient()
-					if err != nil {
-						return err
-					}
-					raw, err := lc.GetWorkflowInstanceSummary(baseContext(), legacyBody)
-					if err != nil {
-						return err
+					raw, lerr := lc.GetWorkflowInstanceSummary(ctx, body)
+					if lerr != nil {
+						return lerr
 					}
 					return render(raw)
 				},
