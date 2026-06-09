@@ -984,9 +984,9 @@ func playbookDebugBody(file string, testCaseID int) (map[string]any, error) {
 }
 
 func testCasesBody(searchTerm string, envs []string, page, pageSize int) map[string]any {
-	body := map[string]any{}
-	if searchTerm = strings.TrimSpace(searchTerm); searchTerm != "" {
-		body["searchTerm"] = searchTerm
+	body := map[string]any{
+		"searchTerm":   strings.TrimSpace(searchTerm),
+		"environments": []string{},
 	}
 	if page >= 0 {
 		body["requestedPage"] = page

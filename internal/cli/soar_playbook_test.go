@@ -195,6 +195,15 @@ func TestPlaybookDebugBody(t *testing.T) {
 }
 
 func TestPlaybookDebugHelperBodies(t *testing.T) {
+	defaultTestCases := testCasesBody("", nil, 0, 50)
+	if defaultTestCases["searchTerm"] != "" {
+		t.Fatalf("default searchTerm = %#v, want empty string", defaultTestCases["searchTerm"])
+	}
+	envsDefault, ok := defaultTestCases["environments"].([]string)
+	if !ok || len(envsDefault) != 0 {
+		t.Fatalf("default environments = %#v, want empty slice", defaultTestCases["environments"])
+	}
+
 	testCases := testCasesBody(" sample ", []string{" Default ", ""}, 2, 25)
 	for k, v := range map[string]any{
 		"searchTerm":    "sample",
