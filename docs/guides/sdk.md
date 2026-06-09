@@ -87,7 +87,7 @@ func main() {
 		// Auth / connectivity / API errors all surface here, on the first call.
 		var apiErr *chronicle.APIError
 		if errors.As(err, &apiErr) {
-			log.Fatalf("HTTP %d from %s: %s", apiErr.Status, apiErr.URL, apiErr.Body)
+			log.Fatalf("Chronicle HTTP %d: %s", apiErr.Status, apiErr.Body)
 		}
 		log.Fatal(err)
 	}
@@ -106,7 +106,9 @@ func main() {
 ```
 
 **Errors & not-found.** Every non-2xx becomes a `*chronicle.APIError` (`Method`,
-`URL`, `Status`, `Body`). For genuine missing-resource fallbacks use the helper:
+`URL`, `Status`, `Body`). The typed value retains `URL` for diagnostics, but the
+rendered error string redacts raw request URLs; do not log `URL` in shared output.
+For genuine missing-resource fallbacks use the helper:
 
 ```go
 r, err := c.GetRule(ctx, "ru_00000000-0000-0000-0000-000000000000")
@@ -225,9 +227,10 @@ raw, err := c.CloseCase(ctx, map[string]any{
 ```
 
 > **SOAR error handling.** A SOAR call returns a typed `soar.Error` (and
-> `legacy.Error`) carrying the HTTP method/URL/status/body/request-id — `errors.As`
-> it, or use the `soar.IsNotFound` / `legacy.IsNotFound` helpers, exactly as you
-> would with `chronicle.APIError` / `chronicle.IsNotFound`:
+> `legacy.Error`) carrying the HTTP method/URL/status/body/request-id. The typed
+> value keeps `URL` for diagnostics, but rendered errors redact raw request URLs.
+> `errors.As` it, or use the `soar.IsNotFound` / `legacy.IsNotFound` helpers,
+> exactly as you would with `chronicle.APIError` / `chronicle.IsNotFound`:
 
 ```go
 // soar.IsNotFound / soar.Error work on the modern soar.Client. Build one the

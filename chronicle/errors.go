@@ -9,8 +9,10 @@ import (
 // APIError is a non-2xx response from the Chronicle API.
 //
 // DEVIATION (vs the official Python wrapper): it surfaces the HTTP method,
-// URL, status, and (truncated) body instead of collapsing everything into a
-// generic message. Callers can branch on Status (see IsNotFound).
+// status, and (truncated) body instead of collapsing everything into a generic
+// message. URL is retained for callers that need structured diagnostics; Error
+// redacts it from the rendered message. Callers can branch on Status (see
+// IsNotFound).
 type APIError struct {
 	Method    string
 	URL       string
@@ -29,7 +31,7 @@ func (e *APIError) Error() string {
 	if e.RequestID != "" {
 		rid = " [request-id: " + e.RequestID + "]"
 	}
-	return fmt.Sprintf("chronicle: %s %s -> HTTP %d%s: %s", e.Method, e.URL, e.Status, rid, body)
+	return fmt.Sprintf("chronicle: %s request failed with HTTP %d%s: %s", e.Method, e.Status, rid, body)
 }
 
 // requestIDHeaders are the response headers that may carry a server request id,

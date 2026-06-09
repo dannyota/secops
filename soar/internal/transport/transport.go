@@ -43,7 +43,8 @@ type Settings struct {
 	ForceIPv4     bool   // pin the dialer to IPv4 (also via SECOPS_FORCE_IPV4)
 }
 
-// Error is a non-2xx response from the SOAR API.
+// Error is a non-2xx response from the SOAR API. URL is retained for callers
+// that need structured diagnostics; Error redacts it from the rendered message.
 type Error struct {
 	Method    string
 	URL       string
@@ -62,7 +63,7 @@ func (e *Error) Error() string {
 	if e.RequestID != "" {
 		rid = " [request-id: " + e.RequestID + "]"
 	}
-	return fmt.Sprintf("soar: %s %s -> HTTP %d%s: %s", e.Method, e.URL, e.Status, rid, body)
+	return fmt.Sprintf("soar: %s request failed with HTTP %d%s: %s", e.Method, e.Status, rid, body)
 }
 
 // requestIDHeaders are the response headers that may carry a server request id.
@@ -252,7 +253,7 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 
 		resp, err := t.http.Do(req)
 		if err != nil {
-			lastErr = fmt.Errorf("soar: %s %s: %w", method, full, err)
+			lastErr = fmt.Errorf("soar: %s request failed: %w", method, err)
 			if attempt < maxRetries && retryable(method, 0, true) {
 				continue
 			}

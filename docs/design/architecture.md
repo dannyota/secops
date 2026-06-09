@@ -139,8 +139,8 @@ operator model and its **safety**.
   modern SOAR v1alpha) **500 intermittently** — Google is still building SecOps.
   Validate new surfaces against the **reliable** paths (SOAR AppKey, stable SIEM
   reads) + the **swagger**, not the flaky live API. On a 500: fail cleanly with
-  the request id; retry idempotent **reads**, never a **mutation** (double-apply
-  risk).
+  the request id, without printing raw request URLs; retry idempotent **reads**,
+  never a **mutation** (double-apply risk).
 - **Build discipline (how a surface earns "validated").** Swagger-spec the shape →
   **verify SDK signatures by hand** (the spec agents are imprecise) → wire the
   Surface/command → **live read-validate** (pull round-trips clean) → **gated write

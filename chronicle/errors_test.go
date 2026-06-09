@@ -23,9 +23,18 @@ func TestRequestIDFromHeader(t *testing.T) {
 // TestAPIErrorIncludesRequestID: the request id appears in the error string when
 // set, and is omitted otherwise.
 func TestAPIErrorIncludesRequestID(t *testing.T) {
-	with := (&APIError{Method: "GET", URL: "u", Status: 500, Body: "boom", RequestID: "rid-9"}).Error()
+	with := (&APIError{
+		Method:    "GET",
+		URL:       "https://region-chronicle.googleapis.com/v1/projects/private/locations/us/instances/private/rules",
+		Status:    500,
+		Body:      "boom",
+		RequestID: "rid-9",
+	}).Error()
 	if !strings.Contains(with, "request-id: rid-9") {
 		t.Errorf("error string missing request id: %s", with)
+	}
+	if strings.Contains(with, "region-chronicle.googleapis.com") || strings.Contains(with, "/v1/projects/private") {
+		t.Errorf("error string leaked URL: %s", with)
 	}
 	without := (&APIError{Method: "GET", URL: "u", Status: 500, Body: "boom"}).Error()
 	if strings.Contains(without, "request-id") {

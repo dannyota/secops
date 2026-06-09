@@ -58,6 +58,7 @@ func newSOARJobCmd() *cobra.Command {
 		newSOARJobRunCmd(),
 		newSOARJobTemplateCmd(),
 		newSOARJobInstanceCmd(),
+		newSOARJobLogsCmd(),
 	)
 	return cmd
 }
@@ -139,6 +140,45 @@ func newSOARJobRunCmd() *cobra.Command {
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("job")
+	return cmd
+}
+
+func newSOARJobLogsCmd() *cobra.Command {
+	var (
+		filter    string
+		pageSize  int
+		pageToken string
+		sortOrder string
+	)
+	cmd := &cobra.Command{
+		Use:   "logs",
+		Short: "Read SOAR Python execution logs for jobs/actions",
+		Long: "Read Python execution logs from SecOps Cloud Logging. The endpoint\n" +
+			"covers integration actions and jobs; use --filter to narrow the server-side\n" +
+			"query, for example labels.job_name=~\"^.\" or labels.action_name=~\"^.\".\n" +
+			"Human output prints counts only; --json emits the raw payload.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			raw, err := lc.CloudLoggingGetPythonLogs(baseContext(), pythonLogsBody(filter, pageToken, sortOrder, pageSize))
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return writeRawJSON(os.Stdout, raw)
+			}
+			printGenericItemsSummary(cmd.OutOrStdout(), "python log records", raw)
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&filter, "filter", "", "SecOps log filter expression")
+	f.IntVar(&pageSize, "page-size", 50, "maximum records to request")
+	f.StringVar(&pageToken, "page-token", "", "page token from a previous response")
+	f.StringVar(&sortOrder, "sort-order", "", "SecOps sort order")
 	return cmd
 }
 

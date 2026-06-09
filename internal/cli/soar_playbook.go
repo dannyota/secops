@@ -641,24 +641,11 @@ func newSOARPlaybookPythonLogsCmd() *cobra.Command {
 		Short: "Read Python execution logs from SecOps",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body := map[string]any{}
-			if strings.TrimSpace(filter) != "" {
-				body["filter"] = filter
-			}
-			if strings.TrimSpace(pageToken) != "" {
-				body["pageToken"] = pageToken
-			}
-			if strings.TrimSpace(sortOrder) != "" {
-				body["sortOrder"] = sortOrder
-			}
-			if pageSize > 0 {
-				body["pageSize"] = pageSize
-			}
 			lc, err := newSOARLegacyClient()
 			if err != nil {
 				return err
 			}
-			raw, err := lc.CloudLoggingGetPythonLogs(baseContext(), body)
+			raw, err := lc.CloudLoggingGetPythonLogs(baseContext(), pythonLogsBody(filter, pageToken, sortOrder, pageSize))
 			if err != nil {
 				return err
 			}
@@ -675,6 +662,26 @@ func newSOARPlaybookPythonLogsCmd() *cobra.Command {
 	f.StringVar(&pageToken, "page-token", "", "page token from a previous response")
 	f.StringVar(&sortOrder, "sort-order", "", "SecOps sort order")
 	return cmd
+}
+
+func pythonLogsBody(filter, pageToken, sortOrder string, pageSize int) map[string]any {
+	body := map[string]any{}
+	filter = strings.TrimSpace(filter)
+	if filter != "" {
+		body["filter"] = filter
+	}
+	pageToken = strings.TrimSpace(pageToken)
+	if pageToken != "" {
+		body["pageToken"] = pageToken
+	}
+	sortOrder = strings.TrimSpace(sortOrder)
+	if sortOrder != "" {
+		body["sortOrder"] = sortOrder
+	}
+	if pageSize > 0 {
+		body["pageSize"] = pageSize
+	}
+	return body
 }
 
 func normalizePlaybookTypes(types []string) []string {

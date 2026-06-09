@@ -44,7 +44,8 @@ or `secopsctl config --show-path`.
 `soar playbook debug-step-data`, `soar playbook simulation-enrichment`,
 `soar playbook summary`, `soar playbook results`, `soar playbook result`,
 `soar playbook python-logs`, `soar job list`, `soar job template list`,
-`soar job instance list`, `soar users list`, `soar marketplace contentpacks get`, `soar integration list`,
+`soar job instance list`, `soar job logs`, `soar users list`,
+`soar marketplace contentpacks get`, `soar integration list`,
 `soar integration scaffold`, `info soar-integrations`, `info cron`, `soar build-playbook`,
 `soar package-integration`, `soar settings api-keys`, and `version`. It is **also**
 emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
@@ -136,6 +137,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar job list` | List installed SOAR jobs and last-run status without printing job script bodies. |
 | `soar job template list` | List SOAR job templates for component planning without printing job script bodies. |
 | `soar job instance list` | List configured SOAR job instances. |
+| `soar job logs` | Read Python execution logs for SOAR jobs/actions. Use documented filters such as `labels.job_name=~"^."` or `labels.action_name=~"^."`; human output prints counts, `--json` emits the raw payload. |
 | `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). |
 | `soar case get <id>` | Get one case + its alerts (SOAR integer id). |
 | `info soar-integrations` | Report installed SOAR integration packs, connector/job runtime counts, bound environments, and gaps such as `config_without_runtime` or `runtime_disabled`. |
@@ -268,6 +270,7 @@ secopsctl soar playbook debug --file playbook.json --test-case-id 123 --dry-run
 secopsctl soar playbook debug --file playbook.json --test-case-id 123 --yes
 secopsctl soar playbook summary --case-id 456
 secopsctl soar playbook results --workflow-instance-id 789
+secopsctl soar job logs --filter 'labels.job_name=~"^."' --page-size 20
 ```
 
 **Scaffold and package a Python-backed SOAR component**:

@@ -217,7 +217,7 @@ func (c *Client) doRequest(ctx context.Context, method, full string, body, out a
 
 		resp, err := c.http.Do(req)
 		if err != nil {
-			lastErr = fmt.Errorf("chronicle: %s %s: %w", method, full, err)
+			lastErr = fmt.Errorf("chronicle: %s request failed: %w", method, err)
 			if retryable(method, 0, true) && attempt < maxRetries {
 				continue // transport error, idempotent method: retry
 			}

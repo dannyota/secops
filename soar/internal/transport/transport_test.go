@@ -82,6 +82,24 @@ func TestIdempotentMethod(t *testing.T) {
 	}
 }
 
+func TestErrorStringRedactsURL(t *testing.T) {
+	err := (&Error{
+		Method:    http.MethodPost,
+		URL:       "https://tenant.example.com/api/external/v1/private/path",
+		Status:    http.StatusInternalServerError,
+		Body:      "boom",
+		RequestID: "rid-9",
+	}).Error()
+	for _, want := range []string{"POST request failed", "HTTP 500", "request-id: rid-9", "boom"} {
+		if !strings.Contains(err, want) {
+			t.Fatalf("error string missing %q: %s", want, err)
+		}
+	}
+	if strings.Contains(err, "tenant.example.com") || strings.Contains(err, "/api/external/v1/private/path") {
+		t.Fatalf("error string leaked URL: %s", err)
+	}
+}
+
 // TestPaginateV1AlphaTruncation: when the page cap is hit while a token remains,
 // the listing is truncated, so PaginateV1Alpha returns an error rather than
 // silently presenting a partial result as complete. A run that drains the token

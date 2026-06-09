@@ -15,7 +15,7 @@ func TestSOARJobCommandRegistered(t *testing.T) {
 	if job == nil {
 		t.Fatal("soar job command not registered")
 	}
-	for _, name := range []string{"list", "run", "template", "instance"} {
+	for _, name := range []string{"list", "run", "template", "instance", "logs"} {
 		if commandChild(job, name) == nil {
 			t.Fatalf("soar job %s command not registered", name)
 		}
@@ -23,6 +23,25 @@ func TestSOARJobCommandRegistered(t *testing.T) {
 	template := commandChild(job, "template")
 	if commandChild(template, "list") == nil {
 		t.Fatal("soar job template list command not registered")
+	}
+}
+
+func TestPythonLogsBody(t *testing.T) {
+	body := pythonLogsBody(" severity>=ERROR ", " token ", " desc ", 25)
+	for k, v := range map[string]any{
+		"filter":    "severity>=ERROR",
+		"pageToken": "token",
+		"sortOrder": "desc",
+		"pageSize":  25,
+	} {
+		if body[k] != v {
+			t.Fatalf("body[%s] = %#v, want %#v", k, body[k], v)
+		}
+	}
+
+	empty := pythonLogsBody(" ", "\t", "\n", 0)
+	if len(empty) != 0 {
+		t.Fatalf("empty body = %#v, want no fields", empty)
 	}
 }
 

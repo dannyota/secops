@@ -570,7 +570,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   users); skip cleanly on a single-tenant instance.
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
-### Wave 21 — Reliability & safety hardening  *(partial — **drift-detection mode** shipped (`secopsctl drift`, the read-only CI gate: pull→commit→drift; reconcilable divergence fails, incomplete listings are "indeterminate" not phantom drift, NoDelete live-only objects are "untracked"/pull-to-adopt) and **request-id surfaced on every error** (`*APIError`/SOAR `Error` carry the server request id from the response headers). **Deferred by decision:** the live version-pin re-probe audit (pins are already validated per-surface + guarded by the golden drift test) and **config secret-at-rest** (the AppKey stays a git-ignored `0600` file — on a headless Linux server the OS keychain (DPAPI/Keychain/libsecret) is usually unavailable, so it would fall back to the same plaintext file).)*
+### Wave 21 — Reliability & safety hardening  *(partial — **drift-detection mode** shipped (`secopsctl drift`, the read-only CI gate: pull→commit→drift; reconcilable divergence fails, incomplete listings are "indeterminate" not phantom drift, NoDelete live-only objects are "untracked"/pull-to-adopt) and **request-id surfaced on every error** (`*APIError`/SOAR `Error` carry the server request id from the response headers while rendered errors redact raw request URLs). **Deferred by decision:** the live version-pin re-probe audit (pins are already validated per-surface + guarded by the golden drift test) and **config secret-at-rest** (the AppKey stays a git-ignored `0600` file — on a headless Linux server the OS keychain (DPAPI/Keychain/libsecret) is usually unavailable, so it would fall back to the same plaintext file).)*
 
 - **Goal.** Production-grade trust (the sweep over the full, expanded surface).
 - **Scope.** Per-endpoint version-pinning audit (the §6 map kept current) — the pins
@@ -582,11 +582,11 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   version before flipping (the major existing surfaces — rules / reference_lists /
   data_tables / feeds — already read OK on v1, but their write-smokes ran on v1alpha,
   so re-validate then re-pin to v1); **drift-detection mode** (`pull` + diff + report, no push — a CI gate); etag/conflict
-  everywhere; request-id surfaced on every error; pagination/`--as-list`; **config
-  secret-at-rest** (Windows DPAPI / macOS Keychain / Linux libsecret) decrypted
-  in-process, **with cross-OS tests**. (etag/conflict handling is baked into each
-  feature wave above as it lands; this wave is the consolidating audit + the
-  secret-at-rest lift.)
+  everywhere; request-id surfaced on every error with rendered request URLs redacted;
+  pagination/`--as-list`; **config secret-at-rest** (Windows DPAPI / macOS Keychain /
+  Linux libsecret) decrypted in-process, **with cross-OS tests**. (etag/conflict
+  handling is baked into each feature wave above as it lands; this wave is the
+  consolidating audit + the secret-at-rest lift.)
 - **Exit.** Secret-at-rest shipped + tested on 3 OSes; drift mode runnable in CI.
 - **Docs.** ARCHITECTURE, ROADMAP.
 
@@ -1077,11 +1077,13 @@ break it.
   post-import action metadata extraction into step molds.
 - **Run and debug.** Guarded playbook run/debug/readback commands are built.
   **Built next slice:** `soar job list`, `soar job template list`,
-  `soar job instance list`, guarded `soar job run --job <id|uniqueIdentifier|name>`, and guarded
-  `soar job instance run --instance <id|uniqueIdentifier|name>` fetch the live body
-  first, preview the explicit target, and require `--yes` before SecOps executes.
+  `soar job instance list`, `soar job logs`, guarded
+  `soar job run --job <id|uniqueIdentifier|name>`, and guarded
+  `soar job instance run --instance <id|uniqueIdentifier|name>` fetch live data
+  first, preview the explicit target for executions, and require `--yes` before
+  SecOps executes.
   Remaining: typed `ExecuteStep` helpers once the full step-instance body can be
-  validated, deeper job logs/status helpers, and a safer job-template authoring
+  validated, deeper job execution status helpers, and a safer job-template authoring
   path. Prefer simulated or throwaway cases with explicit ids/prefixes, never broad
   live queues, and always surface what will run before mutation.
 - **Exit.** A user can discover SecOps actions/jobs, scaffold and package a Python
