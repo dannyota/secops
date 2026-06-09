@@ -209,7 +209,7 @@ func buildSurfaceFamilies() []SurfaceFamily {
 		{"playbook-categories", StatusValidated},
 		{"playbooks", StatusValidated},
 		{"connectors", StatusValidated},
-		{"connector-allowlist", StatusBuilt},
+		{"connector-allowlist", StatusValidated},
 		{"jobs", StatusValidated},
 	}
 	fams := make([]SurfaceFamily, 0, len(explicit)+len(soarReconcile))

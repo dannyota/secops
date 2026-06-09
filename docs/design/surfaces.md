@@ -162,7 +162,8 @@ settings, store).
 `connector-allowlist` is a derived reconcile target on this lane: it projects the
 connector instance `allowList` field into sanitized files, drift-checks only that
 field, and guarded push writes it back through the existing connector save path
-after a fresh full connector read.
+after a fresh full connector read. Its write path is live-validated by an
+idempotent same-value save and before/after pull comparison.
 
 | Status | Detail |
 |---|---|
