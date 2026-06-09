@@ -163,8 +163,10 @@ by the SOAR backend (404/500). The official Python `secops` SDK hits the same wa
 So the **AppKey-authenticated Siemplify external API is the path that works** for
 real tenants — and it is by far the most complete surface.
 
-**Reference spec:** `third_party/siemplify-swagger.json` (fetched from
-`app.siemplify-soar.com/swagger/v1/swagger.json`) — *Chronicle SOAR API*,
+**Reference spec:** local, git-ignored cache
+`third_party/siemplify-swagger.json`, refreshed from the public Swagger UI
+`https://app.siemplify-soar.com/swagger/index.html` (JSON:
+`https://app.siemplify-soar.com/swagger/v1/swagger.json`) — *Chronicle SOAR API*,
 OpenAPI 3.0.1, **448 paths / 484 operations / 27 tags**, global security
 `AppKey` (header), base `/api/external/v1`. This is the authoritative map for what
 to implement. Goal: **support as many users/operations as feasible**, built on the
@@ -629,13 +631,14 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 
 ---
 
-## Waves 25–38 — operability, UX & coverage completion
+## Waves 25–39 — operability, UX & coverage completion
 
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
 value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
-Waves 25–38 are recorded in committed sequence; older waves keep their deferred
-items where a gap remains, and Waves 35–38 are complete.
+Waves 25–39 are recorded in committed sequence; older waves keep their deferred
+items where a gap remains, Waves 35–38 are complete, and Wave 39 is the next SOAR
+automation interaction focus.
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
@@ -913,7 +916,9 @@ break it.
     planning validates the name charset before any live API call.
 - **Exit.** The alert allowlist tracked + drift-detected; integration runtime gaps
   surfaced by `info`; a builder splices wired steps and a scheduled-trigger playbook;
-  packaging produces an importable zip.
+  packaging produces an importable zip. This is the baseline composition and
+  packaging layer; the guided SecOps authoring, validation, execution, output, and
+  trigger-management experience is Wave 39.
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG.
 
 ### Wave 37 — Parser development & raw-log access *(done)*
@@ -962,6 +967,96 @@ break it.
 - **Done.** Live-validated end-to-end on an inert HTTP throwaway: dry-run preview →
   `--yes` delete → `GetFeed` 404 confirm. Offline-tested; gates green.
 - **Docs.** CATALOG (`feeds` row), usage guide (SIEM guarded mutations).
+
+### Wave 39 — SOAR playbook workflow and component interaction *(planned)*
+
+- **Goal.** Help users build SOAR automation end to end: author Python-backed
+  components, package or import them, compose playbook workflows, run jobs/playbooks
+  against explicit case/alert test data, inspect outputs, then deploy the same
+  playbook with automatic case/alert trigger settings. The implementation must stay
+  dry-run-first and tenant-neutral; any live execution is guarded because jobs and
+  playbooks can create cases, alerts, tasks, and external side effects.
+- **Product stance.** secopsctl is not a local SOAR runner or a replacement workflow
+  engine. It is a guided command-line client for Google SecOps: discover live
+  integrations/actions/jobs/playbooks, prepare reviewable changes, ask SecOps to
+  validate and execute them, then report SecOps results in a clean operator view.
+  Local files and scaffolds are only staging artifacts for pull → diff → push and for
+  reducing malformed API calls.
+- **API basis.** Use the local Swagger cache plus Google endpoint mappings. Playbook
+  definition work starts on the reliable legacy AppKey surface:
+  `SaveWorkflowDefinitions`, `ExportWorkflowWithBlocksByIdentifier`,
+  `ImportDefinitions`, `CheckWorkflowNameInDifferentEnvironments`, and the
+  `legacyPlaybooks:*` bridge where it is already modeled. Test/run support comes from
+  `GetTestCases`, `RunPlaybookInDebug`, `AttacheWorkflowToCase`,
+  `GetDebugStepCaseData`, `GetPlaybookSimulationEnrichment`, `ExecuteStep`,
+  `RerunPlaybook`, `RerunBlock`, `GetActionResultsOfWFId`,
+  `cases/GetWorkflowInstanceSummary`, `resources/GetActionResultsById`, and
+  `logging/python`. Jobs use
+  `GetJobTemplates`, `SaveOrUpdateJobData`, `RunJob`, `/jobs/instances`,
+  `/jobs/instances/run`, and modern `jobInstances:runOnDemand` only after validation.
+  Custom component work should prefer the newer Chronicle integration/action/
+  connector/job APIs where they are available, while `legacyPlaybooks` remains the
+  practical workflow path until first-class playbook REST docs and live behavior are
+  verified. Track the legacy API deprecation deadline (**September 30, 2026**) in
+  user-facing warnings and migration notes.
+- **Workflow authoring in SecOps terms.** Add a small typed shell around raw playbook
+  JSON:
+  name/category/enabled state, trigger, steps, relations, environment filters, and
+  permissions, while preserving unknown fields. Add `soar playbook validate` for
+  save-shape checks, name charset, type coercion, graph references, block references,
+  and name-collision checks against SecOps where credentials are available. Extend
+  `soar build-playbook` beyond placeholder replacement into a reusable step/block mold
+  library sourced from exported SecOps actions and blocks, preserving graph identity,
+  `StepType` values, container/loop fields, `blockStepId`, and nested workflow links.
+- **Component discovery and insertion.** Add commands that help users find and insert
+  real SecOps components instead of hand-editing raw JSON: list installed integrations,
+  actions, connectors, jobs, action parameters, entity scopes, dynamic-instance
+  choices, output names, and whether an action is automatic or manual. A playbook step
+  insert/update command should produce the same wired action shape the SecOps UI would
+  save, then keep the final `SaveWorkflowDefinitions` dry-run reviewable.
+- **Case/alert test runs and output inspection.** Add `soar playbook run` and
+  `soar playbook debug` commands that require an explicit case id and, for alert-scope
+  tests, an alert group/id or imported simulation alert. `run` attaches an enabled
+  workflow to that case/alert (`AttacheWorkflowToCase`, with `shouldRunAutomatic`
+  controlled by a flag); `debug` uses `RunPlaybookInDebug` and returns the new test
+  case id, workflow instance id, alert identifiers, and whether the trigger matched.
+  Add output commands that summarize completed/faulted/pending steps from
+  `GetWorkflowInstanceSummary`, fetch workflow action results with
+  `GetActionResultsOfWFId`, fetch a specific action result with
+  `resources/GetActionResultsById`, and surface action status, message, script result,
+  JSON result, targeted/result entities, and `pythonExecutionId` without printing
+  secrets.
+- **Auto-trigger deployment.** Let deploy-time playbook changes manage the native
+  trigger object rather than only preserving exported JSON. Support `isEnabled`,
+  `trigger.type`, `executionMode`, ingestion `conditions`, `reactionConditions`, and
+  condition logical operators. Expose a safe trigger authoring surface for alert-scope
+  triggers (All, Alert Type / rule generator, Product Name, Tag Name, Custom Trigger,
+  Custom List, Network Name) and case-scope triggers (All, Custom Trigger, Case Tags),
+  matching the documented Google SecOps model. Dry-run must show the enabled/disabled
+  transition, trigger type, condition groups, environments, and live value references
+  it can resolve before `SaveWorkflowDefinitions` enables automatic attachment.
+- **Python components.** Treat Python as SecOps custom actions/jobs first: scaffold the
+  integration/action/job files only to make import easier, package deterministically,
+  import or update through SecOps APIs where available, and extract the live action
+  metadata needed for playbook step molds. Optional local lint/unit tests are preflight
+  only; authoritative validation is import, save, debug/run, action results, and
+  Python logs from SecOps. Verify whether a safe inline playbook-only Python script
+  step exists before advertising one; until then, Python enters playbooks through
+  custom actions/jobs whose definitions carry the script. Keep `form-dynamic-parameters`
+  read-only until its unsafe update behavior is solved.
+- **Run and debug.** Add guarded commands for `soar playbook test-cases`, debug run,
+  step data, rerun, action results, workflow-instance summaries, and Python logs; add
+  `soar job run`, job-instance run, and job logs/status helpers. Prefer simulated or
+  throwaway cases with explicit ids/prefixes, never broad live queues, and always
+  surface what will run before mutation.
+- **Exit.** A user can discover SecOps actions/jobs, scaffold and package a Python
+  action/job, import or update it in SecOps, compose a playbook using exported SecOps
+  molds, dry-run and save the workflow, run it against an explicit case/alert or
+  simulation case, inspect step/action outputs and Python logs, deploy automatic
+  case/alert trigger settings through reviewable JSON, and clean up any throwaway
+  artifacts created by the test.
+- **Docs.** SOAR-DESIGN, SURFACES, CATALOG, and a guide for component code →
+  package/import in SecOps → playbook → SecOps debug/run → outputs/logs.
 
 ---
 
