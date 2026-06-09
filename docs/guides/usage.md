@@ -149,6 +149,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar case get <id>` | Get one case + its alerts (SOAR integer id). |
 | `info soar-integrations` | Report installed SOAR integration packs, connector/job runtime counts, bound environments, and gaps such as `config_without_runtime` or `runtime_disabled`. |
 | `soar integration list` | List installed integration packs. |
+| `soar integration instances --integration <id>` | List an integration's configured instances (id · environment · name) — the fields `integration delete` needs, which `list` (packs only) does not expose. |
 | `soar integration connector list` | List connector definitions inside an integration (`--integration <key>`; read-only). Sibling `soar integration connector delete` removes a custom definition. |
 | `soar marketplace list` | List Content Hub marketplace integrations (`--installed` to filter). |
 | `soar marketplace get` | Show one marketplace integration (human summary; `--json` for the full record). |
@@ -188,7 +189,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar users list` | List SOAR users (the USERNAME column is the value for `soar case assign --user`); `--grep` / `--all`. |
 | `soar integration install --identifier <id>` | Install a Content Hub marketplace integration pack (from `soar marketplace list`); pairs with `uninstall`. |
 | `soar integration create` | Create a new, unconfigured (inert) integration instance. |
-| `soar integration delete` | Delete an integration instance (warns if playbooks use it). |
+| `soar integration delete --integration <id>` | Delete an integration instance (warns if playbooks use it). `--id`/`--environment` are resolved from the integration's instances — a single instance is auto-selected; several list themselves with copy-paste flags to narrow. |
 | `soar integration uninstall` | Delete a custom integration pack (clone) by its key. |
 | `soar settings case-assignment` / `move-case-policy` set | Set the case-routing policy (set form is guarded). |
 | `soar legacy call <op> --write --yes` | Escape hatch: call any Siemplify external-API mutation. Add `--dry-run` to preview the composed request (method + op + body) without sending; `--out <file>` writes the response `0600`. |

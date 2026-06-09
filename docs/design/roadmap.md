@@ -1152,10 +1152,13 @@ break it.
   --enable|--disable` — a lightweight `isEnabled` toggle that does not mint a new
   version (mirrors `rules-deploy`), replacing the whole-body re-save and the raw
   legacy escape hatch for these two operations.
-- **Integration delete ergonomics.** `soar integration list` (especially `--json`)
-  emits each instance's identifier and environment, so a `soar integration delete`
-  invocation can be built from the list output; `delete` also accepts the pack
-  identifier alone when exactly one instance exists.
+- **Integration delete ergonomics *(done)*.** A new `soar integration instances
+  --integration <id>` lists an integration's configured instances (id · environment
+  · name) — the fields a delete needs, which `integration list` (packs only) does
+  not expose. `soar integration delete --integration <id>` now resolves
+  `--id` / `--environment` from those instances: a single instance is selected
+  automatically, and several list themselves with copy-paste `--id`/`--environment`
+  flags to narrow.
 - **Playbook run failure triage *(done)*.** `soar playbook summary` surfaces a run's
   FAULTED steps — each failed step's action, error message (the Python traceback for
   a script action), and a per-step Cloud Logging deep-link — instead of dumping the

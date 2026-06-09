@@ -340,6 +340,11 @@ func (spec jsonSurfaceSpec) fetchAndBuild(ctx context.Context, it json.RawMessag
 	return spec.buildObject(full)
 }
 
+// DecodeRawList exposes decodeRawList to callers outside this package (e.g. the
+// CLI): it tolerates either a bare JSON array or an object wrapping one, so a
+// legacy list response decodes the same way regardless of tenant shaping.
+func DecodeRawList(raw json.RawMessage) ([]json.RawMessage, error) { return decodeRawList(raw) }
+
 // decodeRawList accepts either a bare JSON array or an object wrapping the
 // records in its first array-valued field (keys tried in sorted order for
 // determinism), matching the legacy smoke harness's objects().
