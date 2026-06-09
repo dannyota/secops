@@ -87,6 +87,7 @@ func newSOARPlaybookCmd() *cobra.Command {
 		newSOARPlaybookDebugCmd(),
 		newSOARPlaybookDebugStepDataCmd(),
 		newSOARPlaybookSimulationEnrichmentCmd(),
+		newSOARPlaybookPendingCmd(),
 		newSOARPlaybookRerunCmd(),
 		newSOARPlaybookRerunBlockCmd(),
 		newSOARPlaybookSummaryCmd(),
@@ -405,6 +406,107 @@ func newSOARPlaybookSimulationEnrichmentCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("test-case-id")
 	_ = cmd.MarkFlagRequired("step-identifier")
 	_ = cmd.MarkFlagRequired("workflow-identifier")
+	return cmd
+}
+
+func newSOARPlaybookPendingCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pending",
+		Short: "Read pending SOAR playbook steps",
+		Long: "Read pending playbook steps assigned to the current user. These\n" +
+			"commands are read-only discovery helpers before any guarded step action.",
+	}
+	cmd.AddCommand(
+		newSOARPlaybookPendingCountCmd(),
+		newSOARPlaybookPendingListCmd(),
+		newSOARPlaybookPendingGetCmd(),
+	)
+	return cmd
+}
+
+func newSOARPlaybookPendingCountCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "count",
+		Short: "Count pending playbook steps for the current user",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			raw, err := lc.PlaybookXGetPendingStepsCountForUser(baseContext())
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return writeRawJSON(os.Stdout, raw)
+			}
+			printPendingStepCount(cmd.OutOrStdout(), raw)
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newSOARPlaybookPendingListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List pending playbook steps for the current user",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			raw, err := lc.PlaybookXGetPendingStepsUserRelated(baseContext())
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return writeRawJSON(os.Stdout, raw)
+			}
+			printGenericItemsSummary(cmd.OutOrStdout(), "pending steps", raw)
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newSOARPlaybookPendingGetCmd() *cobra.Command {
+	var (
+		caseID             int
+		alertGroup         string
+		workflowIdentifier string
+	)
+	cmd := &cobra.Command{
+		Use:   "get --case-id N",
+		Short: "Read one pending playbook step for a case/workflow",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			body, err := pendingStepBody(caseID, alertGroup, workflowIdentifier)
+			if err != nil {
+				return err
+			}
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			raw, err := lc.PlaybookXGetPendingStep(baseContext(), body)
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return writeRawJSON(os.Stdout, raw)
+			}
+			printGenericItemsSummary(cmd.OutOrStdout(), "pending step records", raw)
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
+	f.StringVar(&alertGroup, "alert-group", "", "optional alert group identifier")
+	f.StringVar(&workflowIdentifier, "workflow-identifier", "", "optional original workflow definition identifier")
+	_ = cmd.MarkFlagRequired("case-id")
 	return cmd
 }
 
@@ -928,6 +1030,20 @@ func simulationEnrichmentBody(testCaseID int, stepIdentifier, workflowIdentifier
 	}, nil
 }
 
+func pendingStepBody(caseID int, alertGroup, workflowIdentifier string) (map[string]any, error) {
+	if caseID <= 0 {
+		return nil, fmt.Errorf("--case-id is required")
+	}
+	body := map[string]any{"caseId": caseID}
+	if alertGroup = strings.TrimSpace(alertGroup); alertGroup != "" {
+		body["alertGroupIdentifier"] = alertGroup
+	}
+	if workflowIdentifier = strings.TrimSpace(workflowIdentifier); workflowIdentifier != "" {
+		body["originalWorkflowDefinitionIdentifier"] = workflowIdentifier
+	}
+	return body, nil
+}
+
 func workflowSummaryBody(caseID int, alert, definition string, fetchSteps, collapseBlocks bool) (map[string]any, error) {
 	if caseID <= 0 {
 		return nil, fmt.Errorf("--case-id is required")
@@ -1121,6 +1237,26 @@ func printGenericItemsSummary(w io.Writer, label string, raw json.RawMessage) {
 	default:
 		fmt.Fprintln(w, "response: received")
 	}
+}
+
+func printPendingStepCount(w io.Writer, raw json.RawMessage) {
+	switch firstJSONByte(raw) {
+	case '{', '[':
+	default:
+		if count := rawScalarString(raw); count != "" {
+			fmt.Fprintf(w, "pending_steps: %s\n", count)
+			return
+		}
+	}
+	if m, ok := rawJSONObject(raw); ok {
+		for _, key := range []string{"count", "pendingSteps", "pendingStepsCount", "totalCount"} {
+			if value := rawScalarString(m[key]); value != "" {
+				fmt.Fprintf(w, "pending_steps: %s\n", value)
+				return
+			}
+		}
+	}
+	printGenericItemsSummary(w, "pending steps", raw)
 }
 
 func rawRecordList(raw json.RawMessage) []json.RawMessage {

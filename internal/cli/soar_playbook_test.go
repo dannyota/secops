@@ -30,6 +30,7 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 		"debug",
 		"debug-step-data",
 		"simulation-enrichment",
+		"pending",
 		"rerun",
 		"rerun-block",
 		"summary",
@@ -39,6 +40,12 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 	} {
 		if commandChild(playbook, name) == nil {
 			t.Fatalf("soar playbook %s command not registered", name)
+		}
+	}
+	pending := commandChild(playbook, "pending")
+	for _, name := range []string{"count", "list", "get"} {
+		if commandChild(pending, name) == nil {
+			t.Fatalf("soar playbook pending %s command not registered", name)
 		}
 	}
 }
@@ -217,6 +224,23 @@ func TestPlaybookDebugHelperBodies(t *testing.T) {
 			t.Fatalf("enrichment[%s] = %#v, want %#v", k, enrichment[k], v)
 		}
 	}
+
+	pending, err := pendingStepBody(123, " alert-group ", " workflow-uuid ")
+	if err != nil {
+		t.Fatalf("pendingStepBody: %v", err)
+	}
+	for k, v := range map[string]any{
+		"caseId":                               123,
+		"alertGroupIdentifier":                 "alert-group",
+		"originalWorkflowDefinitionIdentifier": "workflow-uuid",
+	} {
+		if pending[k] != v {
+			t.Fatalf("pending[%s] = %#v, want %#v", k, pending[k], v)
+		}
+	}
+	if _, err := pendingStepBody(0, "", ""); err == nil {
+		t.Fatal("pendingStepBody accepted missing case id")
+	}
 }
 
 func TestWorkflowSummaryBody(t *testing.T) {
@@ -258,6 +282,19 @@ func TestActionResultsSummaryDoesNotPrintPayloads(t *testing.T) {
 	for _, blocked := range []string{"private message", "secret value", "token"} {
 		if strings.Contains(got, blocked) {
 			t.Fatalf("summary leaked %q:\n%s", blocked, got)
+		}
+	}
+}
+
+func TestPrintPendingStepCount(t *testing.T) {
+	for _, raw := range []json.RawMessage{
+		json.RawMessage(`12`),
+		json.RawMessage(`{"count":12}`),
+	} {
+		var out bytes.Buffer
+		printPendingStepCount(&out, raw)
+		if got := out.String(); !strings.Contains(got, "pending_steps: 12") {
+			t.Fatalf("count summary = %q, want pending_steps: 12", got)
 		}
 	}
 }
