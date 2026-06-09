@@ -22,6 +22,10 @@ var (
 	pushRulesDir string // --rules-dir
 	pushRule     string // --rule (rules-deploy only)
 	pushOut      string // --out (data root; default cwd)
+
+	pushRuleCreateEnabled      bool
+	pushRuleCreateAlerting     bool
+	pushRuleCreateRunFrequency string
 )
 
 func init() {
@@ -61,6 +65,12 @@ func init() {
 		"rules-deploy: limit deployment reconciliation to one rule id, display name, or slug")
 	f.StringVar(&pushOut, "out", "",
 		"data root directory the engine surfaces read from (default: cwd; matches pull/drift)")
+	f.BoolVar(&pushRuleCreateEnabled, "enabled", true,
+		"rules-create: initial deployment enabled state")
+	f.BoolVar(&pushRuleCreateAlerting, "alerting", true,
+		"rules-create: initial deployment alerting state")
+	f.StringVar(&pushRuleCreateRunFrequency, "run-frequency", mirror.DefaultRulesCreateDeploymentOptions().RunFrequency,
+		"rules-create: initial run frequency (LIVE, HOURLY, or DAILY)")
 	// --dry-run and --yes are conceptually opposed; --dry-run always wins (see
 	// the dryRun/assumeYes derivation below), mirroring the legacy tool.
 	pushCmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
@@ -165,6 +175,9 @@ func runPush(cmd *cobra.Command, args []string) error {
 	if pushRule != "" && target != "rules-deploy" {
 		return fmt.Errorf("--rule only applies to `push rules-deploy`")
 	}
+	if target != "rules-create" && rulesCreateFlagChanged(cmd) {
+		return fmt.Errorf("--enabled, --alerting, and --run-frequency only apply to `push rules-create`")
+	}
 	if target == "curated" {
 		dir := filepath.Join(mirror.DataRoot(pushOut), mirror.DirCurated)
 		if err := ensureDataDir(target, dir, dryRun); err != nil {
@@ -196,7 +209,11 @@ func runPush(cmd *cobra.Command, args []string) error {
 	var n int
 	switch target {
 	case "rules-create":
-		n, err = mirror.PushRulesCreate(ctx, client, rulesDir, dryRun, assumeYes, out)
+		n, err = mirror.PushRulesCreateWithOptions(ctx, client, rulesDir, mirror.RulesCreateDeploymentOptions{
+			Enabled:      pushRuleCreateEnabled,
+			Alerting:     pushRuleCreateAlerting,
+			RunFrequency: pushRuleCreateRunFrequency,
+		}, dryRun, assumeYes, out)
 	case "rules-update":
 		n, err = mirror.PushRulesUpdate(ctx, client, rulesDir, dryRun, assumeYes, out)
 	case "rules-deploy":
@@ -216,6 +233,15 @@ func runPush(cmd *cobra.Command, args []string) error {
 		}{Target: target, DryRun: dryRun, Applied: !dryRun && assumeYes, Count: n})
 	}
 	return err
+}
+
+func rulesCreateFlagChanged(cmd *cobra.Command) bool {
+	for _, name := range []string{"enabled", "alerting", "run-frequency"} {
+		if cmd.Flags().Changed(name) {
+			return true
+		}
+	}
+	return false
 }
 
 // confirmPush prompts the operator for an interactive y/N confirmation. It

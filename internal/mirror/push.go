@@ -31,6 +31,45 @@ const (
 	defaultRunFrequency = "LIVE"
 )
 
+// RulesCreateDeploymentOptions controls the initial deployment PATCH after a
+// new YARA-L rule is created.
+type RulesCreateDeploymentOptions struct {
+	Enabled      bool
+	Alerting     bool
+	RunFrequency string
+}
+
+func DefaultRulesCreateDeploymentOptions() RulesCreateDeploymentOptions {
+	return RulesCreateDeploymentOptions{
+		Enabled:      defaultEnabled,
+		Alerting:     defaultAlerting,
+		RunFrequency: defaultRunFrequency,
+	}
+}
+
+func normalizeRulesCreateDeploymentOptions(opts RulesCreateDeploymentOptions) (RulesCreateDeploymentOptions, error) {
+	opts.RunFrequency = strings.ToUpper(strings.TrimSpace(opts.RunFrequency))
+	if opts.RunFrequency == "" {
+		opts.RunFrequency = defaultRunFrequency
+	}
+	switch opts.RunFrequency {
+	case "LIVE", "HOURLY", "DAILY":
+		return opts, nil
+	default:
+		return opts, fmt.Errorf("rules-create: invalid run frequency %q (want LIVE, HOURLY, or DAILY)", opts.RunFrequency)
+	}
+}
+
+func ruleDeploymentUpdateFromCreateOptions(opts RulesCreateDeploymentOptions) chronicle.RuleDeploymentUpdate {
+	enabled := opts.Enabled
+	alerting := opts.Alerting
+	return chronicle.RuleDeploymentUpdate{
+		Enabled:      &enabled,
+		Alerting:     &alerting,
+		RunFrequency: opts.RunFrequency,
+	}
+}
+
 // liveBanner prints a loud, unmissable warning before any LIVE mutation.
 func liveBanner(w io.Writer, action string) {
 	bar := strings.Repeat("!", 72)
@@ -49,11 +88,22 @@ func liveBanner(w io.Writer, action string) {
 // For each candidate it validates the YARA-L (printing an OK/FAIL table). On a
 // dry run it stops after validation. If !assumeYes it aborts with a message
 // (the CLI layer owns interactive confirmation). On apply it creates the rule,
-// then enables the deployment (alerting=true, runFrequency="LIVE"); multi-event
-// rules cannot run LIVE, so if the deployment comes back disabled it re-issues
-// the deployment at HOURLY. Finally it writes the companion .yaml so the rule is
-// tracked locally. Returns the number of rules created (0 on dry-run/no work).
+// then applies the default deployment (enabled=true, alerting=true,
+// runFrequency="LIVE"). Multi-event rules cannot run LIVE, so if the default
+// deployment comes back disabled it re-issues the deployment at HOURLY. Finally it
+// writes the companion .yaml so the rule is tracked locally. Returns the number
+// of rules created (0 on dry-run/no work).
 func PushRulesCreate(ctx context.Context, c *chronicle.Client, rulesDir string, dryRun, assumeYes bool, w io.Writer) (int, error) {
+	return PushRulesCreateWithOptions(ctx, c, rulesDir, DefaultRulesCreateDeploymentOptions(), dryRun, assumeYes, w)
+}
+
+// PushRulesCreateWithOptions is PushRulesCreate with caller-controlled initial
+// deployment state, used by the CLI flags.
+func PushRulesCreateWithOptions(ctx context.Context, c *chronicle.Client, rulesDir string, opts RulesCreateDeploymentOptions, dryRun, assumeYes bool, w io.Writer) (int, error) {
+	opts, err := normalizeRulesCreateDeploymentOptions(opts)
+	if err != nil {
+		return 0, err
+	}
 	candidates, err := newRuleCandidates(rulesDir)
 	if err != nil {
 		return 0, err
@@ -66,7 +116,7 @@ func PushRulesCreate(ctx context.Context, c *chronicle.Client, rulesDir string, 
 	liveBanner(w, fmt.Sprintf("CREATE %d new rule(s)", len(candidates)))
 
 	fmt.Fprintf(w, "About to create %d new rule(s) (deployment: enabled=%v, alerting=%v, frequency=%s):\n\n",
-		len(candidates), defaultEnabled, defaultAlerting, defaultRunFrequency)
+		len(candidates), opts.Enabled, opts.Alerting, opts.RunFrequency)
 	fmt.Fprintf(w, "%-3s %-55s %-10s\n", "#", "File", "Validate")
 	fmt.Fprintln(w, strings.Repeat("-", 75))
 
@@ -130,25 +180,23 @@ func PushRulesCreate(ctx context.Context, c *chronicle.Client, rulesDir string, 
 		}
 		ruleID := rule.RuleID()
 
-		// Deploy: enable + alerting at LIVE. Multi-event rules (those with a
-		// match block) cannot run LIVE, so the API auto-downgrades and the first
-		// deploy often returns enabled=false. Verify and re-issue at HOURLY.
-		dep, derr := c.UpdateRuleDeployment(ctx, ruleID, chronicle.RuleDeploymentUpdate{
-			Enabled:      new(defaultEnabled),
-			Alerting:     new(defaultAlerting),
-			RunFrequency: defaultRunFrequency,
-		})
+		// Deploy with the requested initial state. Multi-event rules (those with
+		// a match block) cannot run LIVE, so the API may return enabled=false for
+		// the default LIVE request; in that default-compatible case, re-issue at
+		// HOURLY to preserve the operator's enabled=true intent.
+		dep, derr := c.UpdateRuleDeployment(ctx, ruleID, ruleDeploymentUpdateFromCreateOptions(opts))
 		if derr != nil {
 			fmt.Fprintf(w, "  WARN %s: created but deploy failed: %v\n", stem, derr)
 			dep = nil
-		} else if defaultEnabled && dep != nil && !dep.Enabled {
+		} else if opts.Enabled && opts.RunFrequency == "LIVE" && dep != nil && !dep.Enabled {
 			effective := dep.RunFrequency
 			if effective == "" || effective == "LIVE" {
 				effective = "HOURLY"
 			}
+			alerting := opts.Alerting
 			if redep, rderr := c.UpdateRuleDeployment(ctx, ruleID, chronicle.RuleDeploymentUpdate{
 				Enabled:      new(true),
-				Alerting:     new(defaultAlerting),
+				Alerting:     &alerting,
 				RunFrequency: effective,
 			}); rderr != nil {
 				fmt.Fprintf(w, "  WARN %s: re-deploy at %s failed: %v\n", stem, effective, rderr)
@@ -175,9 +223,9 @@ func PushRulesCreate(ctx context.Context, c *chronicle.Client, rulesDir string, 
 			AllowedRunFrequencies: rule.AllowedRunFrequencies,
 			TimeWindowDuration:    rule.TimeWindowDuration,
 			Deployment: deploymentMeta{
-				Enabled:      defaultEnabled,
-				Alerting:     defaultAlerting,
-				RunFrequency: defaultRunFrequency,
+				Enabled:      opts.Enabled,
+				Alerting:     opts.Alerting,
+				RunFrequency: opts.RunFrequency,
 			},
 		}
 		if dep != nil {

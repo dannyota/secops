@@ -18,7 +18,7 @@ import (
 // prune-eligibility here). Keep each entry one or two terse sentences.
 var surfaceProse = map[string]string{
 	// Bespoke rule targets (not engine surfaces — no Caps; prose only).
-	"rules-create":  "Creates live rules from *.yaral files that have no companion *.yaml.",
+	"rules-create":  "Creates live rules from *.yaral files that have no companion *.yaml; --enabled, --alerting, and --run-frequency set the initial deployment.",
 	"rules-update":  "Updates live YARA-L text where a tracked *.yaral changed; etag-guarded.",
 	"rules-deploy":  "Reconciles each tracked rule's deployment block (enabled / alerting / runFrequency); pass --rule to scope one rule.",
 	"rules-disable": "Disables locally-tracked rules whose deployment.enabled is true.",

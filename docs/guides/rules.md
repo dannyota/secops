@@ -55,7 +55,7 @@ review surface.
 
 | Target | Does | Guard |
 |---|---|---|
-| `rules-create` | create live rules from `*.yaral` that have **no** companion `*.yaml` | — |
+| `rules-create` | create live rules from `*.yaral` that have **no** companion `*.yaml` | initial deployment flags |
 | `rules-update` | update live YARA-L text where a tracked `*.yaral` changed | etag |
 | `rules-deploy` | reconcile each tracked rule's deployment (enabled / alerting / frequency) from its `*.yaml`; `--rule` scopes one rule | — |
 | `rules-disable` | disable locally-tracked rules whose `deployment.enabled=true` | — |
@@ -67,6 +67,8 @@ The valid values are `LIVE`, `HOURLY`, and `DAILY`; the companion's
 ```bash
 secopsctl push rules-create --dry-run
 secopsctl push rules-create --yes
+secopsctl push rules-create --enabled=false --dry-run
+secopsctl push rules-create --alerting=false --run-frequency=HOURLY --dry-run
 
 secopsctl push rules-update --dry-run
 secopsctl push rules-update --yes
@@ -78,6 +80,11 @@ secopsctl push rules-deploy --yes
 secopsctl push rules-disable --dry-run
 secopsctl push rules-disable --yes
 ```
+
+For `rules-create`, `--enabled=false` creates rules disabled, while
+`--alerting=false` creates monitor-only rules. `--run-frequency` accepts `LIVE`,
+`HOURLY`, or `DAILY`, and the dry-run preview prints the exact initial deployment
+state.
 
 `--rules-dir` overrides where the local rule files are read from (default:
 `<dataRoot>/rules`):

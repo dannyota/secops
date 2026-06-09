@@ -1121,11 +1121,11 @@ break it.
 - **Rule execution errors.** Built: `rules errors <rule-id>` decodes both string
   and structured error payloads. Human output shows a compact type/message without
   dumping raw server payloads; `--json` keeps the raw record for scripts.
-- **Safe rule creation.** Extend `push rules-create` with deployment controls such
-  as `--enabled=false`, `--alerting=false`, and
-  `--run-frequency=LIVE|HOURLY|DAILY`, or accept a companion deployment stub before
-  create. Dry-run must show the exact initial deployment state so new rules can be
-  created disabled or monitor-only in one guarded operation.
+- **Safe rule creation.** Built: `push rules-create` accepts deployment controls
+  `--enabled=false`, `--alerting=false`, and
+  `--run-frequency=LIVE|HOURLY|DAILY`. Dry-run shows the exact initial deployment
+  state so new rules can be created disabled or monitor-only in one guarded
+  operation.
 - **Archived rule awareness.** Pull and mirror archived/deleted rule state where the
   API exposes it. `push rules-deploy --dry-run` must report archived rules as
   non-deployable instead of previewing a PATCH that SecOps will reject.

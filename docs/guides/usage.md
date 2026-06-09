@@ -104,7 +104,7 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 
 | Command | What it does |
 |---|---|
-| `push rules-create` | Create live rules from `*.yaral` files that have no companion `*.yaml`. |
+| `push rules-create` | Create live rules from `*.yaral` files that have no companion `*.yaml`; `--enabled`, `--alerting`, and `--run-frequency` set the initial deployment. |
 | `push rules-update` | Update live YARA-L text where a tracked `*.yaral` changed (etag-guarded). |
 | `push rules-deploy` | Reconcile each tracked rule's deployment (enabled/alerting/frequency); `--rule` scopes one rule. |
 | `push rules-disable` | Disable locally-tracked rules with `deployment.enabled=true`. |

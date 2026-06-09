@@ -33,6 +33,32 @@ func TestDeployTriple(t *testing.T) {
 	}
 }
 
+func TestNormalizeRulesCreateDeploymentOptions(t *testing.T) {
+	got, err := normalizeRulesCreateDeploymentOptions(RulesCreateDeploymentOptions{
+		Enabled:      false,
+		Alerting:     false,
+		RunFrequency: " hourly ",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Enabled || got.Alerting || got.RunFrequency != "HOURLY" {
+		t.Fatalf("normalized options = %+v", got)
+	}
+
+	got, err = normalizeRulesCreateDeploymentOptions(RulesCreateDeploymentOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.RunFrequency != "LIVE" {
+		t.Fatalf("default run frequency = %q", got.RunFrequency)
+	}
+
+	if _, err := normalizeRulesCreateDeploymentOptions(RulesCreateDeploymentOptions{RunFrequency: "WEEKLY"}); err == nil {
+		t.Fatal("expected invalid frequency error")
+	}
+}
+
 func TestTrackedRules(t *testing.T) {
 	dir := t.TempDir()
 	// A tracked rule: companion + sibling .yaral.
