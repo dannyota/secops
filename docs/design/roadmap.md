@@ -631,7 +631,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 
 ---
 
-## Waves 25–42 — operability, UX & coverage completion
+## Waves 25–43 — operability, UX & coverage completion
 
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
@@ -1216,6 +1216,43 @@ break it.
 - **Exit.** Every rule-inspection verb takes id / display name / slug consistently;
   an unknown rule fails fast with a legible client-side message.
 - **Docs.** CATALOG (`rules`), usage guide.
+
+### Wave 43 — Case action execution & playbook simulation harness *(done)*
+
+- **Goal.** Run integration actions directly on a case from the terminal and manage
+  the playbook-development test harness (simulated cases/alerts) so playbooks can
+  be built, tested, and iterated without the SecOps UI.
+- **Case action execution *(done)*.** `soar case run-action --case-id N --action
+  <name> --instance <uuid>` wraps `legacyCases:executeManualAction` (v1alpha
+  SOAR-host, legacy fallback): runs any installed integration action on a case with
+  `--param key=value` script parameters (secrets via `env:VAR`). Returns the full
+  action result (resultCode, message, resultJsonObject); `--json` emits the raw
+  payload. The v1alpha body shape is documented (caseId, actionProvider, actionName,
+  alertGroupIdentifiers, properties incl. ScriptName/IntegrationInstance/
+  ScriptParametersEntityFields). Guarded: dry-run by default, `--yes` to apply.
+  SDK: `soar.ExecuteManualAction` (v1alpha); `legacy.ExecuteManualAction` (legacy)
+  — both already existed, this wires the CLI verb. Live dry-run validated.
+- **Playbook simulation harness *(done)*.** The `legacyCases` resource exposes a
+  complete test-case lifecycle for playbook development:
+  - `getCustomCases` (GET) — list simulation names defined on the instance.
+  - `getCustomCaseDetails` (POST) — read one simulation's alert/event config.
+  - `createSimulatedCustomCase` (POST) — create a test case from custom alert/event
+    field specs (`alertSource`, `ruleName`, `alertProduct`, `alertName`, `eventName`,
+    + additional key-value fields). Guarded write.
+  - `generateUseCases` (POST) — generate test cases from template/custom names.
+  - `simulateAlert` (POST) — simulate an alert inside a case (for playbook testing;
+    optionally replacing fields and grouping).
+  - `deleteUseCase` (POST) — delete a custom simulation. Guarded write.
+  - `injectSampleData` (POST) — inject connector test data as test cases.
+  - `exportCustomCase` / `importCustomCase` — JSON export/import of simulation
+    configs (round-trippable).
+  All verbs wired: `soar case simulation list` / `get` / `create` / `generate` /
+  `alert` / `delete`. Reads + full write round-trip (create→list→generate→delete)
+  live-validated with a throwaway `secopsctl-smoke-test` simulation.
+- **Exit.** Any installed action can be run on a case from the CLI; simulated
+  test cases can be created, listed, generated into the case queue, and deleted —
+  the full playbook-development loop without the UI.
+- **Docs.** CATALOG (`soar case`), usage guide.
 
 ---
 

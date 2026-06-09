@@ -157,6 +157,8 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar settings api-keys` | List SOAR API keys (metadata only; no secret). |
 | `soar settings case-assignment` | Read the case auto-assignment policy. |
 | `soar settings move-case-policy` | Read the cross-environment case-move policy. |
+| `soar case simulation list` | List custom (simulated) test-case names for playbook development. |
+| `soar case simulation get --name <sim>` | Read one simulation's alert/event field config. |
 | `soar legacy call <op> --read` | Escape hatch: call any Siemplify external-API op read-only (`/api/external/v1`). |
 
 `soar pull grouping` and `soar pull cases` are **snapshot-only** read targets:
@@ -187,6 +189,11 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar case stage` | Change a case's stage (`--stage`). |
 | `soar case close` | Close one case (`--id`, `--reason` = the fixed enum `malicious\|not-malicious\|maintenance\|inconclusive\|unknown`, same as `bulk-close`; `--root-cause`, `--comment` optional). |
 | `soar case rename` / `describe` / `importance` / `merge` | Rename / re-describe / flag-important / merge cases. |
+| `soar case run-action --case-id N --action <name> --instance <uuid>` | Execute an integration action on a case (ad-hoc — any installed action). Script params via `--param key=value` (secrets via `env:VAR`). Returns the action result (resultCode, message); `--json` emits the full payload. |
+| `soar case simulation create` | Create a custom simulated test case from alert/event field specs — appears in the SOAR queue for playbook testing. |
+| `soar case simulation generate --name <sim>` | Generate a test case from a custom simulation name into the case queue. |
+| `soar case simulation alert --case-id N --alert <id>` | Simulate an alert inside a case for playbook testing. |
+| `soar case simulation delete --name <sim>` | Delete a custom simulation. |
 | `soar case values <tags\|stages\|root-causes>` | List the live configured values for `--tag` / `--stage` / `--root-cause`. |
 | `soar users list` | List SOAR users (the USERNAME column is the value for `soar case assign --user`); `--grep` / `--all`. |
 | `soar integration install --identifier <id>` | Install a Content Hub marketplace integration pack (from `soar marketplace list`); pairs with `uninstall`. |

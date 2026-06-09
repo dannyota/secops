@@ -161,3 +161,70 @@ func (c *Client) ListCasesOpts(ctx context.Context, opt CaseListOptions) ([]json
 	}
 	return out, nil
 }
+
+// GetCustomCases returns all custom (simulated) case names on the instance.
+func (c *Client) GetCustomCases(ctx context.Context) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "GET", "legacyCases:getCustomCases", nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GetCustomCaseDetails returns the config of one custom simulation.
+func (c *Client) GetCustomCaseDetails(ctx context.Context, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "legacyCases:getCustomCaseDetails", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CreateSimulatedCustomCase creates a custom test case from alert/event field specs.
+func (c *Client) CreateSimulatedCustomCase(ctx context.Context, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "legacyCases:createSimulatedCustomCase", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GenerateUseCases generates test cases from templates or custom names.
+func (c *Client) GenerateUseCases(ctx context.Context, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "legacyCases:generateUseCases", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SimulateAlert simulates an alert inside a case for playbook testing.
+func (c *Client) SimulateAlert(ctx context.Context, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "legacyCases:simulateAlert", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DeleteUseCase deletes a custom simulation.
+func (c *Client) DeleteUseCase(ctx context.Context, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "legacyCases:deleteUseCase", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ExecuteManualAction runs a single integration action against a case via the
+// v1alpha SOAR-host legacyCases:executeManualAction surface. body carries the
+// action selectors (caseId, actionProvider, actionName, alertGroupIdentifiers,
+// properties incl. ScriptName/IntegrationInstance/ScriptParametersEntityFields).
+// Returns the full action result (resultCode, message, resultJsonObject, …).
+func (c *Client) ExecuteManualAction(ctx context.Context, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "legacyCases:executeManualAction", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
