@@ -1103,12 +1103,10 @@ break it.
   before expanding more SIEM mutation surfaces. The focus is tenant-neutral cleanup,
   accurate mirrors, and dry-run previews that expose non-deployable state before a
   guarded write.
-- **Smoke artifact cleanup.** Reconcile/write smokes must not leave unremovable or
-  detection-affecting artifacts behind. Prefer create → assert → defer cleanup on
-  surfaces with hard delete. For no-delete surfaces, add explicit neutralization:
-  archive findings refinements and empty reference lists. Add a guarded cleanup
-  helper that targets only secopsctl-owned smoke prefixes and prints a dry-run plan
-  before changing anything.
+- **Smoke artifact cleanup.** Built: `cleanup smoke-artifacts` targets only
+  secopsctl-owned smoke prefixes and prints a dry-run plan before changing
+  anything. It deletes smoke artifacts on surfaces with a clean delete path,
+  archives smoke findings refinements, and empties smoke reference lists.
 - **Rule exclusions.** Built: `rule_exclusions deploy <id>
   --archive|--enable|--disable` patches the findings-refinement deployment
   subresource behind the standard SIEM guard. `pull rule_exclusions` mirrors

@@ -145,7 +145,11 @@ operator model and its **safety**.
   **verify SDK signatures by hand** (the spec agents are imprecise) → wire the
   Surface/command → **live read-validate** (pull round-trips clean) → **gated write
   smoke** on a uniquely-labeled, inert, self-deleting throwaway. No `--yes` path is
-  trusted until that smoke passes. Status lands in [catalog.md](catalog.md).
+  trusted until that smoke passes. If a smoke surface has no hard delete, use an
+  explicit neutralizer (archive the refinement, empty the reference list). The
+  guarded `cleanup smoke-artifacts` helper targets only secopsctl-owned smoke
+  prefixes and prints a dry-run plan before removing or neutralizing residue.
+  Status lands in [catalog.md](catalog.md).
 
 ## 6. API versions — per endpoint, tested not guessed
 
