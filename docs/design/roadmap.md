@@ -631,14 +631,16 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 
 ---
 
-## Waves 25–39 — operability, UX & coverage completion
+## Waves 25–42 — operability, UX & coverage completion
 
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
 value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
-Waves 25–39 are recorded in committed sequence; older waves keep their deferred
-items where a gap remains, Waves 35–38 are complete, and Wave 39 is the next SOAR
-automation interaction focus.
+Waves 25–42 are recorded in committed sequence; older waves keep their deferred
+items where a gap remains. Waves 35–38 and 40 are complete; Wave 39 (SOAR playbook
+interaction) is in progress; Wave 41 closes the remaining SOAR integration and
+playbook lifecycle gaps; Wave 42 aligns the rule-inspection verbs' identifier
+handling.
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
@@ -1097,7 +1099,7 @@ break it.
 - **Docs.** SOAR-DESIGN, SURFACES, CATALOG, and a guide for component code →
   package/import in SecOps → playbook → SecOps debug/run → outputs/logs.
 
-### Wave 40 — SIEM safety cleanup and rule deployment gaps *(planned)*
+### Wave 40 — SIEM safety cleanup and rule deployment gaps *(done)*
 
 - **Goal.** Close safety and operator-confidence gaps found in real CLI workflows
   before expanding more SIEM mutation surfaces. The focus is tenant-neutral cleanup,
@@ -1133,6 +1135,63 @@ break it.
   archived-rule deployments before any API call.
 - **Docs.** CATALOG (`rules`, `rule_exclusions`, `reference_lists`), SIEM-DESIGN,
   usage guide, and smoke-test notes in ARCHITECTURE.
+
+### Wave 41 — SOAR integration & playbook lifecycle completion *(in progress)*
+
+- **Goal.** Close the remaining SOAR config-as-code lifecycle gaps so integration
+  instances and playbooks can be fully operated from the terminal — not only
+  created and read. Each mutation is guarded behind the standard dry-run/`--yes`
+  flow; secret-valued inputs never land in repo files (House Rule 5).
+- **Integration instance configure.** `soar integration configure <instance>
+  --param k=v …` sets a created instance's parameters behind the SOAR guard. A
+  created instance is otherwise inert (unconfigured), so configuration currently
+  has no in-tool path. Secret-valued params take a **reference** (env var or a
+  secret-manager reference), not a literal — the secret is resolved at apply time
+  and is never written to a tracked file.
+- **Playbook delete + enable/disable.** First-class guarded `soar playbook delete
+  <id>` (wraps the legacy `DeleteWorkflow`) and `soar playbook deploy <id>
+  --enable|--disable` — a lightweight `isEnabled` toggle that does not mint a new
+  version (mirrors `rules-deploy`), replacing the whole-body re-save and the raw
+  legacy escape hatch for these two operations.
+- **Integration delete ergonomics.** `soar integration list` (especially `--json`)
+  emits each instance's identifier and environment, so a `soar integration delete`
+  invocation can be built from the list output; `delete` also accepts the pack
+  identifier alone when exactly one instance exists.
+- **Playbook run failure triage *(done)*.** `soar playbook summary` surfaces a run's
+  FAULTED steps — each failed step's action, error message (the Python traceback for
+  a script action), and a per-step Cloud Logging deep-link — instead of dumping the
+  raw payload. It prefers the v1alpha SOAR-host path
+  (`legacyPlaybooks:legacyGetWorkflowInstanceSummary`) and falls back to the legacy
+  API; both serve the same shape given the full body — a generic 500 here is a
+  missing `definitionIdentifier`, not a wrong host. The easy form takes only a case
+  id and a playbook NAME: `--playbook` resolves to the definition id via `soar
+  playbook list`, and the alert identifier is read from the case
+  (`alerts[].additionalProperties.alertGroupIdentifier`), so the opaque GUIDs are no
+  longer required. Raw python *stdout* retrieval stays a separate Cloud Logging
+  concern (`roles/logging.viewer`; deferred) — the per-step Logs Explorer link
+  bridges it.
+- **Exit.** An integration instance can be created **and** configured (incl.
+  secret-valued params via reference) from the CLI; playbooks have first-class
+  guarded delete and enable/disable; `integration list --json` carries the fields
+  `delete` needs; and a failed playbook run is triaged in-tool with its faulted
+  steps surfaced.
+- **Docs.** CATALOG (`soar integration`, `soar playbook`), SOAR-DESIGN, usage guide.
+
+### Wave 42 — Rule-inspection identifier resolution *(planned)*
+
+- **Goal.** Make the read-side rule-inspection verbs accept the same identifier
+  forms as the deploy verbs, so an operator can pass whatever `pull rules` filenames
+  use (display name / slug) instead of only the opaque `ru_<uuid>`.
+- **Scope.** `rules errors <rule>` (and the sibling per-rule inspection verbs)
+  resolve **display name / slug / short id → full `ru_<uuid>`** before building the
+  server filter, mirroring `rules-deploy --rule`. Currently only the full id works;
+  a name, slug, or truncated id reaches the API verbatim and returns an opaque
+  `400 invalid rule name in filter` that reads like a tool bug. On an unresolved
+  value, print a clear client-side `no rule matches "<x>"` (exit 2) **before** any
+  API call, never the server 400.
+- **Exit.** Every rule-inspection verb takes id / display name / slug consistently;
+  an unknown rule fails fast with a legible client-side message.
+- **Docs.** CATALOG (`rules`), usage guide.
 
 ---
 

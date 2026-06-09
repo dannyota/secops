@@ -314,3 +314,54 @@ func TestPrintPendingStepCount(t *testing.T) {
 		}
 	}
 }
+
+func TestPrintFaultedSteps(t *testing.T) {
+	raw := json.RawMessage(`[{"actionName":"Get Techniques","status":"FAULTED",` +
+		`"message":"Execution Failed.\n  Traceback (most recent call last):\n    line 1","` +
+		`integrationInstanceName":"MitreAttck_1","logsExplorerUrl":"https://logs.example/x"}]`)
+
+	var trunc bytes.Buffer
+	printFaultedSteps(&trunc, raw, false)
+	for _, want := range []string{
+		"faulted (1):", "Get Techniques", "FAULTED", "MitreAttck_1",
+		"https://logs.example/x", "--show-errors",
+	} {
+		if !strings.Contains(trunc.String(), want) {
+			t.Errorf("truncated output missing %q\n%s", want, trunc.String())
+		}
+	}
+	// The truncated view collapses the newline-bearing traceback to one line.
+	if strings.Count(strings.TrimSpace(trunc.String()), "\n") > 4 {
+		t.Errorf("truncated view should be compact, got:\n%s", trunc.String())
+	}
+
+	var full bytes.Buffer
+	printFaultedSteps(&full, raw, true)
+	if !strings.Contains(full.String(), "Traceback (most recent call last):") {
+		t.Errorf("--show-errors should print the full traceback, got:\n%s", full.String())
+	}
+
+	// No faulted steps → no output.
+	var empty bytes.Buffer
+	printFaultedSteps(&empty, json.RawMessage(`[]`), false)
+	if empty.Len() != 0 {
+		t.Errorf("empty faulted list should print nothing, got %q", empty.String())
+	}
+}
+
+func TestPrintWorkflowSummaryCounts(t *testing.T) {
+	raw := json.RawMessage(`{"completedSteps":[{},{}],"faultedSteps":[{"actionName":"A","status":"FAULTED"}],` +
+		`"retryPendingSteps":[],"totalPendingActionSteps":1,"executionTimeInMs":42,"usedIntegrations":[{},{},{}]}`)
+	var b bytes.Buffer
+	printWorkflowSummary(&b, raw, false)
+	out := b.String()
+	for _, want := range []string{"completed: 2", "faulted: 1", "used_integrations: 3", "faulted (1):", "A"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("summary missing %q\n%s", want, out)
+		}
+	}
+	// Must NOT dump the full step arrays.
+	if strings.Contains(out, "completedSteps") || strings.Contains(out, "[{") {
+		t.Errorf("summary should print counts, not dump arrays:\n%s", out)
+	}
+}

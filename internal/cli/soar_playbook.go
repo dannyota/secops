@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -626,39 +627,101 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 		caseID         int
 		alert          string
 		definition     string
+		playbook       string
 		fetchSteps     bool
 		collapseBlocks bool
+		showErrors     bool
 	)
 	cmd := &cobra.Command{
-		Use:   "summary --case-id N",
-		Short: "Read a playbook workflow-instance summary for a case/alert",
-		Args:  cobra.NoArgs,
+		Use:   "summary --case-id N --playbook <name>",
+		Short: "Read a playbook run summary for a case (surfaces faulted steps)",
+		Long: "Fetch a playbook workflow-instance summary and surface its FAULTED steps —\n" +
+			"each failed step's action, error message, and a Cloud Logging deep-link — so a\n" +
+			"failed run is triaged in-tool without digging through the raw payload.\n\n" +
+			"The easy form needs only the case id and a playbook NAME:\n" +
+			"  secopsctl soar playbook summary --case-id 123 --playbook \"My Playbook\"\n" +
+			"`--playbook` is resolved to its definition id via `soar playbook list`, and the\n" +
+			"alert identifier is read from the case automatically (use `--alert` when a case\n" +
+			"has more than one alert, or `--definition` to pass the id directly). Prefers the\n" +
+			"v1alpha SOAR-host path and falls back to the legacy API.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := workflowSummaryBody(caseID, alert, definition, fetchSteps, collapseBlocks)
+			if caseID <= 0 {
+				return fmt.Errorf("--case-id is required")
+			}
+			// Resolve the friendly inputs to the opaque selectors the API needs:
+			// a playbook NAME → its definition id, and (when --alert is omitted) the
+			// case's single alert identifier.
+			if strings.TrimSpace(definition) == "" && strings.TrimSpace(playbook) != "" {
+				lc, lerr := newSOARLegacyClient()
+				if lerr != nil {
+					return lerr
+				}
+				if definition, lerr = resolvePlaybookDefinition(baseContext(), lc, playbook); lerr != nil {
+					return lerr
+				}
+			}
+			if strings.TrimSpace(alert) == "" {
+				lc, lerr := newSOARLegacyClient()
+				if lerr != nil {
+					return lerr
+				}
+				if alert, lerr = resolveCaseAlert(baseContext(), lc, caseID); lerr != nil {
+					return lerr
+				}
+			}
+			if strings.TrimSpace(definition) == "" {
+				return fmt.Errorf("select the run: pass --playbook <name> or --definition <id>")
+			}
+			legacyBody, err := workflowSummaryBody(caseID, alert, definition, fetchSteps, collapseBlocks)
 			if err != nil {
 				return err
 			}
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
+			// The v1alpha legacyPlaybooks path expects caseId as a string (matching the
+			// console request); the legacy external API takes the int form.
+			modernBody, _ := workflowSummaryBody(caseID, alert, definition, fetchSteps, collapseBlocks)
+			modernBody["caseId"] = strconv.Itoa(caseID)
+			render := func(raw json.RawMessage) error {
+				if jsonOut {
+					return writeRawJSON(os.Stdout, raw)
+				}
+				printWorkflowSummary(cmd.OutOrStdout(), raw, showErrors)
+				return nil
 			}
-			raw, err := lc.GetWorkflowInstanceSummary(baseContext(), body)
-			if err != nil {
-				return err
-			}
-			if jsonOut {
-				return writeRawJSON(os.Stdout, raw)
-			}
-			printWorkflowSummary(cmd.OutOrStdout(), raw)
-			return nil
+			return preferModern("soar playbook summary",
+				func() error {
+					mc, err := newSOARClient()
+					if err != nil {
+						return err
+					}
+					raw, err := mc.GetWorkflowInstanceSummary(baseContext(), modernBody)
+					if err != nil {
+						return err
+					}
+					return render(raw)
+				},
+				func() error {
+					lc, err := newSOARLegacyClient()
+					if err != nil {
+						return err
+					}
+					raw, err := lc.GetWorkflowInstanceSummary(baseContext(), legacyBody)
+					if err != nil {
+						return err
+					}
+					return render(raw)
+				},
+			)
 		},
 	}
 	f := cmd.Flags()
 	f.IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
-	f.StringVar(&alert, "alert", "", "optional alert identifier")
-	f.StringVar(&definition, "definition", "", "optional workflow definition identifier")
+	f.StringVar(&playbook, "playbook", "", "playbook name — resolved to its definition id via `soar playbook list`")
+	f.StringVar(&alert, "alert", "", "alert identifier (auto-resolved from the case when omitted)")
+	f.StringVar(&definition, "definition", "", "playbook definition id (overrides --playbook)")
 	f.BoolVar(&fetchSteps, "fetch-steps", true, "include step details")
 	f.BoolVar(&collapseBlocks, "collapse-blocks", false, "collapse nested block details")
+	f.BoolVar(&showErrors, "show-errors", false, "print full faulted-step error messages (default truncates)")
 	_ = cmd.MarkFlagRequired("case-id")
 	return cmd
 }
@@ -1045,6 +1108,70 @@ func pendingStepBody(caseID int, alertGroup, workflowIdentifier string) (map[str
 	return body, nil
 }
 
+// resolvePlaybookDefinition maps a playbook display name to its definition id via
+// the live playbook list (case-insensitive exact match), so callers pass a name
+// instead of the opaque GUID. It errors clearly on no/ambiguous match.
+func resolvePlaybookDefinition(ctx context.Context, lc *legacy.Client, name string) (string, error) {
+	cards, err := lc.ListPlaybooks(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	name = strings.TrimSpace(name)
+	var ids []string
+	for _, c := range cards {
+		// Skip a blank identifier so a name match can't resolve to "" (which would
+		// then surface as a generic 500 from the summary call).
+		if id := strings.TrimSpace(c.Identifier); id != "" && strings.EqualFold(strings.TrimSpace(c.Name), name) {
+			ids = append(ids, id)
+		}
+	}
+	switch len(ids) {
+	case 0:
+		return "", fmt.Errorf("no playbook named %q (see `soar playbook list`)", name)
+	case 1:
+		return ids[0], nil
+	default:
+		return "", fmt.Errorf("%d playbooks named %q — pass --definition <id> to disambiguate", len(ids), name)
+	}
+}
+
+// resolveCaseAlert returns the alert identifier a workflow-instance summary needs —
+// alerts[].additionalProperties.alertGroupIdentifier from the full case detail. A
+// single-alert case resolves automatically; a multi-alert case errors and lists
+// the alerts so the caller can pass --alert.
+func resolveCaseAlert(ctx context.Context, lc *legacy.Client, caseID int) (string, error) {
+	raw, err := lc.GetCaseFullDetails(ctx, caseID)
+	if err != nil {
+		return "", err
+	}
+	var cd struct {
+		Alerts []struct {
+			Name                 string `json:"name"`
+			AdditionalProperties struct {
+				AlertGroupIdentifier string `json:"alertGroupIdentifier"`
+			} `json:"additionalProperties"`
+		} `json:"alerts"`
+	}
+	if err := json.Unmarshal(raw, &cd); err != nil {
+		return "", fmt.Errorf("parse case %d details: %w", caseID, err)
+	}
+	var ids, names []string
+	for _, a := range cd.Alerts {
+		if id := strings.TrimSpace(a.AdditionalProperties.AlertGroupIdentifier); id != "" {
+			ids = append(ids, id)
+			names = append(names, a.Name)
+		}
+	}
+	switch len(ids) {
+	case 0:
+		return "", fmt.Errorf("case %d exposes no alert identifier — pass --alert <id>", caseID)
+	case 1:
+		return ids[0], nil
+	default:
+		return "", fmt.Errorf("case %d has %d alerts (%s) — pass --alert <id>", caseID, len(ids), strings.Join(names, ", "))
+	}
+}
+
 func workflowSummaryBody(caseID int, alert, definition string, fetchSteps, collapseBlocks bool) (map[string]any, error) {
 	if caseID <= 0 {
 		return nil, fmt.Errorf("--case-id is required")
@@ -1146,27 +1273,75 @@ func printPlaybookDebugResponse(w io.Writer, raw json.RawMessage) {
 	}
 }
 
-func printWorkflowSummary(w io.Writer, raw json.RawMessage) {
+// faultedStep is the subset of a faulted workflow step we surface: the action
+// that failed, its status, the runtime error message (a Python traceback, for a
+// script action), and a Cloud Logging deep-link to the raw step logs.
+type faultedStep struct {
+	ActionName              string `json:"actionName"`
+	Name                    string `json:"name"`
+	Status                  string `json:"status"`
+	Message                 string `json:"message"`
+	IntegrationInstanceName string `json:"integrationInstanceName"`
+	LogsExplorerURL         string `json:"logsExplorerUrl"`
+}
+
+func printWorkflowSummary(w io.Writer, raw json.RawMessage, showErrors bool) {
 	m, ok := rawJSONObject(raw)
 	if !ok {
 		printGenericItemsSummary(w, "workflow summary records", raw)
 		return
 	}
 	fmt.Fprintln(w, "workflow_summary:")
-	for _, key := range []string{
-		"completedSteps",
-		"faultedSteps",
-		"retryPendingSteps",
-		"totalPendingActionSteps",
-		"executionTimeInMs",
+	// Step collections are large arrays — print their counts, not the full dump.
+	for _, kv := range []struct{ key, label string }{
+		{"completedSteps", "completed"},
+		{"faultedSteps", "faulted"},
+		{"retryPendingSteps", "retry_pending"},
+		{"usedIntegrations", "used_integrations"},
 	} {
+		if rawItems, ok := m[kv.key]; ok {
+			fmt.Fprintf(w, "  %s: %d\n", kv.label, jsonArrayLen(rawItems))
+		}
+	}
+	// Scalars.
+	for _, key := range []string{"totalPendingActionSteps", "executionTimeInMs"} {
 		printJSONField(w, m, key, snakeCase(key))
 	}
-	if rawItems, ok := m["usedIntegrations"]; ok {
-		fmt.Fprintf(w, "used_integrations: %d\n", jsonArrayLen(rawItems))
+	printFaultedSteps(w, m["faultedSteps"], showErrors)
+}
+
+// printFaultedSteps expands each faulted step with its action, error message, and
+// Logs Explorer link — the point of inspecting a failed run. The error message is
+// collapsed to one truncated line unless showErrors is set.
+func printFaultedSteps(w io.Writer, rawFaulted json.RawMessage, showErrors bool) {
+	if len(rawFaulted) == 0 {
+		return
 	}
-	if rawSteps, ok := m["steps"]; ok {
-		fmt.Fprintf(w, "steps: %d\n", jsonArrayLen(rawSteps))
+	var steps []faultedStep
+	if err := json.Unmarshal(rawFaulted, &steps); err != nil || len(steps) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "faulted (%d):\n", len(steps))
+	for i := range steps {
+		s := &steps[i]
+		fmt.Fprintf(w, "  [%d] %s — %s", i+1, firstNonEmpty(s.ActionName, s.Name, "(step)"), orDash(s.Status))
+		if s.IntegrationInstanceName != "" {
+			fmt.Fprintf(w, " (%s)", s.IntegrationInstanceName)
+		}
+		fmt.Fprintln(w)
+		if msg := strings.TrimSpace(s.Message); msg != "" {
+			if showErrors {
+				fmt.Fprintf(w, "      error: %s\n", msg)
+			} else {
+				fmt.Fprintf(w, "      error: %s\n", truncate(strings.Join(strings.Fields(msg), " "), 300))
+			}
+		}
+		if s.LogsExplorerURL != "" {
+			fmt.Fprintf(w, "      logs:  %s\n", s.LogsExplorerURL)
+		}
+	}
+	if !showErrors {
+		fmt.Fprintln(w, "  (use --show-errors for full messages)")
 	}
 }
 

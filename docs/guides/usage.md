@@ -138,7 +138,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar playbook simulation-enrichment` | Read simulation enrichment for one test case, step, and workflow identifier. |
 | `soar playbook pending count` / `list` / `get` | Read pending playbook steps assigned to the current user. `get --case-id N` can be scoped with `--alert-group` and `--workflow-identifier`. |
 | `soar playbook step get` | Fetch one workflow step instance by case, workflow, and step identifiers. Use `--json` to save the raw body for guarded `step execute`. |
-| `soar playbook summary` | Read workflow-instance summary counts for a case/alert and optional playbook definition. |
+| `soar playbook summary --case-id N --playbook <name>` | Triage a playbook run: surfaces **FAULTED** steps (action · error · Cloud Logging deep-link; `--show-errors` for the full traceback). `--playbook` resolves to the definition id via `soar playbook list`, and the alert identifier is read from the case — so no opaque GUIDs (override with `--alert`/`--definition`). Prefers the v1alpha path, falls back to legacy. |
 | `soar playbook results` / `result` | Read action results for a workflow instance or one case action-result id; human output summarizes status/presence only, `--json` emits the raw payload. |
 | `soar playbook python-logs` | Read Python execution logs (`--filter`, `--page-size`, `--page-token`); human output prints counts, `--json` emits the raw payload. |
 | `soar job list` | List installed SOAR jobs and last-run status without printing job script bodies. |
