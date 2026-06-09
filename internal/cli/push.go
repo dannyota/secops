@@ -236,12 +236,9 @@ func runPush(cmd *cobra.Command, args []string) error {
 }
 
 func rulesCreateFlagChanged(cmd *cobra.Command) bool {
-	for _, name := range []string{"enabled", "alerting", "run-frequency"} {
-		if cmd.Flags().Changed(name) {
-			return true
-		}
-	}
-	return false
+	return cmd.Flags().Changed("enabled") ||
+		cmd.Flags().Changed("alerting") ||
+		cmd.Flags().Changed("run-frequency")
 }
 
 // confirmPush prompts the operator for an interactive y/N confirmation. It

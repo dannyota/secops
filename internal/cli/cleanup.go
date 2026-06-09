@@ -41,10 +41,7 @@ func newCleanupSmokeArtifactsCmd() *cobra.Command {
 				return err
 			}
 			ctx := baseContext()
-			items, warnings, err := buildSmokeCleanupPlan(ctx, c)
-			if err != nil {
-				return err
-			}
+			items, warnings := buildSmokeCleanupPlan(ctx, c)
 			dry := dryRun || !yes
 			applied := false
 			if jsonOut {
@@ -93,7 +90,7 @@ type smokeCleanupItem struct {
 	apply   func() error
 }
 
-func buildSmokeCleanupPlan(ctx context.Context, c *chronicle.Client) ([]smokeCleanupItem, []string, error) {
+func buildSmokeCleanupPlan(ctx context.Context, c *chronicle.Client) ([]smokeCleanupItem, []string) {
 	var items []smokeCleanupItem
 	var warnings []string
 	addWarning := func(surface string, err error) {
@@ -208,7 +205,7 @@ func buildSmokeCleanupPlan(ctx context.Context, c *chronicle.Client) ([]smokeCle
 		}
 	}
 
-	return items, warnings, nil
+	return items, warnings
 }
 
 func applySmokeCleanup(items []smokeCleanupItem) error {
