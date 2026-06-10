@@ -77,9 +77,20 @@ func (r *Rule) RuleID() string {
 // GetRule per rule because the default BASIC view omits text; FULL avoids the
 // N+1 round-trips entirely.
 func (c *Client) ListRules(ctx context.Context) ([]Rule, error) {
+	return c.listRules(ctx, "FULL")
+}
+
+// ListRulesBasic returns all custom detection rules in the BASIC view —
+// metadata (id, display name, type, …) WITHOUT the YARA-L text. The cheap list
+// for id/name resolution and labeling; use ListRules where the text is needed.
+func (c *Client) ListRulesBasic(ctx context.Context) ([]Rule, error) {
+	return c.listRules(ctx, "BASIC")
+}
+
+func (c *Client) listRules(ctx context.Context, view string) ([]Rule, error) {
 	var all []Rule
 	err := paginate(50, func(token string) (string, error) {
-		q := url.Values{"pageSize": {"1000"}, "view": {"FULL"}}
+		q := url.Values{"pageSize": {"1000"}, "view": {view}}
 		if token != "" {
 			q.Set("pageToken", token)
 		}

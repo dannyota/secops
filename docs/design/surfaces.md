@@ -74,10 +74,11 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
-| custom rules (CRUD + revisions) | reconcile | ✅ | — |
+| custom rules (CRUD + revisions) | reconcile | ✅ | `rules:modifyRules` batch update SDK-built (`ModifyRules`), gated — reconcile stays per-rule PATCH until the batch path passes an approved smoke |
 | rule deployments (enable/alerting/freq/archived) | reconcile | ✅ | — (`archived` + `ArchiveRule`) |
 | rule validation (`verifyRuleText`) + dry-run (`legacyRunTestRule`) | imperative | ✅ `RunTestRule` | live-run validation pending approval |
-| detections / errors | operational | ✅ | `legacySearchCuratedDetections` ⬜ (med) |
+| detections / errors | operational | ✅ incl. `legacySearchCuratedDetections` (`curated detections`, W54) | — |
+| rule tuning reads — trends · counts · detection events | operational (read) | ✅ `rules trends`/`counts`/`events` + `curated trends`/`events` (W54, live-validated; trends windows must be bucket-aligned — the SDK aligns) | `legacySearchRuleDetectionCountBuckets` SDK-only |
 | retrohunts | imperative | ✅ | — |
 | rule exclusions (`findingsRefinements`) | reconcile | ✅ | — |
 | curated rule sets / categories / deployments | reconcile + imperative | ✅ `pull curated` / `push curated` over `deployments.yaml` + per-deployment patch (`curated set`) · `:batchUpdate` (self-restoring toggle write-smoke validated) | single GETs ⬜ (low) |

@@ -41,6 +41,9 @@ func newRulesCmd() *cobra.Command {
 		newRulesErrorsCmd(),
 		newRulesAlertsCmd(),
 		newRulesRetrohuntCmd(),
+		newRulesTrendsCmd(),
+		newRulesCountsCmd(),
+		newRulesEventsCmd(),
 	)
 	return cmd
 }
@@ -208,12 +211,15 @@ func resolveRuleID(ctx context.Context, c *chronicle.Client, ref string) (string
 	if ref == "" {
 		return "", fmt.Errorf("a rule id, display name, or slug is required")
 	}
-	rules, err := c.ListRules(ctx)
+	// A full ru_<uuid> id is unambiguous — pass it through without fetching the
+	// rule list (the API validates it anyway, and an archived rule may not be
+	// listed at all).
+	if looksLikeRuleID(ref) {
+		return ref, nil
+	}
+	// Name/slug resolution needs the list; BASIC view — the matcher needs no text.
+	rules, err := c.ListRulesBasic(ctx)
 	if err != nil {
-		// Can't resolve names without the list; a full id form can still go through.
-		if looksLikeRuleID(ref) {
-			return ref, nil
-		}
 		return "", err
 	}
 	return matchRuleID(rules, ref)

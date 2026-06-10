@@ -31,7 +31,8 @@ func newCuratedCmd() *cobra.Command {
 			"only toggle each deployment's `enabled` and `alerting` per precision\n" +
 			"(precise|broad). `list` reads; `set` is a guarded live toggle.",
 	}
-	cmd.AddCommand(newCuratedListCmd(), newCuratedSetCmd(), newCuratedRulesCmd())
+	cmd.AddCommand(newCuratedListCmd(), newCuratedSetCmd(), newCuratedRulesCmd(),
+		newCuratedDetectionsCmd(), newCuratedTrendsCmd(), newCuratedEventsCmd())
 	return cmd
 }
 

@@ -1468,6 +1468,45 @@ break it.
 - **Docs.** Usage guide (global flags + the `commands` row), the LLM &
   automation tips (agent contract + guardrails), ROADMAP.
 
+### Wave 54 — Rule-tuning reads: trends, counts, detection evidence, batch update *(done — reads live-validated; modifyRules SDK-built, gated)*
+
+- **Goal.** Close the detection feedback loop from the terminal: which rules
+  (user AND curated) are noisy or silent, what evidence sits behind a
+  detection, and how rule usage tracks quota — the data behind
+  `push rules-deploy` / `push curated` enable & alerting decisions.
+- **Trends.** `rules trends` (no `--rule` = every rule on the instance) and
+  `curated trends --rule ur_a,… | --all` (chunked sweep over every curated
+  rule) render per-rule day-bucketed detection counts plus the last-detection
+  timestamp, noisiest first (`legacyGetRulesTrends` /
+  `legacyGetCuratedRulesTrends`). The bucket window must be ALIGNED to the
+  bucket size — unaligned boundaries draw a generic INVALID_ARGUMENT 400 —
+  so the SDK floors the start and ceils the end. Live-validated.
+- **Curated detections.** `curated detections <ur_id>`
+  (`legacySearchCuratedDetections`) lists what a Google-managed rule actually
+  detected — `rules detections` serves user rules only, so curated tuning was
+  previously blind. Live-validated.
+- **Detection evidence pivot.** `rules events <rule> <detection-id>`
+  (`legacySearchRuleDetectionEvents`) fetches the UDM events behind one
+  detection (summary per event variable; `--json` full payloads) and
+  `curated events <detection-id>` (`legacyGetEventForDetection`) the event +
+  rationale behind a curated detection (can be legitimately empty for some
+  detection types). `SearchRuleDetectionCountBuckets` rides along SDK-only.
+  Live-validated.
+- **Counts & quota.** `rules counts` (`legacyGetRuleCounts`): active/archived/
+  live rule counts and the rules quota. Live-validated.
+- **Cheaper resolution.** `ListRulesBasic` (the BASIC list view — metadata
+  without YARA-L text, the server's default view) now backs rule name/slug
+  resolution and the trends name column; a full `ru_<uuid>` id passes through
+  the resolver without fetching the list at all, and `rules trends` makes at
+  most one list call per invocation.
+- **Batch rule update.** `chronicle.ModifyRules` wraps `rules:modifyRules`
+  (one call, per-index failure map — the batch alternative to a per-rule PATCH
+  sweep). SDK-built and exercised by the gated lifecycle write smoke; the
+  reconcile sweep keeps the validated per-rule PATCH until the batch path
+  passes an approved smoke run.
+- **Docs.** CATALOG (`rules`, `curated` rows), SURFACES (detection-engine
+  gaps closed), usage guide, ROADMAP.
+
 ---
 
 ## Non-goals

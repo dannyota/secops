@@ -361,6 +361,19 @@ func TestLiveRulesLifecycleWriteSmoke(t *testing.T) {
 		t.Errorf("unarchive did not clear archived")
 	}
 
+	// Batch rule update (rules:modifyRules) on the throwaway: a same-value text
+	// update via the batch endpoint, proving the request/mask shape end to end.
+	full, err = c.GetRule(ctx, ruleID)
+	if err != nil {
+		t.Fatalf("get before modifyRules: %v", err)
+	}
+	ruleBody, _ := json.Marshal(map[string]string{"name": full.Name, "text": full.Text})
+	if raw, err := c.ModifyRules(ctx, []chronicle.RuleUpdateRequest{{Rule: ruleBody, UpdateMask: "text"}}); err != nil {
+		t.Errorf("modifyRules: %v", err)
+	} else if bytes.Contains(raw, []byte("failedRequests")) {
+		t.Errorf("modifyRules reported per-item failures: %s", truncate(string(raw), 400))
+	}
+
 	// Delete + confirm gone.
 	if err := c.DeleteRule(ctx, ruleID, true); err != nil {
 		t.Fatalf("delete: %v", err)
