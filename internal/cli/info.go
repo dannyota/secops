@@ -55,6 +55,7 @@ func init() {
 	infoCmd.AddCommand(
 		newInfoCronCmd(),
 		newInfoSOARIntegrationsCmd(),
+		newInfoSOARSystemCmd(),
 	)
 	rootCmd.AddCommand(infoCmd)
 }
