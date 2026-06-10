@@ -1254,7 +1254,7 @@ break it.
   the full playbook-development loop without the UI.
 - **Docs.** CATALOG (`soar case`), usage guide.
 
-### Wave 44 — Case collaboration (chat) *(planned)*
+### Wave 44 — Case collaboration (chat) *(done)*
 
 - **Goal.** Operate case-wall chat from the terminal — send messages, list
   threads, pin/unpin — so SOC collaboration is reachable from scripts and agents.
@@ -1297,7 +1297,10 @@ break it.
   - Content pack deploy verbs: `soar marketplace contentpacks deploy-playbooks`,
     `deploy-connectors`, `deploy-test-cases`, `install-integration`,
     `align-playbooks`, `mark-deployed` (all guarded). `add` (create custom pack,
-    guarded), `export`/`import` (round-trip). v1alpha `contentHub.contentPacks`.
+    guarded), `export`/`import` (round-trip), `delete` (remove a custom pack).
+    v1alpha `contentHub.contentPacks`.
+  - Content pack lifecycle: `uninstall` (guarded) + `upgrade` (fetch commercial
+    diff → install newer version, guarded).
   - Featured playbooks: `soar marketplace featured list`, `get <id>`,
     `install <id>` (guarded), `facets` (filter values). v1alpha
     `contentHub.featuredContentPlaybooks` + `featuredContentNativeDashboards`.

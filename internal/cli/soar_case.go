@@ -34,6 +34,7 @@ func newSOARCaseCmd() *cobra.Command {
 		newCaseGetCmd(),
 		newCaseRunActionCmd(),
 		newCaseSimulationCmd(),
+		newCaseChatCmd(),
 		newCaseAssignCmd(),
 		newCaseRenameCmd(),
 		newCaseStageCmd(),
