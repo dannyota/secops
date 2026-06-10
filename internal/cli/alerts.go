@@ -31,7 +31,8 @@ func newAlertsCmd() *cobra.Command {
 			"one or more alerts. `list` and `get` read only; `update` is a guarded live\n" +
 			"mutation (dry-run by default, --yes to apply).",
 	}
-	cmd.AddCommand(newAlertsListCmd(), newAlertsGetCmd(), newAlertsUpdateCmd())
+	cmd.AddCommand(newAlertsListCmd(), newAlertsGetCmd(), newAlertsUpdateCmd(),
+		newAlertsEnrichCmd(), newAlertsActionsCmd(), newAlertsRunActionsCmd())
 	return cmd
 }
 

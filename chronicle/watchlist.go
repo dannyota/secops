@@ -3,6 +3,7 @@ package chronicle
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -201,4 +202,50 @@ func (c *Client) DeleteWatchlist(ctx context.Context, id string, force bool) err
 		opts = append(opts, withQuery(url.Values{"force": {"true"}}))
 	}
 	return c.do(ctx, "DELETE", c.resourcePath("watchlists/"+id, false), nil, nil, opts...)
+}
+
+// WatchlistEntity builds the Entity body for the watchlist membership verbs.
+// Exactly ONE selector field is set per the API contract (asset ip/mac/
+// hostname, or user userid/email/employee id/SID); Namespace is optional.
+type WatchlistEntity struct {
+	Asset map[string]any `json:"asset,omitempty"`
+	User  map[string]any `json:"user,omitempty"`
+
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// AddWatchlistEntity puts one entity on a watchlist (entities:add) — a
+// standard containment/tracking response action during investigation.
+// LIVE MUTATION; watchlist membership also feeds risk-score multipliers.
+//
+// The entities sub-resource is documented on v1alpha; the parent watchlists
+// pin (v1) does not apply to it.
+func (c *Client) AddWatchlistEntity(ctx context.Context, watchlistID string, entity WatchlistEntity) (json.RawMessage, error) {
+	if strings.TrimSpace(watchlistID) == "" {
+		return nil, fmt.Errorf("chronicle: watchlistID is required")
+	}
+	body := struct {
+		Entity WatchlistEntity `json:"entity"`
+	}{Entity: entity}
+	var out json.RawMessage
+	path := c.resourcePath("watchlists/"+watchlistID+"/entities:add", false)
+	if err := c.post(ctx, path, body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// BatchRemoveWatchlistEntities removes entities from a watchlist
+// (entities:batchRemove). body is the documented request payload, kept
+// freeform until a live run confirms its exact shape. LIVE MUTATION.
+func (c *Client) BatchRemoveWatchlistEntities(ctx context.Context, watchlistID string, body any) (json.RawMessage, error) {
+	if strings.TrimSpace(watchlistID) == "" {
+		return nil, fmt.Errorf("chronicle: watchlistID is required")
+	}
+	var out json.RawMessage
+	path := c.resourcePath("watchlists/"+watchlistID+"/entities:batchRemove", false)
+	if err := c.post(ctx, path, body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }

@@ -106,7 +106,11 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
-| entities (`:summarizeEntity`) | operational | ✅ | `:searchEntities` / `:findEntity*` graph RPCs ⬜ (med) |
+| entities (`:summarizeEntity`) | operational | ✅ | `:searchEntities` / `:findEntity*` graph RPCs ⬜ (med — partially superseded by `findingsGraph`) |
+| **findings graph** (`findingsGraph`) | operational (read) | ✅ initialize read-validated live (detection-seeded); `exploreNode` wired (params verbatim) | SDK-only (`chronicle/findings_graph.go`); CLI ⬜ |
+| **enrichment agent** (`enrichmentAgent`) | operational | ⛔ 500 on chronicle / 404 on siemplify — wired on both hosts with fallback (`alerts enrich`/`actions`/`run-actions`) | confirm `siemAlertId` form via a live UI request |
+| **Gemini chat** (`users.conversations`) | operational (read) | ✅ `query gemini` live-validated (HTML blocks rendered as prose) | multi-turn threading SDK-supported (conversation id), CLI single-shot |
+| **watchlist membership** (`watchlists.entities`) | imperative | 🔨 `add-entity` guarded + dry-run validated; `batchRemove` SDK-raw | write smoke ⬜ (gated) |
 | IoC enterprise search (`legacySearchEnterpriseWideIoCs`) | operational | ✅ read-validated (50 matches); association `regionCode` is an object, decoded either way | — |
 | **Threat Intelligence** (`threatCollections`) | operational (read) | ✅ list/get (`chronicle/ti.go`, `ti collections`/`collection`); 🔨 related pivots (`iocs related`, `ti related`) | `:fetchEntityMetadata` ⬜ (med) |
 | **IoCs** modern (`iocs`) | operational (read) | ✅ `iocs find`/`get` CLI live-validated (`FindIoCs` typed `fieldAndValue` lookup · `GetIoC`/`BatchGetIoCs`); 🔨 SDK `FetchRelatedIoCs` | `getIocState`/`updateIocState` ⬜ |

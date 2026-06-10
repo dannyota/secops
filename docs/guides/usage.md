@@ -72,6 +72,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `drift [target...]` | Report how live state has drifted from local files (CI gate; exit 2 on drift). No target = every engine surface; `--siem`/`--soar` scope to one plane. |
 | `query udm <filter>` | Point-in-time UDM event search over `--hours` / `--from` / `--to` (default last 24h), capped by `--limit`. `--raw` prints each matched event's FULL raw ingested log line (for `parsers run --logs -`) instead of the summary — e.g. `query udm 'metadata.log_type = "KONG_GATEWAY" AND metadata.event_type = "GENERIC_EVENT"' --raw --limit 50`. |
 | `query nl <text>` | Translate a natural-language query to UDM and search (`--translate-only` to just print the UDM). |
+| `query gemini <question>` | Ask SecOps Gemini a question (YARA-L authoring help, UDM fields, environment-grounded answers). `--opt-in` once per account. |
 | `query raw <pattern>` | Content-based raw-log search (`searchRawLogs raw = /<pattern>/`) — prints each match's FULL raw ingested log line (for `parsers run --logs -`). Reaches logs with no parser; complements `query udm --raw`. `--unparsed` / `--hours` / `--from`,`--to` / `--limit`. |
 | `entity summarize <type> <value>` | Summarize an entity (alerts by rule, related entities, prevalence) over `--hours` (default 7d). |
 | `curated list` | List curated (Google-managed) rule-set deployments + enable/alerting state. |
@@ -118,6 +119,8 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 | `push rules-deploy` | Reconcile each tracked rule's deployment (enabled/alerting/frequency); `--rule` scopes one rule, and archived rules are reported as non-deployable. |
 | `push rules-disable` | Disable locally-tracked rules with `deployment.enabled=true`. |
 | `alerts update <id>...` | Set alert triage feedback: `--status new\|reviewed\|closed\|open`, `--verdict true-positive\|false-positive`, `--priority`, `--reason`, `--reputation`, scores, `--comment`, `--root-cause`. Several ids fan out the same update. |
+| `alerts run-actions <id> --file <json>` | Execute enrichment-agent actions against a SIEM alert's entities (build the file from `alerts actions`). |
+| `watchlists add-entity <id> (--ip\|--mac\|--hostname\|--user\|--email)` | Put one entity on a watchlist — containment/tracking (exactly one selector). |
 | `push curated` | Reconcile `curated/deployments.yaml` to live curated deployment state (enabled/alerting only). |
 | `push <reconcile-target>` | Reconcile local files to live (create/update; `--prune` deletes on prune-eligible surfaces only — `push <target> --help` says which). Targets: `reference_lists`, `data_tables`, `parsers`, `feeds`, `forwarders`, `dashboards`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`. |
 | `curated set` | Toggle a curated deployment's `enabled`/`alerting` per precision (`--category`, `--ruleset`, `--precision`). |
@@ -163,6 +166,9 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). Triage filters: `--assignee` (substring), `--priority`, `--tag` (modern lane), `--since` (duration/timestamp), and a verbatim modern server-side `--filter` expression. |
 | `soar case get <id>` | Get one case + its alerts (SOAR integer id). Each alert shows its `--alert` identifier and its **firing rule** (name + `ru_` id) with a `rules detections` pivot hint. |
 | `soar case comment list --id N` | List a case's comments (the case-wall record; `--alert` scopes to one alert). |
+| `soar case summarize --id N` | The structured AI summary of a case — narrative, reasons, next steps (polls until generation settles). |
+| `soar case alert recommend --id N --alert <ident>` | Generate + fetch the AI recommendation for one alert in a case (the alert must be open at alert level; each run starts a generation server-side — refused in read-only mode). |
+| `alerts enrich <id>` / `alerts actions <id>` | A SIEM alert's enrichment context / the integration actions executable against its entities (currently blocked server-side — clean error). |
 | `info soar-integrations` | Report installed SOAR integration packs, connector/job runtime counts, bound environments, and gaps such as `config_without_runtime` or `runtime_disabled`. |
 | `soar integration list` | List installed integration packs. |
 | `soar integration instances --integration <id>` | List an integration's configured instances (id · environment · name) — the fields `integration delete` needs, which `list` (packs only) does not expose. |
@@ -200,6 +206,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar playbook step skip --file <step-instance.json>` | Skip one pending workflow step — the reject half of an approval (`step execute` continues it). `--comment` records why. |
 | `soar playbook restore --version <id>` | Roll a playbook back to a version from `versions` (the restore mints a new version; `--override` replaces outright). |
 | `soar playbook import --file <bundle.zip>` | Import a playbook bundle (the zip `export --zip` produces) — cross-tenant promotion / backup restore. |
+| `soar playbook generate (--description <s> \| --case-id N --alert <id>)` | Draft a playbook with AI (creates a DRAFT on the tenant; generation may run asynchronously — poll the by-alert form with `generate-status`); review via `validate` + the guarded save loop. |
 | `soar job instance set --instance <sel> --enable\|--disable` | Enable/disable a scheduled job instance (fresh read, flag flipped, whole body saved). |
 | `soar job instance create --file <json>` / `delete --instance <sel>` | Create a scheduled job instance from a JSON body / delete one by id. |
 | `soar job run --job <id\|uniqueIdentifier\|name>` | Run one installed SOAR job now. Fetches the live job first, previews the target, and requires `--yes` to execute. |

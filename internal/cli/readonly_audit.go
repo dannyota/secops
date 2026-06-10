@@ -42,6 +42,19 @@ func readOnlyMode() bool {
 	return true
 }
 
+// refuseAIGenerationIfReadOnly blocks AI-generation verbs (which create
+// server-side artifacts — a summary, a recommendation — but no reviewable
+// config) in hard read-only mode. They carry no dry-run/--yes pair, so the
+// guard funnels never see them; this is their read-only hook.
+func refuseAIGenerationIfReadOnly(action string) error {
+	if !readOnlyMode() {
+		return nil
+	}
+	noteReadOnly(action)
+	auditMutation(action, "read-only")
+	return fmt.Errorf("read-only mode: %s triggers AI generation server-side — refused", action)
+}
+
 // deriveGuard is the shared decision core of every guarded mutation: dry-run by
 // default, --yes (or the interactive confirm) to apply, the read-only degrade,
 // and the audit record for a confirmed mutation. Callers render their own

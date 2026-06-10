@@ -52,6 +52,8 @@ func newSOARCaseCmd() *cobra.Command {
 		newCaseCommentCmd(),
 		newCaseAlertCmd(),
 		newCaseValuesCmd(),
+		newCaseSummarizeCmd(),
+		newCaseCountsCmd(),
 	)
 	return cmd
 }

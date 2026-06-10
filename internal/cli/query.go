@@ -2,8 +2,11 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"html"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -195,7 +198,7 @@ func init() {
 	f.BoolVar(&raw, "raw", false,
 		"print each matched event's FULL raw log line (for `parsers run --logs -`) instead of the event summary")
 
-	queryCmd.AddCommand(udmCmd, newQueryNLCmd(), newQueryRawCmd())
+	queryCmd.AddCommand(udmCmd, newQueryNLCmd(), newQueryRawCmd(), newQueryGeminiCmd())
 	rootCmd.AddCommand(queryCmd)
 }
 
@@ -391,4 +394,71 @@ func udmSummary(ev json.RawMessage) (when, etype string) {
 		etype = et
 	}
 	return when, etype
+}
+
+// newQueryGeminiCmd asks SecOps Gemini a question — YARA-L authoring help, UDM
+// field questions, environment-grounded answers (users/me/conversations). The
+// account must be opted in once (--opt-in does it in-place).
+func newQueryGeminiCmd() *cobra.Command {
+	var optIn bool
+	cmd := &cobra.Command{
+		Use:   "gemini <question>",
+		Short: "Ask SecOps Gemini a question (read-only; --opt-in once per account)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			ctx := baseContext()
+			if optIn {
+				if err := c.OptInToGemini(ctx); err != nil {
+					return err
+				}
+			}
+			resp, err := c.QueryGemini(ctx, args[0], "")
+			if err != nil {
+				if errors.Is(err, chronicle.ErrGeminiOptInRequired) {
+					return fmt.Errorf("this account has not opted in to Gemini — re-run with --opt-in once: %w", err)
+				}
+				return err
+			}
+			if jsonOut {
+				return writeRawJSON(os.Stdout, resp.Raw)
+			}
+			text := resp.TextContent()
+			if text == "" {
+				// Live replies often carry HTML blocks instead of TEXT — render
+				// them as plain prose.
+				var parts []string
+				for _, b := range resp.HTMLBlocks() {
+					parts = append(parts, htmlToText(b.Content))
+				}
+				text = strings.Join(parts, "\n\n")
+			}
+			if text != "" {
+				fmt.Fprintln(os.Stdout, text)
+			}
+			for _, b := range resp.CodeBlocks() {
+				fmt.Fprintf(os.Stdout, "\n```\n%s\n```\n", b.Content)
+			}
+			if len(resp.References) > 0 {
+				fmt.Fprintf(os.Stdout, "\n(%d reference block(s) — full structure with --json.)\n", len(resp.References))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&optIn, "opt-in", false, "opt this account in to Gemini first (one-time)")
+	return cmd
+}
+
+// htmlToText renders Gemini's HTML prose as readable terminal text: list items
+// become bullets, block elements become line breaks, the remaining tags drop,
+// and common entities decode.
+func htmlToText(s string) string {
+	s = regexp.MustCompile(`(?i)<li[^>]*>`).ReplaceAllString(s, "\n  - ")
+	s = regexp.MustCompile(`(?i)</(p|ul|ol|div|h[1-6])>|<br[^>]*>`).ReplaceAllString(s, "\n")
+	s = regexp.MustCompile(`<[^>]*>`).ReplaceAllString(s, "")
+	s = html.UnescapeString(s)
+	return strings.TrimSpace(regexp.MustCompile(`\n{3,}`).ReplaceAllString(s, "\n\n"))
 }

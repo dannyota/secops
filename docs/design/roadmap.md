@@ -1548,6 +1548,55 @@ break it.
 - **Docs.** CATALOG (`soar playbook`, `soar job` rows), SURFACES (Wave-39 gap
   list updated), usage guide, ROADMAP.
 
+### Wave 56 — The AI layer: case summaries, alert recommendations, Gemini chat, playbook drafting, graph pivoting *(built — flagship reads live-validated; two surfaces blocked server-side; writes gated)*
+
+- **Goal.** Surface SecOps' AI-assist layer in the terminal — Google's own AI
+  pre-digest of cases and alerts is far cheaper for an operator (or an agent)
+  than re-deriving context from full payloads.
+- **AI case summary (live-validated).** `soar case summarize --id N` polls
+  `cases:getOrCreateCaseSummary` (isFirstRequest protocol) to a settled state
+  and prints the structured summary — narrative, reasons, next steps — with
+  the full payload under `--json`. A complete real summary round-tripped.
+- **Per-alert AI recommendations (path validated).**
+  `soar case alert recommend --id N --alert <ident|numeric>` triggers
+  `caseAlerts:createRecommendationLongRunning` and polls
+  `:fetchRecommendation`. The caseAlert key is NUMERIC: `--alert` accepts the
+  legacy identifier and resolves it via the modern `cases/{id}/caseAlerts`
+  sub-collection (`soar.ListCaseAlerts`, new). The API's semantic validation
+  answered (an alert must be OPEN at alert level for a generation), proving
+  path + resolution; a full generation awaits an open alert.
+- **Gemini chat (live-validated).** `query gemini '<question>'` over the
+  existing `chronicle/gemini.go` conversation flow; live replies carry HTML
+  blocks, rendered as plain prose (full entity decoding via the stdlib).
+  `--opt-in` runs the one-time account opt-in, and the SDK's opt-in-required
+  sentinel maps to an actionable "re-run with --opt-in" hint.
+- **AI generations honor read-only mode.** The AI verbs create server-side
+  artifacts (a summary, a recommendation) without the dry-run/--yes pair, so
+  they carry their own read-only hook: in a read-only session a generation is
+  refused (and audit-logged) while polling an existing result stays free.
+  `summarize` never re-kicks an existing or in-flight summary — `--refresh`
+  forces a new generation deliberately.
+- **Findings graph (live-validated).** `InitializeFindingsGraph` (detection
+  seed + time range) and `ExploreFindingsGraphNode` — the structured
+  "what is connected to this detection" primitive (`TestLiveWave56Read`
+  returned a real root + graph). SDK-only.
+- **AI playbook drafting (guarded).** `soar playbook generate` —
+  `--description <text>` or `--case-id N --alert <id>` — over the
+  `legacyPlaybooks:legacyAiGenerate`/`:legacyAiGenerateByAlert` lifecycle
+  (`AiUpdatePlaybook`/`AiGenerationStatusByAlert` in the SDK). Generation
+  creates a draft playbook → guarded; review flows through the standard loop.
+- **Watchlist membership (guarded).** `watchlists add-entity` (`entities:add`,
+  exactly-one-selector contract) — the containment/tracking response action;
+  `BatchRemoveWatchlistEntities` SDK-raw. Dry-run validated; write gated.
+- **Blocked server-side** (wired on BOTH hosts with
+  fallback, clean combined errors): `cases:countPriorities`
+  (`soar case counts` — 404 siemplify / 500 chronicle) and the
+  `enrichmentAgent` trio (`alerts enrich`/`actions`/`run-actions` — 500
+  chronicle / 404 siemplify). Confirm the id/filter forms against a live UI
+  request before concluding more.
+- **Docs.** CATALOG (new AI rows on both planes), SURFACES, usage guide,
+  ROADMAP.
+
 ---
 
 ## Non-goals

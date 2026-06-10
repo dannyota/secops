@@ -32,6 +32,7 @@ func newCaseAlertCmd() *cobra.Command {
 		newCaseAlertPriorityCmd(),
 		newCaseAlertMoveCmd(),
 		newCaseAlertReopenCmd(),
+		newCaseAlertRecommendCmd(),
 	)
 	return cmd
 }

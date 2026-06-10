@@ -105,6 +105,8 @@ func newSOARPlaybookCmd() *cobra.Command {
 		newSOARPlaybookStatsCmd(),
 		newSOARPlaybookExportCmd(),
 		newSOARPlaybookImportCmd(),
+		newSOARPlaybookGenerateCmd(),
+		newSOARPlaybookGenerateStatusCmd(),
 	)
 	return cmd
 }

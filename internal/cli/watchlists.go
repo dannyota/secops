@@ -6,17 +6,94 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"danny.vn/secops/chronicle"
 )
 
-// newWatchlistsCmd is the read-only watchlists surface (SIEM plane, v1). A
-// watchlist groups entities an analyst tracks; this lists/gets them.
+// newWatchlistsCmd is the watchlists surface (SIEM plane): read-only list/get
+// plus the guarded membership write — putting a compromised user/asset ON a
+// watchlist is a standard containment/tracking response action (membership
+// also feeds the risk-score multiplier rules can key on).
 func newWatchlistsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "watchlists",
-		Short: "Read-only: list/get SIEM entity watchlists",
+		Short: "SIEM entity watchlists: list/get (read-only) + guarded add-entity",
 	}
-	cmd.AddCommand(newWatchlistsListCmd(), newWatchlistsGetCmd())
+	cmd.AddCommand(newWatchlistsListCmd(), newWatchlistsGetCmd(), newWatchlistsAddEntityCmd())
 	return cmd
+}
+
+func newWatchlistsAddEntityCmd() *cobra.Command {
+	var (
+		ip, mac, hostname, userID, email, namespace string
+		dryRun, yes                                 bool
+	)
+	cmd := &cobra.Command{
+		Use:   "add-entity <watchlist-id> (--ip A | --mac M | --hostname H | --user U | --email E)",
+		Short: "MUTATING (guarded): put one entity on a watchlist (containment/tracking)",
+		Long: "Add an asset or user to a SIEM watchlist (entities:add). Exactly one\n" +
+			"selector is set per the API contract. Guarded: dry-run by default, --yes to\n" +
+			"apply.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entity, label, err := buildWatchlistEntity(ip, mac, hostname, userID, email, namespace)
+			if err != nil {
+				return err
+			}
+			action := fmt.Sprintf("watchlists add-entity %s (%s)", args[0], label)
+			return guardedSIEMMutation(action, dryRun, yes, func() error {
+				c, err := newChronicleClient()
+				if err != nil {
+					return err
+				}
+				_, err = c.AddWatchlistEntity(baseContext(), args[0], entity)
+				return err
+			})
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&ip, "ip", "", "asset IP address")
+	f.StringVar(&mac, "mac", "", "asset MAC address")
+	f.StringVar(&hostname, "hostname", "", "asset hostname")
+	f.StringVar(&userID, "user", "", "user id")
+	f.StringVar(&email, "email", "", "user email address")
+	f.StringVar(&namespace, "namespace", "", "optional entity namespace")
+	guardRunFlags(cmd, &dryRun, &yes)
+	return cmd
+}
+
+// buildWatchlistEntity maps the selector flags to the Entity oneof — exactly
+// one selector must be set (the API contract).
+func buildWatchlistEntity(ip, mac, hostname, userID, email, namespace string) (chronicle.WatchlistEntity, string, error) {
+	var (
+		e     = chronicle.WatchlistEntity{Namespace: namespace}
+		label string
+		set   int
+	)
+	if ip != "" {
+		e.Asset = map[string]any{"ip": []string{ip}}
+		label, set = "asset ip "+ip, set+1
+	}
+	if mac != "" {
+		e.Asset = map[string]any{"mac": []string{mac}}
+		label, set = "asset mac "+mac, set+1
+	}
+	if hostname != "" {
+		e.Asset = map[string]any{"hostname": hostname}
+		label, set = "asset hostname "+hostname, set+1
+	}
+	if userID != "" {
+		e.User = map[string]any{"userid": userID}
+		label, set = "user "+userID, set+1
+	}
+	if email != "" {
+		e.User = map[string]any{"email_addresses": []string{email}}
+		label, set = "user email "+email, set+1
+	}
+	if set != 1 {
+		return e, "", fmt.Errorf("set exactly one of --ip / --mac / --hostname / --user / --email")
+	}
+	return e, label, nil
 }
 
 func newWatchlistsListCmd() *cobra.Command {

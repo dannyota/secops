@@ -485,3 +485,18 @@ func caseResourceID(id string) string {
 	}
 	return id
 }
+
+// CountCasePriorities returns case counts grouped by priority for a filter set
+// (cases:countPriorities, e.g. filter "status=OPEN") — the chronicle-host twin
+// of the SOAR-host call; per the two-host rule the CLI tries both.
+func (c *Client) CountCasePriorities(ctx context.Context, filter string) (json.RawMessage, error) {
+	if strings.TrimSpace(filter) == "" {
+		return nil, fmt.Errorf("chronicle: filter is required")
+	}
+	q := url.Values{"filter": {filter}}
+	var out json.RawMessage
+	if err := c.get(ctx, c.resourcePath("cases:countPriorities", false), &out, withQuery(q)); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
