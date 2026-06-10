@@ -1326,7 +1326,7 @@ break it.
     store used by playbook scripts between runs.
 - **Docs.** CATALOG, usage guide.
 
-### Wave 49 — SOAR audit, notifications & reporting *(planned)*
+### Wave 49 — SOAR audit, notifications & reporting *(done)*
 
 - **Goal.** Operational visibility into platform activity and scheduled reports.
 - **Scope.**
