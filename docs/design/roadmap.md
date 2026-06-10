@@ -1426,6 +1426,48 @@ break it.
 - **Docs.** CATALOG (`alerts`, `soar case` rows + the new `soar case alert`
   row), SIEM-DESIGN, SOAR-DESIGN, usage + SOAR-cases guides.
 
+### Wave 53 — Agent safety & operability: read-only mode, mutation audit log, command catalog *(done — offline + live-validated; no tenant mutation involved)*
+
+- **Goal.** Make autonomous (LLM-agent / scripted) operation safe to leave
+  unattended: a hard cap on mutation set from *outside* the agent's argv, a
+  local record of what was actually confirmed, and an offline machine-readable
+  catalog of the verb surface.
+- **Hard read-only mode.** `SECOPS_READONLY=1` (env — set in the environment
+  that launches the agent) or the global `--read-only` flag degrades **every**
+  guarded mutation to a dry-run preview even with `--yes`; the legacy escape
+  hatch (`soar legacy call --write`/PUT/DELETE) refuses the send outright. The
+  env parse **fails closed**: any value other than an explicit falsy
+  (`0`/`false`/`no`/`off`/empty) enables the cap, so a mis-spelled truthy never
+  silently leaves a session write-capable. Enforced in one shared guard core
+  (`deriveGuard`) behind the funnels every tenant mutation flows through
+  (`soarGuard`, `guardedSIEMMutation`, the `push` derivation, the cleanup plan
+  emitter, the legacy-call write branch), so guard semantics cannot drift
+  between planes. `--json` reports `dry_run: true, applied: false`; a stderr
+  notice names the refused action. **Known limit:** a legacy `POST … --read` is
+  a caller assertion the tool cannot verify (this API reads via POST) — in
+  read-only mode such a call is still sent, with a stderr notice and an
+  `asserted-read` audit record making the trust decision reviewable. A
+  guardrail against unintended mutation, not a security boundary — the
+  credentials themselves still permit writes.
+- **Mutation audit log.** The same guard core appends one JSONL record per
+  **confirmed** mutation, per read-only refusal of a confirmed mutation, and
+  per read-only `asserted-read` POST, to `~/.secopsctl/audit.jsonl` (`0600`;
+  `$SECOPSCTL_HOME` honored): time, action, decision. Dry runs are not logged,
+  and refusals are recorded only after target validation (no phantom records
+  for a push that could never have run); the log records guard decisions, not
+  server outcomes. Best-effort — a log-write failure never fails the command.
+- **`secopsctl commands [--json]`.** Walks the cobra tree offline (no
+  credentials) and lists every runnable command with its path, description,
+  local flags, and kind — `guarded-mutation` for commands carrying the
+  standard `--dry-run`/`--yes` gate, `read` otherwise. The verb-level companion
+  to `surfaces`, and the generator input for agent tool lists and per-command
+  allowlists.
+- **Validation.** Read-only degrade validated live on the SOAR verb, SIEM verb,
+  push, and legacy-call paths (`--yes` produced no API call); audit records and
+  the `0600` mode unit-tested; catalog kinds unit-tested against known verbs.
+- **Docs.** Usage guide (global flags + the `commands` row), the LLM &
+  automation tips (agent contract + guardrails), ROADMAP.
+
 ---
 
 ## Non-goals

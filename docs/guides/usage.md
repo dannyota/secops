@@ -23,6 +23,7 @@ Set on any command:
 | `--json` | Emit machine-readable JSON where supported (shape is per-command). |
 | `--legacy` | Force the legacy AppKey path on dual-generation surfaces (currently `soar case list`); ignored where a command has no modern/legacy split. Reach for it when a New-API call 500s. |
 | `--non-interactive` | Never prompt; a guarded mutation without `--yes` is refused rather than asking. For CI/agents. |
+| `--read-only` | Hard read-only session: every guarded mutation degrades to a dry-run preview even with `--yes`. Also enabled by `SECOPS_READONLY=1` — set it in the environment that launches an autonomous agent. Confirmed mutations and read-only refusals are appended to `~/.secopsctl/audit.jsonl` (`0600`). |
 | `-v, --version` | Print version and exit. |
 | `-h, --help` | Help for any command. `<cmd> <target> --help` (e.g. `push feeds --help`) adds a per-target note: the surface's plane/version, whether `--prune` can delete it, and its write gotchas. |
 
@@ -65,6 +66,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | Command | What it does |
 |---|---|
 | `info` | Show the resolved instance config (no API call; AppKey redacted). |
+| `commands` | List every command with its kind — `read` vs `guarded-mutation` (the `--dry-run`/`--yes` gate) — offline, no credentials. The verb-level companion to `surfaces`; with `--json`, the input for agent tool lists and per-command allowlists. |
 | `doctor` | Live smoke test: config + auth + SIEM/SOAR reachability. |
 | `pull <target>` | Snapshot live state to local files. Targets: `rules`, `reference_lists`, `data_tables`, `dashboards`, `curated`, `curated_rules`, `feeds`, `parsers`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`, `all`. `--filter` applies to `curated_rules` only. |
 | `drift [target...]` | Report how live state has drifted from local files (CI gate; exit 2 on drift). No target = every engine surface; `--siem`/`--soar` scope to one plane. |

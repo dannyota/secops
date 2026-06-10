@@ -96,6 +96,13 @@ func runPush(cmd *cobra.Command, args []string) error {
 
 	dryRun := pushDryRun || !pushYes
 	assumeYes := pushYes && !pushDryRun
+	// Read-only mode degrades every push to a dry run, --yes or not. The notice
+	// and audit record are written by maybeConfirm — AFTER target/data-dir
+	// validation — so a push that could never have run leaves no phantom record.
+	readOnly := readOnlyMode()
+	if readOnly {
+		dryRun, assumeYes = true, false
+	}
 
 	client, err := newChronicleClient()
 	if err != nil {
@@ -109,8 +116,18 @@ func runPush(cmd *cobra.Command, args []string) error {
 	// run to assumeYes; anything else (incl. no TTY / --non-interactive) leaves it
 	// false so the mirror layer aborts cleanly.
 	maybeConfirm := func() {
+		if readOnly {
+			if pushYes {
+				noteReadOnly("push " + target)
+				auditMutation("push "+target, "read-only")
+			}
+			return
+		}
 		if !dryRun && !assumeYes && confirmPush(target) {
 			assumeYes = true
+		}
+		if assumeYes {
+			auditMutation("push "+target, "confirmed")
 		}
 	}
 

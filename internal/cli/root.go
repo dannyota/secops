@@ -56,6 +56,11 @@ func Execute() int {
 	return 0
 }
 
+// helpOnlyParents marks the group parents whose RunE was injected by
+// requireSubcommand (help-only, not real work) — so the `commands` catalog can
+// tell a genuinely runnable parent (e.g. `info`) from a navigation group.
+var helpOnlyParents = map[*cobra.Command]bool{}
+
 // requireSubcommand makes every parent command (one that has subcommands and no
 // run of its own) reject an unknown or extra argument, so a typo'd subcommand
 // (`soar bogus`) exits non-zero instead of silently printing help with status 0.
@@ -74,6 +79,7 @@ func requireSubcommand(cmd *cobra.Command) {
 			cmd.Args = cobra.NoArgs
 		}
 		cmd.RunE = func(c *cobra.Command, _ []string) error { return c.Help() }
+		helpOnlyParents[cmd] = true
 	}
 }
 
@@ -88,6 +94,9 @@ func init() {
 			"ignored where a command has no modern/legacy split")
 	pf.BoolVar(&nonInteractive, "non-interactive", false,
 		"never prompt; a guarded mutation without --yes is refused rather than asking")
+	pf.BoolVar(&readOnlyFlag, "read-only", false,
+		"hard read-only session: every guarded mutation degrades to a dry-run preview even with --yes "+
+			"(also enabled by SECOPS_READONLY=1 — set it in the environment that launches an agent)")
 }
 
 func initViper() {

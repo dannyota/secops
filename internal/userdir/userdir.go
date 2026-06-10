@@ -12,6 +12,7 @@
 //
 //	~/.secopsctl/
 //	├── instance.yaml   # the default config location (0600 when it holds a key)
+//	├── audit.jsonl     # guard-decision audit log for live mutations (0600)
 //	└── cache/          # non-secret cached data (reserved)
 package userdir
 

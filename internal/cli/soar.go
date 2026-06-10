@@ -106,14 +106,11 @@ func init() {
 }
 
 // soarGuard derives the dry-run / confirmation state from the standard flags and
-// the interactive prompt, mirroring `push`.
+// the interactive prompt, mirroring `push`. In read-only mode every mutation
+// degrades to a dry run (--yes or not); a confirmed mutation is recorded in the
+// local audit log. (The decision core is the shared deriveGuard.)
 func soarGuard(target string, dryRunFlag, yesFlag bool) (dryRun, assumeYes bool) {
-	dryRun = dryRunFlag || !yesFlag
-	assumeYes = yesFlag && !dryRunFlag
-	if !dryRun && !assumeYes && confirmPush(target) {
-		assumeYes = true
-	}
-	return dryRun, assumeYes
+	return deriveGuard(target, dryRunFlag, yesFlag)
 }
 
 // parseIntList parses "1,2,3" into []int.

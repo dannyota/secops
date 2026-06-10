@@ -212,13 +212,11 @@ func filterCuratedRows(rows []curatedRow, sub string) []curatedRow {
 
 // guardedSIEMMutation runs a live SIEM mutation behind the standard guard: a LIVE
 // banner + the action, dry-run by default, --yes (or an interactive confirm) to
-// apply. Mirrors the SOAR `soar case` guard for the SIEM side.
+// apply. Mirrors the SOAR `soar case` guard for the SIEM side. In read-only mode
+// every mutation degrades to a dry run; confirmed mutations are audit-logged
+// (the decision core is the shared deriveGuard).
 func guardedSIEMMutation(action string, dryRunFlag, yesFlag bool, do func() error) error {
-	dryRun := dryRunFlag || !yesFlag
-	assumeYes := yesFlag && !dryRunFlag
-	if !dryRun && !assumeYes && confirmPush(action) {
-		assumeYes = true
-	}
+	dryRun, assumeYes := deriveGuard(action, dryRunFlag, yesFlag)
 	// In --json mode, emit a single structured result instead of the human banner
 	// so stdout stays valid JSON (confirmPush already declines to prompt under
 	// --json). Callers' do() must not print to stdout in this mode.

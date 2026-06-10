@@ -16,10 +16,13 @@ needs:
 | Property | What it gives an agent |
 |---|---|
 | **Deterministic flags, no hidden interactivity** | Every action is a flag, not a menu. The only prompt is the push confirmation, skippable with `--yes` — an agent never stalls on a prompt it can't see. |
-| **`--json`** | The global `--json` flag emits machine-readable JSON on the read commands (`query udm`, `alerts`, `cases`, `iocs`, `ti`, `rules`, `watchlists`, `curated`, `info`, `version`, the `soar` read verbs) **and** on `doctor`, `drift`, `push`, and the `soar case` mutating verbs (`push` reports the plan/result; case verbs report `{action, dry_run, applied}`). Parse that JSON instead of scraping pretty output. `pull` still prints human text — its real output is the files it writes (inspect with `git diff`). |
+| **`--json`** | The global `--json` flag emits machine-readable JSON on the read commands (`query udm`, `alerts`, `cases`, `iocs`, `ti`, `rules`, `watchlists`, `curated`, `info`, `version`, the `soar` read verbs) **and** on `doctor`, `drift`, `push`, and the `alerts update` / `soar case` mutating verbs (`push` reports the plan/result; guarded verbs report `{action, dry_run, applied}`). Parse that JSON instead of scraping pretty output. `pull` still prints human text — its real output is the files it writes (inspect with `git diff`). |
 | **`--help` on every command** | Introspect the surface (`secopsctl --help`, `secopsctl pull --help`, …) to discover targets and flags rather than guessing. |
-| **Lazy imports / offline-safe** | `--help` and `info` work with no auth or network, so an agent can explore the surface before any credential is in play. |
+| **`commands --json`** | The whole verb catalog in one offline call: every command's path, description, local flags, and **kind** (`read` vs `guarded-mutation` — the `--dry-run`/`--yes` gate). Generate an agent's tool list or a per-command allowlist from it instead of walking help screens. |
+| **Lazy imports / offline-safe** | `--help`, `info`, and `commands` work with no auth or network, so an agent can explore the surface before any credential is in play. |
 | **Explicit read/write asymmetry** | `pull`/`query`/`drift` never mutate; only `push` does, and it says so loudly. |
+| **Hard read-only mode** | `SECOPS_READONLY=1` (set in the environment that *launches* the agent) or the global `--read-only` flag degrades **every** guarded mutation to a dry-run preview, `--yes` or not — so an investigation session cannot deploy through the guarded verbs. The env parse fails closed (any value except `0`/`false`/`no`/`off` enables it). One caller-trusted edge: a legacy `soar legacy call <op> --method POST --read` asserts the POST is a read — the tool cannot verify that, so in read-only mode it is sent with a stderr notice and an `asserted-read` audit record. A guardrail against unintended mutation, not a security boundary (the credentials still permit writes). |
+| **Local mutation audit log** | Every **confirmed** mutation (and every read-only refusal) appends one JSONL record — time, action, decision — to `~/.secopsctl/audit.jsonl` (`0600`). "What did the agent change yesterday" is answerable locally; the log records guard decisions, not server outcomes. |
 
 ## The dry-run-first contract for agents
 
@@ -53,10 +56,12 @@ Guardrails for an autonomous agent:
 
 | Guardrail | Rule |
 |---|---|
+| **Investigation sessions run read-only** | When the agent's task is to *look*, not *change*, launch it with `SECOPS_READONLY=1` in its environment. Every guarded mutation then degrades to a dry-run preview (`--json` reports `applied: false`), and the refusal is audit-logged. Lift the env only for a session whose explicit job is to deploy. |
 | **Reads parallelize; writes serialize** | Agents `pull`/`query` concurrently (reads never touch tenant state). Never run two `push` ops against one instance at once, nor edit the same entity area from two agents without a fresh `pull` each ([01-secops-as-code.md](01-secops-as-code.md)). |
 | **Pull before edit; re-pull after deploy** | Refresh local state before editing; re-pull after any mutation so companion metadata (`etag`, server IDs, deployment state) mirrors live. Verify "is X live?" against the instance, not git. |
 | **Never invent identifiers** | Read project/region/customer from config ([02-architecture-client.md](02-architecture-client.md)); never hard-code a tenant value into a command. |
 | **Escalate, don't improvise** | A surprising dry-run preview, an `etag` mismatch, or a `FAILED` feed ([08-feeds-parsers.md](08-feeds-parsers.md)) → report it rather than forcing through. |
+| **Review the audit trail** | After an agent session that deployed anything, `~/.secopsctl/audit.jsonl` lists each confirmed mutation with its timestamp and action — diff it against what the session was *supposed* to do. |
 
 ## Verify before you trust (especially as an agent)
 

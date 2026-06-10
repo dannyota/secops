@@ -200,17 +200,43 @@ func newSOARLegacyCallCmd() *cobra.Command {
 				return nil
 			}
 
+			// In hard read-only mode an asserted-read POST is still sent — the tool
+			// cannot verify a legacy POST is actually read-only (this API reads via
+			// POST), so --read is the one caller-trusted assertion in the cap. Make
+			// the trust decision visible: a stderr note plus an audit record.
+			if method == "POST" && readOnly && readOnlyMode() {
+				fmt.Fprintf(os.Stderr, "read-only mode: sending POST %s on the caller's --read assertion (audited; the tool cannot verify a legacy POST is read-only)\n", op)
+				auditMutation(fmt.Sprintf("POST %s (--read)", op), "asserted-read")
+			}
+
 			if write || method == "PUT" || method == "DELETE" {
+				action := fmt.Sprintf("%s %s", method, op)
+				// Read-only mode refuses the send outright (the explicit --dry-run
+				// branch above remains the preview path). Like the other guard
+				// funnels, the notice/audit fire only for a CONFIRMED mutation;
+				// the --json shape matches the documented read-only contract.
+				if readOnlyMode() {
+					if yes {
+						noteReadOnly(action)
+						auditMutation(action, "read-only")
+					}
+					if jsonOut {
+						return emitGuardedResult(action, true, false)
+					}
+					fmt.Fprintln(os.Stdout, "Read-only mode: mutating call not sent. Aborted.")
+					return nil
+				}
 				if !jsonOut { // a banner on stdout would corrupt --json output
 					legacyCallBanner(method, op)
 				}
 				if !yes {
 					if jsonOut {
-						return emitGuardedResult(fmt.Sprintf("%s %s", method, op), false, false)
+						return emitGuardedResult(action, false, false)
 					}
 					fmt.Fprintln(os.Stdout, "Refusing a mutating call without --yes. Aborted.")
 					return nil
 				}
+				auditMutation(action, "confirmed")
 			}
 
 			lc, err := newSOARLegacyClient()

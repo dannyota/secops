@@ -42,10 +42,14 @@ func newCleanupSmokeArtifactsCmd() *cobra.Command {
 			}
 			ctx := baseContext()
 			items, warnings := buildSmokeCleanupPlan(ctx, c)
-			dry := dryRun || !yes
 			applied := false
 			if jsonOut {
-				if !dry && yes {
+				// The rich plan payload replaces emitGuardedResult here, but the
+				// decision itself rides the same shared guard core as every other
+				// mutation (read-only degrade + audit included).
+				action := fmt.Sprintf("cleanup smoke-artifacts: %d secopsctl-owned item(s)", len(items))
+				dry, apply := deriveGuard(action, dryRun, yes)
+				if apply {
 					if err := applySmokeCleanup(items); err != nil {
 						return err
 					}
