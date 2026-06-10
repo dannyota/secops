@@ -631,7 +631,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 
 ---
 
-## Waves 25–43 — operability, UX & coverage completion
+## Waves 25–49 — operability, UX & coverage completion
 
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
@@ -1253,6 +1253,88 @@ break it.
   test cases can be created, listed, generated into the case queue, and deleted —
   the full playbook-development loop without the UI.
 - **Docs.** CATALOG (`soar case`), usage guide.
+
+### Wave 44 — Case collaboration (chat) *(planned)*
+
+- **Goal.** Operate case-wall chat from the terminal — send messages, list
+  threads, pin/unpin — so SOC collaboration is reachable from scripts and agents.
+- **Scope.** `soar case chat list --case-id N` (list messages), `soar case chat
+  send --case-id N --message <text>` (guarded), `soar case chat pin/unpin`
+  (guarded), `soar case chat unread-count --case-id N`. v1alpha
+  `cases.chatMessages` resource (create/list/get/pinMessage/unpinMessage/
+  unreadMessagesCount). `--json` returns the raw payloads.
+- **Docs.** CATALOG (`soar case chat`), usage guide.
+
+### Wave 45 — Parser extensions *(planned)*
+
+- **Goal.** Manage low-code parser extensions from the terminal — the modern
+  parser customization path alongside full CBN parsers.
+- **Scope.** `parsers extension list <log-type>`, `parsers extension get`,
+  `parsers extension create` (guarded), `parsers extension activate` (guarded),
+  `parsers extension delete` (guarded), plus validation report reads
+  (`extensionValidationReports` + `validationErrors`). v1alpha
+  `logTypes.parserExtensions` resource. Extends the existing `parsers` command
+  group.
+- **Docs.** CATALOG (`parsers`), SIEM-DESIGN, usage guide.
+
+### Wave 46 — Log processing pipelines *(planned)*
+
+- **Goal.** Manage log processing pipelines — the SIEM log transformation layer
+  that normalizes logs before parsing.
+- **Scope.** `pipeline list`, `pipeline get <id>`, `pipeline create` (guarded),
+  `pipeline update` (guarded), `pipeline delete` (guarded),
+  `pipeline test --logs <file>` (preview processed output),
+  `pipeline associate-streams` / `dissociate-streams` (guarded). v1alpha
+  `logProcessingPipelines` resource. New top-level command group.
+- **Docs.** CATALOG (`pipelines`), SIEM-DESIGN, usage guide.
+
+### Wave 47 — Content Hub deploy & featured playbooks *(planned)*
+
+- **Goal.** Complete the Content Hub lifecycle: deploy playbooks, connectors, and
+  test cases from content packs, and browse/install Google-curated featured
+  playbooks.
+- **Scope.**
+  - Content pack deploy verbs: `soar marketplace contentpacks deploy-playbooks`,
+    `deploy-connectors`, `deploy-test-cases`, `install-integration`,
+    `align-playbooks`, `mark-deployed` (all guarded). `add` (create custom pack,
+    guarded), `export`/`import` (round-trip). v1alpha `contentHub.contentPacks`.
+  - Featured playbooks: `soar marketplace featured list`, `get <id>`,
+    `install <id>` (guarded), `facets` (filter values). v1alpha
+    `contentHub.featuredContentPlaybooks` + `featuredContentNativeDashboards`.
+  - Reads extend the existing `soar marketplace` group; writes are guarded.
+- **Docs.** CATALOG (`soar marketplace`), usage guide.
+
+### Wave 48 — System info & case enrichment *(planned)*
+
+- **Goal.** Surface platform metadata and per-case structured data that enrich
+  operational reads.
+- **Scope.**
+  - **System info:** `legacySystem` reads (license status, data retention limit,
+    platform version) folded into `secopsctl info --system` or `doctor`.
+  - **Custom field values:** `soar case custom-fields list --case-id N`,
+    `set --case-id N --field <name> --value <val>` (guarded). v1alpha
+    `cases.customFieldValues` (list/get/patch/batchUpdate).
+  - **Case wall records:** `soar case wall --case-id N` (list timeline entries,
+    favorite/unfavorite). v1alpha `cases.caseWallRecords` (list/get/favorite/
+    fetchActivitiesCount).
+  - **Context properties:** `soar case context list --case-id N`,
+    `set --case-id N --key <k> --value <v>` (guarded), `clear-all` (guarded).
+    v1alpha `cases.contextProperties` (CRUD + clearAll). The case-level key-value
+    store used by playbook scripts between runs.
+- **Docs.** CATALOG, usage guide.
+
+### Wave 49 — SOAR audit, notifications & reporting *(planned)*
+
+- **Goal.** Operational visibility into platform activity and scheduled reports.
+- **Scope.**
+  - **Audit logs:** `legacySoarAudit` reads (getAuditDataV2, exportAuditLastWeek).
+  - **User notifications:** `legacySoarUsers.userNotifications` (list/get/count/
+    markAsRead) — read + acknowledge operator notifications from scripts.
+  - **Report schedules:** `legacySoarReports` reads (getReportSchedules,
+    getReportTemplates) and guarded writes (addOrUpdateReportSchedule,
+    deleteReportSchedule).
+  Lower priority than the operational waves; build when the need arises.
+- **Docs.** CATALOG, usage guide.
 
 ---
 
