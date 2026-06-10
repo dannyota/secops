@@ -24,10 +24,24 @@ type pullState struct {
 	Count    int    `json:"count"`
 }
 
+// PullOpts controls optional behavior on Pull.
+type PullOpts struct {
+	// Prune removes local files with no live counterpart after writing, so the
+	// mirror directory is an exact 1:1 reflection of the instance. Refused on an
+	// incomplete listing (some items skipped during the pull).
+	Prune bool
+}
+
 // Pull lists every live object and writes it to dir, then records pull state.
-// It is non-destructive: it never removes local files (use git to review what a
-// pull changed). Returns the number of objects written.
-func Pull(ctx context.Context, s Surface, dir string, w io.Writer) (int, error) {
+// By default it is additive (never removes local files — use git to review
+// what changed). Pass opts.Prune to remove stale local files.
+// Returns the number of objects written.
+func Pull(ctx context.Context, s Surface, dir string, w io.Writer, opts ...PullOpts) (int, error) {
+	var opt PullOpts
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return 0, err
 	}
@@ -44,6 +58,7 @@ func Pull(ctx context.Context, s Surface, dir string, w io.Writer) (int, error) 
 	for _, o := range res.Objects {
 		counts[o.Slug]++
 	}
+	liveFiles := make(map[string]bool, len(res.Objects))
 	written := 0
 	for _, o := range res.Objects {
 		if counts[o.Slug] > 1 && o.ServerID != "" {
@@ -52,18 +67,56 @@ func Pull(ctx context.Context, s Surface, dir string, w io.Writer) (int, error) 
 		if err := s.Write(dir, o); err != nil {
 			return written, err
 		}
+		liveFiles[o.Slug] = true
 		written++
 	}
 	st := pullState{Surface: s.Name, Complete: !res.Incomplete, Count: written}
 	if err := writePullState(dir, st); err != nil {
 		return written, err
 	}
+
+	pruned := 0
+	if opt.Prune {
+		if res.Incomplete {
+			fmt.Fprintf(w, "%s: --prune refused — listing was incomplete (some items skipped)\n", s.Name)
+		} else {
+			pruned = pruneLocalFiles(dir, liveFiles, w, s.Name)
+		}
+	}
+
 	note := ""
 	if res.Incomplete {
 		note = "  (INCOMPLETE — some items skipped; --prune will be refused)"
+	} else if pruned > 0 {
+		note = fmt.Sprintf("  (pruned %d stale file(s))", pruned)
 	}
 	fmt.Fprintf(w, "%s: wrote %d object(s) -> %s/%s\n", s.Name, written, dir, note)
 	return written, nil
+}
+
+// pruneLocalFiles removes data files in dir that are not in the live set.
+// Skips hidden files (dot-prefix), pull-state metadata, and subdirectories.
+func pruneLocalFiles(dir string, liveSlugs map[string]bool, w io.Writer, _ string) int {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0
+	}
+	pruned := 0
+	for _, e := range entries {
+		if e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		slug := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+		if liveSlugs[slug] {
+			continue
+		}
+		if rerr := os.Remove(filepath.Join(dir, e.Name())); rerr != nil {
+			fmt.Fprintf(w, "  (warn) prune %s: %v\n", e.Name(), rerr)
+			continue
+		}
+		pruned++
+	}
+	return pruned
 }
 
 // BuildPlan classifies the difference between local files and live objects.

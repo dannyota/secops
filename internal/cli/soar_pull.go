@@ -16,7 +16,10 @@ import (
 )
 
 func newSOARPullCmd() *cobra.Command {
-	var out string
+	var (
+		out   string
+		prune bool
+	)
 	bespoke := []string{"grouping", "cases"}
 	engine := mirror.SOARSurfaceNames()
 	valid := append(append(append([]string{}, bespoke...), engine...), "all")
@@ -26,13 +29,17 @@ func newSOARPullCmd() *cobra.Command {
 		Short: "Read-only: snapshot SOAR state to local files",
 		Long: "Targets: " + strings.Join(valid, ", ") + ".\n" +
 			"Engine surfaces (" + strings.Join(engine, ", ") + ") snapshot one\n" +
-			"redacted, diff-friendly file per object for the pull->diff->push loop.",
+			"redacted, diff-friendly file per object for the pull->diff->push loop.\n\n" +
+			"--prune removes local files whose live counterparts have been deleted,\n" +
+			"so the mirror directory is an exact reflection of the instance. Refused\n" +
+			"on an incomplete listing to prevent false deletions.",
 		Args:      cobra.ExactArgs(1),
 		ValidArgs: valid,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := args[0]
 			root := filepath.Join(mirror.DataRoot(out), mirror.DirSOAR)
 			ctx := baseContext()
+			pullOpts := reconcile.PullOpts{Prune: prune}
 
 			runModern := func(fn func(*soar.Client, string) (int, error), sub string) error {
 				c, err := newSOARClient()
@@ -59,7 +66,7 @@ func newSOARPullCmd() *cobra.Command {
 				if !ok {
 					return fmt.Errorf("unknown engine surface %q", name)
 				}
-				_, err = reconcile.Pull(ctx, s, filepath.Join(root, s.Dir), os.Stdout)
+				_, err = reconcile.Pull(ctx, s, filepath.Join(root, s.Dir), os.Stdout, pullOpts)
 				return err
 			}
 
@@ -92,6 +99,8 @@ func newSOARPullCmd() *cobra.Command {
 			}
 		},
 	}
-	cmd.Flags().StringVar(&out, "out", "", "output root directory (default: cwd)")
+	f := cmd.Flags()
+	f.StringVar(&out, "out", "", "output root directory (default: cwd)")
+	f.BoolVar(&prune, "prune", false, "remove local files with no live counterpart")
 	return cmd
 }

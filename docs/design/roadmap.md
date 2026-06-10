@@ -631,15 +631,13 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
 
 ---
 
-## Waves 25–49 — operability, UX & coverage completion
+## Waves 25–51 — operability, UX & coverage completion
 
 A backlog surfaced by dogfooding the tool against its own help and docs, plus the
 config-as-code parity gaps the SOAR-first operating model still needs. Sequenced by
 value + dependency; git-style exit codes (`0`/`1`/`2`) are the shared contract.
-Waves 25–42 are recorded in committed sequence; older waves keep their deferred
-items where a gap remains. Waves 35–38, 40, and 42 are complete; Wave 39 (SOAR
-playbook interaction) and Wave 41 (SOAR integration & playbook lifecycle) are in
-progress.
+Waves 25–51 are recorded in committed sequence; older waves keep their deferred
+items where a gap remains.
 
 ### Wave 25 — CLI safety & foundations  *(done — offline, no live writes)*
 
@@ -1338,6 +1336,50 @@ break it.
     deleteReportSchedule).
   Lower priority than the operational waves; build when the need arises.
 - **Docs.** CATALOG, usage guide.
+
+### Wave 50 — Pull mirror accuracy & safety *(partial — prune done; redaction deferred)*
+
+- **Goal.** Make `soar pull` produce an exact, secret-free reflection of the live
+  instance — closing two gaps where the mirror silently diverges from reality.
+- **Scope.**
+  - **Prune stale files on pull *(done)*.** `soar pull <target> --prune` removes
+    local files with no live counterpart after writing. Implemented in the
+    reconcile engine (`reconcile.PullOpts{Prune: true}`) so every engine-backed
+    surface (SOAR and SIEM) gets it — playbooks, connectors, jobs, webhooks, etc.
+    Prune is refused on an incomplete listing (some items skipped during pull) to
+    prevent false deletions. Live-validated: a stale file was pruned on re-pull.
+  - **Pull-time redaction *(deferred)*.** Some integration actions take
+    secret-valued parameters as plain inline strings (e.g. a webhook URL with a
+    token), and `soar pull playbooks` faithfully writes those values into local
+    JSON files. A pull-time redaction mechanism (`--redact <regex>` or a
+    `.secopsctl-redact` patterns file) would mask matched values on write. Deferred
+    — the workaround is manual post-pull scrubbing or storing the secret as a SOAR
+    credential reference.
+- **Exit.** A full `soar pull playbooks` round-trip with `--prune` removes
+  locally-stale files; live-validated. Redaction deferred.
+- **Docs.** SOAR-DESIGN, CATALOG, usage guide.
+
+### Wave 51 — Batch playbook delete *(done)*
+
+- **Goal.** Multi-playbook delete in a single guarded command.
+- **Findings.** Live testing confirmed: all playbook types (certified, Content
+  Hub, custom, imported, referenced blocks) are deletable — no type is
+  protected. 18+ rapid back-to-back deletes succeed with no 500s. The earlier
+  report of rapid-succession 500s was not reproduced; likely a transient server
+  condition or the singular `DeleteWorkflow` endpoint hit with the wrong body
+  shape. The batch `DeleteWorkflows` (plural) endpoint handles multiple
+  identifiers atomically and returns per-result status.
+- **Scope (done).**
+  - **Batch delete verb** — `soar playbook delete --identifier a,b,c` (comma-
+    separated) or `--from-file <path>` (one identifier per line). Uses the batch
+    `DeleteWorkflows` endpoint in a single API call. Reports per-playbook
+    success/failure from the response `results[]`. Partial failures (e.g. a
+    bogus id mixed with valid ones) report per-item status without triggering a
+    spurious legacy fallback. Guarded: dry-run by default, `--yes` to apply.
+  - Single `--name` path preserved with `preferModern` + legacy fallback.
+- **Exit.** Batch + single delete live-validated; per-result reporting on partial
+  failures; no retry/backoff needed.
+- **Docs.** CATALOG (`soar playbook`), usage guide.
 
 ---
 

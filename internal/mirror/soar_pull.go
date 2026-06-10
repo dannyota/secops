@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"danny.vn/secops/soar"
 	"danny.vn/secops/soar/legacy"
@@ -112,8 +113,10 @@ func PullSOARCases(ctx context.Context, lc *legacy.Client, outDir string) (int, 
 }
 
 // PullSOARPlaybooks snapshots every playbook's full definition (via the v1alpha
-// bridge) to <outDir>/<playbook>.json. Returns playbooks written.
-func PullSOARPlaybooks(ctx context.Context, lc *legacy.Client, outDir string) (int, error) {
+// bridge) to <outDir>/<playbook>.json. When prune is true, local .json files
+// with no live counterpart are removed so the mirror is an exact 1:1
+// reflection of the instance. Returns playbooks written.
+func PullSOARPlaybooks(ctx context.Context, lc *legacy.Client, outDir string, prune bool) (int, error) {
 	if _, err := EnsureDir(outDir); err != nil {
 		return 0, err
 	}
@@ -122,6 +125,7 @@ func PullSOARPlaybooks(ctx context.Context, lc *legacy.Client, outDir string) (i
 		return 0, err
 	}
 
+	liveFiles := make(map[string]bool)
 	written := 0
 	for _, card := range cards {
 		pb, gerr := lc.GetPlaybook(ctx, card.Identifier)
@@ -133,13 +137,51 @@ func PullSOARPlaybooks(ctx context.Context, lc *legacy.Client, outDir string) (i
 		if name == "" {
 			name = card.Identifier
 		}
-		if err := writeIndentedJSON(filepath.Join(outDir, Slugify(name)+".json"), pb); err != nil {
+		filename := Slugify(name) + ".json"
+		if err := writeIndentedJSON(filepath.Join(outDir, filename), pb); err != nil {
 			return written, err
 		}
+		liveFiles[filename] = true
 		written++
 	}
-	fmt.Printf("soar-playbooks:  wrote %d playbook(s) -> %s/\n", written, outDir)
+
+	pruned := 0
+	if prune {
+		pruned, err = pruneStaleFiles(outDir, liveFiles)
+		if err != nil {
+			warnf("prune: %v", err)
+		}
+	}
+
+	msg := fmt.Sprintf("soar-playbooks:  wrote %d playbook(s) -> %s/", written, outDir)
+	if pruned > 0 {
+		msg += fmt.Sprintf(" (pruned %d stale file(s))", pruned)
+	}
+	fmt.Println(msg)
 	return written, nil
+}
+
+// pruneStaleFiles removes .json files in dir that are not in liveFiles.
+func pruneStaleFiles(dir string, liveFiles map[string]bool) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+	pruned := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		if liveFiles[e.Name()] {
+			continue
+		}
+		if rerr := os.Remove(filepath.Join(dir, e.Name())); rerr != nil {
+			warnf("prune %s: %v", e.Name(), rerr)
+			continue
+		}
+		pruned++
+	}
+	return pruned, nil
 }
 
 // writeIndentedJSON writes raw JSON to path, pretty-printed for clean diffs.
