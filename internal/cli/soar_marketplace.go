@@ -17,7 +17,8 @@ func newSOARMarketplaceCmd() *cobra.Command {
 		Use:   "marketplace",
 		Short: "Browse the Content Hub (marketplace integrations + content packs)",
 	}
-	cmd.AddCommand(newSOARMarketplaceListCmd(), newSOARMarketplaceGetCmd(), newSOARContentPacksCmd())
+	cmd.AddCommand(newSOARMarketplaceListCmd(), newSOARMarketplaceGetCmd(), newSOARContentPacksCmd(),
+		newSOARFeaturedCmd(), newSOARMarketplaceDiffCmd())
 	return cmd
 }
 

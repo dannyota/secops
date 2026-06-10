@@ -146,3 +146,62 @@ func (c *Client) ListContentPacks(ctx context.Context) ([]ContentPack, error) {
 	}
 	return all, nil
 }
+
+// ContentPackDeployPlaybooks deploys playbooks from a content pack.
+func (c *Client) ContentPackDeployPlaybooks(ctx context.Context, id string, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "contentHub/contentPacks/"+id+":deployPlaybooks", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ContentPackDeployConnectors deploys connector instances from a content pack.
+func (c *Client) ContentPackDeployConnectors(ctx context.Context, id string, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "contentHub/contentPacks/"+id+":deployConnectorInstances", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ContentPackDeployTestCases deploys test cases from a content pack.
+func (c *Client) ContentPackDeployTestCases(ctx context.Context, id string, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "contentHub/contentPacks/"+id+":deployTestCases", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ContentPackDelete deletes a custom content pack.
+func (c *Client) ContentPackDelete(ctx context.Context, id string) error {
+	return c.t.V1Alpha(ctx, "DELETE", "contentHub/contentPacks/"+id, nil, nil)
+}
+
+// FetchCommercialDiff returns the diff between installed and marketplace version.
+func (c *Client) FetchCommercialDiff(ctx context.Context, integrationID string) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "GET", "marketplaceIntegrations/"+integrationID+":fetchCommercialDiff", nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListFeaturedPlaybooks lists Google-curated featured playbooks.
+func (c *Client) ListFeaturedPlaybooks(ctx context.Context) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "GET", "contentHub/featuredContentPlaybooks", nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// InstallFeaturedPlaybook installs a featured playbook by resource name.
+func (c *Client) InstallFeaturedPlaybook(ctx context.Context, name string, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", name+":install", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
