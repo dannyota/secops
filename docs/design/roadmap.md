@@ -1265,7 +1265,7 @@ break it.
   unreadMessagesCount). `--json` returns the raw payloads.
 - **Docs.** CATALOG (`soar case chat`), usage guide.
 
-### Wave 45 — Parser extensions *(planned)*
+### Wave 45 — Parser extensions *(done)*
 
 - **Goal.** Manage low-code parser extensions from the terminal — the modern
   parser customization path alongside full CBN parsers.
@@ -1277,7 +1277,7 @@ break it.
   group.
 - **Docs.** CATALOG (`parsers`), SIEM-DESIGN, usage guide.
 
-### Wave 46 — Log processing pipelines *(planned)*
+### Wave 46 — Log processing pipelines *(done)*
 
 - **Goal.** Manage log processing pipelines — the SIEM log transformation layer
   that normalizes logs before parsing.
@@ -1288,7 +1288,7 @@ break it.
   `logProcessingPipelines` resource. New top-level command group.
 - **Docs.** CATALOG (`pipelines`), SIEM-DESIGN, usage guide.
 
-### Wave 47 — Content Hub deploy & featured playbooks *(planned)*
+### Wave 47 — Content Hub deploy & featured playbooks *(done)*
 
 - **Goal.** Complete the Content Hub lifecycle: deploy playbooks, connectors, and
   test cases from content packs, and browse/install Google-curated featured
@@ -1307,7 +1307,7 @@ break it.
   - Reads extend the existing `soar marketplace` group; writes are guarded.
 - **Docs.** CATALOG (`soar marketplace`), usage guide.
 
-### Wave 48 — System info & case enrichment *(planned)*
+### Wave 48 — System info & case enrichment *(done)*
 
 - **Goal.** Surface platform metadata and per-case structured data that enrich
   operational reads.
