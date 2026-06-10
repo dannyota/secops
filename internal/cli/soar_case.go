@@ -45,10 +45,98 @@ func newSOARCaseCmd() *cobra.Command {
 		newCaseTagCmd(true),
 		newCaseDescribeCmd(),
 		newCaseImportanceCmd(),
+		newCasePriorityCmd(),
 		newCaseCloseCmd(),
+		newCaseReopenCmd(),
 		newCaseMergeCmd(),
+		newCaseCommentCmd(),
+		newCaseAlertCmd(),
 		newCaseValuesCmd(),
 	)
+	return cmd
+}
+
+// guardRunFlags wires the shared --dry-run/--yes apply gate onto a verb (the
+// piece of caseGuardFlags that every guarded verb shares regardless of its
+// id/alert flag shape).
+func guardRunFlags(cmd *cobra.Command, dryRun, yes *bool) {
+	f := cmd.Flags()
+	f.BoolVar(dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(yes, "yes", false, "apply for real / skip confirmation")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+}
+
+func newCasePriorityCmd() *cobra.Command {
+	var (
+		caseID          int
+		alert, priority string
+		dryRun, yes     bool
+	)
+	cmd := &cobra.Command{
+		Use:   "priority --id N --priority <level>",
+		Short: "Change a case's priority",
+		Long: "Escalate or downgrade a case's priority (distinct from the `importance`\n" +
+			"flag): informative | low | medium | high | critical.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			p, err := legacy.ParseCasePriority(priority)
+			if err != nil {
+				return err
+			}
+			body := caseBody(caseID, alert)
+			body["priority"] = int(p)
+			return caseAction(fmt.Sprintf("set case %d priority -> %s", caseID, p), body, dryRun, yes,
+				func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
+					return lc.ChangeCasePriority(ctx, body)
+				})
+		},
+	}
+	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
+	cmd.Flags().StringVar(&priority, "priority", "", "target priority: informative|low|medium|high|critical (required)")
+	_ = cmd.MarkFlagRequired("priority")
+	return cmd
+}
+
+func newCaseReopenCmd() *cobra.Command {
+	var (
+		caseID      int
+		idsArg      string
+		comment     string
+		dryRun, yes bool
+	)
+	cmd := &cobra.Command{
+		Use:   "reopen (--id N | --ids 1,2,3) [--comment <s>]",
+		Short: "Reopen closed case(s) — the inverse of close",
+		Long: "Reopen one or more closed cases (ExecuteBulkReopenCase). The inverse of\n" +
+			"`close` / `soar push bulk-close`, so a wrong close is recoverable in-tool.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			var ids []int
+			switch {
+			case idsArg != "":
+				parsed, err := parseIntList(idsArg)
+				if err != nil {
+					return err
+				}
+				ids = parsed
+			case caseID != 0:
+				ids = []int{caseID}
+			default:
+				return fmt.Errorf("a case id is required (--id or --ids)")
+			}
+			body := map[string]any{"casesIds": ids, "reopenComment": comment}
+			return caseAction(fmt.Sprintf("reopen case(s) %v", ids), body, dryRun, yes,
+				func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
+					return lc.BulkReopenCase(ctx, body)
+				})
+		},
+	}
+	f := cmd.Flags()
+	f.IntVar(&caseID, "id", 0, "SOAR case id")
+	f.StringVar(&idsArg, "ids", "", "comma-separated case ids (bulk form)")
+	f.StringVar(&comment, "comment", "", "reopen comment (free-text note)")
+	guardRunFlags(cmd, &dryRun, &yes)
+	cmd.MarkFlagsMutuallyExclusive("id", "ids")
 	return cmd
 }
 
@@ -64,7 +152,9 @@ func caseBody(caseID int, alert string) map[string]any {
 
 // caseAction is the shared guarded executor: it previews the body under a LIVE
 // banner, stops on a dry run, refuses without confirmation, then calls do.
-func caseAction(action string, body map[string]any, dryRun, yes bool, do func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error)) error {
+// body is the request payload — a map or one of the typed soar/legacy request
+// structs — rendered verbatim in the preview and the --json result.
+func caseAction(action string, body any, dryRun, yes bool, do func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error)) error {
 	dr, ay := soarGuard(action, dryRun, yes)
 
 	// emit prints the machine-readable result under --json so the dry-run → --yes →
@@ -74,11 +164,11 @@ func caseAction(action string, body map[string]any, dryRun, yes bool, do func(ct
 			return nil
 		}
 		return emitJSON(struct {
-			Action  string         `json:"action"`
-			Request map[string]any `json:"request"`
-			DryRun  bool           `json:"dry_run"`
-			Applied bool           `json:"applied"`
-			OK      bool           `json:"ok"`
+			Action  string `json:"action"`
+			Request any    `json:"request"`
+			DryRun  bool   `json:"dry_run"`
+			Applied bool   `json:"applied"`
+			OK      bool   `json:"ok"`
 		}{Action: action, Request: body, DryRun: dr, Applied: applied, OK: true})
 	}
 
@@ -126,9 +216,7 @@ func caseGuardFlags(cmd *cobra.Command, caseID *int, alert *string, dryRun, yes 
 	if withAlert {
 		f.StringVar(alert, "alert", "", "optional alert identifier to scope the action")
 	}
-	f.BoolVar(dryRun, "dry-run", false, "preview only (default behavior)")
-	f.BoolVar(yes, "yes", false, "apply for real / skip confirmation")
-	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	guardRunFlags(cmd, dryRun, yes)
 	_ = cmd.MarkFlagRequired("id")
 }
 
@@ -362,9 +450,7 @@ func newCaseMergeCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&idsArg, "ids", "", "comma-separated source case ids (required)")
 	f.IntVar(&into, "into", 0, "target case id to merge into (required)")
-	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
-	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
-	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("into")
 	return cmd

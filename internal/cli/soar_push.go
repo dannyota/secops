@@ -179,8 +179,15 @@ func parseCloseReason(s string) (legacy.CloseReason, error) {
 	case "unknown":
 		return legacy.CloseUnknown, nil
 	}
+	// A raw integer is accepted only when it is one of the server's defined
+	// codings — an arbitrary number would otherwise reach the wire as the Go
+	// fallback string "CloseReason(N)".
 	if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
-		return legacy.CloseReason(n), nil
+		switch r := legacy.CloseReason(n); r {
+		case legacy.CloseMalicious, legacy.CloseNotMalicious, legacy.CloseMaintenance,
+			legacy.CloseInconclusive, legacy.CloseUnknown:
+			return r, nil
+		}
 	}
 	return 0, fmt.Errorf("invalid close reason %q (use malicious|not-malicious|maintenance|inconclusive|unknown)", s)
 }

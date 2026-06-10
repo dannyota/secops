@@ -383,6 +383,21 @@ func (u AlertUpdate) build() (alertFeedbackBody, bool, error) {
 	return fb, set, nil
 }
 
+// Validate checks the update client-side — enum membership, score ranges, and
+// that at least one field is set — without making any API call. UpdateAlert
+// runs the same checks; this lets a caller (e.g. a dry-run preview) fail fast
+// before any guard or credential resolution.
+func (u AlertUpdate) Validate() error {
+	_, set, err := u.build()
+	if err != nil {
+		return err
+	}
+	if !set {
+		return fmt.Errorf("chronicle: at least one alert property must be specified for update")
+	}
+	return nil
+}
+
 // alertUpdateBody is the legacy:legacyUpdateAlert request payload.
 type alertUpdateBody struct {
 	AlertID  string            `json:"alert_id"`
@@ -410,6 +425,12 @@ func (c *Client) UpdateAlert(ctx context.Context, alertID string, updates AlertU
 			Body:   "at least one alert property must be specified for update",
 		}
 	}
+	return c.updateAlertPrebuilt(ctx, alertID, fb)
+}
+
+// updateAlertPrebuilt posts an already-built (validated) feedback body for one
+// alert — the shared core of UpdateAlert and BulkUpdateAlerts.
+func (c *Client) updateAlertPrebuilt(ctx context.Context, alertID string, fb alertFeedbackBody) (*Alert, error) {
 	body := alertUpdateBody{AlertID: alertID, Feedback: fb}
 	var a Alert
 	if err := c.post(ctx, c.alertPath("legacyUpdateAlert"), body, &a); err != nil {
@@ -421,14 +442,16 @@ func (c *Client) UpdateAlert(ctx context.Context, alertID string, updates AlertU
 // BulkUpdateAlerts applies the same feedback to each alert in alertIDs.
 //
 // DEVIATION: like the wrapper, there is no batch endpoint, so this fans out to
-// UpdateAlert per ID. We validate the update once up front (failing fast before
-// any mutation) instead of re-validating on every iteration, and we stop on the
-// first error — returning the alerts already updated plus the failing ID, so a
-// partial failure is diagnosable rather than silently dropped.
+// one update per ID. The update is built and validated once up front (failing
+// fast before any mutation), and the loop stops on the first error — returning
+// the alerts already updated plus the failing ID, so a partial failure is
+// diagnosable rather than silently dropped.
 func (c *Client) BulkUpdateAlerts(ctx context.Context, alertIDs []string, updates AlertUpdate) ([]*Alert, error) {
-	if _, set, err := updates.build(); err != nil {
+	fb, set, err := updates.build()
+	if err != nil {
 		return nil, err
-	} else if !set {
+	}
+	if !set {
 		return nil, &APIError{
 			Method: "POST",
 			URL:    c.alertPath("legacyUpdateAlert"),
@@ -443,7 +466,7 @@ func (c *Client) BulkUpdateAlerts(ctx context.Context, alertIDs []string, update
 		if id == "" {
 			continue
 		}
-		a, err := c.UpdateAlert(ctx, id, updates)
+		a, err := c.updateAlertPrebuilt(ctx, id, fb)
 		if err != nil {
 			return results, fmt.Errorf("chronicle: bulk update failed at alert %q: %w", id, err)
 		}

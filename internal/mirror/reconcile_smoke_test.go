@@ -1,11 +1,13 @@
 package mirror
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1420,6 +1422,52 @@ func TestLiveSOARCaseVerbsWriteSmoke(t *testing.T) {
 	r, e = lc.ChangeCaseStage(ctx, map[string]any{"caseId": a, "stage": "Triage"})
 	chk("stage", r, e)
 
+	r, e = lc.AddCaseComment(ctx, map[string]any{"caseId": a, "comment": "secopsctl smoke comment"})
+	chk("comment add", r, e)
+	if raw, err := lc.CaseXListComments(ctx, url.Values{"CaseId": {strconv.Itoa(a)}}); err != nil {
+		t.Errorf("comment list: %v", err)
+	} else if !bytes.Contains(raw, []byte("secopsctl smoke comment")) {
+		t.Errorf("comment list does not include the added comment: %s", truncate(string(raw), 400))
+	}
+
+	// Per-ALERT verbs on a third throwaway case (its manual alert is the target):
+	// re-prioritize → close → reopen → move into A. Then the case-level close →
+	// reopen round-trip on the now-empty case.
+	cse := mkCase()
+	t.Cleanup(func() {
+		_, _ = lc.BulkCloseCases(ctx, legacy.BulkCloseRequest{
+			CasesIDs: []int{cse}, CloseReason: legacy.CloseMaintenance,
+			RootCause: "secopsctl smoke", CloseComment: "secopsctl smoke", DynamicParameters: []any{},
+		})
+	})
+	ident, alertName, alertPrio := firstCaseAlert(ctx, t, lc, cse)
+	if ident != "" {
+		r, e = lc.UpdateAlertPriority(ctx, legacy.UpdateAlertPriorityRequest{
+			CaseID: cse, AlertIdentifier: ident, AlertName: alertName,
+			PreviousPriority: legacy.CasePriority(alertPrio), Priority: legacy.PriorityMedium,
+		})
+		chk("alert priority", r, e)
+		r, e = lc.CloseAlert(ctx, legacy.CloseAlertRequest{
+			SourceCaseID: cse, AlertIdentifier: ident, Reason: "Maintenance",
+			RootCause: "secopsctl smoke", Comment: "secopsctl smoke",
+		})
+		chk("alert close", r, e)
+		r, e = lc.ReopenAlert(ctx, legacy.ReopenAlertRequest{CaseID: cse, AlertIdentifier: ident})
+		chk("alert reopen", r, e)
+		r, e = lc.MoveAlertToNewCase(ctx, legacy.MoveAlertRequest{
+			AlertIdentifier: ident, SourceCaseID: cse, DestinationCaseID: a,
+		})
+		chk("alert move", r, e)
+	} else {
+		t.Log("throwaway case has no alert identifier; per-alert verbs skipped")
+	}
+	r, e = lc.CloseCase(ctx, map[string]any{
+		"caseId": cse, "reason": "Maintenance", "rootCause": "secopsctl smoke", "comment": "secopsctl smoke",
+	})
+	chk("close (pre-reopen)", r, e)
+	r, e = lc.BulkReopenCase(ctx, map[string]any{"casesIds": []int{cse}, "reopenComment": "secopsctl smoke"})
+	chk("case reopen", r, e)
+
 	// Merge B into A, then close A (destructive — both are throwaways). The merge
 	// target must be present in casesIds ("Cannot merge cases with case that is not
 	// selected"), so the set includes both A and B.
@@ -1429,4 +1477,26 @@ func TestLiveSOARCaseVerbsWriteSmoke(t *testing.T) {
 		"caseId": a, "reason": "Maintenance", "rootCause": "secopsctl smoke", "comment": "secopsctl smoke",
 	})
 	chk("close", r, e)
+}
+
+// firstCaseAlert reads a case's first alert (identifier, name, priority) for the
+// per-alert verb smoke; empty identifier means the case carries no alert yet.
+func firstCaseAlert(ctx context.Context, t *testing.T, lc *legacy.Client, caseID int) (string, string, int) {
+	t.Helper()
+	raw, err := lc.GetCaseFullDetails(ctx, caseID)
+	if err != nil {
+		t.Errorf("get case %d details: %v", caseID, err)
+		return "", "", 0
+	}
+	var cs struct {
+		Alerts []struct {
+			Identifier string `json:"identifier"`
+			Name       string `json:"name"`
+			Priority   int    `json:"priority"`
+		} `json:"alerts"`
+	}
+	if err := json.Unmarshal(raw, &cs); err != nil || len(cs.Alerts) == 0 {
+		return "", "", 0
+	}
+	return cs.Alerts[0].Identifier, cs.Alerts[0].Name, cs.Alerts[0].Priority
 }

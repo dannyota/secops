@@ -9,6 +9,48 @@ package legacy
 
 import "context"
 
+// Typed request bodies for the per-alert verbs. The wire shapes differ subtly
+// per verb (close/move key the case as sourceCaseId; priority/reopen as caseId),
+// so the structs pin them once for every caller — the CLI and the live write
+// smoke share these instead of hand-building maps that could drift.
+
+// CloseAlertRequest closes one alert within a case (the case stays open).
+// Reason takes the PascalCase wire token (Malicious | NotMalicious |
+// Maintenance | Inconclusive — alerts take no Unknown); Usefulness is the
+// optional None | NotUseful | Useful stat.
+type CloseAlertRequest struct {
+	SourceCaseID    int    `json:"sourceCaseId"`
+	AlertIdentifier string `json:"alertIdentifier"`
+	Reason          string `json:"reason"`
+	RootCause       string `json:"rootCause"`
+	Comment         string `json:"comment"`
+	Usefulness      string `json:"usefulness,omitempty"`
+}
+
+// UpdateAlertPriorityRequest re-prioritizes one alert within its case. The
+// request carries the alert's name and current priority alongside the target.
+type UpdateAlertPriorityRequest struct {
+	CaseID           int          `json:"caseId"`
+	AlertIdentifier  string       `json:"alertIdentifier"`
+	AlertName        string       `json:"alertName"`
+	PreviousPriority CasePriority `json:"previousPriority"`
+	Priority         CasePriority `json:"priority"`
+}
+
+// MoveAlertRequest moves one alert out of a case: into DestinationCaseID, or
+// into a brand-new case when DestinationCaseID is zero (omitted on the wire).
+type MoveAlertRequest struct {
+	AlertIdentifier   string `json:"alertIdentifier"`
+	SourceCaseID      int    `json:"sourceCaseId"`
+	DestinationCaseID int    `json:"destinationCaseId,omitempty"`
+}
+
+// ReopenAlertRequest reopens one closed alert within a case.
+type ReopenAlertRequest struct {
+	CaseID          int    `json:"caseId"`
+	AlertIdentifier string `json:"alertIdentifier"`
+}
+
 // CreateCase creates a case. body is the freeform case payload.
 func (c *Client) CreateCase(ctx context.Context, body any) (RawJSON, error) {
 	return c.externalPost(ctx, "/cases/CreateCase", body)

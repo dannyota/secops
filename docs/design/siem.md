@@ -96,8 +96,8 @@ stateDiagram-v2
 | Surface | Query (read) | Act (mutate) | Mutability |
 |---|---|---|---|
 | **events (UDM)** | `SearchUDM` / `NLSearch` / `GetStats` / `FindUDMFieldValues` | — | immutable telemetry — **read-only, never mutate** |
-| **alerts** | `GetAlerts` (`alerts list`) · `GetAlert` (`alerts get`) — read-validated | `UpdateAlert` · `BulkUpdateAlerts` (status / verdict / priority / reason / comment) — built + gated, not run | per-item + subset |
-| **cases** (one case; operated via `soar case`, see below) | `soar.ListCases` (siemplify v1alpha) · Legacy `GetCaseFullDetails` (case + its alerts) | Legacy verbs: assign · rename · stage · tag/untag · describe · importance · close · merge | per-item + subset |
+| **alerts** | `GetAlerts` (`alerts list`) · `GetAlert` (`alerts get` — also prints the SOAR case id via `BatchGetCases`; bulk bridge: `cases soar-id`) — read-validated | `UpdateAlert` · `BulkUpdateAlerts` (status / verdict / priority / reason / comment) — CLI-wired as guarded `alerts update` (dry-run validated; live write gated) | per-item + subset |
+| **cases** (one case; operated via `soar case`, see below) | `soar.ListCases` (siemplify v1alpha; triage filters) · Legacy `GetCaseFullDetails` (case + its alerts, each with its firing rule for the `rules detections` pivot) | Legacy verbs: assign · rename · stage · tag/untag · describe · importance · priority · close · reopen · merge · comment add · per-alert close/priority/move/reopen | per-item + subset |
 | **entities / IoCs** | `SummarizeEntity` · `ListIoCs` · `FetchAssociatedInvestigations` | — | enrichment — read-only |
 | **threat intel** | `ListThreatCollections` · `GetThreatCollection` (`ti collections`/`collection`) | — | Mandiant-sourced — **read-only** (no write path) |
 
@@ -139,8 +139,10 @@ Every list/search command shares: a **filter**, a **time window**, a **limit**,
 ```
 secopsctl query udm '<udm filter>' [--hours N | --from TS --to TS] [--limit N] [--json]   # events (built)
 secopsctl alerts list [--query EXPR] [--hours N | --from TS --to TS] [--limit N] [--json]  # alerts snapshot (built, read)
-secopsctl alerts get  <alert-id> [--detections] [--json]                                   # one alert (built, read)
-secopsctl soar case list [--status open|closed|all] [--limit N] [--json]                   # cases (built, default open)
+secopsctl alerts get  <alert-id> [--detections] [--json]                                   # one alert + its SOAR case id (built, read)
+secopsctl alerts update <alert-id>… --status closed --verdict false-positive [--yes]       # guarded alert disposition (built; dry-run default)
+secopsctl cases soar-id <case-uuid>…                                                       # SIEM uuid -> SOAR case id bridge (built, read)
+secopsctl soar case list [--status open|closed|all] [--assignee S] [--priority P] [--tag T] [--since 24h] [--limit N] [--json]  # cases (built, default open)
 secopsctl iocs find <value> [value…] [--type md5|sha1|sha256|domain|ip] [--json]           # IoC lookup (built, read)
 secopsctl iocs get  <ioc-id> [--json]                                                      # one IoC (built, read)
 secopsctl iocs related <ioc-id> [--collection-type campaign|report|all] [--json]           # IoC → campaigns/reports (built, read)

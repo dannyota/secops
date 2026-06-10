@@ -37,8 +37,102 @@ func newCasesCmd() *cobra.Command {
 		newCasesListCmd(),
 		newCasesGetCmd(),
 		newCasesSearchCmd(),
+		newCasesSoarIDCmd(),
 	)
 	return cmd
+}
+
+// newCasesSoarIDCmd bridges SIEM case uuids to SOAR integer case ids — the id
+// every `soar case` verb needs. This is the working read on the chronicle host
+// (legacyBatchGetCases), unlike the 500ing cases collection above.
+func newCasesSoarIDCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "soar-id <case-uuid> [<case-uuid>...]",
+		Short: "Read-only: resolve SIEM case uuid(s) to SOAR integer case id(s)",
+		Long: "Resolve one or more SIEM case uuids (e.g. an alert's caseName from\n" +
+			"`alerts list --json`) to their SOAR integer case ids via legacyBatchGetCases —\n" +
+			"the id `soar case get` and the mutating case verbs take. One case, two ids:\n" +
+			"this is the bridge between them.",
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			uuids := make([]string, 0, len(args))
+			for _, a := range args {
+				uuids = append(uuids, splitCSV(a)...)
+			}
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			resp, err := c.BatchGetCases(baseContext(), uuids)
+			if err != nil {
+				return err
+			}
+			rows := soarIDRows(uuids, resp.Cases)
+			if jsonOut {
+				return emitJSON(rows)
+			}
+			fmt.Fprintf(os.Stdout, "%-38s %s\n", "SIEM CASE UUID", "SOAR CASE ID")
+			for _, r := range rows {
+				fmt.Fprintf(os.Stdout, "%-38s %s\n", r.UUID, orDash(r.SOARCaseID))
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+// soarIDRow is one uuid -> SOAR-id mapping (the --json shape of `cases soar-id`).
+type soarIDRow struct {
+	UUID       string `json:"uuid"`
+	SOARCaseID string `json:"soar_case_id"`
+}
+
+// soarIDRows pairs the requested uuids with the returned cases. A case that
+// carries its own id (uuid or resource name) is paired by that key; cases whose
+// bodies omit the id are paired positionally, but ONLY when the response is a
+// clean 1:1 echo of the request (same length, nothing key-paired) — a partial or
+// reordered response must not attribute one case's SOAR id to another uuid,
+// since the resolved id feeds mutating `soar case` verbs.
+func soarIDRows(uuids []string, cases []chronicle.LegacyCase) []soarIDRow {
+	rows := make([]soarIDRow, len(uuids))
+	for i, u := range uuids {
+		rows[i] = soarIDRow{UUID: u}
+	}
+	soarID := func(cs *chronicle.LegacyCase) string {
+		if cs.SoarPlatformInfo != nil {
+			return cs.SoarPlatformInfo.CaseID
+		}
+		return ""
+	}
+	keyed := 0
+	for i := range cases {
+		cs := &cases[i]
+		var probe struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		_ = json.Unmarshal(cs.Raw, &probe)
+		key := probe.ID
+		if key == "" {
+			key = probe.Name[strings.LastIndex(probe.Name, "/")+1:]
+		}
+		if key == "" {
+			continue
+		}
+		for j := range rows {
+			if strings.EqualFold(rows[j].UUID, key) {
+				rows[j].SOARCaseID = soarID(cs)
+				keyed++
+				break
+			}
+		}
+	}
+	if keyed == 0 && len(cases) == len(uuids) {
+		for i := range cases {
+			rows[i].SOARCaseID = soarID(&cases[i])
+		}
+	}
+	return rows
 }
 
 // --- read layer -------------------------------------------------------------

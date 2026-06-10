@@ -96,7 +96,7 @@ func TestEmitSOARCaseCards(t *testing.T) {
 	  "totalCount": 7
 	}`)
 	var buf bytes.Buffer
-	if err := emitSOARCaseCards(&buf, raw, 0); err != nil {
+	if err := emitSOARCaseCards(&buf, raw, 0, caseListFilters{}); err != nil {
 		t.Fatalf("emitSOARCaseCards: %v", err)
 	}
 	out := buf.String()
@@ -115,7 +115,7 @@ func TestEmitSOARCaseCardsLimit(t *testing.T) {
 	  {"id":1,"title":"alpha"},{"id":2,"title":"beta"},{"id":3,"title":"gamma"}
 	],"totalCount":3}`)
 	var buf bytes.Buffer
-	if err := emitSOARCaseCards(&buf, raw, 1); err != nil {
+	if err := emitSOARCaseCards(&buf, raw, 1, caseListFilters{}); err != nil {
 		t.Fatalf("emitSOARCaseCards: %v", err)
 	}
 	out := buf.String()
@@ -129,7 +129,7 @@ func TestEmitSOARCaseCardsLimit(t *testing.T) {
 
 func TestEmitSOARCaseCardsEmpty(t *testing.T) {
 	var buf bytes.Buffer
-	if err := emitSOARCaseCards(&buf, json.RawMessage(`{"caseCards":[],"totalCount":0}`), 0); err != nil {
+	if err := emitSOARCaseCards(&buf, json.RawMessage(`{"caseCards":[],"totalCount":0}`), 0, caseListFilters{}); err != nil {
 		t.Fatalf("emitSOARCaseCards: %v", err)
 	}
 	if !strings.Contains(buf.String(), "no cases.") {

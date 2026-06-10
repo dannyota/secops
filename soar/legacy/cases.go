@@ -18,8 +18,10 @@ package legacy
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // CaseStatus values for CaseQueueRequest.Statuses.
@@ -85,6 +87,53 @@ const (
 	PriorityHigh        CasePriority = 80
 	PriorityCritical    CasePriority = 100
 )
+
+// String returns the priority's label ("Low" … "Critical"), or the raw number
+// for an unmapped value.
+func (p CasePriority) String() string {
+	switch p {
+	case PriorityInformative:
+		return "Informative"
+	case PriorityUnchanged:
+		return "Unchanged"
+	case PriorityLow:
+		return "Low"
+	case PriorityMedium:
+		return "Medium"
+	case PriorityHigh:
+		return "High"
+	case PriorityCritical:
+		return "Critical"
+	}
+	return "CasePriority(" + strconv.Itoa(int(p)) + ")"
+}
+
+// ParseCasePriority maps a priority name (or one of the server's raw integer
+// codings) to the typed CasePriority. Only the server's defined, settable values
+// are accepted — the integer scale is non-contiguous (Low=40 … Critical=100,
+// Informative=-1), so an arbitrary number is rejected rather than passed through
+// as an undefined priority (and 0/"Unchanged" is rejected as a silent no-op).
+func ParseCasePriority(s string) (CasePriority, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "informative", "info":
+		return PriorityInformative, nil
+	case "low":
+		return PriorityLow, nil
+	case "medium":
+		return PriorityMedium, nil
+	case "high":
+		return PriorityHigh, nil
+	case "critical":
+		return PriorityCritical, nil
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+		switch p := CasePriority(n); p {
+		case PriorityInformative, PriorityLow, PriorityMedium, PriorityHigh, PriorityCritical:
+			return p, nil
+		}
+	}
+	return 0, fmt.Errorf("legacy: invalid case priority %q (use informative|low|medium|high|critical)", s)
+}
 
 // BulkCloseRequest closes one or more cases in a single legacy operation.
 // CasesIDs are SOAR INTEGER case ids (see the dual case-id gotcha above).

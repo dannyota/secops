@@ -1381,6 +1381,51 @@ break it.
   failures; no retry/backoff needed.
 - **Docs.** CATALOG (`soar playbook`), usage guide.
 
+### Wave 52 — Triage-loop closure: alert disposition, id bridges, case/alert verbs, queue filters *(built — reads + dry-runs live-validated; new writes ride the extended gated smoke)*
+
+- **Goal.** Close the gaps in the terminal triage loop — alert fires → inspect →
+  pivot to the case → act (case- and alert-level) → tune the rule — so an
+  operator or an agent never has to leave the CLI or hand-stitch identifiers.
+- **SIEM alert disposition (`alerts update`).** Guarded feedback verb over the
+  existing typed `UpdateAlert`/`BulkUpdateAlerts` SDK layer: status / verdict /
+  priority / reason / reputation / scores / comment / root-cause, several alert
+  ids fan out the same update. Enum flags take short lower-case forms
+  (`closed`, `false-positive`, `high`) normalized to the wire tokens and
+  validated client-side (`AlertUpdate.Validate`) before the guard, so a dry run
+  already rejects a bad value.
+- **Alert→case id bridge.** One case, two ids: `alerts get` now resolves the
+  alert's SIEM case uuid to the SOAR integer case id (fail-soft, with the
+  `soar case get` pivot printed), and `cases soar-id <uuid…>` is the bulk
+  uuid→id bridge over `legacyBatchGetCases`. Read-validated live.
+- **Case→rule pivot.** `soar case get` prints each alert's firing rule — the
+  `additionalProperties.ruleGenerator` display name plus the `ru_` rule id —
+  with a ready-to-paste `rules detections "<name>"` hint, closing the
+  case→rule-tuning hop. Read-validated live.
+- **Case verbs.** `soar case priority` (typed `CasePriority` names; distinct
+  from the `importance` flag), `soar case reopen` (single or `--ids` bulk — the
+  inverse of close, so a wrong close is recoverable in-tool), and
+  `soar case comment add`/`comment list` (the case-wall triage-rationale
+  record, distinct from `chat`).
+- **Per-alert verbs (`soar case alert <verb>`).** Alert-level queue hygiene
+  inside a case: `close` (the case stays open; alert close-reason vocabulary —
+  no `unknown` — plus the optional `--usefulness` stat), `priority` (the
+  alert's name and current priority are resolved from the case at apply time,
+  so a wrong identifier fails on that read before any mutation), `move` (split
+  an alert to another or a new case — the inverse of `merge`), and `reopen`.
+  Request bodies are typed `soar/legacy` structs shared with the write smoke.
+- **Queue filters (`soar case list`).** `--assignee` (substring), `--priority`,
+  `--tag`, and `--since` (duration or timestamp) narrow the fetched page
+  client-side identically on both lanes; `--tag`/`--filter` are modern-lane and
+  fail loud on the legacy queue rather than silently dropping a filter.
+  `--filter` passes a verbatim server-side expression to the modern cases API
+  (`priority = 'PRIORITY_HIGH'` confirmed honored server-side). Live-validated.
+- **Validation.** All reads and dry-run previews live-validated (including the
+  resolution error paths); the new mutating verbs extend
+  `TestLiveSOARCaseVerbsWriteSmoke` (comment round-trip, priority, alert
+  close/reopen/move, case close→reopen) and stay gated until an approved run.
+- **Docs.** CATALOG (`alerts`, `soar case` rows + the new `soar case alert`
+  row), SIEM-DESIGN, SOAR-DESIGN, usage + SOAR-cases guides.
+
 ---
 
 ## Non-goals

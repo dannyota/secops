@@ -35,8 +35,8 @@ or `secopsctl config --show-path`.
 `query raw`, `parsers sample-logs`, `parsers validate`, `entity summarize`, `alerts list`, `alerts get`, `iocs find`, `iocs get`,
 `iocs related`, `ti collections`, `ti collection`, `ti related`, `watchlists list`, `watchlists get`,
 `curated list`, `curated rules`, `rules detections`, `rules errors`,
-`rules retrohunt list`, `rules retrohunt get`, `soar case list`, `soar case get`,
-`soar case values`, `soar playbook list`, `soar playbook validate`,
+`rules retrohunt list`, `rules retrohunt get`, `cases soar-id`, `soar case list`, `soar case get`,
+`soar case values`, `soar case comment list`, `soar playbook list`, `soar playbook validate`,
 `soar playbook components integrations`, `soar playbook components actions`,
 `soar playbook components jobs`, `soar playbook components connectors`,
 `soar playbook mold extract`, `soar playbook mold apply`,
@@ -52,8 +52,8 @@ or `secopsctl config --show-path`.
 `soar package-integration`, `soar settings api-keys`, and `version`. It is **also**
 emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
 `drifted_surfaces`), `push` (the reconcile plan/result + `would_change`), and the
-`soar case`, `soar playbook`, and `soar job` mutating verbs (dry-run/apply
-metadata, plus request/response fields where the command has them). Only `pull` is
+`alerts update`, `soar case`, `soar playbook`, and `soar job` mutating verbs
+(dry-run/apply metadata, plus request/response fields where the command has them). Only `pull` is
 text-only — its output is the files it writes (review with `git diff`). (`rules
 alerts` always emits raw JSON, with or without the flag.)
 
@@ -85,7 +85,8 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `rules errors <rule>` | List execution errors a rule produced, including structured error payloads. Accepts a rule id, display name, or slug; an unknown rule gives a clean client-side `no rule matches` error instead of an opaque API `400 invalid rule name`. |
 | `rules alerts <rule>` | Search alerts a rule generated (raw, rule-dependent shape). Accepts a rule id, display name, or slug. |
 | `alerts list` | List Chronicle detection alerts over a time window (snapshot). |
-| `alerts get` | Get one alert by id. |
+| `alerts get` | Get one alert by id; when the alert is cased, also prints the SIEM case uuid **and its SOAR integer case id** (the `soar case` pivot). |
+| `cases soar-id <uuid>...` | Resolve SIEM case uuid(s) (an alert's `caseName`) to SOAR integer case id(s) — the bridge into every `soar case` verb. |
 | `ti collections` | List Mandiant threat collections (campaigns/reports/…). |
 | `ti collection <id>` | Show one threat collection by id. |
 | `ti related <collection-alt-name-or-id>` | Show IoC match counts for threat collection alt names such as `CAMP.00.001`; resource ids are resolved to alt names first. |
@@ -108,6 +109,7 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 | `push rules-update` | Update live YARA-L text where a tracked `*.yaral` changed (etag-guarded). |
 | `push rules-deploy` | Reconcile each tracked rule's deployment (enabled/alerting/frequency); `--rule` scopes one rule, and archived rules are reported as non-deployable. |
 | `push rules-disable` | Disable locally-tracked rules with `deployment.enabled=true`. |
+| `alerts update <id>...` | Set alert triage feedback: `--status new\|reviewed\|closed\|open`, `--verdict true-positive\|false-positive`, `--priority`, `--reason`, `--reputation`, scores, `--comment`, `--root-cause`. Several ids fan out the same update. |
 | `push curated` | Reconcile `curated/deployments.yaml` to live curated deployment state (enabled/alerting only). |
 | `push <reconcile-target>` | Reconcile local files to live (create/update; `--prune` deletes on prune-eligible surfaces only — `push <target> --help` says which). Targets: `reference_lists`, `data_tables`, `parsers`, `feeds`, `forwarders`, `dashboards`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`. |
 | `curated set` | Toggle a curated deployment's `enabled`/`alerting` per precision (`--category`, `--ruleset`, `--precision`). |
@@ -145,8 +147,9 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar job template list` | List SOAR job templates for component planning without printing job script bodies. |
 | `soar job instance list` | List configured SOAR job instances. |
 | `soar job logs` | Read Python execution logs for SOAR jobs/actions. Use documented filters such as `labels.job_name=~"^."` or `labels.action_name=~"^."`. **Same Cloud Logging caveat as `python-logs`:** can 500 on some instances; for failed playbook/job triage, prefer `soar playbook summary`. |
-| `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). |
-| `soar case get <id>` | Get one case + its alerts (SOAR integer id). |
+| `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). Triage filters: `--assignee` (substring), `--priority`, `--tag` (modern lane), `--since` (duration/timestamp), and a verbatim modern server-side `--filter` expression. |
+| `soar case get <id>` | Get one case + its alerts (SOAR integer id). Each alert shows its `--alert` identifier and its **firing rule** (name + `ru_` id) with a `rules detections` pivot hint. |
+| `soar case comment list --id N` | List a case's comments (the case-wall record; `--alert` scopes to one alert). |
 | `info soar-integrations` | Report installed SOAR integration packs, connector/job runtime counts, bound environments, and gaps such as `config_without_runtime` or `runtime_disabled`. |
 | `soar integration list` | List installed integration packs. |
 | `soar integration instances --integration <id>` | List an integration's configured instances (id · environment · name) — the fields `integration delete` needs, which `list` (packs only) does not expose. |
@@ -188,6 +191,13 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar case tag` / `untag` | Tag / untag a case. |
 | `soar case stage` | Change a case's stage (`--stage`). |
 | `soar case close` | Close one case (`--id`, `--reason` = the fixed enum `malicious\|not-malicious\|maintenance\|inconclusive\|unknown`, same as `bulk-close`; `--root-cause`, `--comment` optional). |
+| `soar case reopen` | Reopen closed case(s) — the inverse of close (`--id` single or `--ids 1,2,3` bulk; `--comment` optional). |
+| `soar case priority` | Change a case's priority (`--priority informative\|low\|medium\|high\|critical`; distinct from the `importance` flag). |
+| `soar case comment add` | Add a comment to a case (`--id`, `--text`; `--alert` scopes to one alert) — the case-wall triage-rationale record. |
+| `soar case alert close` | Close ONE alert in a case — the case stays open (`--id`, `--alert`, `--reason malicious\|not-malicious\|maintenance\|inconclusive`; optional `--root-cause`, `--comment`, `--usefulness none\|useful\|not-useful`). |
+| `soar case alert priority` | Change one alert's priority (`--id`, `--alert`, `--priority`); at apply time the alert's name and current priority are resolved from the case, so a wrong `--alert` fails before any mutation. |
+| `soar case alert move` | Move one alert out of a case (`--id`, `--alert`; `--to M` for an existing case, omit for a new one) — the inverse of `merge`. |
+| `soar case alert reopen` | Reopen one closed alert in a case (`--id`, `--alert`). |
 | `soar case rename` / `describe` / `importance` / `merge` | Rename / re-describe / flag-important / merge cases. |
 | `soar case run-action --case-id N --action <name> --instance <uuid>` | Execute an integration action on a case (ad-hoc — any installed action). Script params via `--param key=value` (secrets via `env:VAR`). Returns the action result (resultCode, message); `--json` emits the full payload. |
 | `soar case simulation create` | Create a custom simulated test case from alert/event field specs — appears in the SOAR queue for playbook testing. |

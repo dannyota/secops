@@ -16,14 +16,24 @@ SOAR auth is the **AppKey** (no ADC) and needs `soar_url` set. See
 ```bash
 secopsctl soar case list                       # default: open cases
 secopsctl soar case list --status all --limit 50
+secopsctl soar case list --priority high --assignee tier1 --since 24h   # triage filters
 secopsctl soar case get 12345                   # case header + its alerts
 secopsctl soar case get 12345 --json            # raw GetCaseFullDetails
+secopsctl soar case comment list --id 12345     # the case-wall comments
 ```
 
 - `list` shows a compact table (or `--json` for the raw queue); `--status` is
   `open|closed|all`, `--limit` caps the first page (0 = up to 100).
+- Triage filters narrow the fetched page: `--assignee` (substring,
+  case-insensitive), `--priority informative|low|medium|high|critical`,
+  `--tag` (modern lane only), `--since` (a duration like `24h`, RFC3339, or
+  `YYYY-MM-DD`). `--filter` passes a verbatim server-side expression to the
+  modern cases API (e.g. `"priority = 'PRIORITY_HIGH'"`).
 - `get <case-id>` takes the integer id from `list` and prints the case plus its
-  alerts.
+  alerts — each with its `--alert` identifier (for the per-alert verbs) and its
+  **firing rule** (name + `ru_` id), ready to paste into `rules detections`.
+- Coming from the SIEM side? `alerts get <alert-id>` prints the alert's SOAR
+  case id, and `cases soar-id <uuid>` bulk-resolves SIEM case uuids to SOAR ids.
 - Reads only — no `LIVE DEPLOY` banner.
 
 ## 🧭 Mutating verbs
@@ -43,15 +53,34 @@ take an optional `--alert` (scope the action to one alert) — `assign`, `stage`
 | `describe` | `--description <s>` | Set the description |
 | `stage` | `--stage <s>` | Move the case to a stage |
 | `importance` | `--important[=false]` | Mark important (default true; `=false` clears) |
+| `priority` | `--priority <level>` | Change the case priority (`informative\|low\|medium\|high\|critical`) |
 | `merge` | `--ids 1,2,3 --into N` | Merge source cases into a target |
-| `close` | `--reason <s>` | Close one case (also `--comment`, `--root-cause`) |
+| `close` | `--reason <enum>` | Close one case (also `--comment`, `--root-cause`) |
+| `reopen` | `--id N` or `--ids 1,2,3` | Reopen closed case(s) — the inverse of close (`--comment` optional) |
+| `comment add` | `--text <s>` | Add a case comment (the case-wall triage-rationale record) |
+
+### Per-alert verbs
+
+A case groups several alerts; `soar case alert <verb>` acts on **one alert**
+inside it. Every verb takes `--id N` (the case) plus `--alert <identifier>`
+(printed per alert by `soar case get`):
+
+| Verb | Extra flag(s) | Does |
+|---|---|---|
+| `alert close` | `--reason <enum>` | Close one alert — the case stays open (`malicious\|not-malicious\|maintenance\|inconclusive`; optional `--root-cause`, `--comment`, `--usefulness`) |
+| `alert priority` | `--priority <level>` | Re-prioritize one alert (its name and current priority are resolved from the case at apply time) |
+| `alert move` | `[--to M]` | Move the alert to case M, or to a **new** case when `--to` is omitted — the inverse of `merge` |
+| `alert reopen` | — | Reopen one closed alert |
 
 ```bash
 secopsctl soar case tag --id 12345 --tag triaged          # dry run (preview)
 secopsctl soar case tag --id 12345 --tag triaged --yes    # apply
 
-secopsctl soar case close --id 12345 --reason "false positive" \
+secopsctl soar case close --id 12345 --reason not-malicious \
   --root-cause "Normal behavior" --comment "verified benign" --yes
+
+secopsctl soar case alert close --id 12345 --reason not-malicious \
+  --alert "SUSPICIOUS LOGIN_00000000-0000-0000-0000-000000000000__RULE_DETECTION" --yes
 
 secopsctl soar case merge --ids 12346,12347 --into 12345 --yes
 ```
@@ -64,19 +93,21 @@ Run any verb without `--yes` first, read the preview, then re-run with `--yes`.
 List them first so you pass an existing one:
 
 ```bash
-secopsctl soar pull case-tags           # valid --tag values
-secopsctl soar pull case-stages         # valid --stage values
-secopsctl soar pull close-root-causes   # valid --root-cause values
+secopsctl soar case values tags         # valid --tag values
+secopsctl soar case values stages       # valid --stage values
+secopsctl soar case values root-causes  # valid --root-cause values
 ```
 
-`--user` on `assign` is a SOAR **user id**, not a name. `soar case get` prints the
-assignee's display name (not the id), and there is no in-CLI user directory — get
-the id from the SOAR UI.
+(The same values are also mirrored to files by `soar pull case-tags` /
+`case-stages` / `close-root-causes`.)
+
+`--user` on `assign` is a SOAR **user id**, not a name. List the user directory
+with `soar users list` to find the id (a role is passed as `@RoleName`).
 
 ## 🧹 Bulk-close a queue
 
-`soar case close` closes one case with a free-text reason. To close **many**
-cases at once with a typed reason, use the queue verb:
+`soar case close` closes one case. To close **many** cases at once, use the
+queue verb:
 
 ```bash
 secopsctl soar push bulk-close --ids 12345,12346 --reason maintenance --dry-run   # preview
