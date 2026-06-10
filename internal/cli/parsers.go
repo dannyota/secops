@@ -36,7 +36,7 @@ func newParsersCmd() *cobra.Command {
 			"`push parsers` (edit + create-new-version + activate).",
 	}
 	cmd.AddCommand(newParsersVersionsCmd(), newParsersRunCmd(), newParsersActivateCmd(),
-		newParsersSampleLogsCmd(), newParsersValidateCmd())
+		newParsersSampleLogsCmd(), newParsersValidateCmd(), newParsersExtensionCmd())
 	return cmd
 }
 
