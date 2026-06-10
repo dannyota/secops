@@ -100,6 +100,11 @@ func newSOARPlaybookCmd() *cobra.Command {
 		newSOARPlaybookResultsCmd(),
 		newSOARPlaybookResultCmd(),
 		newSOARPlaybookPythonLogsCmd(),
+		newSOARPlaybookVersionsCmd(),
+		newSOARPlaybookRestoreCmd(),
+		newSOARPlaybookStatsCmd(),
+		newSOARPlaybookExportCmd(),
+		newSOARPlaybookImportCmd(),
 	)
 	return cmd
 }
@@ -361,11 +366,6 @@ func newSOARPlaybookDeployCmd() *cobra.Command {
 			"Mirrors `rules-deploy` for consistency.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name = strings.TrimSpace(name)
-			identifier = strings.TrimSpace(identifier)
-			if name == "" && identifier == "" {
-				return fmt.Errorf("pass --name <playbook> or --identifier <uuid>")
-			}
 			if !enable && !disable {
 				return fmt.Errorf("pass --enable or --disable")
 			}
@@ -377,11 +377,9 @@ func newSOARPlaybookDeployCmd() *cobra.Command {
 			}
 			ctx := baseContext()
 
-			// Resolve name → identifier.
-			if identifier == "" {
-				if identifier, err = resolvePlaybookDefinition(ctx, lc, name); err != nil {
-					return err
-				}
+			identifier, err = resolvePlaybookSelector(ctx, lc, name, identifier)
+			if err != nil {
+				return err
 			}
 
 			// Read the full definition.

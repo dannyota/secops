@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"danny.vn/secops/soar/legacy"
 )
 
 type soarJobRow struct {
@@ -224,9 +228,172 @@ func newSOARJobTemplateListCmd() *cobra.Command {
 func newSOARJobInstanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "instance",
-		Short: "Inspect and guarded-run configured job instances",
+		Short: "Inspect, guarded-run, and manage configured job instances",
 	}
-	cmd.AddCommand(newSOARJobInstanceListCmd(), newSOARJobInstanceRunCmd())
+	cmd.AddCommand(newSOARJobInstanceListCmd(), newSOARJobInstanceRunCmd(),
+		newSOARJobInstanceSetCmd(), newSOARJobInstanceCreateCmd(), newSOARJobInstanceDeleteCmd())
+	return cmd
+}
+
+// newSOARJobInstanceSetCmd toggles a scheduled job instance's enabled state —
+// the "disable a noisy or broken scheduled job" path. Whole-body update: the
+// instance is fetched fresh, isEnabled overlaid byte-preservingly (no
+// float64 round-trip), and the body PUT back. NOTE: the swagger's update shape
+// (JobDataUpdateRequest) declares jobDefinitionId/jobDefinitionName, which the
+// live list records do not carry — whether the server resolves them from
+// id/uniqueIdentifier is exactly what the gated same-value write smoke
+// (TestLiveJobInstanceSetWriteSmoke) verifies before this is run for real.
+func newSOARJobInstanceSetCmd() *cobra.Command {
+	var (
+		selector        string
+		enable, disable bool
+		dryRun, yes     bool
+	)
+	cmd := &cobra.Command{
+		Use:   "set --instance <id|uniqueIdentifier|name> (--enable | --disable)",
+		Short: "GUARDED: enable or disable a scheduled job instance",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if enable == disable {
+				return fmt.Errorf("pass exactly one of --enable / --disable")
+			}
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			raw, err := lc.ListJobInstances(baseContext())
+			if err != nil {
+				return err
+			}
+			instRaw, row, err := findSOARJobInstance(raw, selector)
+			if err != nil {
+				return err
+			}
+			// RawMessage overlay: every field except isEnabled keeps its exact
+			// bytes (a map[string]any round-trip would coerce int64 ids through
+			// float64).
+			var body map[string]json.RawMessage
+			if err := json.Unmarshal(instRaw, &body); err != nil {
+				return fmt.Errorf("decode job instance: %w", err)
+			}
+			enabledRaw, _ := json.Marshal(enable)
+			body["isEnabled"] = enabledRaw
+			action := fmt.Sprintf("job instance set %s enabled=%v", jobInstanceSelectorLabel(row), enable)
+			dr, ay := soarGuard(action, dryRun, yes)
+			if err := emitSOARJobInstanceMutationPreview("UPDATE SOAR job instance", row, dr, ay); err != nil {
+				return err
+			}
+			if dr || !ay {
+				return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
+			}
+			resp, err := lc.UpdateJobInstance(baseContext(), body)
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance updated.")
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&selector, "instance", "", "job instance id, uniqueIdentifier, or name (required)")
+	f.BoolVar(&enable, "enable", false, "enable the scheduled instance")
+	f.BoolVar(&disable, "disable", false, "disable the scheduled instance")
+	cmd.MarkFlagsMutuallyExclusive("enable", "disable")
+	guardRunFlags(cmd, &dryRun, &yes)
+	_ = cmd.MarkFlagRequired("instance")
+	return cmd
+}
+
+// newSOARJobInstanceCreateCmd creates a scheduled job instance from a JSON
+// body (JobDataAddRequest — typically a copied-and-edited record from
+// `instance list --json`, or a definition from `job template list`).
+func newSOARJobInstanceCreateCmd() *cobra.Command {
+	var (
+		file        string
+		dryRun, yes bool
+	)
+	cmd := &cobra.Command{
+		Use:   "create --file <instance.json>",
+		Short: "GUARDED: create a scheduled job instance from a JSON body",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			data, err := os.ReadFile(file)
+			if err != nil {
+				return err
+			}
+			// Validate it is a JSON object, but send (and preview) the exact file
+			// bytes — no float64 round-trip.
+			var probe map[string]json.RawMessage
+			if err := json.Unmarshal(data, &probe); err != nil {
+				return fmt.Errorf("%s: %w", file, err)
+			}
+			body := json.RawMessage(bytes.TrimSpace(data))
+			return caseAction(fmt.Sprintf("create job instance from %s", file), body, dryRun, yes,
+				func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
+					return lc.CreateJobInstance(ctx, body)
+				})
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&file, "file", "", "job instance JSON body (required)")
+	guardRunFlags(cmd, &dryRun, &yes)
+	_ = cmd.MarkFlagRequired("file")
+	return cmd
+}
+
+// newSOARJobInstanceDeleteCmd deletes a scheduled job instance by id — the
+// clean by-id delete the definition-level DeleteJobData lacks.
+func newSOARJobInstanceDeleteCmd() *cobra.Command {
+	var (
+		selector    string
+		dryRun, yes bool
+	)
+	cmd := &cobra.Command{
+		Use:   "delete --instance <id|uniqueIdentifier|name>",
+		Short: "GUARDED: delete a scheduled job instance",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			raw, err := lc.ListJobInstances(baseContext())
+			if err != nil {
+				return err
+			}
+			_, row, err := findSOARJobInstance(raw, selector)
+			if err != nil {
+				return err
+			}
+			if row.ID == "" {
+				return fmt.Errorf("instance %q carries no numeric id; cannot delete by id", selector)
+			}
+			action := fmt.Sprintf("job instance delete %s", jobInstanceSelectorLabel(row))
+			dr, ay := soarGuard(action, dryRun, yes)
+			if err := emitSOARJobInstanceMutationPreview("DELETE SOAR job instance", row, dr, ay); err != nil {
+				return err
+			}
+			if dr || !ay {
+				return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
+			}
+			resp, err := lc.DeleteJobInstance(baseContext(), row.ID)
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance deleted.")
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&selector, "instance", "", "job instance id, uniqueIdentifier, or name (required)")
+	guardRunFlags(cmd, &dryRun, &yes)
+	_ = cmd.MarkFlagRequired("instance")
 	return cmd
 }
 
@@ -559,7 +726,7 @@ func emitSOARJobMutationPreview(action string, row soarJobRow, dryRun, assumeYes
 	fmt.Fprintf(w, "Job: %s\n", jobSelectorLabel(row))
 	fmt.Fprintf(w, "Enabled: %s\n", boolPtrString(row.Enabled))
 	if dryRun {
-		fmt.Fprintln(w, "\nDRY RUN -- no API call made. Re-run with --yes to apply.")
+		fmt.Fprintln(w, "\nDRY RUN -- no mutation sent (the target was resolved with a live read). Re-run with --yes to apply.")
 		return nil
 	}
 	if !assumeYes {
@@ -581,7 +748,7 @@ func emitSOARJobInstanceMutationPreview(action string, row soarJobInstanceRow, d
 	fmt.Fprintf(w, "Job instance: %s\n", jobInstanceSelectorLabel(row))
 	fmt.Fprintf(w, "Enabled: %s\n", boolPtrString(row.Enabled))
 	if dryRun {
-		fmt.Fprintln(w, "\nDRY RUN -- no API call made. Re-run with --yes to apply.")
+		fmt.Fprintln(w, "\nDRY RUN -- no mutation sent (the target was resolved with a live read). Re-run with --yes to apply.")
 		return nil
 	}
 	if !assumeYes {

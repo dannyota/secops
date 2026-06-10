@@ -7,7 +7,11 @@
 // priority basics are in cases.go.
 package legacy
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+)
 
 // Typed request bodies for the per-alert verbs. The wire shapes differ subtly
 // per verb (close/move key the case as sourceCaseId; priority/reopen as caseId),
@@ -135,6 +139,38 @@ func (c *Client) UnraiseIncident(ctx context.Context, body any) (RawJSON, error)
 }
 
 // SkipAlert skips an alert.
+// SkipStep skips a pending playbook step (action) so the workflow continues
+// past it — the reject half of the manual/approval flow (POST /cases/Skip).
+// step is the full step-instance object exactly as fetched (the same shape
+// ExecuteStep takes, ApiSkipStepInstanceDataModel); a non-empty skipComment is
+// overlaid onto the wire's skipComment field WITHOUT re-decoding the step's
+// other values, so large int64 identifiers survive byte-exact (a map[string]any
+// round-trip would coerce them through float64).
+func (c *Client) SkipStep(ctx context.Context, step RawJSON, skipComment string) (RawJSON, error) {
+	body := step
+	if skipComment != "" {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(step, &fields); err != nil {
+			return nil, fmt.Errorf("legacy: step instance must be a JSON object: %w", err)
+		}
+		comment, err := json.Marshal(skipComment)
+		if err != nil {
+			return nil, err
+		}
+		fields["skipComment"] = comment
+		merged, err := json.Marshal(fields)
+		if err != nil {
+			return nil, err
+		}
+		body = merged
+	}
+	return c.externalPost(ctx, "/cases/Skip", body)
+}
+
+// SkipAlert is the historical name of SkipStep — the op skips a pending
+// PLAYBOOK STEP, not an alert.
+//
+// Deprecated: use SkipStep; this alias remains for compatibility.
 func (c *Client) SkipAlert(ctx context.Context, body any) (RawJSON, error) {
 	return c.externalPost(ctx, "/cases/Skip", body)
 }

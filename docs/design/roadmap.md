@@ -1507,6 +1507,47 @@ break it.
 - **Docs.** CATALOG (`rules`, `curated` rows), SURFACES (detection-engine
   gaps closed), usage guide, ROADMAP.
 
+### Wave 55 — Playbook lifecycle completion: skip, rollback, stats, export/import, schedule management *(done — reads + dry-runs live-validated)*
+
+- **Goal.** Finish the playbook/job operational story: the reject half of the
+  approval flow, rollback for the version every save mints, cross-case run
+  health, cross-tenant promotion, and scheduled-job maintenance.
+- **Approval flow completed.** `soar playbook step skip` (guarded) skips a
+  pending step so the workflow continues past it — `step execute` continues
+  it; together they are both halves of a manual/approval decision. Takes the
+  same fetched step-instance JSON as `execute` (`--comment` lands as
+  `skipComment`). The SDK's historical `SkipAlert` wrapper is deprecated in
+  favor of the correctly-named `SkipStep` (the op skips a playbook step).
+- **Version history + rollback.** `soar playbook versions` lists the per-save
+  version log (legitimately empty until a save mints the first entry) and
+  guarded `soar playbook restore --version <id>` rolls back — the natural undo
+  for `deploy` / `push playbook`, which themselves mint versions.
+- **Run statistics.** `soar playbook stats (--name|--identifier) [--hours]` —
+  aggregate run stats across every case (the modern
+  `legacyPlaybooks:legacyGetPlaybookStatsMap` bridge with legacy fallback);
+  `summary` stays the single-run triage view.
+- **Export / import.** `soar playbook export` produces the definition+blocks
+  JSON (the input `mold`/`build-playbook` document) or, with `--zip`, the
+  platform bundle (an ApiFile base64 blob, decoded to a real zip); guarded
+  `soar playbook import --file` sends a bundle back — cross-tenant promotion
+  and offline backup.
+- **Trigger vocabulary.** `soar playbook trigger tags` lists the live tag
+  values a Tag-Name trigger condition can reference — the first slice of the
+  Wave-39 trigger-preset item.
+- **Action impact analysis.** `soar playbook components usage --action-id N`
+  lists every playbook using an action. The id is the action definition's
+  numeric database id, read from pulled playbook step bodies — no external-API
+  op lists it by name (recorded so nobody re-attempts that resolution against
+  the wrong surface).
+- **Scheduled-job maintenance.** `soar job instance set --enable|--disable`
+  (fresh-read whole-body PUT), `instance create --file`, and `instance delete`
+  (clean by-id DELETE) complete the /jobs/instances CRUD — disabling a noisy
+  scheduled job no longer needs the raw lane.
+- **Validation.** All reads live-validated (versions/stats/trigger
+  tags/export JSON + zip/usage); every mutation dry-run validated and gated.
+- **Docs.** CATALOG (`soar playbook`, `soar job` rows), SURFACES (Wave-39 gap
+  list updated), usage guide, ROADMAP.
+
 ---
 
 ## Non-goals

@@ -150,6 +150,11 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar playbook step get` | Fetch one workflow step instance by case, workflow, and step identifiers. Use `--json` to save the raw body for guarded `step execute`. |
 | `soar playbook summary --case-id N --playbook <name>` | Triage a playbook run: surfaces **FAULTED** steps (action · error · Cloud Logging deep-link; `--show-errors` for the full traceback). `--playbook` resolves to the definition id via `soar playbook list`, and the alert identifier is read from the case — so no opaque GUIDs (override with `--alert`/`--definition`). Prefers the v1alpha path, falls back to legacy. |
 | `soar playbook results` / `result` | Read action results for a workflow instance or one case action-result id; human output summarizes status/presence only, `--json` emits the raw payload. |
+| `soar playbook versions` | List a playbook's saved version log (each save/deploy mints one); the identifiers feed `restore`. |
+| `soar playbook stats` | Aggregate run statistics for one playbook across all cases over `--hours` (default 7d); `summary` stays the single-run view. |
+| `soar playbook export` | Export one playbook: definition+blocks JSON (the `mold`/`build-playbook` input), or `--zip --out <f>` for the platform bundle `import` takes. |
+| `soar playbook trigger tags` | List the live tag values a Tag-Name trigger condition can reference (`--grep` for a server-side search). |
+| `soar playbook components usage --action-id N` | Which playbooks use an integration action (impact analysis); the numeric id comes from a playbook step's `actionDef` in pulled playbook JSON. |
 | `soar playbook python-logs` | Read Python execution logs (`--filter`, `--page-size`, `--page-token`). **Note:** this proxies Cloud Logging and can return a server-side 500 on some instances regardless of filter — use `soar playbook summary --case-id N --playbook "<name>"` to triage failed runs instead (it surfaces each faulted step's error + a per-step Logs Explorer link). |
 | `soar job list` | List installed SOAR jobs and last-run status without printing job script bodies. |
 | `soar job template list` | List SOAR job templates for component planning without printing job script bodies. |
@@ -192,6 +197,11 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar playbook run` / `debug` | Attach/run a live playbook on an explicit case/alert, or start SecOps debug mode from an exported playbook and explicit test case. Dry-run is default; `--yes` executes in SecOps. |
 | `soar playbook rerun` / `rerun-block` | Rerun a playbook or nested block on an explicit case/alert. `rerun-block --inputs <file>` accepts a JSON array of block input parameters. |
 | `soar playbook step execute --file <step-instance.json>` | Execute one fetched workflow step instance. Dry-run prints a sanitized summary only; `--yes` sends the exact file body to SecOps. |
+| `soar playbook step skip --file <step-instance.json>` | Skip one pending workflow step — the reject half of an approval (`step execute` continues it). `--comment` records why. |
+| `soar playbook restore --version <id>` | Roll a playbook back to a version from `versions` (the restore mints a new version; `--override` replaces outright). |
+| `soar playbook import --file <bundle.zip>` | Import a playbook bundle (the zip `export --zip` produces) — cross-tenant promotion / backup restore. |
+| `soar job instance set --instance <sel> --enable\|--disable` | Enable/disable a scheduled job instance (fresh read, flag flipped, whole body saved). |
+| `soar job instance create --file <json>` / `delete --instance <sel>` | Create a scheduled job instance from a JSON body / delete one by id. |
 | `soar job run --job <id\|uniqueIdentifier\|name>` | Run one installed SOAR job now. Fetches the live job first, previews the target, and requires `--yes` to execute. |
 | `soar job instance run --instance <id\|uniqueIdentifier\|name>` | Run one configured SOAR job instance now. Fetches the live instance first, previews the target, and requires `--yes` to execute. |
 | `soar push bulk-close` | Bulk-close cases by id (`--ids`, `--reason` ∈ malicious\|not-malicious\|maintenance\|inconclusive\|unknown). |

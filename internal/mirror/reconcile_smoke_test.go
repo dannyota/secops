@@ -1479,6 +1479,52 @@ func TestLiveSOARCaseVerbsWriteSmoke(t *testing.T) {
 	chk("close", r, e)
 }
 
+// TestLiveJobInstanceSetWriteSmoke validates the `soar job instance set` PUT
+// shape with an IDEMPOTENT same-value update: the first instance's record is
+// fetched, isEnabled overlaid with its CURRENT value (byte-preserving
+// RawMessage overlay — the same construction the CLI uses), PUT back, and read
+// back to confirm nothing changed. This answers the open shape question — the
+// swagger's JobDataUpdateRequest declares jobDefinitionId/jobDefinitionName,
+// which the live list records do not carry — without disturbing any schedule.
+func TestLiveJobInstanceSetWriteSmoke(t *testing.T) {
+	lc, ctx := liveLegacyClient(t)
+	requireSmokeWrite(t)
+
+	raw, err := lc.ListJobInstances(ctx)
+	if err != nil {
+		t.Fatalf("list job instances: %v", err)
+	}
+	var records []map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &records); err != nil || len(records) == 0 {
+		t.Skipf("no job instances to exercise (err=%v)", err)
+	}
+	body := records[0]
+	id := strings.Trim(string(body["id"]), `"`)
+	before := append(json.RawMessage(nil), body["isEnabled"]...)
+	// Same-value overlay: the PUT changes nothing if the shape is accepted.
+	body["isEnabled"] = before
+	if _, err := lc.UpdateJobInstance(ctx, body); err != nil {
+		t.Fatalf("same-value update: %v", err)
+	}
+	after, err := lc.ListJobInstances(ctx)
+	if err != nil {
+		t.Fatalf("re-list: %v", err)
+	}
+	var post []map[string]json.RawMessage
+	if err := json.Unmarshal(after, &post); err != nil {
+		t.Fatalf("decode re-list: %v", err)
+	}
+	for _, rec := range post {
+		if strings.Trim(string(rec["id"]), `"`) == id {
+			if !bytes.Equal(bytes.TrimSpace(rec["isEnabled"]), bytes.TrimSpace(before)) {
+				t.Errorf("instance %s isEnabled changed: %s -> %s", id, before, rec["isEnabled"])
+			}
+			return
+		}
+	}
+	t.Errorf("instance %s missing after same-value update", id)
+}
+
 // firstCaseAlert reads a case's first alert (identifier, name, priority) for the
 // per-alert verb smoke; empty identifier means the case carries no alert yet.
 func firstCaseAlert(ctx context.Context, t *testing.T, lc *legacy.Client, caseID int) (string, string, int) {

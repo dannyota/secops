@@ -21,6 +21,8 @@ type workflowStepInstanceSummary struct {
 	OriginalStepIdentifier     string `json:"original_step_identifier,omitempty"`
 	Status                     string `json:"status,omitempty"`
 	AllowedToExecute           *bool  `json:"allowed_to_execute,omitempty"`
+	IsSkippable                *bool  `json:"is_skippable,omitempty"`
+	SkipComment                string `json:"skip_comment,omitempty"`
 	ParameterCount             int    `json:"parameter_count"`
 	HasMessage                 bool   `json:"has_message"`
 	HasResultValue             bool   `json:"has_result_value"`
@@ -35,7 +37,7 @@ func newSOARPlaybookStepCmd() *cobra.Command {
 		Long: "Fetch a workflow step instance for review, then execute an explicit\n" +
 			"step-instance JSON body through a dry-run-first guarded command.",
 	}
-	cmd.AddCommand(newSOARPlaybookStepGetCmd(), newSOARPlaybookStepExecuteCmd())
+	cmd.AddCommand(newSOARPlaybookStepGetCmd(), newSOARPlaybookStepExecuteCmd(), newSOARPlaybookStepSkipCmd())
 	return cmd
 }
 
@@ -133,9 +135,68 @@ func newSOARPlaybookStepExecuteCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&file, "file", "", "workflow step instance JSON file (required)")
-	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
-	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
-	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	guardRunFlags(cmd, &dryRun, &yes)
+	_ = cmd.MarkFlagRequired("file")
+	return cmd
+}
+
+// newSOARPlaybookStepSkipCmd skips a pending playbook step — the reject half of
+// the manual/approval flow (`step execute` is the continue half). Mirrors
+// `step execute`: the body is a fetched step-instance JSON file, previewed as a
+// sanitized summary; --comment lands as skipComment.
+func newSOARPlaybookStepSkipCmd() *cobra.Command {
+	var (
+		file, comment string
+		dryRun, yes   bool
+	)
+	cmd := &cobra.Command{
+		Use:   "skip --file <step-instance.json> [--comment <s>]",
+		Short: "GUARDED: skip one pending workflow step (the reject half of an approval)",
+		Long: "Skip a pending playbook step so the workflow continues past it — the other\n" +
+			"half of the approval decision (`step execute` continues it). Takes the same\n" +
+			"step-instance JSON `soar playbook step get` fetches; --comment records why.\n" +
+			"Dry-run is the default and prints a sanitized summary, not the raw body.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			raw, summary, err := readWorkflowStepInstanceFile(file)
+			if err != nil {
+				return err
+			}
+			summary.SkipComment = comment
+			// The skip gate is isSkippable, not allowedToExecute — a fetched body
+			// that says false will most likely be rejected (warn, don't block: the
+			// file may be stale).
+			if summary.IsSkippable != nil && !*summary.IsSkippable {
+				fmt.Fprintln(os.Stderr, "warning: the fetched step instance says is_skippable=false — the skip will likely be rejected; re-fetch with `soar playbook step get`")
+			}
+			dr, ay := soarGuard("playbook step skip", dryRun, yes)
+			if err := emitWorkflowStepActionPreview("SKIP SOAR playbook step", summary, dr, ay); err != nil {
+				return err
+			}
+			if dr || !ay {
+				return emitWorkflowStepActionJSON("playbook step skip", summary, dr, false, nil)
+			}
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			// The raw file bytes go on the wire; the SDK overlays skipComment
+			// without re-decoding the step (int64 ids survive byte-exact).
+			resp, err := lc.SkipStep(baseContext(), raw, comment)
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return emitWorkflowStepActionJSON("playbook step skip", summary, dr, true, resp)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Done. Playbook step skip requested.")
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&file, "file", "", "workflow step instance JSON file (required)")
+	f.StringVar(&comment, "comment", "", "skip comment (why the step was rejected)")
+	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
 }
@@ -221,6 +282,9 @@ func summarizeWorkflowStepInstance(file string, raw json.RawMessage) (workflowSt
 	if v, ok := rawJSONBool(m["allowedToExecute"]); ok {
 		summary.AllowedToExecute = &v
 	}
+	if v, ok := rawJSONBool(m["isSkippable"]); ok {
+		summary.IsSkippable = &v
+	}
 	return summary, nil
 }
 
@@ -230,6 +294,10 @@ func printWorkflowStepInstanceSummary(w io.Writer, summary workflowStepInstanceS
 }
 
 func emitWorkflowStepExecutePreview(summary workflowStepInstanceSummary, dryRun, assumeYes bool) error {
+	return emitWorkflowStepActionPreview("EXECUTE SOAR playbook step", summary, dryRun, assumeYes)
+}
+
+func emitWorkflowStepActionPreview(action string, summary workflowStepInstanceSummary, dryRun, assumeYes bool) error {
 	if jsonOut {
 		return nil
 	}
@@ -237,7 +305,7 @@ func emitWorkflowStepExecutePreview(summary workflowStepInstanceSummary, dryRun,
 	bar := strings.Repeat("!", 72)
 	fmt.Fprintln(w, bar)
 	fmt.Fprintln(w, "!! LIVE SOAR playbook step action against a PRODUCTION tenant !!")
-	fmt.Fprintln(w, "!! Action: EXECUTE SOAR playbook step")
+	fmt.Fprintf(w, "!! Action: %s\n", action)
 	fmt.Fprintln(w, bar)
 	fmt.Fprintln(w, "Step summary:")
 	printStepSummaryFields(w, summary)
@@ -280,6 +348,12 @@ func printStepSummaryFields(w io.Writer, summary workflowStepInstanceSummary) {
 	if summary.AllowedToExecute != nil {
 		fmt.Fprintf(w, "allowed_to_execute: %t\n", *summary.AllowedToExecute)
 	}
+	if summary.IsSkippable != nil {
+		fmt.Fprintf(w, "is_skippable: %t\n", *summary.IsSkippable)
+	}
+	if summary.SkipComment != "" {
+		fmt.Fprintf(w, "skip_comment: %s\n", summary.SkipComment)
+	}
 	fmt.Fprintf(w, "parameters: %d\n", summary.ParameterCount)
 	fmt.Fprintf(w, "message: %t\n", summary.HasMessage)
 	fmt.Fprintf(w, "result_value: %t\n", summary.HasResultValue)
@@ -288,6 +362,10 @@ func printStepSummaryFields(w io.Writer, summary workflowStepInstanceSummary) {
 }
 
 func emitWorkflowStepExecuteJSON(summary workflowStepInstanceSummary, dryRun, applied bool, response json.RawMessage) error {
+	return emitWorkflowStepActionJSON("playbook step execute", summary, dryRun, applied, response)
+}
+
+func emitWorkflowStepActionJSON(action string, summary workflowStepInstanceSummary, dryRun, applied bool, response json.RawMessage) error {
 	if !jsonOut {
 		return nil
 	}
@@ -298,7 +376,7 @@ func emitWorkflowStepExecuteJSON(summary workflowStepInstanceSummary, dryRun, ap
 		Applied  bool                        `json:"applied"`
 		OK       bool                        `json:"ok"`
 		Response json.RawMessage             `json:"response,omitempty"`
-	}{Action: "playbook step execute", Step: summary, DryRun: dryRun, Applied: applied, OK: true, Response: response})
+	}{Action: action, Step: summary, DryRun: dryRun, Applied: applied, OK: true, Response: response})
 }
 
 func rawJSONInt64(raw json.RawMessage) (int64, bool) {

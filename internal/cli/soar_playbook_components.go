@@ -65,6 +65,7 @@ func newSOARPlaybookComponentsCmd() *cobra.Command {
 		newSOARPlaybookComponentsActionsCmd(),
 		newSOARPlaybookComponentsJobsCmd(),
 		newSOARPlaybookComponentsConnectorsCmd(),
+		newSOARPlaybookComponentsUsageCmd(),
 	)
 	return cmd
 }
