@@ -62,6 +62,17 @@ func (c *Client) CreateActionDef(ctx context.Context, integration string, body j
 	return c.createDef(ctx, integration, "actions", body)
 }
 
+// UpdateActionDef saves changes to an existing custom action definition. The
+// create and update legs share one endpoint with addOrUpdate semantics (as the
+// IDE's Save does): POST integrations/{key}/actions with a body whose `name`
+// (the server-assigned resource name from the create response) is POPULATED —
+// an empty name is a create, a set name is an update. Pass the modified
+// create-response body verbatim so numeric fields survive untouched. LIVE
+// MUTATION.
+func (c *Client) UpdateActionDef(ctx context.Context, integration string, body json.RawMessage) (json.RawMessage, error) {
+	return c.createDef(ctx, integration, "actions", body)
+}
+
 // DeleteActionDef deletes one custom action definition by its numeric id
 // (DELETE integrations/{key}/actions/{id}; the id comes from the wildcard
 // catalog or the create response). LIVE MUTATION.
@@ -73,6 +84,13 @@ func (c *Client) DeleteActionDef(ctx context.Context, integration, actionID stri
 // integrations/{key}/jobs, the filled jobs:fetchTemplate body). LIVE
 // MUTATION.
 func (c *Client) CreateJobDef(ctx context.Context, integration string, body json.RawMessage) (json.RawMessage, error) {
+	return c.createDef(ctx, integration, "jobs", body)
+}
+
+// UpdateJobDef saves changes to an existing custom job definition — the jobs
+// twin of UpdateActionDef (POST integrations/{key}/jobs with a populated
+// name). LIVE MUTATION.
+func (c *Client) UpdateJobDef(ctx context.Context, integration string, body json.RawMessage) (json.RawMessage, error) {
 	return c.createDef(ctx, integration, "jobs", body)
 }
 

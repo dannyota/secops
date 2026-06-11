@@ -1801,6 +1801,27 @@ step to the graph without hand-editing JSON.
   unknown-field preservation pinned offline; the CLI round-trip writes a
   definition `soar playbook validate` accepts.
 
+### Wave 65 — IDE definition update + the action-update shape *(done — SDK + verbs; gated smoke pins it live)*
+
+The remaining leg of Python-definition authoring: editing an existing custom
+action/job, not just creating and deleting one.
+
+- **`soar integration action update` / `job-def update`** (guarded): re-save a
+  complete modified definition (`--file`, with the server-assigned `name`
+  populated). Create and update share one endpoint with **addOrUpdate**
+  semantics — empty `name` creates, populated `name` updates — so the SDK
+  `UpdateActionDef`/`UpdateJobDef` post the body verbatim (numeric fields
+  intact).
+- **The gated smoke now covers the full loop.** `TestLiveAuthoringWriteSmoke`
+  does create → update(description v1→v2) → delete for **actions**, asserting
+  the update is **in-place** (still exactly one record with the name) and that
+  the change took (the catalog's description flips to v2); the job leg covers
+  create→delete (JobDef carries no description to observe). A live run pins the
+  action-update shape (and fails loudly if it is PATCH rather than
+  POST-with-name). Gated on `SECOPS_SOAR_SMOKE_WRITE=1`.
+- **Docs.** CATALOG (a dedicated authoring row), SURFACES (the addOrUpdate
+  note), usage guide, playbooks guide.
+
 ---
 
 ## Non-goals

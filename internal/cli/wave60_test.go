@@ -87,7 +87,7 @@ func TestWave60CommandRegistration(t *testing.T) {
 	}
 	for tree, verbs := range subtrees {
 		got := strings.Join(verbs, ",")
-		for _, want := range []string{"template", "create", "delete"} {
+		for _, want := range []string{"template", "create", "update", "delete"} {
 			if !strings.Contains(got, want) {
 				t.Errorf("integration %s missing %s (has %s)", tree, want, got)
 			}

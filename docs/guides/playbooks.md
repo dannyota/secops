@@ -52,10 +52,12 @@ definition JSON.
 secopsctl soar integration action template --integration HTTP        # the skeleton
 secopsctl soar integration action create --integration HTTP \
   --name my-action --script ./my_action.py --yes                     # create (guarded)
+secopsctl soar integration action update --integration HTTP \
+  --file ./edited_action.json --yes                                  # update (guarded)
 secopsctl soar integration action delete --integration HTTP --id 42 --yes
 ```
 
-`job-def` mirrors the same three verbs for scheduled-job definitions. New
+`job-def` mirrors the same four verbs for scheduled-job definitions. New
 definitions land with the template's enabled state (disabled for a fresh
 template) — review in the IDE before enabling. Check
 `components usage` before any delete.

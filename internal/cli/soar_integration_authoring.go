@@ -20,11 +20,12 @@ import (
 func newSOARIntegrationActionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "action <verb>",
-		Short: "Author Python ACTION definitions inside an integration (template/create/delete)",
+		Short: "Author Python ACTION definitions inside an integration (template/create/update/delete)",
 	}
 	cmd.AddCommand(
 		newAuthoringTemplateCmd("action", true),
 		newAuthoringCreateCmd("action"),
+		newAuthoringUpdateCmd("action"),
 		newAuthoringDeleteCmd("action"),
 	)
 	return cmd
@@ -33,14 +34,80 @@ func newSOARIntegrationActionCmd() *cobra.Command {
 func newSOARIntegrationJobCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "job-def <verb>",
-		Short: "Author Python JOB definitions inside an integration (template/create/delete)",
+		Short: "Author Python JOB definitions inside an integration (template/create/update/delete)",
 	}
 	cmd.AddCommand(
 		newAuthoringTemplateCmd("job", false),
 		newAuthoringCreateCmd("job"),
+		newAuthoringUpdateCmd("job"),
 		newAuthoringDeleteCmd("job"),
 	)
 	return cmd
+}
+
+func newAuthoringUpdateCmd(kind string) *cobra.Command {
+	var (
+		integration string
+		file        string
+		dryRun, yes bool
+	)
+	cmd := &cobra.Command{
+		Use:   "update --integration <key> --file <def.json>",
+		Short: "MUTATING (guarded): save changes to an existing custom " + kind + " definition",
+		Long: "Update an existing custom Python " + kind + " definition. --file is the\n" +
+			"COMPLETE modified definition, including the server-assigned `name` from a\n" +
+			"prior create/list — that populated name is what makes this an update rather\n" +
+			"than a create. Read the current definition with `--json`-friendly tooling,\n" +
+			"edit it, and pass it here.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			b, err := os.ReadFile(file)
+			if err != nil {
+				return err
+			}
+			if !json.Valid(b) {
+				return fmt.Errorf("%s is not valid JSON", file)
+			}
+			body := json.RawMessage(b)
+			// The create-vs-update switch is the server-assigned `name` (empty
+			// = create); an update body with an empty name would silently
+			// CREATE a duplicate, so require it populated.
+			if resourceNameOf(body) == "" {
+				return fmt.Errorf("the definition has an empty `name` — that field is a create, not an update; pass a body whose name is the server-assigned resource name from a prior create/list")
+			}
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
+			action := fmt.Sprintf("update %s definition %q in integration %s (%d-byte body)", kind, displayNameOf(body, ""), integration, len(body))
+			dr, ay := soarGuard(action, dryRun, yes)
+			if dr || !ay {
+				fmt.Fprintf(os.Stdout, "DRY RUN: would %s.\n", action)
+				return nil
+			}
+			var out json.RawMessage
+			if kind == "action" {
+				out, err = c.UpdateActionDef(baseContext(), integration, body)
+			} else {
+				out, err = c.UpdateJobDef(baseContext(), integration, body)
+			}
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stdout, "updated %s definition %s.\n", kind, definitionIDOf(out))
+			if jsonOut {
+				return writeRawJSON(os.Stdout, out)
+			}
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&integration, "integration", "", "integration key the definition belongs to (required)")
+	f.StringVar(&file, "file", "", "the complete modified definition JSON (required; name populated)")
+	_ = cmd.MarkFlagRequired("integration")
+	_ = cmd.MarkFlagRequired("file")
+	guardRunFlags(cmd, &dryRun, &yes)
+	return markJSON(cmd)
 }
 
 func newAuthoringTemplateCmd(kind string, hasAsync bool) *cobra.Command {
@@ -263,6 +330,19 @@ func displayNameOf(body json.RawMessage, fallback string) string {
 		return probe.DisplayName
 	}
 	return fallback
+}
+
+// resourceNameOf extracts the `name` field — the server-assigned resource
+// name. It is the create-vs-update marker (empty = create), distinct from the
+// human displayName.
+func resourceNameOf(body json.RawMessage) string {
+	var probe struct {
+		Name string `json:"name"`
+	}
+	if json.Unmarshal(body, &probe) == nil {
+		return strings.TrimSpace(probe.Name)
+	}
+	return ""
 }
 
 // definitionIDOf extracts the created definition's numeric id (or resource
