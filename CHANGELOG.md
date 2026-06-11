@@ -53,7 +53,9 @@ layer, the playbook authoring palette, and agent-safety guardrails.
 - Hard read-only mode: `--read-only` / `SECOPS_READONLY=1` degrades every
   guarded mutation to a dry-run and refuses AI generations.
 - `secopsctl commands` — the offline, machine-readable verb catalog
-  (read vs guarded-mutation), for building automation allowlists.
+  (read vs guarded-mutation), for building automation allowlists. Each row now
+  also reports per-command `--json` support (the `json` field / `JSON` column),
+  so agents read it from the catalog instead of a hand-maintained doc list.
 - A local JSONL audit log of confirmed mutations (`$SECOPSCTL_HOME/audit.jsonl`).
 
 ### SOAR administration

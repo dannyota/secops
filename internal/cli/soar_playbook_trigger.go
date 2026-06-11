@@ -121,7 +121,7 @@ func newSOARPlaybookTriggerSetCmd() *cobra.Command {
 	f.StringVar(&reactionConditions, "reaction-conditions", "", "JSON file to set trigger.reactionConditions")
 	_ = cmd.MarkFlagRequired("file")
 	_ = cmd.MarkFlagRequired("out")
-	return cmd
+	return markJSON(cmd)
 }
 
 func optionalBoolFlag(name, value string) (*bool, bool, error) {

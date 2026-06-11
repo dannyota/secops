@@ -58,7 +58,7 @@ func newCaseCommentAddCmd() *cobra.Command {
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
 	cmd.Flags().StringVar(&text, "text", "", "comment text (required)")
 	_ = cmd.MarkFlagRequired("text")
-	return cmd
+	return markJSON(cmd)
 }
 
 // caseCommentView is the subset of a comment record we render in `list`. The
@@ -104,7 +104,7 @@ func newCaseCommentListCmd() *cobra.Command {
 	f.IntVar(&caseID, "id", 0, "SOAR case id (required)")
 	f.StringVar(&alert, "alert", "", "optional alert identifier to scope the listing")
 	_ = cmd.MarkFlagRequired("id")
-	return cmd
+	return markJSON(cmd)
 }
 
 // emitCaseComments renders the comment records compactly. The live endpoint

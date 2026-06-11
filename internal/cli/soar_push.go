@@ -85,6 +85,9 @@ func newSOAREnginePushCmd(name string) *cobra.Command {
 	f.BoolVar(&prune, "prune", false, pruneHelp)
 	f.StringVar(&out, "out", "", "data root directory (default: cwd)")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	// NOTE: not markJSON'd. The only jsonOut reference here suppresses a prune
+	// note; reconcile.Push still writes human text to stdout (no JSON output), so
+	// `soar push <surface>` does not honor --json.
 	return cmd
 }
 

@@ -22,7 +22,7 @@ func init() {
 		Args: cobra.NoArgs,
 		RunE: runSurfaces,
 	}
-	rootCmd.AddCommand(cmd)
+	rootCmd.AddCommand(markJSON(cmd))
 }
 
 // surfaceRow is one registry family's row. PruneEligible/NoDelete are pointers so

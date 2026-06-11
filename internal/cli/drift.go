@@ -160,7 +160,7 @@ func newDriftCmd() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive("siem", "soar")
 	// `drift <target> --help` appends the target's behavior note.
 	attachTargetHelp(cmd, all)
-	return cmd
+	return markJSON(cmd)
 }
 
 // selectDriftTargets splits the requested targets into SIEM and SOAR sets. No args

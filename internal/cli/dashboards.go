@@ -74,5 +74,5 @@ func newDashboardsDuplicateCmd() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("access")
-	return cmd
+	return markJSON(cmd)
 }

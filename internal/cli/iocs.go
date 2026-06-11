@@ -88,7 +88,7 @@ func newIoCsFindCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&typ, "type", "", "indicator type: md5|sha1|sha256|domain|ip (default: auto-detect)")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "read indicators from a file (one per line; '-' for stdin)")
-	return cmd
+	return markJSON(cmd)
 }
 
 // readLines reads every line from path (or stdin for "-") verbatim — no trimming
@@ -161,7 +161,7 @@ func newIoCsGetCmd() *cobra.Command {
 			return emitIoCs(os.Stdout, []chronicle.Ioc{*ioc})
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newIoCsRelatedCmd() *cobra.Command {
@@ -209,7 +209,7 @@ func newIoCsRelatedCmd() *cobra.Command {
 	f.StringVar(&collectionType, "collection-type", "all", "related threat collection type: campaign|report|all")
 	f.IntVar(&limit, "limit", 25, "maximum related collections per type (API max 40)")
 	f.StringVar(&orderBy, "order", "last_modification_date-", "server order key")
-	return cmd
+	return markJSON(cmd)
 }
 
 // iocValueType resolves the IoCValueType for value v: an explicit --type override

@@ -123,7 +123,7 @@ func newSOARLegacyListCmd() *cobra.Command {
 	f.StringVar(&grep, "grep", "", "substring filter over op/tag/summary (case-insensitive)")
 	f.StringVar(&tag, "tag", "", "filter to one tag (case-insensitive), e.g. Cases, Jobs, Ontology")
 	f.StringVar(&method, "method", "", "filter to one HTTP method (GET/POST/PUT/DELETE)")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARLegacyCallCmd() *cobra.Command {
@@ -270,7 +270,7 @@ func newSOARLegacyCallCmd() *cobra.Command {
 	f.StringVar(&out, "out", "", "write the response to this file (0600) instead of stdout")
 	f.BoolVar(&dryRun, "dry-run", false, "preview the composed request (method, op, body); send nothing")
 	cmd.MarkFlagsMutuallyExclusive("read", "write")
-	return cmd
+	return markJSON(cmd)
 }
 
 // bodyRaw returns the request payload as json.RawMessage for the --json preview,

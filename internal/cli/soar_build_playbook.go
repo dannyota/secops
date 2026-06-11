@@ -71,7 +71,7 @@ func newSOARBuildPlaybookCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("base")
 	_ = cmd.MarkFlagRequired("out")
 	_ = cmd.MarkFlagRequired("cron")
-	return cmd
+	return markJSON(cmd)
 }
 
 func loadPlaybookStepReplacements(args []string) ([]legacy.PlaybookStepReplacement, error) {

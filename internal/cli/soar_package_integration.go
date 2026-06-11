@@ -55,7 +55,7 @@ func newSOARPackageIntegrationCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&outPath, "out", "", "output ZIP path (default: <dir>.zip)")
 	f.BoolVar(&force, "force", false, "overwrite an existing output ZIP")
-	return cmd
+	return markJSON(cmd)
 }
 
 func packageSOARIntegrationDir(dir, outPath string, force bool) (integrationPackageResult, error) {

@@ -40,7 +40,7 @@ type integrationRuntimeRef struct {
 }
 
 func newInfoSOARIntegrationsCmd() *cobra.Command {
-	return &cobra.Command{
+	return markJSON(&cobra.Command{
 		Use:   "soar-integrations",
 		Short: "Report SOAR integration runtime coverage (read-only)",
 		Long: "Report installed SOAR integration packs and whether they have configured\n" +
@@ -83,7 +83,7 @@ func newInfoSOARIntegrationsCmd() *cobra.Command {
 			emitSOARIntegrationHealth(os.Stdout, rows)
 			return nil
 		},
-	}
+	})
 }
 
 func buildSOARIntegrationHealth(installed []soar.Integration, connectorsRaw, jobsRaw json.RawMessage) ([]soarIntegrationHealthRow, error) {

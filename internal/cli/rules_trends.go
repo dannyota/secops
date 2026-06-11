@@ -122,7 +122,7 @@ func newRulesTrendsCmd() *cobra.Command {
 	f.IntVar(&hours, "hours", 7*24, "look-back window in hours (default 7 days)")
 	f.StringVar(&rules, "rule", "", "comma-separated rule refs (id/name/slug); empty = all rules")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 func newRulesCountsCmd() *cobra.Command {
@@ -149,7 +149,7 @@ func newRulesCountsCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newRulesEventsCmd() *cobra.Command {
@@ -188,7 +188,7 @@ func newRulesEventsCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.IntVar(&maxEvents, "max", 0, "max events over all event variables (0 = server default)")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 // emitDetectionEventsSummary prints sample counts per event variable — enough

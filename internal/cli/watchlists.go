@@ -59,7 +59,7 @@ func newWatchlistsAddEntityCmd() *cobra.Command {
 	f.StringVar(&email, "email", "", "user email address")
 	f.StringVar(&namespace, "namespace", "", "optional entity namespace")
 	guardRunFlags(cmd, &dryRun, &yes)
-	return cmd
+	return markJSON(cmd)
 }
 
 // buildWatchlistEntity maps the selector flags to the Entity oneof — exactly
@@ -122,7 +122,7 @@ func newWatchlistsListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 100, "max watchlists to fetch/show")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newWatchlistsGetCmd() *cobra.Command {
@@ -142,7 +142,8 @@ func newWatchlistsGetCmd() *cobra.Command {
 			return json.NewEncoder(os.Stdout).Encode(w)
 		},
 	}
-	return cmd
+	// Output is always JSON (the full watchlist object), like `rules alerts`.
+	return markJSON(cmd)
 }
 
 func init() { rootCmd.AddCommand(newWatchlistsCmd()) }

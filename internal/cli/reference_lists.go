@@ -67,5 +67,5 @@ func newReferenceListsEmptyCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }

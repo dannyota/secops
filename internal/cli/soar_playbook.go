@@ -155,7 +155,7 @@ func newSOARPlaybookListCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVar(&enabledOnly, "enabled-only", false, "show only enabled playbooks")
 	f.StringArrayVar(&types, "type", nil, "playbook type filter: regular or nested (repeatable)")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookDeleteCmd() *cobra.Command {
@@ -489,7 +489,7 @@ func newSOARPlaybookValidateCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&file, "file", "", "playbook JSON file to validate (required)")
 	_ = cmd.MarkFlagRequired("file")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookTestCasesCmd() *cobra.Command {
@@ -525,7 +525,7 @@ func newSOARPlaybookTestCasesCmd() *cobra.Command {
 	f.StringArrayVar(&envs, "environment", nil, "environment filter (repeatable)")
 	f.IntVar(&page, "page", 0, "requested page")
 	f.IntVar(&pageSize, "page-size", 50, "page size")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookRunCmd() *cobra.Command {
@@ -583,7 +583,7 @@ func newSOARPlaybookRunCmd() *cobra.Command {
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookDebugCmd() *cobra.Command {
@@ -643,7 +643,7 @@ func newSOARPlaybookDebugCmd() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("file")
 	_ = cmd.MarkFlagRequired("test-case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookDebugStepDataCmd() *cobra.Command {
@@ -679,7 +679,7 @@ func newSOARPlaybookDebugStepDataCmd() *cobra.Command {
 	f.StringVar(&stepIdentifier, "step-identifier", "", "original step identifier (required)")
 	f.StringVar(&alert, "alert", "", "optional alert identifier")
 	_ = cmd.MarkFlagRequired("step-identifier")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookSimulationEnrichmentCmd() *cobra.Command {
@@ -719,7 +719,7 @@ func newSOARPlaybookSimulationEnrichmentCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("test-case-id")
 	_ = cmd.MarkFlagRequired("step-identifier")
 	_ = cmd.MarkFlagRequired("workflow-identifier")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookPendingCmd() *cobra.Command {
@@ -758,7 +758,7 @@ func newSOARPlaybookPendingCountCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookPendingListCmd() *cobra.Command {
@@ -782,7 +782,7 @@ func newSOARPlaybookPendingListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookPendingGetCmd() *cobra.Command {
@@ -820,7 +820,7 @@ func newSOARPlaybookPendingGetCmd() *cobra.Command {
 	f.StringVar(&alertGroup, "alert-group", "", "optional alert group identifier")
 	f.StringVar(&workflowIdentifier, "workflow-identifier", "", "optional original workflow definition identifier")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookRerunCmd() *cobra.Command {
@@ -875,7 +875,7 @@ func newSOARPlaybookRerunCmd() *cobra.Command {
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookRerunBlockCmd() *cobra.Command {
@@ -930,7 +930,7 @@ func newSOARPlaybookRerunBlockCmd() *cobra.Command {
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookSummaryCmd() *cobra.Command {
@@ -1027,7 +1027,7 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 	f.BoolVar(&collapseBlocks, "collapse-blocks", false, "collapse nested block details")
 	f.BoolVar(&showErrors, "show-errors", false, "print full faulted-step error messages (default truncates)")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookResultsCmd() *cobra.Command {
@@ -1057,7 +1057,7 @@ func newSOARPlaybookResultsCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&workflowInstanceID, "workflow-instance-id", 0, "workflow instance id (required)")
 	_ = cmd.MarkFlagRequired("workflow-instance-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookResultCmd() *cobra.Command {
@@ -1096,7 +1096,7 @@ func newSOARPlaybookResultCmd() *cobra.Command {
 	f.StringVar(&id, "action-result-id", "", "action result id (required)")
 	_ = cmd.MarkFlagRequired("case-id")
 	_ = cmd.MarkFlagRequired("action-result-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 // wrapCloudLogging500 intercepts a legacy SOAR 500 from the Cloud Logging proxy
@@ -1156,7 +1156,7 @@ func newSOARPlaybookPythonLogsCmd() *cobra.Command {
 	f.IntVar(&pageSize, "page-size", 50, "maximum records to request")
 	f.StringVar(&pageToken, "page-token", "", "page token from a previous response")
 	f.StringVar(&sortOrder, "sort-order", "", "SecOps sort order")
-	return cmd
+	return markJSON(cmd)
 }
 
 func pythonLogsBody(filter, pageToken, sortOrder string, pageSize int) map[string]any {

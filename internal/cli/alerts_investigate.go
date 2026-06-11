@@ -101,5 +101,5 @@ func newAlertsInvestigateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&latest, "latest", false, "read the alert's most recent investigation instead of starting a new one (read-only)")
-	return cmd
+	return markJSON(cmd)
 }

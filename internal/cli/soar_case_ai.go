@@ -118,7 +118,7 @@ func newCaseSummarizeCmd() *cobra.Command {
 	cmd.Flags().IntVar(&caseID, "id", 0, "SOAR case id (required)")
 	cmd.Flags().BoolVar(&refresh, "refresh", false, "force a new generation (an existing summary is otherwise returned as-is)")
 	_ = cmd.MarkFlagRequired("id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseCountsCmd() *cobra.Command {
@@ -160,7 +160,7 @@ func newCaseCountsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&filter, "filter", "status = 'OPENED'", "base server-side filter the per-priority counts compose with")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseAlertRecommendCmd() *cobra.Command {
@@ -225,7 +225,7 @@ func newCaseAlertRecommendCmd() *cobra.Command {
 	f.StringVar(&alert, "alert", "", "alert identifier (from `soar case get`) or numeric caseAlert id (required)")
 	_ = cmd.MarkFlagRequired("id")
 	_ = cmd.MarkFlagRequired("alert")
-	return cmd
+	return markJSON(cmd)
 }
 
 // resolveCaseAlertID maps an alert reference — a numeric caseAlert id, or the

@@ -52,6 +52,7 @@ func init() {
 			return nil
 		},
 	}
+	markJSON(infoCmd)
 	infoCmd.AddCommand(
 		newInfoCronCmd(),
 		newInfoSOARIntegrationsCmd(),

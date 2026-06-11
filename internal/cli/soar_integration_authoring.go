@@ -70,7 +70,8 @@ func newAuthoringTemplateCmd(kind string, hasAsync bool) *cobra.Command {
 		f.BoolVar(&async, "async", false, "fetch the asynchronous-action variant of the skeleton")
 	}
 	_ = cmd.MarkFlagRequired("integration")
-	return cmd
+	// Output is always raw JSON (the definition skeleton), like `rules alerts`.
+	return markJSON(cmd)
 }
 
 func fetchAuthoringTemplate(c *soar.Client, kind, integration string, async bool) (json.RawMessage, error) {
@@ -162,7 +163,7 @@ func newAuthoringCreateCmd(kind string) *cobra.Command {
 	}
 	_ = cmd.MarkFlagRequired("integration")
 	guardRunFlags(cmd, &dryRun, &yes)
-	return cmd
+	return markJSON(cmd)
 }
 
 func createAuthoringDef(c *soar.Client, kind, integration string, body json.RawMessage) (json.RawMessage, error) {

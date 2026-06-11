@@ -104,7 +104,7 @@ func newSOARPlaybookComponentsIntegrationsCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&grep, "grep", "", "case-insensitive filter over identifier/name")
 	f.BoolVar(&all, "all", false, "include internal platform integrations")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookComponentsActionsCmd() *cobra.Command {
@@ -161,7 +161,7 @@ func newSOARPlaybookComponentsActionsCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&integration, "integration", "", "integration key/identifier/display name (omit for the all-integration catalog)")
 	f.StringVar(&grep, "grep", "", "case-insensitive filter over action name/description")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookComponentsJobsCmd() *cobra.Command {
@@ -213,7 +213,7 @@ func newSOARPlaybookComponentsJobsCmd() *cobra.Command {
 	f.StringVar(&integration, "integration", "", "integration key/identifier/display name (required)")
 	f.StringVar(&grep, "grep", "", "case-insensitive filter over job id/name")
 	_ = cmd.MarkFlagRequired("integration")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookComponentsConnectorsCmd() *cobra.Command {
@@ -266,7 +266,7 @@ func newSOARPlaybookComponentsConnectorsCmd() *cobra.Command {
 	f.StringVar(&integration, "integration", "", "integration key/identifier/display name (required)")
 	f.StringVar(&grep, "grep", "", "case-insensitive filter over connector id/name")
 	_ = cmd.MarkFlagRequired("integration")
-	return cmd
+	return markJSON(cmd)
 }
 
 func playbookIntegrationRows(ints []soar.Integration, grep string, includeInternal bool) []playbookComponentIntegrationRow {
@@ -711,7 +711,7 @@ func newSOARPlaybookComponentsFlowCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&kind, "kind", "all", "which palette to list: functions (transformers), operators (logical operators), or all")
 	f.StringVar(&grep, "grep", "", "case-insensitive filter over name/description/example")
-	return cmd
+	return markJSON(cmd)
 }
 
 func flowFunctionRows(kind string, fns []soar.FlowFunction, grep string) []flowFunctionRow {
@@ -802,7 +802,7 @@ func newSOARPlaybookComponentsTriggersCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookComponentsBlocksCmd() *cobra.Command {
@@ -849,5 +849,5 @@ func newSOARPlaybookComponentsBlocksCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&enabledOnly, "enabled", false, "only enabled blocks")
-	return cmd
+	return markJSON(cmd)
 }

@@ -66,7 +66,7 @@ func newSOARMarketplaceListCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVar(&onlyInstalled, "installed", false, "show only installed integrations")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARMarketplaceGetCmd() *cobra.Command {
@@ -95,7 +95,7 @@ func newSOARMarketplaceGetCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 // newSOARContentPacksCmd lists content packs by default (bare `contentpacks`) and
@@ -131,7 +131,7 @@ func newSOARContentPacksCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	cmd.AddCommand(newSOARContentPackGetCmd())
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARContentPackGetCmd() *cobra.Command {
@@ -160,5 +160,5 @@ func newSOARContentPackGetCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }

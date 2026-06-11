@@ -215,7 +215,7 @@ func newCaseListCmd() *cobra.Command {
 	f.StringVar(&since, "since", "", "keep cases updated since (duration like 24h, RFC3339, or YYYY-MM-DD)")
 	f.StringVar(&filter, "filter", "", "verbatim server-side filter for the modern cases API")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 // runModernCaseList lists cases via the modern v1alpha API (SOAR host), fetching
@@ -424,7 +424,7 @@ func newCaseGetCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	cmd.Flags().IntVar(&idFlag, "id", 0, "SOAR case id (alternative to the positional arg)")
-	return cmd
+	return markJSON(cmd)
 }
 
 // parseSOARCaseStatuses maps the --status flag to the legacy numeric status codes.

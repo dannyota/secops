@@ -38,7 +38,7 @@ func newSOARFeaturedListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARFeaturedInstallCmd() *cobra.Command {
@@ -107,5 +107,5 @@ func newSOARMarketplaceDiffCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }

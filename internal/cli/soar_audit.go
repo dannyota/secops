@@ -63,7 +63,7 @@ func newAuditListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&pageSize, "page-size", 50, "max entries per page")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newNotificationsCmd() *cobra.Command {
@@ -100,7 +100,7 @@ func newNotificationsListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newNotificationsUnreadCmd() *cobra.Command {
@@ -124,7 +124,7 @@ func newNotificationsUnreadCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newNotificationsCloseCmd() *cobra.Command {
@@ -209,5 +209,5 @@ func newReportTemplatesCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }

@@ -94,7 +94,7 @@ func newSOARJobListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&grep, "grep", "", "case-insensitive filter over id/name/integration/status")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARJobRunCmd() *cobra.Command {
@@ -144,7 +144,7 @@ func newSOARJobRunCmd() *cobra.Command {
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("job")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARJobLogsCmd() *cobra.Command {
@@ -183,7 +183,7 @@ func newSOARJobLogsCmd() *cobra.Command {
 	f.IntVar(&pageSize, "page-size", 50, "maximum records to request")
 	f.StringVar(&pageToken, "page-token", "", "page token from a previous response")
 	f.StringVar(&sortOrder, "sort-order", "", "SecOps sort order")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARJobTemplateCmd() *cobra.Command {
@@ -222,7 +222,7 @@ func newSOARJobTemplateListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&grep, "grep", "", "case-insensitive filter over id/name/integration")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARJobInstanceCmd() *cobra.Command {
@@ -304,7 +304,7 @@ func newSOARJobInstanceSetCmd() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive("enable", "disable")
 	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("instance")
-	return cmd
+	return markJSON(cmd)
 }
 
 // newSOARJobInstanceCreateCmd creates a scheduled job instance from a JSON
@@ -341,7 +341,7 @@ func newSOARJobInstanceCreateCmd() *cobra.Command {
 	f.StringVar(&file, "file", "", "job instance JSON body (required)")
 	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("file")
-	return cmd
+	return markJSON(cmd)
 }
 
 // newSOARJobInstanceDeleteCmd deletes a scheduled job instance by id — the
@@ -394,7 +394,7 @@ func newSOARJobInstanceDeleteCmd() *cobra.Command {
 	f.StringVar(&selector, "instance", "", "job instance id, uniqueIdentifier, or name (required)")
 	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("instance")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARJobInstanceListCmd() *cobra.Command {
@@ -424,7 +424,7 @@ func newSOARJobInstanceListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&grep, "grep", "", "case-insensitive filter over id/name/category")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARJobInstanceRunCmd() *cobra.Command {
@@ -474,7 +474,7 @@ func newSOARJobInstanceRunCmd() *cobra.Command {
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("instance")
-	return cmd
+	return markJSON(cmd)
 }
 
 func summarizeSOARJobs(raw json.RawMessage, grep string) ([]soarJobRow, error) {

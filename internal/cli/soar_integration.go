@@ -162,7 +162,7 @@ func newSOARIntegrationInstancesCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&integration, "integration", "", "installed integration identifier (required)")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARIntegrationConfigureCmd() *cobra.Command {
@@ -377,7 +377,7 @@ func newSOARIntegrationInstallCmd() *cobra.Command {
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("identifier")
-	return cmd
+	return markJSON(cmd)
 }
 
 // newSOARIntegrationConnectorCmd groups the connector-DEFINITION verbs (the
@@ -428,7 +428,7 @@ func newSOARConnectorDefListCmd() *cobra.Command {
 	f.StringVar(&integration, "integration", "", "integration key/identifier (required)")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	_ = cmd.MarkFlagRequired("integration")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARConnectorDefDeleteCmd() *cobra.Command {
@@ -518,7 +518,7 @@ func newSOARIntegrationListCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVar(&custom, "custom", false, "show only deletable (custom pack or clone) integrations")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 // newSOARIntegrationUninstallCmd deletes a CUSTOM integration pack (e.g. a cloned

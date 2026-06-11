@@ -53,7 +53,7 @@ func newExtListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newExtGetCmd() *cobra.Command {
@@ -80,7 +80,7 @@ func newExtGetCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newExtCreateCmd() *cobra.Command {
@@ -136,7 +136,7 @@ func newExtCreateCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newExtActivateCmd() *cobra.Command {
@@ -165,7 +165,7 @@ func newExtActivateCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newExtDeleteCmd() *cobra.Command {
@@ -194,5 +194,5 @@ func newExtDeleteCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }

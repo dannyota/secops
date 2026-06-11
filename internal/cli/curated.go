@@ -68,7 +68,7 @@ func newCuratedRulesCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 // curatedRow is a flattened deployment for display/JSON: identity ids + the two
@@ -112,7 +112,7 @@ func newCuratedListCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&filter, "filter", "", "case-insensitive substring filter on the rule-set display name")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCuratedSetCmd() *cobra.Command {
@@ -159,7 +159,7 @@ func newCuratedSetCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("category")
 	_ = cmd.MarkFlagRequired("ruleset")
 	_ = cmd.MarkFlagRequired("precision")
-	return cmd
+	return markJSON(cmd)
 }
 
 // curatedRows lists every deployment and joins it with category/rule-set display

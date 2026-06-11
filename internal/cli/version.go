@@ -109,5 +109,5 @@ func init() {
 	}
 	// Also set the cobra Version so `secopsctl --version` works.
 	rootCmd.Version = resolveBuildInfo().Version
-	rootCmd.AddCommand(cmd)
+	rootCmd.AddCommand(markJSON(cmd))
 }

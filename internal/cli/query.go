@@ -198,7 +198,7 @@ func init() {
 	f.BoolVar(&raw, "raw", false,
 		"print each matched event's FULL raw log line (for `parsers run --logs -`) instead of the event summary")
 
-	queryCmd.AddCommand(udmCmd, newQueryNLCmd(), newQueryRawCmd(), newQueryGeminiCmd())
+	queryCmd.AddCommand(markJSON(udmCmd), newQueryNLCmd(), newQueryRawCmd(), newQueryGeminiCmd())
 	rootCmd.AddCommand(queryCmd)
 }
 
@@ -276,7 +276,7 @@ func newQueryRawCmd() *cobra.Command {
 	f.StringVar(&toTS, "to", "", "explicit end time (RFC3339 / ISO-8601); default: now")
 	f.IntVar(&limit, "limit", 100, "max raw lines to fetch")
 	f.BoolVar(&unparsed, "unparsed", false, "restrict to truly-unparsed logs (parsed = false)")
-	return cmd
+	return markJSON(cmd)
 }
 
 // newQueryNLCmd translates a natural-language description to a UDM query and runs
@@ -331,7 +331,7 @@ func newQueryNLCmd() *cobra.Command {
 	f.IntVar(&nlHours, "hours", 24, "look-back window in hours")
 	f.IntVar(&nlLimit, "limit", 1000, "maximum number of events to return")
 	f.BoolVar(&translateOnly, "translate-only", false, "print the generated UDM query; do not search")
-	return cmd
+	return markJSON(cmd)
 }
 
 // udmMetadata captures UDM metadata in both serializations the API may emit:
@@ -449,7 +449,7 @@ func newQueryGeminiCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&optIn, "opt-in", false, "opt this account in to Gemini first (one-time)")
-	return cmd
+	return markJSON(cmd)
 }
 
 // htmlToText renders Gemini's HTML prose as readable terminal text: list items

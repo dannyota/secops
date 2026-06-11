@@ -96,7 +96,7 @@ func newCasePriorityCmd() *cobra.Command {
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
 	cmd.Flags().StringVar(&priority, "priority", "", "target priority: informative|low|medium|high|critical (required)")
 	_ = cmd.MarkFlagRequired("priority")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseReopenCmd() *cobra.Command {
@@ -139,7 +139,7 @@ func newCaseReopenCmd() *cobra.Command {
 	f.StringVar(&comment, "comment", "", "reopen comment (free-text note)")
 	guardRunFlags(cmd, &dryRun, &yes)
 	cmd.MarkFlagsMutuallyExclusive("id", "ids")
-	return cmd
+	return markJSON(cmd)
 }
 
 // caseBody seeds a request body with the case id and (when set) the alert
@@ -244,7 +244,7 @@ func newCaseAssignCmd() *cobra.Command {
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
 	cmd.Flags().StringVar(&user, "user", "", "target user id — a username (list them with `soar users list`) or a role as @RoleName (required)")
 	_ = cmd.MarkFlagRequired("user")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseRenameCmd() *cobra.Command {
@@ -268,7 +268,7 @@ func newCaseRenameCmd() *cobra.Command {
 	caseGuardFlags(cmd, &caseID, nil, &dryRun, &yes, false)
 	cmd.Flags().StringVar(&title, "title", "", "new case title (required)")
 	_ = cmd.MarkFlagRequired("title")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseStageCmd() *cobra.Command {
@@ -293,7 +293,7 @@ func newCaseStageCmd() *cobra.Command {
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
 	cmd.Flags().StringVar(&stage, "stage", "", "target stage (required) — list valid stages with `soar case values stages`")
 	_ = cmd.MarkFlagRequired("stage")
-	return cmd
+	return markJSON(cmd)
 }
 
 // newCaseTagCmd builds both `case tag` (add) and `case untag` (remove).
@@ -326,7 +326,7 @@ func newCaseTagCmd(remove bool) *cobra.Command {
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
 	cmd.Flags().StringVar(&tag, "tag", "", "tag value (required) — list existing tags with `soar case values tags`")
 	_ = cmd.MarkFlagRequired("tag")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseDescribeCmd() *cobra.Command {
@@ -350,7 +350,7 @@ func newCaseDescribeCmd() *cobra.Command {
 	caseGuardFlags(cmd, &caseID, nil, &dryRun, &yes, false)
 	cmd.Flags().StringVar(&description, "description", "", "new description (required)")
 	_ = cmd.MarkFlagRequired("description")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseImportanceCmd() *cobra.Command {
@@ -375,7 +375,7 @@ func newCaseImportanceCmd() *cobra.Command {
 	}
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
 	cmd.Flags().BoolVar(&important, "important", true, "important flag value (default true; --important=false to clear)")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseCloseCmd() *cobra.Command {
@@ -418,7 +418,7 @@ func newCaseCloseCmd() *cobra.Command {
 	f.StringVar(&rootCause, "root-cause", "", "close root cause (your custom root-cause name) — list options with `soar case values root-causes`")
 	f.StringVar(&comment, "comment", "", "close comment (free-text note)")
 	_ = cmd.MarkFlagRequired("reason")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseMergeCmd() *cobra.Command {
@@ -455,5 +455,5 @@ func newCaseMergeCmd() *cobra.Command {
 	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("into")
-	return cmd
+	return markJSON(cmd)
 }

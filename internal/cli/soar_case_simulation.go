@@ -67,7 +67,7 @@ func newSimListCmd() *cobra.Command {
 			)
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSimGetCmd() *cobra.Command {
@@ -128,7 +128,7 @@ func newSimGetCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&name, "name", "", "custom simulation name (required)")
 	f.StringVar(&env, "environment", "Default Environment", "SOAR environment")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSimCreateCmd() *cobra.Command {
@@ -296,7 +296,7 @@ func newSimGenerateCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSimAlertCmd() *cobra.Command {

@@ -75,7 +75,7 @@ func newSOARUsersListCmd() *cobra.Command {
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	f.BoolVar(&includeOff, "all", false, "include disabled accounts (hidden by default)")
 	f.StringVar(&grep, "grep", "", "filter over username/name/email (case-insensitive)")
-	return cmd
+	return markJSON(cmd)
 }
 
 // filterUsers drops disabled accounts (unless includeOff) and applies the grep

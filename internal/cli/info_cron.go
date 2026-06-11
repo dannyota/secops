@@ -124,7 +124,7 @@ func newInfoCronCmd() *cobra.Command {
 	cmd.Flags().StringVar(&root, "root", ".", "repository root to scan")
 	cmd.Flags().BoolVar(&includeHost, "host", false, "also inspect current user's crontab and user systemd unit files")
 	cmd.Flags().StringArrayVar(&heartbeatFlags, "heartbeat-status", nil, "check a read-only heartbeat status endpoint as <label>=<url> (repeatable; URL is not printed)")
-	return cmd
+	return markJSON(cmd)
 }
 
 func buildCronInfoReport(root string) (cronInfoReport, error) {

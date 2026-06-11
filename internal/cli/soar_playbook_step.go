@@ -91,7 +91,7 @@ func newSOARPlaybookStepGetCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("case-id")
 	_ = cmd.MarkFlagRequired("workflow-identifier")
 	_ = cmd.MarkFlagRequired("step-identifier")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookStepExecuteCmd() *cobra.Command {
@@ -137,7 +137,7 @@ func newSOARPlaybookStepExecuteCmd() *cobra.Command {
 	f.StringVar(&file, "file", "", "workflow step instance JSON file (required)")
 	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("file")
-	return cmd
+	return markJSON(cmd)
 }
 
 // newSOARPlaybookStepSkipCmd skips a pending playbook step — the reject half of
@@ -198,7 +198,7 @@ func newSOARPlaybookStepSkipCmd() *cobra.Command {
 	f.StringVar(&comment, "comment", "", "skip comment (why the step was rejected)")
 	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("file")
-	return cmd
+	return markJSON(cmd)
 }
 
 func workflowStepRequestBody(caseID int, alert, workflowIdentifier, stepIdentifier, blockStepID string, loopIteration, parentWorkflowIteration int) (map[string]any, error) {

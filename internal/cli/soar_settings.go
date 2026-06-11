@@ -95,11 +95,12 @@ func newSOARAPIKeysCmd() *cobra.Command {
 			return nil
 		},
 	}
+	markJSON(listCmd)
 	parent.AddCommand(listCmd, newSOARAPIKeyCreateCmd(), newSOARAPIKeyRevokeCmd())
 	// Bare `api-keys` runs the list.
 	parent.RunE = listCmd.RunE
 	parent.Args = cobra.NoArgs
-	return parent
+	return markJSON(parent)
 }
 
 func newSOARAPIKeyCreateCmd() *cobra.Command {

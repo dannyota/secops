@@ -53,7 +53,7 @@ func newPipelineListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&filter, "filter", "", "AIP-160 filter expression")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newPipelineGetCmd() *cobra.Command {
@@ -77,7 +77,7 @@ func newPipelineGetCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newPipelineDeleteCmd() *cobra.Command {
@@ -105,5 +105,5 @@ func newPipelineDeleteCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }

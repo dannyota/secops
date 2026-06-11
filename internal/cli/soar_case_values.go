@@ -73,7 +73,7 @@ func newCaseValuesCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 // extractValueField unwraps a list payload (objectsList wrap or flat array) and

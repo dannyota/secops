@@ -41,7 +41,7 @@ func newInfoSOARSystemCmd() *cobra.Command {
 			)
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func renderSystemInfo(ver json.RawMessage, verr error, lic json.RawMessage, lerr error, ret json.RawMessage, rerr error) error {

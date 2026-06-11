@@ -63,7 +63,7 @@ func newSOARPlaybookMoldExtractCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("file")
 	_ = cmd.MarkFlagRequired("step")
 	_ = cmd.MarkFlagRequired("out")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookMoldApplyCmd() *cobra.Command {
@@ -117,5 +117,5 @@ func newSOARPlaybookMoldApplyCmd() *cobra.Command {
 	f.StringArrayVar(&replacements, "replace-step", nil, "replace a base step with a mold: <step-name|id>=<step.json> (repeatable)")
 	_ = cmd.MarkFlagRequired("file")
 	_ = cmd.MarkFlagRequired("out")
-	return cmd
+	return markJSON(cmd)
 }

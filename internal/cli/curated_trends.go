@@ -61,7 +61,7 @@ func newCuratedDetectionsCmd() *cobra.Command {
 	f.IntVar(&hours, "hours", 24, "look-back window in hours")
 	f.IntVar(&limit, "limit", 100, "max detections (page size)")
 	f.StringVar(&state, "state", "", "filter by alert state (e.g. ALERTING)")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCuratedTrendsCmd() *cobra.Command {
@@ -126,7 +126,7 @@ func newCuratedTrendsCmd() *cobra.Command {
 	f.StringVar(&rules, "rule", "", "comma-separated curated rule ids (ur_…)")
 	f.BoolVar(&all, "all", false, "sweep every curated rule on the instance")
 	cmd.MarkFlagsMutuallyExclusive("rule", "all")
-	return cmd
+	return markJSON(cmd)
 }
 
 // slicesChunk yields ids in chunks of at most n.
@@ -183,5 +183,5 @@ func newCuratedEventsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 0, "events per page (0 = server default)")
-	return cmd
+	return markJSON(cmd)
 }

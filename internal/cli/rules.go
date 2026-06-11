@@ -91,7 +91,7 @@ func newRulesListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 // newRulesValidateCmd validates a local YARA-L file against the API without
@@ -139,7 +139,7 @@ func newRulesValidateCmd() *cobra.Command {
 			return fmt.Errorf("invalid: %s", msg)
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 // timeWindow returns [now-hours, now] in UTC (default 24h when hours <= 0).
@@ -196,7 +196,7 @@ func newRulesDetectionsCmd() *cobra.Command {
 	f.IntVar(&limit, "limit", 100, "max detections (page size)")
 	f.StringVar(&state, "state", "", "filter by alert state (e.g. ALERTING)")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 // resolveRuleID maps a rule reference — the full `ru_<uuid>` id, a short `ru_`
@@ -324,7 +324,7 @@ func newRulesErrorsCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.IntVar(&hours, "hours", 24, "look-back window in hours")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 func newRulesAlertsCmd() *cobra.Command {
@@ -355,7 +355,8 @@ func newRulesAlertsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&hours, "hours", 24, "look-back window in hours")
-	return cmd
+	// Output is ALWAYS raw JSON regardless of --json (rule-dependent alert shape).
+	return markJSON(cmd)
 }
 
 func newRulesRetrohuntCmd() *cobra.Command {
@@ -402,7 +403,7 @@ func newRetrohuntListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 func newRetrohuntGetCmd() *cobra.Command {
@@ -433,7 +434,7 @@ func newRetrohuntGetCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 func newRetrohuntCreateCmd() *cobra.Command {
@@ -473,7 +474,7 @@ func newRetrohuntCreateCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }
 
 // --- helpers ----------------------------------------------------------------

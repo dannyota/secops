@@ -103,10 +103,16 @@ func newCaseRunActionCmd() *cobra.Command {
 				fmt.Fprintln(os.Stdout)
 			}
 			if dr {
+				if jsonOut {
+					return emitGuardedResult("soar case run-action", true, false)
+				}
 				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {
+				if jsonOut {
+					return emitGuardedResult("soar case run-action", false, false)
+				}
 				fmt.Fprintln(os.Stdout, "Refusing to apply without confirmation (pass --yes). Aborted.")
 				return nil
 			}
@@ -147,7 +153,7 @@ func newCaseRunActionCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }
 
 // renderActionResult prints a human summary or JSON of an action execution result.

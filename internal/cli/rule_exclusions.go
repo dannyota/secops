@@ -78,7 +78,7 @@ func newRuleExclusionsDeployCmd() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive("enable", "disable", "archive")
 	cmd.MarkFlagsOneRequired("enable", "disable", "archive")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }
 
 func buildRuleExclusionDeployUpdate(enable, disable, archive bool, current *chronicle.RuleExclusionDeployment) (chronicle.RuleExclusionDeploymentUpdate, string, error) {

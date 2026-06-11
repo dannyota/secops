@@ -79,7 +79,7 @@ func newSOARIntegrationScaffoldCmd() *cobra.Command {
 	f.StringArrayVar(&jobs, "job", nil, "custom job name to scaffold (repeatable)")
 	f.BoolVar(&force, "force", false, "overwrite existing scaffold files")
 	_ = cmd.MarkFlagRequired("name")
-	return cmd
+	return markJSON(cmd)
 }
 
 func scaffoldSOARIntegration(name, out string, actions, jobs []string, force bool) (integrationScaffoldResult, error) {

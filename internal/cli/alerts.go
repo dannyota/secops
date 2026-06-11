@@ -78,7 +78,7 @@ func newAlertsListCmd() *cobra.Command {
 	f.StringVar(&to, "to", "", "explicit end (RFC3339 / ISO-8601); default now")
 	f.StringVar(&query, "query", "", `snapshot filter (default: feedback_summary.status != "CLOSED")`)
 	f.IntVar(&limit, "limit", 100, "max alerts to return (0 = server default)")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newAlertsGetCmd() *cobra.Command {
@@ -107,7 +107,7 @@ func newAlertsGetCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&detections, "detections", false, "include detection details (in --json)")
-	return cmd
+	return markJSON(cmd)
 }
 
 // printAlertCaseBridge resolves the alert's SIEM case uuid to its SOAR integer
@@ -234,7 +234,7 @@ func newAlertsUpdateCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }
 
 // describeAlertUpdate renders the set fields of an update for the guard preview.

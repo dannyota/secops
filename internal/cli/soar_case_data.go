@@ -35,7 +35,7 @@ func newCaseCustomFieldsCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseWallCmd() *cobra.Command {
@@ -65,7 +65,7 @@ func newCaseWallCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseContextCmd() *cobra.Command {
@@ -104,7 +104,7 @@ func newCaseContextListCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseContextSetCmd() *cobra.Command {

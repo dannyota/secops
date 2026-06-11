@@ -78,7 +78,7 @@ func newCasesSoarIDCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 // soarIDRow is one uuid -> SOAR-id mapping (the --json shape of `cases soar-id`).
@@ -180,7 +180,7 @@ func newCasesListCmd() *cobra.Command {
 	f.IntVar(&pageSize, "page-size", 0, "per-page cap (server default if 0)")
 	f.IntVar(&limit, "limit", 100, "max cases to return (0 = no cap)")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCasesGetCmd() *cobra.Command {
@@ -210,7 +210,7 @@ func newCasesGetCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&expand, "expand", "", "expand fields, e.g. tags,products,events")
 	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCasesSearchCmd() *cobra.Command {
@@ -248,7 +248,8 @@ func newCasesSearchCmd() *cobra.Command {
 	f.IntVar(&hours, "hours", 0, "look back this many hours (createTime window)")
 	f.StringVar(&ids, "ids", "", "comma-separated case ids to fetch")
 	f.IntVar(&pageSize, "page-size", 100, "page size")
-	return cmd
+	// Output is always raw JSON (the instance-shaped legacy page).
+	return markJSON(cmd)
 }
 
 // --- helpers ----------------------------------------------------------------

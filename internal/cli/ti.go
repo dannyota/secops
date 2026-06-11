@@ -64,7 +64,7 @@ func newTICollectionsCmd() *cobra.Command {
 		"collection types to include (campaign,report,actor,malware,vulnerability); empty for all")
 	f.StringVar(&order, "order", "last_modification_date-", "server order key (trailing - sorts descending)")
 	f.IntVar(&limit, "limit", 25, "maximum number of collections to return")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newTICollectionCmd() *cobra.Command {
@@ -89,7 +89,7 @@ func newTICollectionCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newTIRelatedCmd() *cobra.Command {
@@ -116,7 +116,7 @@ func newTIRelatedCmd() *cobra.Command {
 			return emitIocMatchMetadata(os.Stdout, meta)
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func threatCollectionAltNames(c *chronicle.Client, args []string) ([]string, error) {

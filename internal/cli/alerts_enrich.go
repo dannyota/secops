@@ -69,7 +69,7 @@ func newAlertsEnrichCmd() *cobra.Command {
 			return emitAlertEnrichData(raw)
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 // emitAlertEnrichData renders the alert context compactly.
@@ -128,7 +128,7 @@ func newAlertsActionsCmd() *cobra.Command {
 			return emitAlertActions(raw)
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 // emitAlertActions renders the per-integration action catalog compactly.
@@ -212,5 +212,5 @@ func newAlertsRunActionsCmd() *cobra.Command {
 	f.StringVar(&file, "file", "", "JSON array of actions to execute (required)")
 	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("file")
-	return cmd
+	return markJSON(cmd)
 }

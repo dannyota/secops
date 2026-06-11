@@ -123,7 +123,7 @@ func newParsersValidateCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.IntVar(&limit, "limit", 100, "max parsing errors to fetch")
 	f.BoolVar(&showLogs, "show-logs", false, "print the full failing raw log per error (default: a 120-char preview)")
-	return cmd
+	return markJSON(cmd)
 }
 
 // decodeLogData base64-decodes a ParsingError.logData to text (verbatim fallback),
@@ -182,7 +182,7 @@ func newParsersSampleLogsCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.IntVar(&limit, "limit", 100, "max sample logs to fetch")
 	f.DurationVar(&since, "since", 0, "only logs collected within this window (e.g. 2h); default: most recent")
-	return cmd
+	return markJSON(cmd)
 }
 
 // parserID is the trailing id segment of a parser resource name.
@@ -224,7 +224,7 @@ func newParsersVersionsCmd() *cobra.Command {
 			return tw.Flush()
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 func newParsersRunCmd() *cobra.Command {
@@ -263,7 +263,8 @@ func newParsersRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&logsFile, "logs", "", "sample log lines, one per line ('-' for stdin) (required)")
 	_ = cmd.MarkFlagRequired("cbn")
 	_ = cmd.MarkFlagRequired("logs")
-	return cmd
+	// Output is always the parsed UDM as JSON (inherently structured).
+	return markJSON(cmd)
 }
 
 func newParsersActivateCmd() *cobra.Command {
@@ -310,5 +311,5 @@ func newParsersActivateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }

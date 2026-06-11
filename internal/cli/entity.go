@@ -63,5 +63,5 @@ func newEntitySummarizeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&hours, "hours", 168, "look-back window in hours (168 = 7 days)")
-	return cmd
+	return markJSON(cmd)
 }

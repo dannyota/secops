@@ -82,7 +82,7 @@ func newSOARPlaybookGenerateCmd() *cobra.Command {
 	f.IntVar(&caseID, "case-id", 0, "SOAR case id (with --alert: draft from that alert)")
 	f.StringVar(&alert, "alert", "", "alert id within the case")
 	guardRunFlags(cmd, &dryRun, &yes)
-	return cmd
+	return markJSON(cmd)
 }
 
 // newSOARPlaybookGenerateStatusCmd polls the by-alert AI generation status —
@@ -117,5 +117,6 @@ func newSOARPlaybookGenerateStatusCmd() *cobra.Command {
 	f.StringVar(&alert, "alert", "", "alert id within the case (required)")
 	_ = cmd.MarkFlagRequired("case-id")
 	_ = cmd.MarkFlagRequired("alert")
-	return cmd
+	// Output is always raw JSON (the generation status payload).
+	return markJSON(cmd)
 }

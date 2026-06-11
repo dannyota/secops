@@ -121,7 +121,7 @@ func newCaseAlertCloseCmd() *cobra.Command {
 	f.StringVar(&comment, "comment", "", "close comment (free-text note)")
 	f.StringVar(&useful, "usefulness", "", "alert usefulness stat: none | useful | not-useful")
 	_ = cmd.MarkFlagRequired("reason")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseAlertPriorityCmd() *cobra.Command {
@@ -170,7 +170,7 @@ func newCaseAlertPriorityCmd() *cobra.Command {
 	alertGuardFlags(cmd, &caseID, &alert, &dryRun, &yes)
 	cmd.Flags().StringVar(&priority, "priority", "", "target priority: informative|low|medium|high|critical (required)")
 	_ = cmd.MarkFlagRequired("priority")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseAlertMoveCmd() *cobra.Command {
@@ -202,7 +202,7 @@ func newCaseAlertMoveCmd() *cobra.Command {
 	}
 	alertGuardFlags(cmd, &caseID, &alert, &dryRun, &yes)
 	cmd.Flags().IntVar(&to, "to", 0, "destination case id (omit to move the alert into a new case)")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseAlertReopenCmd() *cobra.Command {
@@ -224,7 +224,7 @@ func newCaseAlertReopenCmd() *cobra.Command {
 		},
 	}
 	alertGuardFlags(cmd, &caseID, &alert, &dryRun, &yes)
-	return cmd
+	return markJSON(cmd)
 }
 
 // findCaseAlert fetches the case and returns the alert card matching the given

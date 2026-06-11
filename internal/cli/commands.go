@@ -18,10 +18,28 @@ import (
 
 func init() { rootCmd.AddCommand(newCommandsCmd()) }
 
+// jsonAnnotation marks a command whose output honors the global --json flag.
+// A constructor calls markJSON when its RunE (or a helper it calls) changes
+// output under jsonOut; the catalog reads the annotation back so agents can
+// answer "does this command speak JSON?" offline, without the hand-maintained
+// prose list in docs.
+const jsonAnnotation = "secopsctl_json"
+
+// markJSON tags cmd as honoring the global --json flag and returns it for
+// wrap-style use at a constructor's `return`.
+func markJSON(cmd *cobra.Command) *cobra.Command {
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[jsonAnnotation] = "true"
+	return cmd
+}
+
 // commandRow is one catalog entry (the --json element shape).
 type commandRow struct {
 	Path  string   `json:"path"`            // command path without the binary name
 	Kind  string   `json:"kind"`            // "read" | "guarded-mutation"
+	JSON  bool     `json:"json"`            // honors the global --json flag
 	Short string   `json:"short"`           // one-line description
 	Flags []string `json:"flags,omitempty"` // local flag names
 }
@@ -44,13 +62,17 @@ func newCommandsCmd() *cobra.Command {
 				return emitJSON(rows)
 			}
 			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-			fmt.Fprintln(tw, "KIND\tCOMMAND\tDESCRIPTION")
+			fmt.Fprintln(tw, "KIND\tJSON\tCOMMAND\tDESCRIPTION")
 			for _, r := range rows {
 				kind := ""
 				if r.Kind == "guarded-mutation" {
 					kind = "guarded"
 				}
-				fmt.Fprintf(tw, "%s\t%s\t%s\n", kind, r.Path, truncate(r.Short, 80))
+				js := "-"
+				if r.JSON {
+					js = "y"
+				}
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", kind, js, r.Path, truncate(r.Short, 80))
 			}
 			if err := tw.Flush(); err != nil {
 				return err
@@ -59,7 +81,7 @@ func newCommandsCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return markJSON(cmd)
 }
 
 // collectCommands walks the tree depth-first and returns one row per runnable,
@@ -80,6 +102,7 @@ func collectCommands(cmd *cobra.Command, prefix string) []commandRow {
 			rows = append(rows, commandRow{
 				Path:  path,
 				Kind:  commandKind(c),
+				JSON:  c.Annotations[jsonAnnotation] == "true",
 				Short: c.Short,
 				Flags: localFlagNames(c),
 			})

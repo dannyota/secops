@@ -68,7 +68,7 @@ func newFeedsDeleteCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newFeedsSchemasCmd() *cobra.Command {
@@ -141,5 +141,5 @@ func newFeedsSchemasCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&sourceType, "source-type", "", "list the log-type schemas for this feed source type")
-	return cmd
+	return markJSON(cmd)
 }

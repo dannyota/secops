@@ -69,7 +69,7 @@ func newSOARPlaybookVersionsCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&name, "name", "", "playbook name (resolved via the live playbook list)")
 	f.StringVar(&identifier, "identifier", "", "playbook definition identifier (uuid)")
-	return cmd
+	return markJSON(cmd)
 }
 
 // playbookVersionView is the tolerant per-entry decode of the version log.
@@ -144,7 +144,7 @@ func newSOARPlaybookRestoreCmd() *cobra.Command {
 	f.BoolVar(&override, "override", false, "replace the current definition outright")
 	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("version")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookStatsCmd() *cobra.Command {
@@ -203,7 +203,7 @@ func newSOARPlaybookStatsCmd() *cobra.Command {
 	f.StringVar(&name, "name", "", "playbook name (resolved via the live playbook list)")
 	f.StringVar(&identifier, "identifier", "", "playbook definition identifier (uuid)")
 	f.IntVar(&hours, "hours", 7*24, "look-back window in hours (default 7 days)")
-	return cmd
+	return markJSON(cmd)
 }
 
 // emitPlaybookStats renders the stats map compactly for the human path
@@ -293,7 +293,8 @@ func newSOARPlaybookExportCmd() *cobra.Command {
 	f.StringVar(&identifier, "identifier", "", "playbook definition identifier (uuid)")
 	f.StringVar(&out, "out", "", "output file (default: JSON to stdout)")
 	f.BoolVar(&asZip, "zip", false, "export the platform zip bundle (for `import`) instead of JSON")
-	return cmd
+	// Default mode writes the playbook definition as JSON to stdout.
+	return markJSON(cmd)
 }
 
 // decodeExportBundle extracts the bundle bytes from an ExportDefinitions
@@ -352,7 +353,7 @@ func newSOARPlaybookImportCmd() *cobra.Command {
 	f.StringVar(&file, "file", "", "exported playbook bundle (required)")
 	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("file")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newSOARPlaybookTriggerTagsCmd() *cobra.Command {
@@ -399,7 +400,7 @@ func newSOARPlaybookTriggerTagsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&grep, "grep", "", "server-side search term")
-	return cmd
+	return markJSON(cmd)
 }
 
 // triggerTagRecords extracts the page's records: a bare array, or an
@@ -497,7 +498,7 @@ func newSOARPlaybookComponentsUsageCmd() *cobra.Command {
 	f.IntVar(&actionID, "action-id", 0, "the action definition's numeric id")
 	f.StringVar(&action, "action", "", "the action's display name (resolved via the all-integration catalog)")
 	f.StringVar(&integration, "integration", "", "scope --action to one integration when the name is ambiguous")
-	return cmd
+	return markJSON(cmd)
 }
 
 // resolveActionByName maps an action display name (optionally scoped to one

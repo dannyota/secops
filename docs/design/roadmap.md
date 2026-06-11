@@ -1746,6 +1746,25 @@ Documentation for the operational layer, and the release scaffolding.
 
 ---
 
+### Wave 62 — Per-command `--json` in the commands catalog *(done)*
+
+- **`commands` now reports `--json` support per command.** Each catalog row
+  carries a `json` boolean (the human table adds a `JSON` column, `y`/`-`), so
+  an agent reads "does this verb speak `--json`?" straight from
+  `secopsctl commands --json` instead of a hand-maintained prose list.
+- **Built from the code, not docs.** A `markJSON` annotation is set on every
+  command constructor whose output honors `--json` (directly via `jsonOut`, via
+  a shared guard funnel such as `caseAction` / `guardedSIEMMutation`, or via an
+  always-JSON path like `rules alerts`); the tree walker reads it back.
+- **`pull` stays text-only** (its output is the files it writes); `rules alerts`
+  is marked because its output is always JSON regardless of the flag.
+- **`docs/guides/usage.md`** drops the long hand-maintained "`--json` is honored
+  by …" list in favor of pointing at `secopsctl commands --json`.
+- **Invariant test** (`internal/cli/wave62_test.go`) walks the real tree and
+  asserts known-JSON / known-text rows and the `json` field's round-trip shape.
+
+---
+
 ## Non-goals
 
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).

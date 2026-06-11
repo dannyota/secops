@@ -32,38 +32,18 @@ detected a difference (act) · `1` any error. A typo'd subcommand also exits
 non-zero. Confirm the active config with `secopsctl info` (`config_source` line)
 or `secopsctl config --show-path`.
 
-`--json` is honored by the read commands: `info`, `query udm`, `query nl`,
-`query raw`, `parsers sample-logs`, `parsers validate`, `entity summarize`, `alerts list`, `alerts get`, `iocs find`, `iocs get`,
-`iocs related`, `ti collections`, `ti collection`, `ti related`, `watchlists list`, `watchlists get`,
-`curated list`, `curated rules`, `rules detections`, `rules errors`,
-`rules retrohunt list`, `rules retrohunt get`, `rules trends`, `rules counts`, `rules events`,
-`curated detections`, `curated trends`, `curated events`, `query gemini`,
-`alerts investigate --latest`, `cases soar-id`, `soar case list`, `soar case get`,
-`soar case values`, `soar case comment list`, `soar case counts`, `soar case summarize`,
-`soar playbook list`, `soar playbook validate`,
-`soar playbook versions`, `soar playbook stats`, `soar playbook export`,
-`soar playbook components integrations`, `soar playbook components actions`,
-`soar playbook components jobs`, `soar playbook components connectors`,
-`soar playbook components flow`, `soar playbook components triggers`,
-`soar playbook components blocks`, `soar playbook components usage`,
-`soar integration action template`, `soar integration job-def template`,
-`soar playbook mold extract`, `soar playbook mold apply`,
-`soar playbook trigger set`, `soar playbook test-cases`,
-`soar playbook debug-step-data`, `soar playbook simulation-enrichment`,
-`soar playbook pending count`, `soar playbook pending list`,
-`soar playbook pending get`, `soar playbook step get`,
-`soar playbook summary`, `soar playbook results`, `soar playbook result`,
-`soar playbook python-logs`, `soar job list`, `soar job template list`,
-`soar job instance list`, `soar job logs`, `soar users list`,
-`soar marketplace contentpacks get`, `soar integration list`,
-`soar integration scaffold`, `info soar-integrations`, `info cron`, `soar build-playbook`,
-`soar package-integration`, `soar settings api-keys`, and `version`. It is **also**
-emitted by `doctor` (`{ok, version, checks[]}`), `drift` (per-surface report +
-`drifted_surfaces`), `push` (the reconcile plan/result + `would_change`), and the
-`alerts update`, `soar case`, `soar playbook`, and `soar job` mutating verbs
-(dry-run/apply metadata, plus request/response fields where the command has them). Only `pull` is
-text-only — its output is the files it writes (review with `git diff`). (`rules
-alerts` always emits raw JSON, with or without the flag.)
+The authoritative, per-command answer to "does this honor `--json`?" is
+`secopsctl commands --json` — each row carries a `json` boolean (the human
+`secopsctl commands` table shows it as the `JSON` column, `y`/`-`). It is built
+from the code, so it stays correct as commands are added; prefer it over any
+hand-maintained list.
+
+A few special cases worth knowing: `pull` is text-only — its output is the files
+it writes (review with `git diff`); `rules alerts` always emits raw JSON, with or
+without the flag; and `doctor`, `drift`, `push`, and the guarded mutating verbs
+(e.g. `alerts update`, the `soar case` / `soar playbook` / `soar job` verbs) emit
+structured JSON under `--json` too (dry-run/apply metadata, plus request/response
+fields where the command has them).
 
 ## 🔒 SIEM — read-only
 

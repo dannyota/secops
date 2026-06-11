@@ -23,7 +23,7 @@ func init() {
 		SilenceUsage: true,
 		RunE:         runDoctor,
 	}
-	rootCmd.AddCommand(doctorCmd)
+	rootCmd.AddCommand(markJSON(doctorCmd))
 }
 
 // doctorCheck is one health check's outcome. Name is the machine key (--json);

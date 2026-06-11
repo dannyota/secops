@@ -60,7 +60,7 @@ func newCaseChatListCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 func newCaseChatSendCmd() *cobra.Command {
@@ -177,7 +177,7 @@ func newCaseChatUnreadCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
 	_ = cmd.MarkFlagRequired("case-id")
-	return cmd
+	return markJSON(cmd)
 }
 
 // chatMsg covers both v1alpha (text/author/pinned) and legacy (text/username/pinned) field names.

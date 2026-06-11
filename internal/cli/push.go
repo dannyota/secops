@@ -77,7 +77,7 @@ func init() {
 	// `push <target> --help` appends the target's write semantics + prune/etag caps.
 	attachTargetHelp(pushCmd, valid)
 
-	rootCmd.AddCommand(pushCmd)
+	rootCmd.AddCommand(markJSON(pushCmd))
 }
 
 // runPush dispatches a guarded mutating push.
