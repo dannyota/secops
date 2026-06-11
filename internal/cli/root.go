@@ -27,11 +27,15 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "secopsctl",
-	Short: "Operate Google SecOps (Chronicle) as code",
-	Long: "secopsctl operates a Google SecOps (Chronicle) instance as code:\n" +
-		"read-only pull, UDM query, and guarded mutating push, for any tenant.\n\n" +
-		"Core loop: pull live state -> review in `git diff` -> push back.\n" +
-		"Every push is a live production deploy and defaults to a dry run.",
+	Short: "Operate Google SecOps (Chronicle SIEM + Siemplify SOAR) as code",
+	Long: "secopsctl operates a Google SecOps instance — Chronicle SIEM and\n" +
+		"Siemplify SOAR — as code, for any tenant.\n\n" +
+		"Config as code: pull live state -> review in `git diff` -> push back\n" +
+		"(rules, feeds, parsers, dashboards, playbooks, webhooks, ...).\n" +
+		"Live operations: UDM query, alerts, cases, per-alert triage verbs,\n" +
+		"AI investigations and case summaries, playbook authoring and runs.\n\n" +
+		"Every mutation is guarded: dry-run by default, --yes to apply, and a\n" +
+		"hard read-only mode for automation (--read-only / SECOPS_READONLY=1).",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }

@@ -16,9 +16,12 @@ then `secopsctl doctor`.
 
 ## 🔒 Pull (read-only)
 
-Mirror live state into files. `pull` never mutates the instance.
+Mirror live state into files. `pull` never mutates the instance. Files land in
+the **current directory** (override with `--out DIR`) — run it from inside a
+git repo so the mirror is diffable and committable:
 
 ```bash
+mkdir secops-state && cd secops-state && git init
 secopsctl pull rules
 secopsctl pull all
 ```
@@ -36,7 +39,10 @@ secopsctl pull all
 | `curated_rules` | the individual Google-managed rules |
 
 SOAR has its own mirror under `secopsctl soar pull <target>` (connectors, jobs,
-playbooks, grouping, cases, and the engine surfaces). See
+playbooks, grouping, cases, and the engine surfaces). On dual-generation
+surfaces (currently `soar case list`) the CLI prefers the modern API and falls
+back to the reliable legacy AppKey path on error — the global `--legacy` flag
+forces legacy outright. See
 [reconcile.md](reconcile.md) for the full target set on both planes, and
 [rules.md](rules.md) for rule-specific paths.
 

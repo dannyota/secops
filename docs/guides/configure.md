@@ -3,6 +3,11 @@
 One config file, two auth planes. Get both right and every other command just
 works. Previous: [install.md](install.md). Next: [the-loop.md](the-loop.md).
 
+> **You'll need:** access to the SecOps web console (for the customer UUID
+> and, for SOAR, the tenant host + an AppKey) and a `gcloud`-authenticated
+> shell for the SIEM plane. No console access yet? Ask your SecOps admin
+> for the four identifiers below.
+
 ## The config file
 
 `secopsctl config` (alias `init`) writes `~/.secopsctl/instance.yaml` at mode

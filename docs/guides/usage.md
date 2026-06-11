@@ -23,7 +23,7 @@ Set on any command:
 | `--json` | Emit machine-readable JSON where supported (shape is per-command). |
 | `--legacy` | Force the legacy AppKey path on dual-generation surfaces (currently `soar case list`); ignored where a command has no modern/legacy split. Reach for it when a New-API call 500s. |
 | `--non-interactive` | Never prompt; a guarded mutation without `--yes` is refused rather than asking. For CI/agents. |
-| `--read-only` | Hard read-only session: every guarded mutation degrades to a dry-run preview even with `--yes`. Also enabled by `SECOPS_READONLY=1` — set it in the environment that launches an autonomous agent. Confirmed mutations and read-only refusals are appended to `~/.secopsctl/audit.jsonl` (`0600`). |
+| `--read-only` | Hard read-only session: every guarded mutation degrades to a dry-run preview even with `--yes`. Also enabled by `SECOPS_READONLY=1` — set it in the environment that launches an autonomous agent. Confirmed mutations and read-only refusals are appended to `$SECOPSCTL_HOME/audit.jsonl` (default `~/.secopsctl/audit.jsonl`, `0600`). |
 | `-v, --version` | Print version and exit. |
 | `-h, --help` | Help for any command. `<cmd> <target> --help` (e.g. `push feeds --help`) adds a per-target note: the surface's plane/version, whether `--prune` can delete it, and its write gotchas. |
 
@@ -100,6 +100,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `curated detections <ur_id>` | Detections a CURATED rule produced (`ur_…` ids from `curated rules`); the curated twin of `rules detections`. |
 | `curated trends (--rule ur_a,… \| --all)` | Per-curated-rule detection counts + last detection; `--all` sweeps every curated rule. |
 | `curated events <detection-id>` | Event + rationale behind one curated detection. |
+| `pipeline list` / `get <id>` | List / show log processing pipelines (read-only). |
 | `alerts list` | List Chronicle detection alerts over a time window (snapshot). |
 | `alerts get` | Get one alert by id; when the alert is cased, also prints the SIEM case uuid **and its SOAR integer case id** (the `soar case` pivot). |
 | `alerts investigate <id> --latest` | Read the alert's most recent AI (Gemini) investigation: verdict, confidence, summary, suggested next steps (`--json` adds the agent's per-step UDM queries). Without `--latest` it **starts** a new investigation (a generation; refused in read-only mode) and polls to completion. |
@@ -327,7 +328,7 @@ secopsctl pull rules                        # re-pull so local matches live
 ```bash
 secopsctl soar case list
 secopsctl soar case get 1234
-secopsctl soar case close --id 1234 --reason "Malicious" --yes
+secopsctl soar case close --id 1234 --reason malicious --yes
 ```
 
 **Check SOAR integration runtime coverage**:

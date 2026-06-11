@@ -38,9 +38,12 @@ optional `--json`, clear `--help`.
   flow function, trigger, block), author offline or through the API, then
   run, debug, roll back, and promote. See the
   [playbooks guide](docs/guides/playbooks.md).
-- **Built for agents** — a hard read-only mode, a machine-readable command
-  catalog (`secopsctl commands --json`), and a local mutation audit log, on
-  top of the dry-run-first guard on every mutating verb.
+- **Built for agents** — a hard read-only mode (`SECOPS_READONLY=1` /
+  `--read-only`), `--non-interactive`, a machine-readable command catalog
+  (`secopsctl commands --json`), and a local mutation audit log
+  (`$SECOPSCTL_HOME/audit.jsonl`), on top of the dry-run-first guard on every
+  mutating verb. The full recipe:
+  [LLM-driven automation](docs/tips/10-llm-and-automation.md).
 
 ## Install
 
@@ -77,15 +80,16 @@ find each: [configure.md](docs/guides/configure.md#find-your-secops-identifiers)
 
 **2. Two credentials.** SIEM uses **Google ADC** (minted in-process, nothing on
 disk); SOAR uses a long-lived **AppKey** (SOAR UI **Settings → Advanced → API
-Keys**; stored in the config or `$SECOPS_SOAR_APP_KEY`):
+Keys**; stored in the config or `$SECOPS_SOAR_APP_KEY`). The two planes are
+independent — SIEM alone gives a clean `doctor`; add SOAR whenever you need it:
 
 ```bash
 gcloud auth application-default login
-gcloud auth application-default set-quota-project your-project-id
+gcloud auth application-default set-quota-project your-project-id  # skipping this is the classic first-run 403
 ```
 
-**3. Find your SOAR host.** `soar_url` is tenant-specific and not in the public
-docs — read it off a live request:
+**3. Find your SOAR host** *(SOAR users only)*. `soar_url` is tenant-specific
+and not in the public docs — read it off a live request:
 
 1. Sign in to the **SecOps Web UI**.
 2. Open **dev-tools → Network** and click any case.
@@ -129,7 +133,7 @@ The [docs site](https://secops.danny.vn) is organized in three folders:
 
 | Folder | For | Start here |
 |---|---|---|
-| [guides/](docs/guides/) | **using** secopsctl | [Install](docs/guides/install.md) → [Configure](docs/guides/configure.md) → [The loop](docs/guides/the-loop.md) · [Triage](docs/guides/triage.md) · [Playbooks](docs/guides/playbooks.md) · [Command reference](docs/guides/usage.md) |
+| [guides/](docs/guides/) | **using** secopsctl | [Install](docs/guides/install.md) → [Configure](docs/guides/configure.md) → [The loop](docs/guides/the-loop.md) · then [Triage](docs/guides/triage.md) · [Playbooks](docs/guides/playbooks.md) · [Rules](docs/guides/rules.md) · [Query](docs/guides/query.md) · [SOAR cases](docs/guides/soar-cases.md) · [Reconcile](docs/guides/reconcile.md) · [Go SDK](docs/guides/sdk.md) · [Command reference](docs/guides/usage.md) |
 | [design/](docs/design/) | **building** secopsctl | [Architecture](docs/design/architecture.md) · [Surfaces](docs/design/surfaces.md) · [Catalog (status)](docs/design/catalog.md) · [Roadmap](docs/design/roadmap.md) |
 | [tips/](docs/tips/) | the SecOps **craft** | [SecOps as code](docs/tips/01-secops-as-code.md) · [YARA-L](docs/tips/03-yara-l-rules.md) · [SOAR ops](docs/tips/09-soar-operations.md) |
 

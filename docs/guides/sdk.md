@@ -102,6 +102,8 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("%d events\n", len(events)) // []json.RawMessage
+	// The final argument caps TOTAL events returned (a bound, not a page
+	// size) — unlike the List* methods, which paginate to completion.
 }
 ```
 
@@ -128,6 +130,23 @@ if err != nil {
 }
 updated, err := c.UpdateRule(ctx, r.RuleID(), newYaralText, r.Etag)
 ```
+
+**Reads, AI & investigations.** The read surface is much wider than rules —
+alerts, cases, detections, dashboards, data tables, forwarders, threat intel
+(see the [catalog](../design/catalog.md) for the full set). The per-alert AI
+(TIN) investigation flow is fully typed:
+
+```go
+inv, err := c.TriggerInvestigation(ctx, "de_00000000-0000-0000-0000-000000000000")
+// ... poll until inv.Completed() via c.GetInvestigation(ctx, inv.InvestigationID())
+fmt.Println(inv.Verdict, inv.Confidence) // e.g. FALSE_POSITIVE HIGH_CONFIDENCE
+nb, err := c.GetNotebook(ctx, inv.NotebookID()) // the agent's working document
+```
+
+`Investigation` carries status / verdict / confidence / summary / nextSteps /
+notebook (the verbatim record stays in `.Raw`);
+`ListInvestigationsFiltered(ctx, 100, "alert_id='de_…' AND latest_in_alert=true", "start_time desc")`
+finds an alert's latest investigation without starting one.
 
 > The retrying HTTP transport is built in, with capped exponential backoff. Both
 > the Chronicle and SOAR transports are **method-aware** and behave identically:
@@ -181,8 +200,23 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("%d open cases\n", len(open))
+
+	// Cheap exact counts (the list reports totalSize at pageSize=1):
+	n, err := c.CountCases(ctx, "status = 'OPENED'")
+	byPrio, err := c.CountCasesByPriority(ctx, "status = 'OPENED'")
+	_ = n; _ = byPrio
+
+	// The playbook-authoring palette — typed wildcard catalogs:
+	actions, err := c.ListAllActions(ctx)      // every action, every integration ([]soar.ActionDef)
+	fns, err := c.ListTransformers(ctx)        // Flow value functions ([]soar.FlowFunction)
+	ops, err := c.ListLogicalOperators(ctx)    // Flow condition predicates
+	_ = actions; _ = fns; _ = ops
 }
 ```
+
+Definition authoring mirrors the IDE's create flow:
+`FetchActionTemplate`/`FetchJobTemplate` → fill → `CreateActionDef`/`CreateJobDef`
+→ `DeleteActionDef`/`DeleteJobDef` (live mutations — gate them).
 
 > **Cases work on this path.** `soar.ListCases` reads the case queue on the
 > siemplify host (v1alpha). A separate chronicle-host cases path exists but is
@@ -194,8 +228,10 @@ func main() {
 The `soar/legacy` package speaks the Siemplify external API (`/api/external/v1`),
 the broad and reliable AppKey path for SOAR. It is a permanent part of the design —
 the reconcile engine and the case-triage verbs run on it, and it is the fallback
-when a modern v1alpha surface returns a 500. Its methods take a free-form request
-body (`any`) and return raw JSON; the request shapes come from the Siemplify
+when a modern v1alpha surface returns a 500. Many methods take a free-form
+request body (`any`) and return raw JSON, though a growing set is typed — named
+enum constants (`CloseReason`, `CasePriority`, …), typed list returns
+(`[]APIKey`), and typed request structs. Request shapes come from the Siemplify
 external API (`third_party/siemplify-swagger.json`). Prefer the typed `soar`
 (v1alpha) client where an equivalent method exists and is validated; reach for
 `legacy` for bulk case ops and the full triage verbs.
@@ -225,6 +261,12 @@ raw, err := c.CloseCase(ctx, map[string]any{
 	"comment": "handled out of band",
 })
 ```
+
+**API-key lifecycle** (`ListAPIKeys` / `CreateAPIKey` / `RevokeAPIKey`): the
+list returns metadata only — the server masks the secret and the typed
+`APIKey` drops it. **The key value is client-generated**: mint it yourself
+(crypto/rand), pass it to `CreateAPIKey`, surface it to the user exactly once,
+and never persist or log it; revoke takes an `APIKey` from the list.
 
 > **SOAR error handling.** A SOAR call returns a typed `soar.Error` (and
 > `legacy.Error`) carrying the HTTP method/URL/status/body/request-id. The typed

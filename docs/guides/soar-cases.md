@@ -2,7 +2,8 @@
 
 Per-case SOAR triage from the CLI: read a case and its alerts, then run guarded
 mutations (assign, tag, close, merge, …). Every mutating verb is **dry-run by
-default** — pass `--yes` to apply.
+default** — pass `--yes` to apply. This page is the per-verb reference; the
+end-to-end alert → case → rule walkthrough is [Triage](triage.md).
 
 `caseId` is the **SOAR integer id**, not the SIEM UUID. Get it from `soar case
 list`; the Chronicle-host UUID path (`secopsctl cases`) is a separate, read-only
@@ -40,24 +41,24 @@ secopsctl soar case comment list --id 12345     # the case-wall comments
 
 Each verb is `secopsctl soar case <verb> --id N <verb-flags>`. Most verbs share
 `--id` (required) and the `--dry-run` (default) / `--yes` apply gate; many also
-take an optional `--alert` (scope the action to one alert) — `assign`, `stage`,
-`tag`, `untag`, `importance`, and `close`. The exception is `merge`, which takes
+take an optional `--alert` (scope the action to one alert) — see the table's
+`--alert` column. The exception is `merge`, which takes
 `--ids` + `--into` instead of `--id`.
 
-| Verb | Required flag(s) | Does |
-|---|---|---|
-| `assign` | `--user <id>` | Assign the case to a user |
-| `tag` | `--tag <s>` | Add a tag |
-| `untag` | `--tag <s>` | Remove a tag |
-| `rename` | `--title <s>` | Rename the case |
-| `describe` | `--description <s>` | Set the description |
-| `stage` | `--stage <s>` | Move the case to a stage |
-| `importance` | `--important[=false]` | Mark important (default true; `=false` clears) |
-| `priority` | `--priority <level>` | Change the case priority (`informative\|low\|medium\|high\|critical`) |
-| `merge` | `--ids 1,2,3 --into N` | Merge source cases into a target |
-| `close` | `--reason <enum>` | Close one case (also `--comment`, `--root-cause`) |
-| `reopen` | `--id N` or `--ids 1,2,3` | Reopen closed case(s) — the inverse of close (`--comment` optional) |
-| `comment add` | `--text <s>` | Add a case comment (the case-wall triage-rationale record) |
+| Verb | Required flag(s) | `--alert` scope | Does |
+|---|---|---|---|
+| `assign` | `--user <id>` | ✓ | Assign the case to a user |
+| `tag` | `--tag <s>` | ✓ | Add a tag |
+| `untag` | `--tag <s>` | ✓ | Remove a tag |
+| `rename` | `--title <s>` | — | Rename the case |
+| `describe` | `--description <s>` | — | Set the description |
+| `stage` | `--stage <s>` | ✓ | Move the case to a stage |
+| `importance` | `--important[=false]` | ✓ | Mark important (default true; `=false` clears) |
+| `priority` | `--priority <level>` | ✓ | Change the case priority (`informative\|low\|medium\|high\|critical`) |
+| `merge` | `--ids 1,2,3 --into N` | — | Merge source cases into a target (takes `--ids`/`--into`, not `--id`) |
+| `close` | `--reason <enum>` | ✓ | Close one case (also `--comment`, `--root-cause`) |
+| `reopen` | `--id N` or `--ids 1,2,3` | — | Reopen closed case(s) — the inverse of close (`--comment` optional) |
+| `comment add` | `--text <s>` | — | Add a case comment (the case-wall triage-rationale record) |
 
 ### Per-alert verbs
 

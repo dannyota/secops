@@ -3,7 +3,9 @@
 The operational loop for a SOC analyst (or an LLM agent): see the queue, pick
 up a case, let the AI read it first, act, and feed what you learned back into
 the rules. Reads are free; every act is guarded (`--dry-run` default, `--yes`
-to apply).
+to apply). This page is the end-to-end walkthrough — the per-verb reference is
+[SOAR cases](soar-cases.md), and every flag lives in the
+[command reference](usage.md).
 
 ```mermaid
 flowchart LR
@@ -40,7 +42,10 @@ secopsctl soar case summarize --id 12345 # the structured AI case summary
 `get` prints each alert with its `--alert` identifier (for the per-alert
 verbs) and its **firing rule** (name + `ru_` id) — the pivot into rule tuning.
 `summarize` returns Gemini's pre-digest of the case: narrative, reasons, next
-steps — far cheaper to read than the full case payload.
+steps — far cheaper to read than the full case payload. The first request for
+a case generates the summary (it polls to completion, like `investigate`
+below); afterwards the cached digest returns instantly, and `--refresh`
+regenerates it.
 
 Coming from the SIEM side instead? `alerts list` / `alerts get <id>` show the
 Chronicle alert snapshot, and `alerts get` prints the alert's **SOAR case id**
@@ -60,6 +65,11 @@ queries — `--json` includes them). `--latest` is **read-only** — it reports
 the most recent investigation without starting one, the safe default for
 automation. Without `--latest` a new investigation is generated (a minute or
 two; refused in read-only mode).
+
+The `de_…` id here is the **SIEM detection-alert id** from `alerts list` /
+`alerts get` — a different identifier from the SOAR `--alert` string the
+`soar case` verbs use (step 2's `soar case get` shows the SOAR form;
+`alerts get` bridges between the two).
 
 ## 4 · Act
 
@@ -92,6 +102,15 @@ Then change the rule through the [control-plane loop](the-loop.md): `pull
 rules` → edit → `git diff` → `push`. Curated (Google-managed) rules have the
 same reads under `curated trends` / `curated detections` / `curated events`.
 
+## When something goes wrong
+
+An empty queue returns no rows, not an error. A wrong `--alert` identifier or
+case id fails **before** anything mutates (guards validate first). When a
+modern SOAR call 500s, `soar case list` auto-falls back to the legacy AppKey
+lane (`--legacy` forces it) — see
+[SOAR cases](soar-cases.md) for the two-API story. Exit codes are git-style:
+`0` success, `2` divergence (`drift`), `1` any error.
+
 ## 🤖 Running this from an agent
 
 Three guardrails make the triage loop safe to hand to automation:
@@ -104,4 +123,12 @@ Three guardrails make the triage loop safe to hand to automation:
   its kind (`read` vs `guarded-mutation`), offline: the input for building a
   per-command allowlist.
 - **The audit log** — every confirmed mutation appends one JSONL record
-  (action + decision) to `$SECOPSCTL_HOME/audit.jsonl`.
+  (action + decision) to `$SECOPSCTL_HOME/audit.jsonl` (default
+  `~/.secopsctl/audit.jsonl`).
+
+Read-only mode refuses any verb that would *start* an AI generation —
+`alerts investigate` without `--latest`, `soar case summarize` when no summary
+exists yet (or with `--refresh`), `soar case alert recommend` — while polling
+existing results stays free. The complete agent recipe (allowlists, prompts,
+review patterns) is
+[LLM-driven automation](../tips/10-llm-and-automation.md).
