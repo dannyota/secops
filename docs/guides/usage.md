@@ -95,6 +95,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `curated events <detection-id>` | Event + rationale behind one curated detection. |
 | `alerts list` | List Chronicle detection alerts over a time window (snapshot). |
 | `alerts get` | Get one alert by id; when the alert is cased, also prints the SIEM case uuid **and its SOAR integer case id** (the `soar case` pivot). |
+| `alerts investigate <id> --latest` | Read the alert's most recent AI (Gemini) investigation: verdict, confidence, summary, suggested next steps (`--json` adds the agent's per-step UDM queries). Without `--latest` it **starts** a new investigation (a generation; refused in read-only mode) and polls to completion. |
 | `cases soar-id <uuid>...` | Resolve SIEM case uuid(s) (an alert's `caseName`) to SOAR integer case id(s) — the bridge into every `soar case` verb. |
 | `ti collections` | List Mandiant threat collections (campaigns/reports/…). |
 | `ti collection <id>` | Show one threat collection by id. |

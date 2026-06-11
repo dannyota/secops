@@ -3,6 +3,7 @@ package chronicle
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -55,16 +56,41 @@ func (d DetectionType) normalize() DetectionType {
 type Investigation struct {
 	// Name is the full resource name,
 	// projects/.../instances/.../investigations/<id>.
-	Name        string `json:"name,omitempty"`
-	DisplayName string `json:"displayName,omitempty"`
-	Etag        string `json:"etag,omitempty"`
-	CreateTime  string `json:"createTime,omitempty"`
-	UpdateTime  string `json:"updateTime,omitempty"`
-	StartTime   string `json:"startTime,omitempty"`
-	EndTime     string `json:"endTime,omitempty"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Etag        string `json:"etag"`
+	CreateTime  string `json:"createTime"`
+	UpdateTime  string `json:"updateTime"`
+	StartTime   string `json:"startTime"`
+	EndTime     string `json:"endTime"`
 
-	// Raw is the verbatim server object, so no field is lost to the typed view.
+	// Lifecycle + triage fields of the per-alert AI (TIN) investigation flow.
+	// Status is STATUS_IN_PROGRESS while the agent works; the verdict fields
+	// below populate once it reaches STATUS_COMPLETED_*.
+	Status      string `json:"status"`
+	TriggerType string `json:"triggerType"`
+	// Notebook is the resource name of the agent's working document,
+	// {instance}/notebooks/<id> — fetch it with GetNotebook.
+	Notebook string `json:"notebook"`
+
+	// Verdict (e.g. FALSE_POSITIVE), Confidence (e.g. HIGH_CONFIDENCE), the
+	// markdown Summary, and suggested NextSteps — the completed result.
+	Verdict     string                  `json:"verdict"`
+	Confidence  string                  `json:"confidence"`
+	Summary     string                  `json:"summary"`
+	NextSteps   []InvestigationNextStep `json:"nextSteps"`
+	PublishTime string                  `json:"publishTime"`
+
+	// Raw is the verbatim server object, so no field is lost to the typed view
+	// (embedded investigationSteps, alert ids, time ranges, …).
 	Raw json.RawMessage `json:"-"`
+}
+
+// InvestigationNextStep is one suggested follow-up on a completed
+// investigation. Type is SEARCHABLE (backed by a UDM query) or MANUAL.
+type InvestigationNextStep struct {
+	Title string `json:"title"`
+	Type  string `json:"type"`
 }
 
 // UnmarshalJSON captures the typed fields and also retains the full object in
@@ -89,6 +115,21 @@ func (i *Investigation) InvestigationID() string {
 	return i.Name[strings.LastIndex(i.Name, "/")+1:]
 }
 
+// Completed reports whether the investigation has finished — successfully or
+// not (status STATUS_COMPLETED_*).
+func (i *Investigation) Completed() bool {
+	return i != nil && strings.HasPrefix(i.Status, "STATUS_COMPLETED")
+}
+
+// NotebookID returns the trailing id segment of the Notebook resource name
+// (the form GetNotebook expects), or "" when the investigation has none.
+func (i *Investigation) NotebookID() string {
+	if i == nil || i.Notebook == "" {
+		return ""
+	}
+	return i.Notebook[strings.LastIndex(i.Notebook, "/")+1:]
+}
+
 // investigationID extracts the bare ID from either a plain ID or a full
 // resource name, mirroring the wrapper's format_resource_id.
 func investigationID(idOrName string) string {
@@ -105,8 +146,9 @@ func (c *Client) ListInvestigations(ctx context.Context, pageSize int) ([]Invest
 	return c.listInvestigations(ctx, pageSize, "", "")
 }
 
-// ListInvestigationsFiltered is ListInvestigations with the wrapper's optional
-// filter expression and orderBy (e.g. "startTime", "endTime", "displayName").
+// ListInvestigationsFiltered is ListInvestigations with the optional filter
+// expression and orderBy. The filtered surface speaks snake_case (e.g. filter
+// "alert_id='de_…' AND latest_in_alert=true", orderBy "start_time desc").
 // Either may be empty.
 func (c *Client) ListInvestigationsFiltered(ctx context.Context, pageSize int, filter, orderBy string) ([]Investigation, error) {
 	return c.listInvestigations(ctx, pageSize, filter, orderBy)
@@ -218,4 +260,19 @@ func (c *Client) fetchAssociatedInvestigations(ctx context.Context, detectionTyp
 		return nil, err
 	}
 	return &out, nil
+}
+
+// GetNotebook fetches an investigation's notebook — the TIN agent's working
+// document for the investigation (`{instance}/notebooks/{id}`; confirmed
+// against the web UI's request, the resource is absent from the public REST
+// index). The notebook id is referenced from the investigation record.
+func (c *Client) GetNotebook(ctx context.Context, id string) (json.RawMessage, error) {
+	if strings.TrimSpace(id) == "" {
+		return nil, fmt.Errorf("chronicle: notebook id is required")
+	}
+	var out json.RawMessage
+	if err := c.get(ctx, c.resourcePath("notebooks/"+id, false), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }

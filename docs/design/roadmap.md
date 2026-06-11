@@ -1597,6 +1597,36 @@ break it.
 - **Docs.** CATALOG (new AI rows on both planes), SURFACES, usage guide,
   ROADMAP.
 
+### Wave 57 — Per-alert AI investigation: `alerts investigate` *(done — live-validated end-to-end)*
+
+The per-alert Gemini (TIN) triage flow, confirmed against the web UI's own
+requests: trigger → poll → verdict.
+
+- **`alerts investigate <alert-id>`.** Triggers an AI investigation for one
+  detection alert (`investigations:trigger`, body `{"alertId":"de_…"}`), polls
+  `GetInvestigation` until `STATUS_COMPLETED_*`, and prints the triage result:
+  verdict (e.g. `FALSE_POSITIVE`), confidence, markdown summary, and suggested
+  next steps (`SEARCHABLE`/`MANUAL`). `--json` emits the full record, including
+  the embedded investigation steps with the agent's actual UDM queries.
+  Starting an investigation is a server-side generation → refused in read-only
+  mode.
+- **`--latest` (read-only).** Reports the alert's most recent investigation
+  instead of starting one, via the UI's filter grammar
+  (`alert_id='…' AND latest_in_alert=true`, `orderBy=start_time desc`) — the
+  agent-safe default for "has AI already looked at this alert?".
+- **Typed `Investigation`.** status / triggerType / notebook / verdict /
+  confidence / summary / nextSteps / publishTime, with `Completed()` and
+  `NotebookID()` helpers; the verbatim record stays in `Raw`.
+- **`GetNotebook`.** Reads the investigation's notebook — the agent's working
+  document (`{instance}/notebooks/<id>`), a resource referenced from the
+  investigation record but absent from the public REST index.
+- **Validation.** Trigger + filtered list + notebook read are live-validated
+  (`TestLiveInvestigationTriggerRead`); the `--latest` render was validated
+  against a completed investigation. Decode shapes pinned offline
+  (`chronicle/investigations_test.go`).
+- **Docs.** CATALOG (alert AI investigation row), SURFACES (investigations +
+  notebooks), usage guide, ROADMAP.
+
 ---
 
 ## Non-goals

@@ -25,14 +25,16 @@ func init() { rootCmd.AddCommand(newAlertsCmd()) }
 func newAlertsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alerts <verb>",
-		Short: "SIEM detection alerts: list/get (read-only) + guarded feedback update",
+		Short: "SIEM detection alerts: list/get (read-only), AI investigate, guarded feedback update",
 		Long: "Query Chronicle detection alerts over a time window (a snapshot view), fetch\n" +
-			"one by id, or set triage feedback (status / verdict / priority / comment) on\n" +
-			"one or more alerts. `list` and `get` read only; `update` is a guarded live\n" +
-			"mutation (dry-run by default, --yes to apply).",
+			"one by id, run the AI investigation for one (`investigate`), or set triage\n" +
+			"feedback (status / verdict / priority / comment) on one or more alerts.\n" +
+			"`list` and `get` read only; `update` is a guarded live mutation (dry-run by\n" +
+			"default, --yes to apply); `investigate` starts a generation unless --latest.",
 	}
 	cmd.AddCommand(newAlertsListCmd(), newAlertsGetCmd(), newAlertsUpdateCmd(),
-		newAlertsEnrichCmd(), newAlertsActionsCmd(), newAlertsRunActionsCmd())
+		newAlertsEnrichCmd(), newAlertsActionsCmd(), newAlertsRunActionsCmd(),
+		newAlertsInvestigateCmd())
 	return cmd
 }
 
