@@ -1725,6 +1725,25 @@ The IDE's create flows as API loops, and the credential lifecycle.
 - **Docs.** CATALOG (api-keys, authoring), SURFACES (authoring + assistant
   restriction), usage guide, ROADMAP.
 
+### Wave 61 — v0.3.0 release readiness *(done)*
+
+Documentation for the operational layer, and the release scaffolding.
+
+- **Two task-oriented guides.** [Triage](../guides/triage.md) — the
+  queue → case → AI verdict → act → rule-tuning loop in one page, with the
+  agent-safety guardrails; [Playbooks](../guides/playbooks.md) — discover the
+  palette, author (config-as-code, offline scaffolding, API definitions, AI
+  drafting), operate (run/debug/rollback/promote). Both wired into the site
+  left-nav, the docs index, and the root README.
+- **CHANGELOG.md** — release notes start at v0.3.0 (earlier releases keep
+  their notes in the signed tag messages).
+- **README capability summary** — what the tool does, in four bullets, with
+  links into the new guides.
+- **Register sweep.** Surface-availability notes across the docs reworded to
+  describe the API rather than an operator's environment; stale rows from the
+  pre-release audit fixed (SOAR api-keys lifecycle, the `--json` inventory,
+  the chronicle countPriorities comment).
+
 ---
 
 ## Non-goals

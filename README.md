@@ -24,6 +24,24 @@ optional `--json`, clear `--help`.
 > commands default to `--dry-run` and print a `LIVE DEPLOY` banner — nothing
 > changes until you pass `--yes`. Always dry-run, read it, then deploy.
 
+## What it does
+
+- **Config as code** — `pull` → `git diff` → `push` across the SIEM and SOAR
+  surfaces (rules, reference lists, feeds, parsers, dashboards, playbooks,
+  webhooks, environments, …), reconciled by one engine.
+- **Work the queue** — case counts and server-side filters, per-case and
+  per-alert triage verbs, and the alert ⇄ case ⇄ rule bridges; AI-assisted:
+  per-alert Gemini investigations (`alerts investigate`), structured case
+  summaries, environment-grounded Gemini chat. See the
+  [triage guide](docs/guides/triage.md).
+- **Playbooks end to end** — discover the authoring palette (every action,
+  flow function, trigger, block), author offline or through the API, then
+  run, debug, roll back, and promote. See the
+  [playbooks guide](docs/guides/playbooks.md).
+- **Built for agents** — a hard read-only mode, a machine-readable command
+  catalog (`secopsctl commands --json`), and a local mutation audit log, on
+  top of the dry-run-first guard on every mutating verb.
+
 ## Install
 
 ```bash
@@ -111,7 +129,7 @@ The [docs site](https://secops.danny.vn) is organized in three folders:
 
 | Folder | For | Start here |
 |---|---|---|
-| [guides/](docs/guides/) | **using** secopsctl | [Install](docs/guides/install.md) → [Configure](docs/guides/configure.md) → [The loop](docs/guides/the-loop.md) · [Command reference](docs/guides/usage.md) |
+| [guides/](docs/guides/) | **using** secopsctl | [Install](docs/guides/install.md) → [Configure](docs/guides/configure.md) → [The loop](docs/guides/the-loop.md) · [Triage](docs/guides/triage.md) · [Playbooks](docs/guides/playbooks.md) · [Command reference](docs/guides/usage.md) |
 | [design/](docs/design/) | **building** secopsctl | [Architecture](docs/design/architecture.md) · [Surfaces](docs/design/surfaces.md) · [Catalog (status)](docs/design/catalog.md) · [Roadmap](docs/design/roadmap.md) |
 | [tips/](docs/tips/) | the SecOps **craft** | [SecOps as code](docs/tips/01-secops-as-code.md) · [YARA-L](docs/tips/03-yara-l-rules.md) · [SOAR ops](docs/tips/09-soar-operations.md) |
 
