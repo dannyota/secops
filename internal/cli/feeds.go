@@ -18,7 +18,7 @@ func init() { rootCmd.AddCommand(newFeedsCmd()) }
 func newFeedsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "feeds <verb>",
-		Short: "Feed schema discovery (read-only) and feed deletion (guarded)",
+		Short: "Extra: feed schema discovery (read) + feed delete (guarded) — config-as-code is `pull/push feeds`",
 		Long: "Discover the feed source types and their log types — the field reference for\n" +
 			"authoring a feed YAML before `push feeds` — and delete a feed by id. Feed\n" +
 			"config-as-code is `pull feeds` / `push feeds`; deleting is a guarded one-off\n" +

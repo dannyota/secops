@@ -24,6 +24,11 @@ func validateCuratedPrecision(p string) error {
 	return nil
 }
 
+// ValidateCuratedPrecision reports whether p is a valid precision tier
+// ("precise" or "broad"), so a caller can fail fast (e.g. before a guard banner)
+// without constructing a client.
+func ValidateCuratedPrecision(p string) error { return validateCuratedPrecision(p) }
+
 // CuratedDeploymentUpdate is a partial toggle of a curated rule-set deployment.
 // Only the non-nil fields are sent, and the updateMask is derived from exactly
 // those, so an unset field is never overwritten.

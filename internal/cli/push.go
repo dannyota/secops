@@ -47,6 +47,12 @@ func init() {
 			"  " + strings.Join(engine, ", ") + "   reconcile local files to live (create/update; --prune to delete)\n\n" +
 			"Not every surface is prune-eligible; run `secopsctl surfaces` to see which\n" +
 			"`--prune` can delete (the rest report orphans but never delete them).",
+		Example: "  # preview creating new rules (dry run — the default)\n" +
+			"  secopsctl push rules-create\n\n" +
+			"  # apply for real after reviewing the preview\n" +
+			"  secopsctl push rules-create --yes\n\n" +
+			"  # reconcile an engine surface, deleting live objects with no local file\n" +
+			"  secopsctl push connectors --prune --dry-run",
 		Args:      cobra.ExactArgs(1),
 		ValidArgs: valid,
 		RunE:      runPush,

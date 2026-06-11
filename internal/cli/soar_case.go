@@ -216,7 +216,8 @@ func caseGuardFlags(cmd *cobra.Command, caseID *int, alert *string, dryRun, yes 
 	f := cmd.Flags()
 	f.IntVar(caseID, "id", 0, "SOAR case id (required)")
 	if withAlert {
-		f.StringVar(alert, "alert", "", "optional alert identifier to scope the action")
+		f.StringVar(alert, "alert", "", "scope the action to one alert in the case instead of the whole case "+
+			"(alert identifier from 'soar case get <id>'); omit to act on the case")
 	}
 	guardRunFlags(cmd, dryRun, yes)
 	_ = cmd.MarkFlagRequired("id")
@@ -231,7 +232,9 @@ func newCaseAssignCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "assign --id N --user <userId>",
 		Short: "Assign a case to a user",
-		Args:  cobra.NoArgs,
+		Long: "Assign a case to an analyst or role. --id is the SOAR integer case id from\n" +
+			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			body := caseBody(caseID, alert)
 			body["userId"] = user
@@ -256,7 +259,9 @@ func newCaseRenameCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rename --id N --title <s>",
 		Short: "Rename a case",
-		Args:  cobra.NoArgs,
+		Long: "Change a case's title. --id is the SOAR integer case id from\n" +
+			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			body := map[string]any{"caseId": caseID, "title": title}
 			return caseAction(fmt.Sprintf("rename case %d", caseID), body, dryRun, yes,
@@ -280,7 +285,10 @@ func newCaseStageCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stage --id N --stage <s>",
 		Short: "Change a case's stage",
-		Args:  cobra.NoArgs,
+		Long: "Move a case to a different workflow stage (list valid stages with\n" +
+			"`soar case values stages`). --id is the SOAR integer case id from\n" +
+			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			body := caseBody(caseID, alert)
 			body["stage"] = stage
@@ -310,7 +318,10 @@ func newCaseTagCmd(remove bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   use + " --id N --tag <s>",
 		Short: strings.ToUpper(use[:1]) + use[1:] + " a case",
-		Args:  cobra.NoArgs,
+		Long: strings.ToUpper(verb[:1]) + verb[1:] + " a case (list existing tags with\n" +
+			"`soar case values tags`). --id is the SOAR integer case id from\n" +
+			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			body := caseBody(caseID, alert)
 			body["tag"] = tag
@@ -338,7 +349,9 @@ func newCaseDescribeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe --id N --description <s>",
 		Short: "Change a case's description",
-		Args:  cobra.NoArgs,
+		Long: "Replace a case's description text. --id is the SOAR integer case id from\n" +
+			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			body := map[string]any{"caseId": caseID, "description": description}
 			return caseAction(fmt.Sprintf("set case %d description", caseID), body, dryRun, yes,
@@ -363,7 +376,10 @@ func newCaseImportanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "importance --id N --important",
 		Short: "Mark a case important (or not)",
-		Args:  cobra.NoArgs,
+		Long: "Set or clear a case's important flag (--important=false clears it). --id is\n" +
+			"the SOAR integer case id from `soar case list`. Guarded: dry-run by default,\n" +
+			"--yes to apply live.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			body := caseBody(caseID, alert)
 			body["isImportant"] = important
@@ -391,7 +407,14 @@ func newCaseCloseCmd() *cobra.Command {
 		Long: "Close one case. --reason is the fixed close-reason enum (the same set\n" +
 			"`soar push bulk-close` uses) so single and bulk closes aggregate in metrics:\n" +
 			"malicious | not-malicious | maintenance | inconclusive | unknown. Put your\n" +
-			"custom root-cause name in --root-cause and any free-text note in --comment.",
+			"custom root-cause name in --root-cause and any free-text note in --comment.\n" +
+			"--id is the SOAR integer case id from `soar case list`. Guarded: dry-run by\n" +
+			"default, --yes to apply live.",
+		Example: "  # preview closing a false positive (dry run)\n" +
+			"  secopsctl soar case close --id 1234 --reason not-malicious\n\n" +
+			"  # apply for real with a note\n" +
+			"  secopsctl soar case close --id 1234 --reason malicious \\\n" +
+			"      --comment 'confirmed C2 beacon' --yes",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cr, err := parseCloseReason(reason)
@@ -430,7 +453,10 @@ func newCaseMergeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "merge --ids 1,2,3 --into N",
 		Short: "Merge cases into a target case",
-		Args:  cobra.NoArgs,
+		Long: "Merge source cases into a target case; the target id is added to the set\n" +
+			"automatically if omitted. All ids are SOAR integer case ids from\n" +
+			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ids, err := parseIntList(idsArg)
 			if err != nil {

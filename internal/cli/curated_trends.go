@@ -32,6 +32,9 @@ func newCuratedDetectionsCmd() *cobra.Command {
 			"`rules detections`.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkHours(hours); err != nil {
+				return err
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
@@ -79,6 +82,9 @@ func newCuratedTrendsCmd() *cobra.Command {
 			"(chunked requests). The user-rule twin is `rules trends`.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := checkHours(hours); err != nil {
+				return err
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err

@@ -514,21 +514,30 @@ func newSOARIntegrationListCmd() *cobra.Command {
 // Commercial/marketplace packs are not deletable. Guarded LIVE MUTATION.
 func newSOARIntegrationUninstallCmd() *cobra.Command {
 	var (
+		key    string
 		name   string
 		dryRun bool
 		yes    bool
 	)
 	cmd := &cobra.Command{
-		Use:   "uninstall --name <integration-key>",
+		Use:   "uninstall --key <integration-key>",
 		Short: "Delete a custom integration pack (clone) by its key",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// --name is the deprecated alias of --key (the value is an integration
+			// key, never a display name).
+			if key == "" {
+				key = name
+			}
+			if strings.TrimSpace(key) == "" {
+				return fmt.Errorf("--key is required")
+			}
 			c, err := newSOARClient()
 			if err != nil {
 				return err
 			}
 			ctx := baseContext()
-			target, err := resolveCustomIntegration(ctx, c, name)
+			target, err := resolveCustomIntegration(ctx, c, key)
 			if err != nil {
 				return err
 			}
@@ -549,11 +558,12 @@ func newSOARIntegrationUninstallCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&name, "name", "", "integration key: Name (clone), Identifier, or displayName (required)")
+	f.StringVar(&key, "key", "", "integration key: Name (clone), Identifier, or displayName (required)")
+	f.StringVar(&name, "name", "", "deprecated alias of --key")
+	_ = f.MarkHidden("name")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 

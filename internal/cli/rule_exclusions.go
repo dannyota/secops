@@ -16,7 +16,7 @@ func init() { rootCmd.AddCommand(newRuleExclusionsCmd()) }
 func newRuleExclusionsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rule_exclusions <verb>",
-		Short: "Findings-refinement operations beyond pull/push",
+		Short: "Extra: imperative findings-refinement ops (enable/disable/archive) — config-as-code is `pull/push rule_exclusions`",
 		Long: "Operate on findings refinements outside the reconcile loop. Config-as-code\n" +
 			"is `pull rule_exclusions` / `push rule_exclusions`; deployment changes are\n" +
 			"guarded and dry-run by default.",

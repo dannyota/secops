@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -40,16 +41,26 @@ func newAlertsCmd() *cobra.Command {
 
 func newAlertsListCmd() *cobra.Command {
 	var (
-		hours    int
-		from, to string
-		query    string
-		limit    int
+		hours         int
+		from, to      string
+		filter, query string
+		limit         int
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alerts over a time window (snapshot view)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// --query is the deprecated alias of --filter; a value on either feeds
+			// the same server-side snapshot filter.
+			if filter == "" {
+				filter = query
+			}
+			if from == "" {
+				if err := checkHours(hours); err != nil {
+					return err
+				}
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
@@ -65,7 +76,7 @@ func newAlertsListCmd() *cobra.Command {
 					return err
 				}
 			}
-			snap, err := c.GetAlerts(baseContext(), start, end, limit, query, "", nil)
+			snap, err := c.GetAlerts(baseContext(), start, end, limit, filter, "", nil)
 			if err != nil {
 				return err
 			}
@@ -76,7 +87,9 @@ func newAlertsListCmd() *cobra.Command {
 	f.IntVar(&hours, "hours", 24, "look-back window in hours when --from is not given")
 	f.StringVar(&from, "from", "", "explicit start (RFC3339 / ISO-8601); overrides --hours")
 	f.StringVar(&to, "to", "", "explicit end (RFC3339 / ISO-8601); default now")
-	f.StringVar(&query, "query", "", `snapshot filter (default: feedback_summary.status != "CLOSED")`)
+	f.StringVar(&filter, "filter", "", `server-side snapshot filter (default: feedback_summary.status != "CLOSED")`)
+	f.StringVar(&query, "query", "", "deprecated alias of --filter")
+	_ = f.MarkHidden("query")
 	f.IntVar(&limit, "limit", 100, "max alerts to return (0 = server default)")
 	return markJSON(cmd)
 }
@@ -150,6 +163,58 @@ func expandAlertEnum(v, prefix string) string {
 	return prefix + v
 }
 
+// alertEnumValid is the per-flag valid-value set, in the user-facing
+// lower-case-hyphen vocabulary the flag descriptions document. Used to validate
+// the operator's verbatim input and to render the gold-standard
+// "(use a|b|c)" hint — mirroring `soar case close --reason`.
+var alertEnumValid = map[string][]string{
+	"status":     {"new", "reviewed", "closed", "open"},
+	"verdict":    {"true-positive", "false-positive"},
+	"priority":   {"info", "informative", "low", "medium", "high", "critical"},
+	"reason":     {"not-malicious", "malicious", "maintenance"},
+	"reputation": {"useful", "not-useful"},
+}
+
+// checkAlertEnum validates an enum flag's verbatim value against its valid set,
+// returning an error that quotes the OPERATOR'S input (not the transformed wire
+// token) and lists the accepted values — e.g.
+// `invalid alert reason "totallywrong" (use not-malicious|malicious|maintenance)`.
+// An empty value (flag unset) passes; the full wire-token forms are also accepted
+// for power users. Membership is matched case-insensitively against the documented
+// set; the SDK's Validate is the authoritative final check.
+func checkAlertEnum(flag, raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	low := strings.ToLower(raw)
+	if slices.Contains(alertEnumValid[flag], low) {
+		return nil
+	}
+	// Accept the full wire token form too (e.g. PRIORITY_HIGH, REASON_MALICIOUS).
+	if strings.ContainsAny(raw, "_") && raw == strings.ToUpper(raw) {
+		return nil
+	}
+	// reason/priority etc. expose only the non-"informative" canonical names in
+	// the hint, matching the flag descriptions.
+	hint := alertEnumHint(flag)
+	return fmt.Errorf("invalid alert %s %q (use %s)", flag, raw, hint)
+}
+
+// alertEnumHint renders the valid-value hint for a flag, omitting the
+// "informative" priority synonym (a duplicate of "info") so the hint stays the
+// canonical vocabulary the flag description documents.
+func alertEnumHint(flag string) string {
+	var out []string
+	for _, v := range alertEnumValid[flag] {
+		if flag == "priority" && v == "informative" {
+			continue
+		}
+		out = append(out, v)
+	}
+	return strings.Join(out, "|")
+}
+
 func newAlertsUpdateCmd() *cobra.Command {
 	var (
 		status, verdict, priority, reason, reputation string
@@ -168,6 +233,17 @@ func newAlertsUpdateCmd() *cobra.Command {
 			"Guarded: dry-run by default, --yes to apply.",
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate each enum flag against its documented set BEFORE transforming
+			// to the wire token, so the error quotes the operator's verbatim input
+			// and lists the valid values (parity with `soar case close --reason`).
+			for flag, raw := range map[string]string{
+				"status": status, "verdict": verdict, "priority": priority,
+				"reason": reason, "reputation": reputation,
+			} {
+				if err := checkAlertEnum(flag, raw); err != nil {
+					return err
+				}
+			}
 			u := chronicle.AlertUpdate{
 				Status:     expandAlertEnum(status, ""),
 				Verdict:    expandAlertEnum(verdict, ""),

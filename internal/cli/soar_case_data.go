@@ -116,12 +116,12 @@ func newCaseContextSetCmd() *cobra.Command {
 		yes    bool
 	)
 	cmd := &cobra.Command{
-		Use:   "set --case-id N --key <k> --value <v>",
+		Use:   "set --id N --key <k> --value <v>",
 		Short: "MUTATING (guarded): set a context property on a case",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if caseID <= 0 {
-				return fmt.Errorf("--case-id is required")
+				return fmt.Errorf("--id is required")
 			}
 			key = strings.TrimSpace(key)
 			value = strings.TrimSpace(value)
@@ -153,7 +153,9 @@ func newCaseContextSetCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
+	f.IntVar(&caseID, "id", 0, "SOAR case id (required) — from 'soar case list'")
+	f.IntVar(&caseID, "case-id", 0, "deprecated alias of --id")
+	_ = f.MarkHidden("case-id")
 	f.StringVar(&key, "key", "", "property key (required)")
 	f.StringVar(&value, "value", "", "property value")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")

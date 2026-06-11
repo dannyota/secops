@@ -141,6 +141,12 @@ func init() {
 			"git. It never mutates the instance.\n\n" +
 			"Targets: " + strings.Join(names, ", ") + "\n" +
 			"'all' pulls every target in order. --filter applies only to curated_rules.",
+		Example: "  # snapshot detection rules into ./rules\n" +
+			"  secopsctl pull rules\n\n" +
+			"  # snapshot everything, then review the diff\n" +
+			"  secopsctl pull all && git diff\n\n" +
+			"  # snapshot to a chosen directory\n" +
+			"  secopsctl pull reference_lists --out ./mirror",
 		Args:      cobra.ExactArgs(1),
 		ValidArgs: names,
 		RunE: func(cmd *cobra.Command, args []string) error {

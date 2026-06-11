@@ -104,13 +104,13 @@ func newExtCreateCmd() *cobra.Command {
 			}
 			cbn, err := os.ReadFile(cbnFile)
 			if err != nil {
-				return err
+				return fmt.Errorf("read --cbn %s: %w", cbnFile, err)
 			}
 			cfg := &chronicle.ParserExtensionConfig{CbnSnippet: string(cbn)}
 			if strings.TrimSpace(logFile) != "" {
 				log, lerr := os.ReadFile(logFile)
 				if lerr != nil {
-					return lerr
+					return fmt.Errorf("read --log %s: %w", logFile, lerr)
 				}
 				cfg.Log = string(log)
 			}

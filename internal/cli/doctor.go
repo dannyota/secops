@@ -19,6 +19,10 @@ func init() {
 			"instance: it loads config, acquires a token, and makes one read-only call to\n" +
 			"the SIEM (list rules) and, if soar_url is set, to SOAR (list integrations).\n" +
 			"It never mutates anything. --json emits {ok, version, checks[]}.",
+		Example: "  # human-readable health check\n" +
+			"  secopsctl doctor\n\n" +
+			"  # machine-readable, for CI / monitoring\n" +
+			"  secopsctl doctor --json",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE:         runDoctor,

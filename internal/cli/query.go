@@ -116,9 +116,21 @@ func init() {
 			"      metadata.event_type = \"GENERIC_EVENT\"' --raw --limit 50 | \\\n" +
 			"    secopsctl parsers run KONG_GATEWAY --cbn parser.conf --logs -\n\n" +
 			"With --raw, --limit defaults to 100 (one raw fetch per matched event).",
+		Example: "  # network connections in the last 6 hours\n" +
+			"  secopsctl query udm 'metadata.event_type = \"NETWORK_CONNECTION\"' --hours 6\n\n" +
+			"  # a fixed window, machine-readable\n" +
+			"  secopsctl query udm 'principal.hostname = \"host-01\"' \\\n" +
+			"      --from 2024-01-02T00:00:00Z --to 2024-01-03T00:00:00Z --json",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter := args[0]
+			// Reject a non-positive look-back before any work (only meaningful when
+			// --from is not set; an explicit window comes from --from/--to).
+			if fromTS == "" {
+				if err := checkHours(hours); err != nil {
+					return err
+				}
+			}
 			// --raw fetches a raw log per matched event, so cap conservatively unless
 			// the operator set --limit explicitly (the event-only default is 10000).
 			if raw && !cmd.Flags().Changed("limit") {
@@ -404,7 +416,11 @@ func newQueryGeminiCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gemini <question>",
 		Short: "Ask SecOps Gemini a question (read-only; --opt-in once per account)",
-		Args:  cobra.ExactArgs(1),
+		Long: "Ask SecOps Gemini a question — YARA-L authoring help, UDM field questions,\n" +
+			"and environment-grounded answers. Read-only: it returns an answer, it makes\n" +
+			"no changes. The account must be opted in to Gemini once; --opt-in performs\n" +
+			"that one-time enablement and can be combined with a question in the same run.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newChronicleClient()
 			if err != nil {

@@ -42,7 +42,10 @@ func newCaseCommentAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add --id N --text <s>",
 		Short: "Add a comment to a case",
-		Args:  cobra.NoArgs,
+		Long: "Append a comment to the case wall — the canonical triage-rationale record.\n" +
+			"--id is the SOAR integer case id from `soar case list`. Guarded: dry-run by\n" +
+			"default, --yes to apply live.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(text) == "" {
 				return fmt.Errorf("--text must not be empty")

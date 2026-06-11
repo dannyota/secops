@@ -53,7 +53,7 @@ func newIoCsFindCmd() *cobra.Command {
 			if fromFile != "" {
 				fileVals, ferr := readIndicatorList(cmd, fromFile)
 				if ferr != nil {
-					return ferr
+					return fmt.Errorf("read --from-file %s: %w", fromFile, ferr)
 				}
 				values = append(values, fileVals...)
 			}

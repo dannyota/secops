@@ -118,8 +118,19 @@ func newCuratedSetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set --category C --ruleset R --precision precise|broad [--enabled[=bool]] [--alerting[=bool]]",
 		Short: "MUTATING (guarded): toggle a curated deployment's enabled/alerting",
-		Args:  cobra.NoArgs,
+		Long: "Toggle one Google-managed curated rule-set deployment, addressed by\n" +
+			"--category / --ruleset / --precision (precise|broad). The toggles are\n" +
+			"tri-state: a flag you omit is left unchanged; `--enabled` enables and\n" +
+			"`--enabled=false` disables the deployment; `--alerting` / `--alerting=false`\n" +
+			"controls alerting independently of enablement. Guarded: dry-run by default,\n" +
+			"--yes to apply against the live tenant.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Validate the precision up front — before the LIVE-deploy banner — so a
+			// bad value fails fast rather than after the guard prints.
+			if err := chronicle.ValidateCuratedPrecision(precision); err != nil {
+				return err
+			}
 			upd := chronicle.CuratedDeploymentUpdate{}
 			if cmd.Flags().Changed("enabled") {
 				upd.Enabled = &enabled
@@ -145,8 +156,8 @@ func newCuratedSetCmd() *cobra.Command {
 	f.StringVar(&category, "category", "", "curated rule-set category id (required)")
 	f.StringVar(&ruleSet, "ruleset", "", "curated rule-set id (required)")
 	f.StringVar(&precision, "precision", "", "precise|broad (required)")
-	f.BoolVar(&enabled, "enabled", false, "set the deployment enabled state (only applied if the flag is present)")
-	f.BoolVar(&alerting, "alerting", false, "set the deployment alerting state (only applied if the flag is present)")
+	f.BoolVar(&enabled, "enabled", false, "enable the deployment (--enabled=false disables); omit to leave unchanged")
+	f.BoolVar(&alerting, "alerting", false, "turn alerting on (--alerting=false off); independent of --enabled; omit to leave unchanged")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")

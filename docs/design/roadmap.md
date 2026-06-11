@@ -1824,6 +1824,44 @@ action/job, not just creating and deleting one.
 
 ---
 
+### Wave 66 — CLI UX polish *(done)*
+
+A pass over the command tree from a UX audit — clearer help, fast-failing and
+self-explaining errors, consistent flag names, and a discoverable root. No
+behavior changes to what the commands *do*; only how they read and how they
+report bad input.
+
+- **Bugs.** `rules detections` / `rules errors` usage tokens become `<rule>`
+  (the arg accepts id / display name / slug) with a matching one-line `Long`;
+  cobra "Did you mean this?" suggestions re-enabled for a mistyped top-level
+  command (`pll` → `pull`); the global `--legacy` flag renders as a plain bool
+  with no spurious value placeholder.
+- **Error messages.** `alerts update` enum flags now quote the operator's
+  verbatim input and list the valid set (parity with `soar case close
+  --reason`); `curated set --precision` is validated before the LIVE banner so a
+  bad value fails fast; missing-file errors on `iocs find --from-file` and
+  `parsers extension create --cbn` are wrapped with flag context; windowed
+  commands reject `--hours <= 0` up front with a clear message (shared
+  `checkHours`).
+- **Consistency.** `--id` is the primary case-id flag on `soar case context set`
+  and `soar case run-action` (`--case-id` kept as a hidden alias); `alerts list`
+  gains `--filter` as the primary server-side filter (`--query` hidden alias);
+  `soar integration uninstall` gains `--key` as the primary flag (`--name` hidden
+  alias).
+- **Help quality.** Added or extended `Long` text on the `soar case` mutating
+  leaves (assign/rename/tag/untag/importance/describe/comment add/merge/stage),
+  the shared `--alert` scoping flag, `query gemini`, `rules retrohunt create`,
+  and `curated set` (the tri-state enable/alerting contract).
+- **Discoverability.** Root help now renders titled command groups (Setup &
+  health · Read & query · Config as code · SOAR · Utilities), a "Getting
+  started" tail on the root `Long`, `Example:` blocks on the highest-traffic
+  commands (config, doctor, pull, push, query udm, soar case list/close), and
+  rephrased top-level `Short` lines for the imperative-ops commands (cases,
+  dashboards, reference_lists, rule_exclusions, feeds) that signal they are
+  extras and that config-as-code is `pull/push <x>`.
+
+---
+
 ## Non-goals
 
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).

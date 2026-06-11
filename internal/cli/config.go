@@ -38,6 +38,13 @@ func init() {
 			"never committed. At run time, real SECOPS_* env vars override the file. The\n" +
 			"mintable OAuth/ADC SIEM token is never stored — `gcloud auth\n" +
 			"application-default login` handles SIEM auth.",
+		Example: "  # open the interactive setup form\n" +
+			"  secopsctl config\n\n" +
+			"  # set values non-interactively (e.g. in a script)\n" +
+			"  secopsctl config --non-interactive \\\n" +
+			"      --project-id your-project-id --region us --customer-id 00000000-0000-0000-0000-000000000000\n\n" +
+			"  # print the resolved config file path\n" +
+			"  secopsctl config --show-path",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if fShowPath {

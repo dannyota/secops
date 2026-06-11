@@ -14,7 +14,7 @@ func init() { rootCmd.AddCommand(newDashboardsCmd()) }
 func newDashboardsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dashboards <verb>",
-		Short: "Native dashboard operations beyond pull/push (duplicate)",
+		Short: "Extra: imperative dashboard ops (duplicate) — config-as-code is `pull/push dashboards`",
 		Long: "Operations on native dashboards outside the reconcile loop. Today: duplicate\n" +
 			"(the supported way to change a dashboard's immutable access — recreate with the\n" +
 			"new access, then re-pull). Config-as-code is `pull dashboards` / `push dashboards`.",

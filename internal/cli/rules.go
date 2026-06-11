@@ -151,16 +151,31 @@ func timeWindow(hours int) (time.Time, time.Time) {
 	return end.Add(-time.Duration(hours) * time.Hour), end
 }
 
+// checkHours rejects a non-positive --hours look-back before any work, so a
+// typo (`--hours 0`, `--hours -1`) fails fast with a clear message instead of
+// silently falling back to the 24h default.
+func checkHours(hours int) error {
+	if hours <= 0 {
+		return fmt.Errorf("--hours must be a positive number of hours")
+	}
+	return nil
+}
+
 func newRulesDetectionsCmd() *cobra.Command {
 	var (
 		hours, limit int
 		state        string
 	)
 	cmd := &cobra.Command{
-		Use:   "detections <rule-id>",
+		Use:   "detections <rule>",
 		Short: "Read-only: list detections a rule produced in a time window",
-		Args:  cobra.ExactArgs(1),
+		Long: "List the detections a rule produced over the last --hours.\n" +
+			"<rule> is a rule id, display name, or slug as shown by `rules list`.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkHours(hours); err != nil {
+				return err
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
@@ -283,10 +298,15 @@ func looksLikeRuleID(s string) bool {
 func newRulesErrorsCmd() *cobra.Command {
 	var hours int
 	cmd := &cobra.Command{
-		Use:   "errors <rule-id>",
+		Use:   "errors <rule>",
 		Short: "Read-only: list execution errors a rule produced in a time window",
-		Args:  cobra.ExactArgs(1),
+		Long: "List the execution errors a rule produced over the last --hours.\n" +
+			"<rule> is a rule id, display name, or slug as shown by `rules list`.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkHours(hours); err != nil {
+				return err
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
@@ -435,8 +455,16 @@ func newRetrohuntCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <rule>",
 		Short: "MUTATING (guarded): start a retrohunt over the last --hours of data (rule accepts id, name, or slug)",
-		Args:  cobra.ExactArgs(1),
+		Long: "Re-run a rule over the last --hours of already-stored data to surface\n" +
+			"detections it would have produced. The retrohunt runs asynchronously —\n" +
+			"poll its progress with `rules retrohunt get`/`rules retrohunt list`.\n" +
+			"<rule> is a rule id, display name, or slug as shown by `rules list`.\n" +
+			"Guarded: dry-run by default, --yes to apply against the live tenant.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkHours(hours); err != nil {
+				return err
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err

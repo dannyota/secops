@@ -28,7 +28,7 @@ func init() {
 func newCasesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cases <verb>",
-		Short: "Read a case on the Chronicle host by UUID — alternate path; prefer `soar case`",
+		Short: "Extra: read a case on the Chronicle host by UUID (this path 500s today — prefer `soar case`)",
 		Long: "Reach a case on the Chronicle host (chronicle.googleapis.com, ADC) by UUID.\n" +
 			"This collection currently 500s at every API version, so for case work use\n" +
 			"`soar case` — the same case on the SOAR host, where it works. Reads only here.",

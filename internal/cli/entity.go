@@ -34,6 +34,9 @@ func newEntitySummarizeCmd() *cobra.Command {
 			"domain, IP, or hash). --json for the full summary.",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkHours(hours); err != nil {
+				return err
+			}
 			start, end := timeWindow(hours)
 			c, err := newChronicleClient()
 			if err != nil {

@@ -151,6 +151,12 @@ func newCaseListCmd() *cobra.Command {
 			"v1alpha cases API (e.g. \"status = 'OPENED'\").\n\n" +
 			"Uses the modern v1alpha cases API by default, falling back to the legacy\n" +
 			"AppKey queue on error. --legacy forces the legacy queue only.",
+		Example: "  # open cases (the default)\n" +
+			"  secopsctl soar case list\n\n" +
+			"  # high-priority cases assigned to an analyst\n" +
+			"  secopsctl soar case list --priority high --assignee analyst\n\n" +
+			"  # server-side filter, machine-readable\n" +
+			"  secopsctl soar case list --filter \"status = 'OPENED'\" --json",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			statuses, err := parseSOARCaseStatuses(status)

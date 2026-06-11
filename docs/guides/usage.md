@@ -240,7 +240,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar case alert move` | Move one alert out of a case (`--id`, `--alert`; `--to M` for an existing case, omit for a new one) — the inverse of `merge`. |
 | `soar case alert reopen` | Reopen one closed alert in a case (`--id`, `--alert`). |
 | `soar case rename` / `describe` / `importance` / `merge` | Rename / re-describe / flag-important / merge cases. |
-| `soar case run-action --case-id N --action <name> --instance <uuid>` | Execute an integration action on a case (ad-hoc — any installed action). Script params via `--param key=value` (secrets via `env:VAR`). Returns the action result (resultCode, message); `--json` emits the full payload. |
+| `soar case run-action --id N --action <name> --instance <uuid>` | Execute an integration action on a case (ad-hoc — any installed action). Script params via `--param key=value` (secrets via `env:VAR`). Returns the action result (resultCode, message); `--json` emits the full payload. (`--case-id` stays as a hidden alias of `--id`.) |
 | `soar case simulation create` | Create a custom simulated test case from alert/event field specs — appears in the SOAR queue for playbook testing. |
 | `soar case simulation generate --name <sim>` | Generate a test case from a custom simulation name into the case queue. |
 | `soar case simulation alert --case-id N --alert <id>` | Simulate an alert inside a case for playbook testing. |
@@ -251,7 +251,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar integration create` | Create a new, unconfigured (inert) integration instance. |
 | `soar integration configure --integration <id> --param k=v` | MUTATING (guarded): set an instance's parameters. Reads current settings, overlays `--param` values (matched on `propertyName` or display name), and saves. `--param 'key=env:VAR'` resolves secrets from env vars. Instance auto-resolved. |
 | `soar integration delete --integration <id>` | Delete an integration instance (warns if playbooks use it). `--id`/`--environment` are resolved from the integration's instances — a single instance is auto-selected; several list themselves with copy-paste flags to narrow. |
-| `soar integration uninstall` | Delete a custom integration pack (clone) by its key. |
+| `soar integration uninstall --key <integration-key>` | Delete a custom integration pack (clone) by its key. (`--name` stays as a hidden alias of `--key`.) |
 | `soar settings case-assignment` / `move-case-policy` set | Set the case-routing policy (set form is guarded). |
 | `soar legacy call <op> --write --yes` | Escape hatch: call any Siemplify external-API mutation. Add `--dry-run` to preview the composed request (method + op + body) without sending; `--out <file>` writes the response `0600`. |
 

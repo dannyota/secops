@@ -21,12 +21,12 @@ func newCaseRunActionCmd() *cobra.Command {
 		yes      bool
 	)
 	cmd := &cobra.Command{
-		Use:   "run-action --case-id N --action <name> --instance <uuid>",
+		Use:   "run-action --id N --action <name> --instance <uuid>",
 		Short: "MUTATING (guarded): execute an integration action on a case",
 		Long: "Run a single integration action (e.g. HTTP_Post Data, Ping, Enrich IP)\n" +
 			"against a case. This is the ad-hoc counterpart to a playbook step — any\n" +
 			"installed action can be triggered directly.\n\n" +
-			"  secopsctl soar case run-action --case-id 123 --action HTTP_Ping \\\n" +
+			"  secopsctl soar case run-action --id 123 --action HTTP_Ping \\\n" +
 			"    --instance <uuid> --alert <alert-group-id>\n\n" +
 			"Script parameters are passed via --param key=value (repeatable); secrets\n" +
 			"use env-var references (--param 'URL=env:WEBHOOK_URL'). The alert group\n" +
@@ -37,7 +37,7 @@ func newCaseRunActionCmd() *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if caseID <= 0 {
-				return fmt.Errorf("--case-id is required")
+				return fmt.Errorf("--id is required")
 			}
 			action = strings.TrimSpace(action)
 			if action == "" {
@@ -144,7 +144,9 @@ func newCaseRunActionCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
+	f.IntVar(&caseID, "id", 0, "SOAR case id (required) — from 'soar case list'")
+	f.IntVar(&caseID, "case-id", 0, "deprecated alias of --id")
+	_ = f.MarkHidden("case-id")
 	f.StringVar(&action, "action", "", "integration action name, e.g. HTTP_Ping or HTTP_Post Data (required)")
 	f.StringVar(&instance, "instance", "", "integration instance UUID (required; from `soar integration instances`)")
 	f.StringVar(&alert, "alert", "", "alert group identifier (from `soar case get --json`)")
