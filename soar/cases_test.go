@@ -148,3 +148,77 @@ func TestListCasesNoOptsQuery(t *testing.T) {
 		}
 	}
 }
+
+// statusBodyRT answers each call with the next queued status+body (offline).
+type statusBodyRT struct {
+	queue []struct {
+		status int
+		body   string
+	}
+	queries []url.Values
+}
+
+func (r *statusBodyRT) RoundTrip(req *http.Request) (*http.Response, error) {
+	r.queries = append(r.queries, req.URL.Query())
+	next := r.queue[0]
+	if len(r.queue) > 1 {
+		r.queue = r.queue[1:]
+	}
+	return &http.Response{
+		StatusCode: next.status,
+		Body:       io.NopCloser(strings.NewReader(next.body)),
+		Header:     make(http.Header),
+	}, nil
+}
+
+// TestCountCases locks the totalSize count semantics: the full filtered count
+// comes back on a pageSize=1 request, and a zero-match 204 (empty body)
+// counts as 0 instead of failing to decode.
+func TestCountCases(t *testing.T) {
+	rt := &statusBodyRT{queue: []struct {
+		status int
+		body   string
+	}{{200, `{"cases":[{"id":1}],"totalSize":17,"nextPageToken":"tok"}`}}}
+	c := newCaptureClient(t, rt)
+	n, err := c.CountCases(context.Background(), "status = 'OPENED'")
+	if err != nil || n != 17 {
+		t.Errorf("CountCases = %d, %v; want 17", n, err)
+	}
+	q := rt.queries[0]
+	if q.Get("pageSize") != "1" || q.Get("filter") != "status = 'OPENED'" {
+		t.Errorf("count query = %v", q)
+	}
+
+	rt = &statusBodyRT{queue: []struct {
+		status int
+		body   string
+	}{{204, ""}}}
+	c = newCaptureClient(t, rt)
+	if n, err := c.CountCases(context.Background(), "assignee = 'nobody'"); err != nil || n != 0 {
+		t.Errorf("zero-match CountCases = %d, %v; want 0", n, err)
+	}
+}
+
+// TestCountCasesByPriority locks the per-priority composition: one count per
+// token, the base filter parenthesized in front.
+func TestCountCasesByPriority(t *testing.T) {
+	rt := &statusBodyRT{queue: []struct {
+		status int
+		body   string
+	}{{200, `{"totalSize":2}`}}}
+	c := newCaptureClient(t, rt)
+	counts, err := c.CountCasesByPriority(context.Background(), "status = 'OPENED'")
+	if err != nil {
+		t.Fatalf("CountCasesByPriority: %v", err)
+	}
+	if len(counts) != len(soar.CasePriorityTokens) {
+		t.Errorf("counts = %v", counts)
+	}
+	if len(rt.queries) != len(soar.CasePriorityTokens) {
+		t.Fatalf("%d requests, want %d", len(rt.queries), len(soar.CasePriorityTokens))
+	}
+	want := "(status = 'OPENED') and (priority = 'PRIORITY_INFO')"
+	if got := rt.queries[0].Get("filter"); got != want {
+		t.Errorf("composed filter = %q, want %q", got, want)
+	}
+}

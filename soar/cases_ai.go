@@ -68,9 +68,11 @@ func (c *Client) GetOrCreateCaseSummary(ctx context.Context, caseID string, isFi
 	return &out, nil
 }
 
-// CountCasePriorities returns case counts grouped by priority for a filter set
-// (cases:countPriorities) — a one-call triage-queue metric. filter is required
-// by the API (aip.dev/160 form, e.g. "status=OPEN").
+// CountCasePriorities calls the cases:countPriorities RPC. The RPC is not
+// served on current deployments (404; the web UI builds its queue numbers
+// from filtered lists instead) — use CountCasesByPriority, which derives the
+// same counts from the list's totalSize. Kept for instances that may serve
+// the RPC.
 func (c *Client) CountCasePriorities(ctx context.Context, filter string) (json.RawMessage, error) {
 	if strings.TrimSpace(filter) == "" {
 		return nil, fmt.Errorf("soar: filter is required")

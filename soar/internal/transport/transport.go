@@ -159,9 +159,30 @@ func (t *Transport) V1Alpha(ctx context.Context, method, resource string, body, 
 	if len(sp.updateMask) > 0 {
 		q.Set("updateMask", strings.Join(sp.updateMask, ","))
 	}
-	full := t.base + t.instancePath(version) + "/" + strings.TrimLeft(resource, "/") + "?" + q.Encode()
+	base := t.base + t.instancePath(version) + "/" + strings.TrimLeft(resource, "/")
+	full := base + "?" + q.Encode()
+	if method == http.MethodGet && len(full) > maxGetURLLen {
+		// A long filter expression can push the URL past intermediary limits.
+		// The server accepts the equivalent the web UI sends in that case:
+		// POST with X-HTTP-Method-Override: GET and the query parameters as a
+		// form body (format stays on the URL). Semantically still a read, but
+		// sent as POST it is conservatively excluded from 5xx retries.
+		form := q
+		q = url.Values{"format": {"camel"}}
+		form.Del("format")
+		return t.do(ctx, http.MethodPost, base+"?"+q.Encode(), []byte(form.Encode()), out, map[string]string{
+			"x-goog-api-version":     version,
+			"X-HTTP-Method-Override": "GET",
+			"Content-Type":           "application/x-www-form-urlencoded",
+		})
+	}
 	return t.do(ctx, method, full, body, out, map[string]string{"x-goog-api-version": version})
 }
+
+// maxGetURLLen is the URL length beyond which a GET is downgraded to the
+// method-override POST form. 2000 stays under the common 2 KB intermediary
+// caps with headroom for the host and instance path.
+const maxGetURLLen = 2000
 
 // External executes a legacy Siemplify external-API request. path is appended to
 // /api/external/v1 (leading slash optional).
@@ -216,12 +237,18 @@ func retryable(method string, status int, transportErr bool) bool {
 
 func (t *Transport) do(ctx context.Context, method, full string, body, out any, extraHeaders map[string]string) error {
 	var bodyBytes []byte
-	if body != nil {
-		b, err := json.Marshal(body)
+	switch b := body.(type) {
+	case nil:
+	case []byte:
+		// Pre-encoded payload (e.g. the method-override form body) — sent
+		// verbatim; the caller supplies the Content-Type via extraHeaders.
+		bodyBytes = b
+	default:
+		j, err := json.Marshal(body)
 		if err != nil {
 			return fmt.Errorf("soar: marshal request body: %w", err)
 		}
-		bodyBytes = b
+		bodyBytes = j
 	}
 
 	var lastErr error

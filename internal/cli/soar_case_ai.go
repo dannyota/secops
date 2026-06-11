@@ -126,38 +126,40 @@ func newCaseCountsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "counts [--filter <expr>]",
 		Short: "Read-only: case counts grouped by priority for a filter set",
-		Long: "One-call triage-queue metric (cases:countPriorities). --filter is the\n" +
-			"server-side expression the API requires, e.g. \"status=OPEN\".",
+		Long: "The triage queue's per-priority numbers: one cheap exact count per priority\n" +
+			"(the modern cases list reports the full filtered total on a pageSize=1\n" +
+			"request; the cases:countPriorities RPC is not served). --filter composes\n" +
+			"with the per-priority term, e.g. \"status = 'OPENED'\" (the default) or\n" +
+			"\"status = 'OPENED' and (assignee = '@Tier1')\".",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
 			ctx := baseContext()
-			// Two-host surface: try the SOAR host (the cases collection's home),
-			// fall back to the chronicle host where some case verbs answer
-			// instead. Both errors surface on a dual failure — the wrong-host vs
-			// outage diagnosis needs both signals.
-			var soarErr error
-			if c, err := newSOARClient(); err == nil {
-				raw, err := c.CountCasePriorities(ctx, filter)
-				if err == nil {
-					return writeRawJSON(os.Stdout, raw)
-				}
-				soarErr = err
-			}
-			cc, err := newChronicleClient()
+			counts, err := c.CountCasesByPriority(ctx, filter)
 			if err != nil {
 				return err
 			}
-			raw, err := cc.CountCasePriorities(ctx, filter)
+			if jsonOut {
+				return emitJSON(counts)
+			}
+			fmt.Fprintln(os.Stdout, "PRIORITY\tCASES")
+			for _, tok := range soar.CasePriorityTokens {
+				fmt.Fprintf(os.Stdout, "%s\t%d\n", strings.TrimPrefix(tok, "PRIORITY_"), counts[tok])
+			}
+			// The headline total is its own exact count — a case with an
+			// out-of-vocabulary priority would otherwise be invisible.
+			total, err := c.CountCases(ctx, filter)
 			if err != nil {
-				if soarErr != nil {
-					return fmt.Errorf("soar host: %w (chronicle host also failed: %v)", soarErr, err) //nolint:errorlint // the chronicle error is annotation only
-				}
 				return err
 			}
-			return writeRawJSON(os.Stdout, raw)
+			fmt.Fprintf(os.Stdout, "\n%d case(s) matching %q\n", total, filter)
+			return nil
 		},
 	}
-	cmd.Flags().StringVar(&filter, "filter", "status=OPEN", `server-side filter (required by the API)`)
+	cmd.Flags().StringVar(&filter, "filter", "status = 'OPENED'", "base server-side filter the per-priority counts compose with")
 	return cmd
 }
 

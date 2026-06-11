@@ -1660,6 +1660,37 @@ collections, which list definitions across ALL integrations in one call.
 - **Docs.** CATALOG (authoring palette row), SURFACES (wildcard catalogs
   family), usage guide, ROADMAP.
 
+### Wave 59 — Case queue counts + the modern filter grammar *(done — live-validated)*
+
+The per-priority queue numbers and the full server-side filter grammar of the
+modern cases list, matched to what the web UI itself sends.
+
+- **`soar case counts [--filter]`.** Per-priority case counts for a filter
+  set — the modern list reports the full filtered total (`totalSize`) on a
+  `pageSize=1` request, so each priority is one cheap exact count
+  (`CountCases`/`CountCasesByPriority`, composing
+  `(<base>) and (priority = '<token>')`). The `cases:countPriorities` RPC is
+  not served (404 SOAR / 500 chronicle; the web UI builds its queue from
+  filtered lists) — the SDK method remains only for instances that serve it.
+- **Filter grammar (documented + typed).** Enum/string scalars (`status`,
+  `priority`, `assignee` — at-prefixed role or user UUID, `environment`,
+  `stage`, `displayName`), int64 epoch-millisecond ranges
+  (`createTime`/`updateTime`), and variadic collection membership
+  `any(<collection>.<itemProp>, 'v1', 'v2', …)` for `tags`/`alertNames`/
+  `products`; terms compose with `and`/`or`/parens. Usage guide carries the
+  reference table.
+- **Transport mechanics.** A zero-match list answers HTTP 204 with an empty
+  body — the transport already maps empty 2xx bodies to empty results. A
+  filter long enough to overflow the URL is now sent the way the UI sends it:
+  `POST` with `X-HTTP-Method-Override: GET` and the query as a form body
+  (format stays on the URL); applied automatically above ~2 KB, pinned by a
+  transport test.
+- **Validation.** Counts live-validated against the open queue; count
+  composition, totalSize decode, 204-as-zero, and the method-override
+  downgrade pinned offline.
+- **Docs.** CATALOG (counts row), SURFACES (cases-list grammar + counts),
+  usage guide (grammar table), ROADMAP.
+
 ---
 
 ## Non-goals

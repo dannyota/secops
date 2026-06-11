@@ -167,7 +167,8 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar job template list` | List SOAR job templates for component planning without printing job script bodies. |
 | `soar job instance list` | List configured SOAR job instances. |
 | `soar job logs` | Read Python execution logs for SOAR jobs/actions. Use documented filters such as `labels.job_name=~"^."` or `labels.action_name=~"^."`. **Same Cloud Logging caveat as `python-logs`:** can 500 on some instances; for failed playbook/job triage, prefer `soar playbook summary`. |
-| `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). Triage filters: `--assignee` (substring), `--priority`, `--tag` (modern lane), `--since` (duration/timestamp), and a verbatim modern server-side `--filter` expression. |
+| `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). Triage filters: `--assignee` (substring), `--priority`, `--tag` (modern lane), `--since` (duration/timestamp), and a verbatim modern server-side `--filter` expression (grammar below). |
+| `soar case counts [--filter <expr>]` | Per-priority case counts for a filter set (default open cases) — one cheap exact count per priority via the list's `totalSize`. |
 | `soar case get <id>` | Get one case + its alerts (SOAR integer id). Each alert shows its `--alert` identifier and its **firing rule** (name + `ru_` id) with a `rules detections` pivot hint. |
 | `soar case comment list --id N` | List a case's comments (the case-wall record; `--alert` scopes to one alert). |
 | `soar case summarize --id N` | The structured AI summary of a case — narrative, reasons, next steps (polls until generation settles). |
@@ -191,6 +192,26 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 there is no matching `soar push grouping`/`push cases` and they are not part of
 `drift`, so the pull → diff → push loop does not close for them — use them to
 capture state for review, not to reconcile it.
+
+### Case `--filter` grammar (modern cases list)
+
+`--filter` on `soar case list` / `soar case counts` passes a server-side
+expression through verbatim — the same grammar the web UI's Case Queue Filter
+generates:
+
+| Field | Type | Example |
+|---|---|---|
+| `status`, `priority` | enum token | `status = 'OPENED'`, `priority = 'PRIORITY_HIGH'` (`PRIORITY_INFO`/`LOW`/`MEDIUM`/`HIGH`/`CRITICAL`) |
+| `assignee` | string | `assignee = '@Tier1'` (at-prefixed role name) or a user UUID |
+| `environment`, `stage`, `displayName` | string | `stage = 'Triage'` (stages: Triage, Assessment, Investigation, Incident, Improvement, Research) |
+| `createTime`, `updateTime` | int64 (epoch ms) | `updateTime >= 1700000000000` |
+| `id` | int64 | `id >= 4000` |
+| `tags`, `alertNames`, `products` | collection | `any(tags.displayName, 'tag-a', 'tag-b')` · `any(alertNames.alertName, 'RULE NAME')` · `any(products.displayName, 'RULE')` |
+
+Terms compose with `and` / `or` and parentheses. A zero-match query returns an
+empty result (HTTP 204), not an error. Very long filters are sent
+automatically via the method-override POST the UI uses, so URL length is not a
+practical limit.
 
 ## ⚠️ SOAR — guarded mutations
 

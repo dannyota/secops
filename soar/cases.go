@@ -5,8 +5,10 @@ package soar
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"danny.vn/secops/soar/internal/transport"
 )
@@ -65,9 +67,12 @@ func firstStringField(m map[string]json.RawMessage, keys ...string) string {
 
 // listCasesPage is the Google-style list envelope. The v1alpha surface has used
 // both "cases" and the generic "items" key across revisions, so we accept either.
+// TotalSize is the FULL filtered count, present on every page regardless of
+// pageSize — the basis of the cheap exact counts (CountCases).
 type listCasesPage struct {
 	Cases         []json.RawMessage `json:"cases"`
 	Items         []json.RawMessage `json:"items"`
+	TotalSize     json.Number       `json:"totalSize"`
 	NextPageToken string            `json:"nextPageToken"`
 }
 
@@ -158,6 +163,56 @@ func (c *Client) ListCasesOpts(ctx context.Context, opt CaseListOptions) ([]json
 	}
 	if opt.MaxItems > 0 && len(out) > opt.MaxItems {
 		out = out[:opt.MaxItems]
+	}
+	return out, nil
+}
+
+// CountCases returns the exact number of cases matching the server-side
+// filter without fetching them: every page of the modern cases list carries
+// totalSize, so a single pageSize=1 request is a cheap exact count. A
+// zero-match query answers HTTP 204 with an empty body, which counts as 0.
+func (c *Client) CountCases(ctx context.Context, filter string) (int, error) {
+	q := url.Values{"pageSize": {"1"}}
+	if strings.TrimSpace(filter) != "" {
+		q.Set("filter", filter)
+	}
+	var page listCasesPage
+	if err := c.t.V1Alpha(ctx, "GET", "cases", nil, &page, transport.Query(q)); err != nil {
+		return 0, err
+	}
+	if page.TotalSize == "" {
+		return 0, nil
+	}
+	n, err := page.TotalSize.Int64()
+	if err != nil {
+		return 0, fmt.Errorf("soar: totalSize %q: %w", page.TotalSize, err)
+	}
+	return int(n), nil
+}
+
+// CasePriorityTokens are the modern v1alpha case priority filter tokens,
+// lowest first — the values `priority = '<token>'` accepts.
+var CasePriorityTokens = []string{
+	"PRIORITY_INFO", "PRIORITY_LOW", "PRIORITY_MEDIUM", "PRIORITY_HIGH", "PRIORITY_CRITICAL",
+}
+
+// CountCasesByPriority returns per-priority case counts for an optional base
+// filter: one cheap CountCases per priority token, composed as
+// "(<base>) and (priority = '<token>')". The queue's per-priority numbers in
+// one call — the cases:countPriorities RPC is not served (the web UI builds
+// its queue from filtered lists), so counts come from totalSize instead.
+func (c *Client) CountCasesByPriority(ctx context.Context, baseFilter string) (map[string]int, error) {
+	out := make(map[string]int, len(CasePriorityTokens))
+	for _, tok := range CasePriorityTokens {
+		f := "priority = '" + tok + "'"
+		if strings.TrimSpace(baseFilter) != "" {
+			f = "(" + baseFilter + ") and (" + f + ")"
+		}
+		n, err := c.CountCases(ctx, f)
+		if err != nil {
+			return nil, fmt.Errorf("soar: count %s: %w", tok, err)
+		}
+		out[tok] = n
 	}
 	return out, nil
 }

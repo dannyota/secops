@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -132,5 +133,72 @@ func TestPaginateV1AlphaTruncation(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Errorf("fetched %d pages, want 2 (stopped when the token drained)", calls)
+	}
+}
+
+// recordingRT captures the last request (method, URL, headers, body) and
+// answers 200 with a fixed body.
+type recordingRT struct {
+	lastMethod string
+	lastURL    string
+	lastCT     string
+	lastOver   string
+	lastBody   string
+	respBody   string
+}
+
+func (r *recordingRT) RoundTrip(req *http.Request) (*http.Response, error) {
+	r.lastMethod = req.Method
+	r.lastURL = req.URL.String()
+	r.lastCT = req.Header.Get("Content-Type")
+	r.lastOver = req.Header.Get("X-HTTP-Method-Override")
+	if req.Body != nil {
+		b, _ := io.ReadAll(req.Body)
+		r.lastBody = string(b)
+	}
+	body := r.respBody
+	if body == "" {
+		body = `{}`
+	}
+	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+}
+
+// TestMethodOverrideForLongGET locks the long-filter fallback: a GET whose URL
+// exceeds the cap is sent as POST with X-HTTP-Method-Override: GET and the
+// query as a form body (format stays on the URL); a short GET stays a GET.
+func TestMethodOverrideForLongGET(t *testing.T) {
+	rt := &recordingRT{}
+	tr := newTestTransport(rt)
+
+	q := url.Values{"filter": {"status = 'OPENED'"}}
+	if err := tr.V1Alpha(context.Background(), http.MethodGet, "cases", nil, nil, Query(q)); err != nil {
+		t.Fatalf("short GET: %v", err)
+	}
+	if rt.lastMethod != http.MethodGet || rt.lastOver != "" {
+		t.Errorf("short GET sent as %s override=%q", rt.lastMethod, rt.lastOver)
+	}
+
+	long := url.Values{"filter": {strings.Repeat("x", 3000)}, "pageSize": {"1"}}
+	if err := tr.V1Alpha(context.Background(), http.MethodGet, "cases", nil, nil, Query(long)); err != nil {
+		t.Fatalf("long GET: %v", err)
+	}
+	if rt.lastMethod != http.MethodPost {
+		t.Errorf("long GET method = %s, want POST", rt.lastMethod)
+	}
+	if rt.lastOver != "GET" {
+		t.Errorf("override header = %q, want GET", rt.lastOver)
+	}
+	if rt.lastCT != "application/x-www-form-urlencoded" {
+		t.Errorf("content-type = %q", rt.lastCT)
+	}
+	if !strings.Contains(rt.lastURL, "format=camel") || strings.Contains(rt.lastURL, "filter=") {
+		t.Errorf("URL must keep only format: %s", rt.lastURL[:min(120, len(rt.lastURL))])
+	}
+	form, err := url.ParseQuery(rt.lastBody)
+	if err != nil || form.Get("pageSize") != "1" || len(form.Get("filter")) != 3000 {
+		t.Errorf("form body lost params: err=%v pageSize=%q filterLen=%d", err, form.Get("pageSize"), len(form.Get("filter")))
+	}
+	if form.Get("format") != "" {
+		t.Error("format must stay on the URL, not the form body")
 	}
 }
