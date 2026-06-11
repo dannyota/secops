@@ -1691,6 +1691,40 @@ modern cases list, matched to what the web UI itself sends.
 - **Docs.** CATALOG (counts row), SURFACES (cases-list grammar + counts),
   usage guide (grammar table), ROADMAP.
 
+### Wave 60 — Definition authoring, API-key lifecycle, Playbook-Assistant alignment *(done — reads live-validated; writes gated)*
+
+The IDE's create flows as API loops, and the credential lifecycle.
+
+- **Python action/job authoring (guarded).** `soar integration action
+  template/create/delete` (+ `job-def` siblings): fetch the new-definition
+  skeleton (`actions:fetchTemplate`, `--async` for the asynchronous variant),
+  fill it (`--file` for a complete definition, or `--name`/`--script`/
+  `--description` overlaid onto the template via a RawMessage map so the
+  server's int64 fields survive byte-exact; `name:""` marks a create), POST
+  it to the integration's collection, delete by numeric id. SDK
+  `FetchActionTemplate`/`FetchJobTemplate`/`Create{Action,Job}Def`/
+  `Delete{Action,Job}Def` (`soar/authoring.go`). Templates read-validated
+  live; the create→find→delete→verify loop is the gated
+  `TestLiveAuthoringWriteSmoke` (actions + jobs).
+- **API-key lifecycle (guarded).** `soar settings api-keys create/revoke`
+  alongside the existing list. **The key value is client-generated**: create
+  mints a crypto/rand UUID locally, the server stores it verbatim and only
+  ever returns it masked — the CLI prints it exactly once and never logs or
+  persists it (the audit log records action+decision only). Revoke resolves
+  `--name`/`--id` via the list and posts the FULL record as listed (the typed
+  `APIKey` keeps its verbatim Raw form for that). Lifecycle live-validated
+  (create → list → revoke → verified gone); body shapes pinned offline.
+- **Playbook-Assistant alignment.** `soar playbook generate --description`
+  now sends the real envelope (`prompt` + an empty unsaved draft DTO +
+  `hashedUserId`; `creationSource` must be omitted — the endpoint rejects
+  it; `legacy.NewAiGenerateRequest`). The call is synchronous and returns
+  the draft WITHOUT persisting — saving is the normal playbook save. Where
+  the server restricts the Playbook Assistant to interactive auth
+  ("restricted for API keys"), the verb surfaces that plainly instead of a
+  bare 403.
+- **Docs.** CATALOG (api-keys, authoring), SURFACES (authoring + assistant
+  restriction), usage guide, ROADMAP.
+
 ---
 
 ## Non-goals

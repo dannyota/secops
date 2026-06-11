@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -23,15 +24,17 @@ func newSOARPlaybookGenerateCmd() *cobra.Command {
 		alert       string
 		dryRun, yes bool
 	)
+	var name string
 	cmd := &cobra.Command{
 		Use:   "generate (--description <text> | --case-id N --alert <id>)",
 		Short: "MUTATING (guarded): generate a playbook draft with AI",
 		Long: "Draft a playbook with Gemini — from a free-text description, or from a\n" +
 			"specific alert in a case (\"build a playbook for this alert pattern\").\n" +
-			"Generation creates a DRAFT playbook on the tenant and may run\n" +
-			"asynchronously — poll the by-alert form with `generate-status`. Review the\n" +
-			"draft with `soar playbook validate` and the standard guarded save loop\n" +
-			"before enabling.",
+			"The description form is synchronous and returns the generated DRAFT\n" +
+			"definition without persisting anything — review it and save with\n" +
+			"`soar push playbook --file`. The by-alert form may run asynchronously —\n" +
+			"poll it with `generate-status`. The Playbook Assistant API may reject\n" +
+			"API-key auth by server policy; the error says so plainly.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			byAlert := caseID != 0 || alert != ""
@@ -43,7 +46,7 @@ func newSOARPlaybookGenerateCmd() *cobra.Command {
 			}
 			var (
 				action string
-				body   map[string]any
+				body   any
 			)
 			if byAlert {
 				action = fmt.Sprintf("generate playbook draft from alert %s (case %d)", alert, caseID)
@@ -54,19 +57,28 @@ func newSOARPlaybookGenerateCmd() *cobra.Command {
 				}
 			} else {
 				action = "generate playbook draft from description"
-				body = map[string]any{"description": description}
+				envelope, err := legacy.NewAiGenerateRequest(description, name)
+				if err != nil {
+					return err
+				}
+				body = envelope
 			}
-			return caseAction(action, body, dryRun, yes,
+			err := caseAction(action, body, dryRun, yes,
 				func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
 					if byAlert {
 						return lc.AiGeneratePlaybookByAlert(ctx, body)
 					}
 					return lc.AiGeneratePlaybook(ctx, body)
 				})
+			if err != nil && strings.Contains(err.Error(), "restricted for API keys") {
+				return fmt.Errorf("the Playbook Assistant rejects API-key auth on this instance (server policy) — generate the draft in the web UI designer instead: %w", err)
+			}
+			return err
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&description, "description", "", "free-text description of the playbook to draft")
+	f.StringVar(&name, "name", "ai-draft", "working name for the description-form draft")
 	f.IntVar(&caseID, "case-id", 0, "SOAR case id (with --alert: draft from that alert)")
 	f.StringVar(&alert, "alert", "", "alert id within the case")
 	guardRunFlags(cmd, &dryRun, &yes)

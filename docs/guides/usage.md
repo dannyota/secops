@@ -181,7 +181,8 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar marketplace list` | List Content Hub marketplace integrations (`--installed` to filter). |
 | `soar marketplace get` | Show one marketplace integration (human summary; `--json` for the full record). |
 | `soar marketplace contentpacks` | List Content Hub content packs. |
-| `soar settings api-keys` | List SOAR API keys (metadata only; no secret). |
+| `soar settings api-keys` | List SOAR API keys (metadata only; the secret is never shown after creation). Guarded siblings: `create --name <n> --permission-group N` (mints the key value locally — crypto/rand — and prints it ONCE) and `revoke (--name\|--id)`. |
+| `soar integration action template --integration <key>` | Fetch the new-action definition skeleton (Python scaffold included; `--async` for the asynchronous variant). Sibling `soar integration job-def template` for jobs. |
 | `soar settings case-assignment` | Read the case auto-assignment policy. |
 | `soar settings move-case-policy` | Read the cross-environment case-move policy. |
 | `soar case simulation list` | List custom (simulated) test-case names for playbook development. |
@@ -231,7 +232,9 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar playbook step skip --file <step-instance.json>` | Skip one pending workflow step — the reject half of an approval (`step execute` continues it). `--comment` records why. |
 | `soar playbook restore --version <id>` | Roll a playbook back to a version from `versions` (the restore mints a new version; `--override` replaces outright). |
 | `soar playbook import --file <bundle.zip>` | Import a playbook bundle (the zip `export --zip` produces) — cross-tenant promotion / backup restore. |
-| `soar playbook generate (--description <s> \| --case-id N --alert <id>)` | Draft a playbook with AI (creates a DRAFT on the tenant; generation may run asynchronously — poll the by-alert form with `generate-status`); review via `validate` + the guarded save loop. |
+| `soar playbook generate (--description <s> \| --case-id N --alert <id>)` | Draft a playbook with AI. The description form is synchronous and returns the draft definition **without persisting it** — review, then save with `soar push playbook --file`. Poll the by-alert form with `generate-status`. Servers may restrict the Playbook Assistant to interactive auth; the error says so plainly. |
+| `soar integration action create --integration <key> (--file <def.json> \| --name <n> --script <f.py>)` | Create a custom Python action definition (the IDE's create flow: template → fill → POST). Sibling `delete --id N` removes one; `soar integration job-def create/delete` mirror for jobs. |
+| `soar settings api-keys create / revoke` | Create an API key (secret minted locally, printed once) or revoke one by name/id. |
 | `soar job instance set --instance <sel> --enable\|--disable` | Enable/disable a scheduled job instance (fresh read, flag flipped, whole body saved). |
 | `soar job instance create --file <json>` / `delete --instance <sel>` | Create a scheduled job instance from a JSON body / delete one by id. |
 | `soar job run --job <id\|uniqueIdentifier\|name>` | Run one installed SOAR job now. Fetches the live job first, previews the target, and requires `--yes` to execute. |
