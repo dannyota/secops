@@ -55,10 +55,12 @@ type playbookJobComponentRow struct {
 func newSOARPlaybookComponentsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "components",
-		Short: "Discover integrations, actions, jobs, and connectors for playbook authoring",
-		Long: "Discover live SecOps components that can be used while authoring playbooks.\n" +
-			"These commands are read-only catalogs; local output is a planning aid before\n" +
-			"SecOps validates and saves/runs the final workflow.",
+		Short: "Discover the playbook-authoring palette: integrations, actions, flow functions, triggers, blocks",
+		Long: "Discover live SecOps components that can be used while authoring playbooks —\n" +
+			"the designer's Step Selection palette as read-only catalogs: integrations,\n" +
+			"actions (all integrations, or one in detail), flow functions/operators,\n" +
+			"trigger vocabulary, blocks, jobs, and connectors. Local output is a planning\n" +
+			"aid before SecOps validates and saves/runs the final workflow.",
 	}
 	cmd.AddCommand(
 		newSOARPlaybookComponentsIntegrationsCmd(),
@@ -66,6 +68,9 @@ func newSOARPlaybookComponentsCmd() *cobra.Command {
 		newSOARPlaybookComponentsJobsCmd(),
 		newSOARPlaybookComponentsConnectorsCmd(),
 		newSOARPlaybookComponentsUsageCmd(),
+		newSOARPlaybookComponentsFlowCmd(),
+		newSOARPlaybookComponentsTriggersCmd(),
+		newSOARPlaybookComponentsBlocksCmd(),
 	)
 	return cmd
 }
@@ -108,18 +113,32 @@ func newSOARPlaybookComponentsActionsCmd() *cobra.Command {
 		grep        string
 	)
 	cmd := &cobra.Command{
-		Use:   "actions --integration <key>",
-		Short: "List playbook actions exposed by one integration",
-		Long: "List action definitions from SecOps integration full details. Human output\n" +
-			"prints action names, parameter counts, JSON/script-result flags, and async\n" +
-			"status; it does not print Python script bodies.",
+		Use:   "actions [--integration <key>]",
+		Short: "List playbook actions — the full cross-integration catalog, or one integration in detail",
+		Long: "Without --integration, list the WHOLE action palette in one call (the\n" +
+			"`integrations/-/actions` wildcard catalog): every action across every\n" +
+			"integration with its numeric id — the id `components usage` keys on. With\n" +
+			"--integration, list that integration's actions in detail (parameter counts,\n" +
+			"JSON/script-result flags, async status). Neither prints Python script bodies.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lc, err := newSOARLegacyClient()
+			c, err := newSOARClient()
 			if err != nil {
 				return err
 			}
-			c, err := newSOARClient()
+			if strings.TrimSpace(integration) == "" {
+				defs, err := c.ListAllActions(baseContext())
+				if err != nil {
+					return err
+				}
+				rows := actionCatalogRows(defs, grep)
+				if jsonOut {
+					return emitJSON(rows)
+				}
+				printActionCatalogRows(cmd.OutOrStdout(), rows)
+				return nil
+			}
+			lc, err := newSOARLegacyClient()
 			if err != nil {
 				return err
 			}
@@ -140,9 +159,8 @@ func newSOARPlaybookComponentsActionsCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&integration, "integration", "", "integration key/identifier/display name (required)")
+	f.StringVar(&integration, "integration", "", "integration key/identifier/display name (omit for the all-integration catalog)")
 	f.StringVar(&grep, "grep", "", "case-insensitive filter over action name/description")
-	_ = cmd.MarkFlagRequired("integration")
 	return cmd
 }
 
@@ -581,4 +599,255 @@ func scalarAnyString(v any) string {
 	default:
 		return fmt.Sprintf("%v", x)
 	}
+}
+
+// actionCatalogRow is one entry of the cross-integration action catalog
+// (`integrations/-/actions`): the summary columns plus the numeric id.
+type actionCatalogRow struct {
+	ID          string `json:"id"`
+	Integration string `json:"integration"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Enabled     bool   `json:"enabled"`
+	Async       bool   `json:"async"`
+	Custom      bool   `json:"custom"`
+}
+
+func actionCatalogRows(defs []soar.ActionDef, grep string) []actionCatalogRow {
+	rows := make([]actionCatalogRow, 0, len(defs))
+	for i := range defs {
+		d := &defs[i]
+		row := actionCatalogRow{
+			ID:          d.PathID(),
+			Integration: d.Integration,
+			Name:        d.DisplayName,
+			Description: d.Description,
+			Enabled:     d.Enabled,
+			Async:       d.Async,
+			Custom:      d.Custom,
+		}
+		if matchesAny(grep, row.ID, row.Integration, row.Name, row.Description) {
+			rows = append(rows, row)
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if a, b := strings.ToLower(rows[i].Integration), strings.ToLower(rows[j].Integration); a != b {
+			return a < b
+		}
+		return strings.ToLower(rows[i].Name) < strings.ToLower(rows[j].Name)
+	})
+	return rows
+}
+
+func printActionCatalogRows(w io.Writer, rows []actionCatalogRow) {
+	fmt.Fprintln(w, "ID\tINTEGRATION\tNAME\tENABLED\tASYNC\tCUSTOM")
+	for _, row := range rows {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%t\t%t\t%t\n", row.ID, row.Integration, row.Name, row.Enabled, row.Async, row.Custom)
+	}
+	fmt.Fprintf(w, "\n%d action(s) across all integrations\n", len(rows))
+}
+
+// flowFunctionRow is one Flow palette entry: a transformer (value function)
+// or a logical operator (condition predicate).
+type flowFunctionRow struct {
+	Kind           string `json:"kind"` // "function" | "operator"
+	ID             string `json:"id,omitempty"`
+	Integration    string `json:"integration,omitempty"`
+	Name           string `json:"name"`
+	Description    string `json:"description,omitempty"`
+	ExpectedInput  string `json:"expected_input,omitempty"`
+	ExpectedOutput string `json:"expected_output,omitempty"`
+	UsageExample   string `json:"usage_example,omitempty"`
+	Enabled        bool   `json:"enabled"`
+}
+
+func newSOARPlaybookComponentsFlowCmd() *cobra.Command {
+	var (
+		kind string
+		grep string
+	)
+	cmd := &cobra.Command{
+		Use:   "flow [--kind functions|operators|all]",
+		Short: "List Flow palette utilities: transformers (functions) and logical operators (condition predicates)",
+		Long: "List the Flow building blocks usable inside playbook expressions and\n" +
+			"conditions: transformers (value-shaping functions, e.g. trimChars) and\n" +
+			"logical operators (condition predicates, e.g. Empty / Not Empty) — the\n" +
+			"`integrations/-/{transformers,logicalOperators}` wildcard catalogs.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			kind = strings.ToLower(strings.TrimSpace(kind))
+			switch kind {
+			case "", "all", "functions", "operators":
+			default:
+				return fmt.Errorf("--kind must be functions, operators, or all")
+			}
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
+			ctx := baseContext()
+			var rows []flowFunctionRow
+			if kind == "" || kind == "all" || kind == "functions" {
+				fns, err := c.ListTransformers(ctx)
+				if err != nil {
+					return err
+				}
+				rows = append(rows, flowFunctionRows("function", fns, grep)...)
+			}
+			if kind == "" || kind == "all" || kind == "operators" {
+				ops, err := c.ListLogicalOperators(ctx)
+				if err != nil {
+					return err
+				}
+				rows = append(rows, flowFunctionRows("operator", ops, grep)...)
+			}
+			if jsonOut {
+				return emitJSON(rows)
+			}
+			printFlowFunctionRows(cmd.OutOrStdout(), rows)
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&kind, "kind", "all", "which palette to list: functions (transformers), operators (logical operators), or all")
+	f.StringVar(&grep, "grep", "", "case-insensitive filter over name/description/example")
+	return cmd
+}
+
+func flowFunctionRows(kind string, fns []soar.FlowFunction, grep string) []flowFunctionRow {
+	rows := make([]flowFunctionRow, 0, len(fns))
+	for i := range fns {
+		fn := &fns[i]
+		row := flowFunctionRow{
+			Kind:           kind,
+			ID:             fn.ID.String(),
+			Integration:    fn.Integration,
+			Name:           fn.DisplayName,
+			Description:    fn.Description,
+			ExpectedInput:  fn.ExpectedInput,
+			ExpectedOutput: fn.ExpectedOutput,
+			UsageExample:   fn.UsageExample,
+			Enabled:        fn.Enabled,
+		}
+		if matchesAny(grep, row.Name, row.Description, row.UsageExample, row.Integration) {
+			rows = append(rows, row)
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool { return strings.ToLower(rows[i].Name) < strings.ToLower(rows[j].Name) })
+	return rows
+}
+
+func printFlowFunctionRows(w io.Writer, rows []flowFunctionRow) {
+	fmt.Fprintln(w, "KIND\tNAME\tINTEGRATION\tEXAMPLE\tDESCRIPTION")
+	for _, row := range rows {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", row.Kind, row.Name, row.Integration,
+			defaultString(row.UsageExample, "-"), truncateForRow(row.Description, 80))
+	}
+	fmt.Fprintf(w, "\n%d flow utilit(ies)\n", len(rows))
+}
+
+// truncateForRow collapses whitespace and trims a long free-text value for
+// one-line table output (rune-safe via the shared truncate helper).
+func truncateForRow(s string, n int) string {
+	return truncate(strings.Join(strings.Fields(s), " "), n)
+}
+
+// The playbook trigger vocabulary. There is no API catalog for triggers — the
+// designer's trigger kinds are condition presets over the alert/case that
+// fires the playbook, and the saved trigger record's `type` is one of a small
+// set of tokens. The mapping below reflects live playbook definitions.
+type triggerVocabularyRow struct {
+	Token    string `json:"token"`
+	Designer string `json:"designer_kinds"`
+	Meaning  string `json:"meaning"`
+}
+
+var triggerVocabulary = []triggerVocabularyRow{
+	{
+		Token:    "ALL",
+		Designer: "All",
+		Meaning:  "fire for every new alert (empty condition set)",
+	},
+	{
+		Token:    "CASE_DATA",
+		Designer: "Alert Trigger Value, Alert Type, Custom List, Custom Trigger, Network Name, Product Name, Tag Name",
+		Meaning:  "conditional trigger: AND/OR condition groups over alert/case/event fields (each designer kind is a condition preset; the saved record carries the conditions)",
+	},
+	{
+		Token:    "GET_INPUTS",
+		Designer: "(blocks)",
+		Meaning:  "block-input trigger — the entry point of a playbook BLOCK, fed by the parent playbook's inputs",
+	},
+}
+
+func newSOARPlaybookComponentsTriggersCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "triggers",
+		Short: "The playbook trigger vocabulary (offline — no API catalog exists for triggers)",
+		Long: "Print the playbook trigger vocabulary: the designer's trigger kinds and the\n" +
+			"`type` tokens saved on playbook definitions. Triggers have no list API — the\n" +
+			"kinds are condition presets; inspect a pulled playbook's `trigger` record\n" +
+			"(`soar pull playbooks`) for the exact conditions a kind produces. Offline.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if jsonOut {
+				return emitJSON(triggerVocabulary)
+			}
+			w := cmd.OutOrStdout()
+			fmt.Fprintln(w, "TOKEN\tDESIGNER_KINDS\tMEANING")
+			for _, row := range triggerVocabulary {
+				fmt.Fprintf(w, "%s\t%s\t%s\n", row.Token, row.Designer, row.Meaning)
+			}
+			fmt.Fprintln(w, "\nLoops are a designer construct (scoped step groups), not a trigger or a catalog resource.")
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newSOARPlaybookComponentsBlocksCmd() *cobra.Command {
+	var enabledOnly bool
+	cmd := &cobra.Command{
+		Use:   "blocks",
+		Short: "List playbook BLOCKS (reusable nested playbooks callable as steps)",
+		Long: "List the tenant's playbook blocks — reusable nested playbooks (playbookType\n" +
+			"NESTED) that other playbooks call as steps. The same data as\n" +
+			"`soar playbook list --type block`, surfaced here as part of the authoring\n" +
+			"palette.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			cards, err := lc.ListPlaybooks(baseContext(), []string{"NESTED"})
+			if err != nil {
+				return err
+			}
+			rows := make([]soarPlaybookListRow, 0, len(cards))
+			for _, card := range cards {
+				if enabledOnly && !card.IsEnabled {
+					continue
+				}
+				rows = append(rows, soarPlaybookListRow{
+					Name:       card.Name,
+					Enabled:    card.IsEnabled,
+					Category:   card.CategoryName,
+					ID:         card.ID.String(),
+					Identifier: card.Identifier,
+				})
+			}
+			sort.Slice(rows, func(i, j int) bool {
+				return strings.ToLower(rows[i].Name) < strings.ToLower(rows[j].Name)
+			})
+			if jsonOut {
+				return emitJSON(rows)
+			}
+			printSOARPlaybookRows(cmd.OutOrStdout(), rows)
+			fmt.Fprintf(cmd.OutOrStdout(), "\n%d block(s)\n", len(rows))
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&enabledOnly, "enabled", false, "only enabled blocks")
+	return cmd
 }

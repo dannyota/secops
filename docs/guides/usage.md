@@ -144,7 +144,10 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar playbook list` | List live SOAR playbooks for discovery before editing, saving, or debugging. `--enabled-only` filters to enabled playbooks; `--type regular\|nested` scopes the menu-card query. |
 | `soar playbook validate --file <playbook.json>` | Preflight an exported playbook JSON file before save. Runs the same local save-shape checks as `soar push playbook --dry-run` and reports trigger, step, action, block, relation, automatic/manual counts, and graph warnings. |
 | `soar playbook components integrations` | List installed integration packs that can supply playbook actions, connector definitions, and job definitions. |
-| `soar playbook components actions --integration <key>` | List action definitions for one integration, including parameter counts, mandatory parameters, JSON/script-result flags, async state, and action type. Human output does not print Python script bodies. |
+| `soar playbook components actions` | The WHOLE action palette in one call — every action across every integration with its numeric id (the id `components usage` keys on). Add `--integration <key>` for one integration in detail (parameter counts, mandatory parameters, JSON/script-result flags, async state). Neither prints Python script bodies. |
+| `soar playbook components flow` | The Flow palette: transformers (value functions, e.g. `trimChars`) and logical operators (condition predicates, e.g. `Not Empty`), with usage examples. `--kind functions\|operators`. |
+| `soar playbook components triggers` | The playbook trigger vocabulary (offline): the designer's trigger kinds and the `type` tokens saved on playbook definitions (`ALL`, `CASE_DATA`, `GET_INPUTS`). |
+| `soar playbook components blocks` | List playbook BLOCKS — reusable nested playbooks callable as steps. |
 | `soar playbook components jobs --integration <key>` | List job definitions inside one integration for workflow planning. |
 | `soar playbook components connectors --integration <key>` | List connector definitions inside one integration for workflow planning. |
 | `soar playbook test-cases` | List SecOps debug test cases (`--search`, `--environment`, `--page-size`) before a debug run. |
@@ -158,7 +161,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar playbook stats` | Aggregate run statistics for one playbook across all cases over `--hours` (default 7d); `summary` stays the single-run view. |
 | `soar playbook export` | Export one playbook: definition+blocks JSON (the `mold`/`build-playbook` input), or `--zip --out <f>` for the platform bundle `import` takes. |
 | `soar playbook trigger tags` | List the live tag values a Tag-Name trigger condition can reference (`--grep` for a server-side search). |
-| `soar playbook components usage --action-id N` | Which playbooks use an integration action (impact analysis); the numeric id comes from a playbook step's `actionDef` in pulled playbook JSON. |
+| `soar playbook components usage (--action-id N \| --action <name>)` | Which playbooks use an integration action (impact analysis). Address it by numeric id (from `components actions`) or by display name, `--integration`-scoped when ambiguous. |
 | `soar playbook python-logs` | Read Python execution logs (`--filter`, `--page-size`, `--page-token`). **Note:** this proxies Cloud Logging and can return a server-side 500 on some instances regardless of filter — use `soar playbook summary --case-id N --playbook "<name>"` to triage failed runs instead (it surfaces each faulted step's error + a per-step Logs Explorer link). |
 | `soar job list` | List installed SOAR jobs and last-run status without printing job script bodies. |
 | `soar job template list` | List SOAR job templates for component planning without printing job script bodies. |

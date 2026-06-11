@@ -1627,6 +1627,39 @@ requests: trigger → poll → verdict.
 - **Docs.** CATALOG (alert AI investigation row), SURFACES (investigations +
   notebooks), usage guide, ROADMAP.
 
+### Wave 58 — The playbook authoring palette: wildcard component catalogs *(done — live-validated)*
+
+Everything the playbook designer's Step Selection panel offers, as CLI
+catalogs — so a user (or an LLM agent) can enumerate the building blocks
+before composing a playbook. Backed by the `integrations/-/…` wildcard
+collections, which list definitions across ALL integrations in one call.
+
+- **`components actions`** (no flag) — the whole action palette: every action
+  across every integration with its numeric definition id (the id
+  `components usage` keys on), enabled/async/custom flags, and description
+  (field-masked; never the Python bodies). `--integration <key>` keeps the
+  one-pack detail view (parameter counts, mandatory parameters, result
+  flags). SDK `ListAllActions`/`ListActions`, typed `ActionDef`.
+- **`components flow`** — the Flow palette: transformers (value-shaping
+  functions, e.g. `trimChars`) and logical operators (condition predicates,
+  e.g. `Not Empty`/`Starts With`) with usage examples; `--kind
+  functions|operators` narrows. SDK `ListTransformers`/`ListLogicalOperators`,
+  typed `FlowFunction`. The logical-operators LIST envelope stays snake_case
+  under `format=camel` — both spellings decode.
+- **`components triggers`** (offline) — the trigger vocabulary: the designer's
+  trigger kinds and the `type` tokens saved on playbook definitions (`ALL`,
+  `CASE_DATA` condition groups, `GET_INPUTS` for blocks). Triggers have no
+  list API; the kinds are condition presets.
+- **`components blocks`** — the reusable nested playbooks callable as steps
+  (playbookType `NESTED`).
+- **`components usage` by name** — `--action <name>` (optionally
+  `--integration`-scoped) resolves the numeric action id through the wildcard
+  catalog; `--action-id` stays for direct addressing.
+- **Validation.** All four catalogs live-validated; envelope decode shapes
+  pinned offline (`soar/integrations_catalog_test.go`).
+- **Docs.** CATALOG (authoring palette row), SURFACES (wildcard catalogs
+  family), usage guide, ROADMAP.
+
 ---
 
 ## Non-goals

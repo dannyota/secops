@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"danny.vn/secops/soar"
 	"danny.vn/secops/soar/legacy"
 )
 
@@ -446,22 +448,42 @@ func emitTriggerTags(records []json.RawMessage) error {
 }
 
 func newSOARPlaybookComponentsUsageCmd() *cobra.Command {
-	var actionID int
+	var (
+		actionID    int
+		integration string
+		action      string
+	)
 	cmd := &cobra.Command{
-		Use:   "usage --action-id N",
+		Use:   "usage (--action-id N | --action <name> [--integration <key>])",
 		Short: "Read-only: which playbooks use an integration action (impact analysis)",
 		Long: "The reverse index for editing or removing an action: every playbook whose\n" +
-			"steps reference it. --action-id is the action definition's numeric database\n" +
-			"id — the external API does not list it by name; read it from a playbook\n" +
-			"step's actionDef in pulled playbook JSON (`soar pull playbooks`) or a fetched\n" +
-			"step instance (`soar playbook step get`).",
+			"steps reference it. Address the action by its numeric id (--action-id, as\n" +
+			"listed by `components actions`) or by name (--action, optionally scoped by\n" +
+			"--integration when the name exists in several integrations).",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			id := strconv.Itoa(actionID)
+			if strings.TrimSpace(action) != "" {
+				if actionID != 0 {
+					return fmt.Errorf("use --action-id or --action, not both")
+				}
+				c, err := newSOARClient()
+				if err != nil {
+					return err
+				}
+				resolved, err := resolveActionByName(baseContext(), c, integration, action)
+				if err != nil {
+					return err
+				}
+				id = resolved
+			} else if actionID == 0 {
+				return fmt.Errorf("one of --action-id or --action is required")
+			}
 			lc, err := newSOARLegacyClient()
 			if err != nil {
 				return err
 			}
-			raw, err := lc.PlaybookXGetWorkflowsInvolvingAction(baseContext(), map[string]any{"actionId": actionID})
+			raw, err := lc.PlaybookXGetWorkflowsInvolvingAction(baseContext(), map[string]any{"actionId": id})
 			if err != nil {
 				return err
 			}
@@ -471,9 +493,58 @@ func newSOARPlaybookComponentsUsageCmd() *cobra.Command {
 			return emitWorkflowsInvolvingAction(raw)
 		},
 	}
-	cmd.Flags().IntVar(&actionID, "action-id", 0, "the action definition's numeric id (required)")
-	_ = cmd.MarkFlagRequired("action-id")
+	f := cmd.Flags()
+	f.IntVar(&actionID, "action-id", 0, "the action definition's numeric id")
+	f.StringVar(&action, "action", "", "the action's display name (resolved via the all-integration catalog)")
+	f.StringVar(&integration, "integration", "", "scope --action to one integration when the name is ambiguous")
 	return cmd
+}
+
+// resolveActionByName maps an action display name (optionally scoped to one
+// integration) to its numeric definition id via the wildcard action catalog.
+func resolveActionByName(ctx context.Context, c *soar.Client, integration, name string) (string, error) {
+	defs, err := c.ListAllActions(ctx)
+	if err != nil {
+		return "", err
+	}
+	matches := matchActionDefs(defs, integration, name)
+	switch len(matches) {
+	case 1:
+		return matches[0].PathID(), nil
+	case 0:
+		return "", fmt.Errorf("no action named %q%s — see `components actions`", name, scopeSuffix(integration))
+	default:
+		keys := make([]string, 0, len(matches))
+		for i := range matches {
+			keys = append(keys, matches[i].Integration+"/"+matches[i].PathID())
+		}
+		return "", fmt.Errorf("action %q is ambiguous (%s) — scope with --integration or use --action-id", name, strings.Join(keys, ", "))
+	}
+}
+
+// matchActionDefs filters the catalog by case-insensitive display name and
+// optional integration scope.
+func matchActionDefs(defs []soar.ActionDef, integration, name string) []soar.ActionDef {
+	name = strings.TrimSpace(name)
+	integration = strings.TrimSpace(integration)
+	var matches []soar.ActionDef
+	for i := range defs {
+		if !strings.EqualFold(defs[i].DisplayName, name) {
+			continue
+		}
+		if integration != "" && !strings.EqualFold(defs[i].Integration, integration) {
+			continue
+		}
+		matches = append(matches, defs[i])
+	}
+	return matches
+}
+
+func scopeSuffix(integration string) string {
+	if integration == "" {
+		return ""
+	}
+	return " in integration " + strconv.Quote(integration)
 }
 
 // emitWorkflowsInvolvingAction renders the playbook names using the action.
