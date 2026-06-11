@@ -39,9 +39,12 @@ delete`). One playbook imperatively:
 version). See [the loop](the-loop.md) and [reconcile](reconcile.md).
 
 **Offline scaffolding**: `soar build-playbook` assembles a playbook from an
-exported base + step molds (`soar playbook mold extract/apply`), and
-`soar playbook trigger set` edits triggers reviewably — no API calls until
-you push. `soar playbook validate` sanity-checks any definition JSON.
+exported base + step molds (`soar playbook mold extract/apply`),
+`soar playbook step insert` splices a brand-new action step into the graph
+(fresh identity, rewired relations — `--after` an anchor, `--branch` for a
+condition branch), and `soar playbook trigger set` edits triggers reviewably —
+no API calls until you push. `soar playbook validate` sanity-checks any
+definition JSON.
 
 **Custom Python definitions** (the IDE's create flow as an API loop):
 

@@ -1025,8 +1025,9 @@ break it.
   result flags, async state, and type without printing Python script bodies;
   `components jobs` and `components connectors` list definitions inside an
   integration. **Built next slice:** `soar playbook mold apply` updates placeholder
-  steps from SecOps-exported molds without hand-editing the action body. Still
-  missing: typed insertion of brand-new graph steps/relations, plus dynamic
+  steps from SecOps-exported molds without hand-editing the action body.
+  **Built (Wave 64):** typed insertion of brand-new graph steps/relations
+  (`soar playbook step insert`). Still missing: dynamic
   instance/entity-scope/value completion.
 - **Case/alert test runs and output inspection.** Add `soar playbook run` and
   `soar playbook debug` commands that require an explicit case id and, for alert-scope
@@ -1775,6 +1776,30 @@ Documentation for the operational layer, and the release scaffolding.
 - **Drift guard.** A tree-walking invariant test asserts that no command other
   than the root declares a local `--json` flag (cobra's `LocalFlags()` excludes
   the inherited persistent flag), so a re-introduced duplicate fails the suite.
+
+### Wave 64 — Typed step insertion + int64-safe playbook saves *(done)*
+
+The last structural gap in offline playbook authoring: adding a brand-new
+step to the graph without hand-editing JSON.
+
+- **`soar playbook step insert`.** Splice a new action step (from an exported
+  mold — `mold extract`) into a local playbook definition after an anchor
+  step: fresh graph identity (minted identifier, the playbook's
+  workflowIdentifier, a designer-style unique instance name), container/loop
+  placement and debug residue stripped from the mold, and the anchor's
+  outgoing relation rewired through the new step (`--branch` selects a
+  condition branch; a tail anchor appends). Offline — the result flows
+  through `validate` and the guarded save, where SOAR stays the final
+  validator. SDK `legacy.InsertActionStep`, unknown fields preserved on both
+  sides.
+- **int64-safe saves.** `coercePlaybookTypes` — on every playbook save path —
+  decoded with float64 semantics, corrupting int64 ids/timestamps above 2^53;
+  it now decodes with `UseNumber` (caught by the insertion tests' int64
+  fixture).
+- **Validation.** Edge-splice, branch selection, tail append, ambiguity and
+  unknown-branch errors, identity minting, instance-name uniquing, and
+  unknown-field preservation pinned offline; the CLI round-trip writes a
+  definition `soar playbook validate` accepts.
 
 ---
 

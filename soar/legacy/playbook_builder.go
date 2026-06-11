@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"strconv"
 	"strings"
 )
 
@@ -312,5 +313,180 @@ func intFieldValue(v any) (int64, bool) {
 		return i, err == nil
 	default:
 		return 0, false
+	}
+}
+
+// PlaybookStepInsertOptions describes a brand-new action step spliced into a
+// playbook after an existing anchor step. The mold supplies the wired action
+// body (an ExtractActionStepMold result, or a step exported from the
+// designer); the insert mints FRESH graph identity for it and rewires the
+// anchor's outgoing relation through the new step.
+type PlaybookStepInsertOptions struct {
+	Mold json.RawMessage
+	// After matches the anchor step by name, identifier, or
+	// originalStepIdentifier.
+	After string
+	// Branch selects which outgoing relation of the anchor to splice when the
+	// anchor has several (the relation's condition value, e.g. "1" for a
+	// condition step's first branch). Empty requires the anchor to have at
+	// most one outgoing relation; a tail anchor (none) appends the new step
+	// after it.
+	Branch string
+	// InstanceName overrides the generated unique instance name
+	// ("<actionName>_<n>", the designer's convention).
+	InstanceName string
+	// NewIdentifier pins the minted step identifier (tests); empty mints a
+	// random UUID.
+	NewIdentifier string
+}
+
+// playbookStepInsertDropKeys are mold fields that must NOT follow a step into
+// a new graph position: container/loop placement and debug residue belong to
+// the mold's source location.
+var playbookStepInsertDropKeys = []string{
+	"parentStepContainerId", "startLoopStepIdentifier",
+	"parentWorkflowLoopIteration", "loopIteration", "loopName",
+	"blockStepId", "debugData",
+}
+
+// InsertActionStep splices a brand-new action step into a playbook after the
+// anchor step selected by opts.After, preserving every unknown field of both
+// the playbook and the mold. Offline only — the result still flows through
+// the normal validate → guarded-save path, where SOAR is the final validator.
+func InsertActionStep(playbook Playbook, opts PlaybookStepInsertOptions) (Playbook, error) {
+	body, err := decodePlaybookObject(playbook, "playbook")
+	if err != nil {
+		return nil, err
+	}
+	steps, ok := body["steps"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("legacy: playbook steps is %T, want array", body["steps"])
+	}
+	anchorIdx, err := findPlaybookStep(steps, strings.TrimSpace(opts.After))
+	if err != nil {
+		return nil, err
+	}
+	anchor, _ := steps[anchorIdx].(map[string]any)
+	anchorID := stringMapField(anchor, "identifier")
+	if anchorID == "" {
+		return nil, fmt.Errorf("legacy: anchor step %q has no identifier", opts.After)
+	}
+
+	mold, err := decodePlaybookObject(opts.Mold, "step mold")
+	if err != nil {
+		return nil, err
+	}
+	if err := validateActionStepMold(mold); err != nil {
+		return nil, err
+	}
+
+	newID := strings.TrimSpace(opts.NewIdentifier)
+	if newID == "" {
+		if newID, err = randomUUID(); err != nil {
+			return nil, err
+		}
+	}
+	step := make(map[string]any, len(mold)+4)
+	maps.Copy(step, mold)
+	for _, k := range playbookStepInsertDropKeys {
+		delete(step, k)
+	}
+	step["identifier"] = newID
+	step["originalStepIdentifier"] = newID
+	// A fresh step carries no source-scoped metadata.
+	step["additionalProperties"] = map[string]any{}
+	step["id"] = "0"
+	step["creationTimeUnixTimeInMs"] = "0"
+	step["modificationTimeUnixTimeInMs"] = "0"
+	if wf := stringMapField(body, "identifier"); wf != "" {
+		step["workflowIdentifier"] = wf
+	}
+	instance := strings.TrimSpace(opts.InstanceName)
+	if instance == "" {
+		instance = uniqueStepInstanceName(steps, stringMapField(step, "actionName"))
+	}
+	step["instanceName"] = instance
+
+	relations, err := splicePlaybookRelations(body, anchorID, newID, opts.Branch)
+	if err != nil {
+		return nil, err
+	}
+	body["stepsRelations"] = relations
+	body["steps"] = append(steps, step)
+
+	out, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("legacy: marshal playbook with inserted step: %w", err)
+	}
+	return preparePlaybookForSave(out)
+}
+
+// splicePlaybookRelations rewires the anchor's selected outgoing relation
+// through newID (anchor→new keeps the branch condition; new→successor gets an
+// empty condition), or appends anchor→new when the anchor is a tail step.
+func splicePlaybookRelations(body map[string]any, anchorID, newID, branch string) ([]any, error) {
+	var relations []any
+	switch v := body["stepsRelations"].(type) {
+	case nil:
+	case []any:
+		relations = v
+	default:
+		return nil, fmt.Errorf("legacy: playbook stepsRelations is %T, want array", v)
+	}
+	branch = strings.TrimSpace(branch)
+
+	var outgoing []map[string]any
+	var conditions []string
+	for _, raw := range relations {
+		rel, ok := raw.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("legacy: stepsRelations entry is %T, want object", raw)
+		}
+		if stringMapField(rel, "fromStep") != anchorID {
+			continue
+		}
+		cond := stringMapField(rel, "condition")
+		conditions = append(conditions, strconv.Quote(cond))
+		if branch == "" || cond == branch {
+			outgoing = append(outgoing, rel)
+		}
+	}
+
+	newRelation := func(from, to, condition string) map[string]any {
+		return map[string]any{"fromStep": from, "toStep": to, "condition": condition}
+	}
+	switch {
+	case len(outgoing) == 0 && branch == "":
+		// Tail anchor — append after it.
+		return append(relations, newRelation(anchorID, newID, "")), nil
+	case len(outgoing) == 0:
+		return nil, fmt.Errorf("legacy: anchor has no outgoing relation with condition %q (it has: %s)",
+			branch, strings.Join(conditions, ", "))
+	case len(outgoing) > 1:
+		return nil, fmt.Errorf("legacy: anchor has %d outgoing relations (%s) — select one with Branch",
+			len(outgoing), strings.Join(conditions, ", "))
+	}
+	successor := stringMapField(outgoing[0], "toStep")
+	outgoing[0]["toStep"] = newID
+	return append(relations, newRelation(newID, successor, "")), nil
+}
+
+// uniqueStepInstanceName mints the designer-style "<actionName>_<n>" instance
+// name, picking the first n free among the existing steps.
+func uniqueStepInstanceName(steps []any, actionName string) string {
+	if actionName == "" {
+		actionName = "Step"
+	}
+	used := make(map[string]struct{}, len(steps))
+	for _, raw := range steps {
+		if step, ok := raw.(map[string]any); ok {
+			used[stringMapField(step, "instanceName")] = struct{}{}
+		}
+	}
+	for n := 1; ; n++ {
+		candidate := fmt.Sprintf("%s_%d", actionName, n)
+		if _, taken := used[candidate]; !taken {
+			return candidate
+		}
 	}
 }

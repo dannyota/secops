@@ -14,6 +14,7 @@
 package legacy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -216,8 +217,12 @@ var coerceIntFields = []string{
 // "trigger", and in each "steps" element) and replaces a null "templateName"
 // with "". It returns the re-marshaled body.
 func coercePlaybookTypes(body json.RawMessage) (json.RawMessage, error) {
+	// UseNumber: a playbook body carries int64 ids/timestamps that a float64
+	// round-trip would corrupt above 2^53.
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
 	var m map[string]any
-	if err := json.Unmarshal(body, &m); err != nil {
+	if err := dec.Decode(&m); err != nil {
 		return nil, fmt.Errorf("legacy: parse playbook body: %w", err)
 	}
 

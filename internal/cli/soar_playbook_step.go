@@ -37,7 +37,8 @@ func newSOARPlaybookStepCmd() *cobra.Command {
 		Long: "Fetch a workflow step instance for review, then execute an explicit\n" +
 			"step-instance JSON body through a dry-run-first guarded command.",
 	}
-	cmd.AddCommand(newSOARPlaybookStepGetCmd(), newSOARPlaybookStepExecuteCmd(), newSOARPlaybookStepSkipCmd())
+	cmd.AddCommand(newSOARPlaybookStepGetCmd(), newSOARPlaybookStepExecuteCmd(), newSOARPlaybookStepSkipCmd(),
+		newSOARPlaybookStepInsertCmd())
 	return cmd
 }
 
