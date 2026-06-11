@@ -218,21 +218,38 @@ type WatchlistEntity struct {
 // standard containment/tracking response action during investigation.
 // LIVE MUTATION; watchlist membership also feeds risk-score multipliers.
 //
-// The entities sub-resource is documented on v1alpha; the parent watchlists
-// pin (v1) does not apply to it.
+// The request's entity field is the UDM Entity ENVELOPE ({metadata, entity:
+// <Noun>, …}) — the asset/user selector sits on its inner Noun, one level
+// below the envelope. The response echoes the stored Entity; its name field
+// is what RemoveWatchlistEntity takes. The entities sub-resource is
+// documented on v1alpha; the parent watchlists pin (v1) does not apply to it.
 func (c *Client) AddWatchlistEntity(ctx context.Context, watchlistID string, entity WatchlistEntity) (json.RawMessage, error) {
 	if strings.TrimSpace(watchlistID) == "" {
 		return nil, fmt.Errorf("chronicle: watchlistID is required")
 	}
-	body := struct {
-		Entity WatchlistEntity `json:"entity"`
-	}{Entity: entity}
+	var body struct {
+		Entity struct {
+			Entity WatchlistEntity `json:"entity"`
+		} `json:"entity"`
+	}
+	body.Entity.Entity = entity
 	var out json.RawMessage
 	path := c.resourcePath("watchlists/"+watchlistID+"/entities:add", false)
 	if err := c.post(ctx, path, body, &out); err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+// RemoveWatchlistEntity removes one entity from a watchlist by the entity's
+// full resource name (…/watchlists/{w}/entities/{e} — the add response's
+// name field). RPC entities.remove. LIVE MUTATION.
+func (c *Client) RemoveWatchlistEntity(ctx context.Context, entityName string) error {
+	entityName = strings.TrimPrefix(strings.TrimSpace(entityName), "/")
+	if entityName == "" {
+		return fmt.Errorf("chronicle: the entity resource name is required")
+	}
+	return c.post(ctx, entityName+":remove", struct{}{}, nil)
 }
 
 // BatchRemoveWatchlistEntities removes entities from a watchlist
