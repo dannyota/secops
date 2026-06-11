@@ -3,6 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // TestCommandsCatalogJSONColumn asserts the per-command --json support reported
@@ -91,4 +93,23 @@ func TestCommandRowJSONFieldRoundTrips(t *testing.T) {
 	if back.JSON == nil || *back.JSON != false {
 		t.Errorf("json field for a non-JSON row = %v, want false (present)", back.JSON)
 	}
+}
+
+// TestNoLocalJSONFlag is the Wave 63 drift guard: the global persistent --json
+// (on the root) is the single mechanism, so no other command may declare a LOCAL
+// --json flag that would shadow it. cobra's LocalFlags() excludes flags inherited
+// from a parent's persistent set, so before Execute the persistent --json shows
+// up only in the root's LocalFlags(); any non-root command whose LocalFlags()
+// carries "json" has re-introduced a local flag and fails this test.
+func TestNoLocalJSONFlag(t *testing.T) {
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		if c != rootCmd && c.LocalFlags().Lookup("json") != nil {
+			t.Errorf("%q declares a LOCAL --json flag; use the global persistent --json (jsonOut) instead", c.CommandPath())
+		}
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(rootCmd)
 }

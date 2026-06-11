@@ -20,7 +20,6 @@ var soarValueAllRecords = map[string]any{"searchTerm": "", "requestedPage": 0, "
 // newCaseValuesCmd lists the valid values for the --tag / --stage / --root-cause
 // flags, so an operator can discover them in-tool instead of pulling a whole surface.
 func newCaseValuesCmd() *cobra.Command {
-	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "values <tags|stages|root-causes>",
 		Short: "Read-only: list valid values for --tag / --stage / --root-cause",
@@ -62,7 +61,7 @@ func newCaseValuesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return emitJSON(values)
 			}
 			for _, v := range values {
@@ -72,7 +71,6 @@ func newCaseValuesCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 

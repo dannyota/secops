@@ -155,7 +155,6 @@ func newRulesDetectionsCmd() *cobra.Command {
 	var (
 		hours, limit int
 		state        string
-		asJSON       bool
 	)
 	cmd := &cobra.Command{
 		Use:   "detections <rule-id>",
@@ -175,7 +174,7 @@ func newRulesDetectionsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return writeJSONValue(os.Stdout, dets)
 			}
 			if len(dets) == 0 {
@@ -195,7 +194,6 @@ func newRulesDetectionsCmd() *cobra.Command {
 	f.IntVar(&hours, "hours", 24, "look-back window in hours")
 	f.IntVar(&limit, "limit", 100, "max detections (page size)")
 	f.StringVar(&state, "state", "", "filter by alert state (e.g. ALERTING)")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
@@ -283,10 +281,7 @@ func looksLikeRuleID(s string) bool {
 }
 
 func newRulesErrorsCmd() *cobra.Command {
-	var (
-		hours  int
-		asJSON bool
-	)
+	var hours int
 	cmd := &cobra.Command{
 		Use:   "errors <rule-id>",
 		Short: "Read-only: list execution errors a rule produced in a time window",
@@ -305,7 +300,7 @@ func newRulesErrorsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return writeJSONValue(os.Stdout, errs)
 			}
 			if len(errs) == 0 {
@@ -323,7 +318,6 @@ func newRulesErrorsCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.IntVar(&hours, "hours", 24, "look-back window in hours")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
@@ -369,7 +363,6 @@ func newRulesRetrohuntCmd() *cobra.Command {
 }
 
 func newRetrohuntListCmd() *cobra.Command {
-	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "list <rule>",
 		Short: "Read-only: list a rule's retrohunts (accepts id, display name, or slug)",
@@ -387,7 +380,7 @@ func newRetrohuntListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return writeJSONValue(os.Stdout, rhs)
 			}
 			if len(rhs) == 0 {
@@ -402,12 +395,10 @@ func newRetrohuntListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
 func newRetrohuntGetCmd() *cobra.Command {
-	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "get <rule> <retrohunt-id>",
 		Short: "Read-only: get one retrohunt's status (rule accepts id, name, or slug)",
@@ -425,7 +416,7 @@ func newRetrohuntGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return writeRawJSON(os.Stdout, rh.Raw)
 			}
 			fmt.Fprintf(os.Stdout, "retrohunt %s\n  state:    %s\n  progress: %.1f%%\n",
@@ -433,7 +424,6 @@ func newRetrohuntGetCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 

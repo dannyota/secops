@@ -27,7 +27,6 @@ func newSOARUsersCmd() *cobra.Command {
 
 func newSOARUsersListCmd() *cobra.Command {
 	var (
-		asJSON     bool
 		includeOff bool
 		grep       string
 	)
@@ -50,7 +49,7 @@ func newSOARUsersListCmd() *cobra.Command {
 			}
 			users = filterUsers(users, grep, includeOff)
 			sort.Slice(users, func(i, j int) bool { return users[i].UserName < users[j].UserName })
-			if asJSON {
+			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(users)
 			}
 			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
@@ -72,7 +71,6 @@ func newSOARUsersListCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	f.BoolVar(&includeOff, "all", false, "include disabled accounts (hidden by default)")
 	f.StringVar(&grep, "grep", "", "filter over username/name/email (case-insensitive)")
 	return markJSON(cmd)

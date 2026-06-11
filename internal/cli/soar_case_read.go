@@ -132,7 +132,6 @@ func newCaseListCmd() *cobra.Command {
 	var (
 		status   string
 		limit    int
-		asJSON   bool
 		assignee string
 		priority string
 		tag      string
@@ -183,10 +182,10 @@ func newCaseListCmd() *cobra.Command {
 				if forceLegacy {
 					return fmt.Errorf("--tag/--filter require the modern cases lane (remove --legacy)")
 				}
-				return runModernCaseList(pageSize, status, asJSON, filters)
+				return runModernCaseList(pageSize, status, jsonOut, filters)
 			}
 			return preferModern("soar case list",
-				func() error { return runModernCaseList(pageSize, status, asJSON, filters) },
+				func() error { return runModernCaseList(pageSize, status, jsonOut, filters) },
 				func() error {
 					lc, err := newSOARLegacyClient()
 					if err != nil {
@@ -198,7 +197,7 @@ func newCaseListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					if asJSON {
+					if jsonOut {
 						return emitSOARCaseCardsJSON(os.Stdout, raw, filters)
 					}
 					return emitSOARCaseCards(os.Stdout, raw, limit, filters)
@@ -214,7 +213,6 @@ func newCaseListCmd() *cobra.Command {
 	f.StringVar(&tag, "tag", "", "keep cases carrying this tag (modern lane only)")
 	f.StringVar(&since, "since", "", "keep cases updated since (duration like 24h, RFC3339, or YYYY-MM-DD)")
 	f.StringVar(&filter, "filter", "", "verbatim server-side filter for the modern cases API")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
@@ -387,7 +385,6 @@ func dashIfEmpty(s string) string {
 }
 
 func newCaseGetCmd() *cobra.Command {
-	var asJSON bool
 	var idFlag int
 	cmd := &cobra.Command{
 		Use:   "get <case-id>",
@@ -416,13 +413,12 @@ func newCaseGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return writeRawJSON(os.Stdout, raw)
 			}
 			return emitSOARCaseFull(os.Stdout, raw)
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	cmd.Flags().IntVar(&idFlag, "id", 0, "SOAR case id (alternative to the positional arg)")
 	return markJSON(cmd)
 }

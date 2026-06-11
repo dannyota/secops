@@ -144,7 +144,6 @@ func newCasesListCmd() *cobra.Command {
 		expand   string
 		pageSize int
 		limit    int
-		asJSON   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -170,7 +169,7 @@ func newCasesListCmd() *cobra.Command {
 			if len(cases) < total {
 				fmt.Fprintf(os.Stderr, "warning: showing %d of %d case(s) (--limit=%d); raise --limit for the rest.\n", len(cases), total, limit)
 			}
-			return emitCases(os.Stdout, cases, asJSON)
+			return emitCases(os.Stdout, cases, jsonOut)
 		},
 	}
 	f := cmd.Flags()
@@ -179,15 +178,11 @@ func newCasesListCmd() *cobra.Command {
 	f.StringVar(&expand, "expand", "", "expand fields, e.g. tags,products")
 	f.IntVar(&pageSize, "page-size", 0, "per-page cap (server default if 0)")
 	f.IntVar(&limit, "limit", 100, "max cases to return (0 = no cap)")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
 func newCasesGetCmd() *cobra.Command {
-	var (
-		expand string
-		asJSON bool
-	)
+	var expand string
 	cmd := &cobra.Command{
 		Use:   "get <case-id>",
 		Short: "Get a single case by id (UUID) or resource name",
@@ -201,7 +196,7 @@ func newCasesGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return writeRawJSON(os.Stdout, cs.Raw)
 			}
 			return emitCases(os.Stdout, []chronicle.Case{*cs}, false)
@@ -209,7 +204,6 @@ func newCasesGetCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&expand, "expand", "", "expand fields, e.g. tags,products,events")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 

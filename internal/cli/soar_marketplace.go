@@ -23,10 +23,7 @@ func newSOARMarketplaceCmd() *cobra.Command {
 }
 
 func newSOARMarketplaceListCmd() *cobra.Command {
-	var (
-		asJSON        bool
-		onlyInstalled bool
-	)
+	var onlyInstalled bool
 	cmd := &cobra.Command{
 		Use:   "list [--installed]",
 		Short: "List Content Hub marketplace integrations (read-only)",
@@ -49,7 +46,7 @@ func newSOARMarketplaceListCmd() *cobra.Command {
 				}
 				items = filtered
 			}
-			if asJSON {
+			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(items)
 			}
 			for _, m := range items {
@@ -65,12 +62,10 @@ func newSOARMarketplaceListCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.BoolVar(&onlyInstalled, "installed", false, "show only installed integrations")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
 func newSOARMarketplaceGetCmd() *cobra.Command {
-	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "get <identifier>",
 		Short: "Show one marketplace integration (read-only)",
@@ -84,7 +79,7 @@ func newSOARMarketplaceGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(m.Raw)
 			}
 			fmt.Printf("Identifier:  %s\n", m.Identifier)
@@ -94,14 +89,12 @@ func newSOARMarketplaceGetCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
 // newSOARContentPacksCmd lists content packs by default (bare `contentpacks`) and
 // hosts `contentpacks get <id>` to inspect one before install.
 func newSOARContentPacksCmd() *cobra.Command {
-	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "contentpacks",
 		Short: "List Content Hub content packs (read-only); `get <id>` to inspect one",
@@ -115,7 +108,7 @@ func newSOARContentPacksCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(packs)
 			}
 			for _, p := range packs {
@@ -129,13 +122,11 @@ func newSOARContentPacksCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	cmd.AddCommand(newSOARContentPackGetCmd())
 	return markJSON(cmd)
 }
 
 func newSOARContentPackGetCmd() *cobra.Command {
-	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "get <identifier>",
 		Short: "Show one Content Hub content pack (read-only)",
@@ -149,7 +140,7 @@ func newSOARContentPackGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(p.Raw)
 			}
 			fmt.Printf("Identifier:  %s\n", p.Identifier)
@@ -159,6 +150,5 @@ func newSOARContentPackGetCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }

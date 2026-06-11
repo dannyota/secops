@@ -125,10 +125,7 @@ func pickIntegrationInstance(insts []integrationInstance, integrationID, wantID,
 }
 
 func newSOARIntegrationInstancesCmd() *cobra.Command {
-	var (
-		integration string
-		asJSON      bool
-	)
+	var integration string
 	cmd := &cobra.Command{
 		Use:   "instances --integration <id>",
 		Short: "List an integration's configured instances (id · environment · name)",
@@ -148,7 +145,7 @@ func newSOARIntegrationInstancesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(insts)
 			}
 			for i := range insts {
@@ -161,7 +158,6 @@ func newSOARIntegrationInstancesCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&integration, "integration", "", "installed integration identifier (required)")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
@@ -393,10 +389,7 @@ func newSOARIntegrationConnectorCmd() *cobra.Command {
 }
 
 func newSOARConnectorDefListCmd() *cobra.Command {
-	var (
-		integration string
-		asJSON      bool
-	)
+	var integration string
 	cmd := &cobra.Command{
 		Use:   "list --integration <key>",
 		Short: "List an integration's connector definitions (read-only)",
@@ -410,7 +403,7 @@ func newSOARConnectorDefListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(defs)
 			}
 			for _, d := range defs {
@@ -426,7 +419,6 @@ func newSOARConnectorDefListCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&integration, "integration", "", "integration key/identifier (required)")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	_ = cmd.MarkFlagRequired("integration")
 	return markJSON(cmd)
 }
@@ -481,12 +473,9 @@ func newSOARConnectorDefDeleteCmd() *cobra.Command {
 // newSOARIntegrationListCmd lists installed integration packs via the modern
 // v1alpha surface — the discovery side of uninstall. Read-only.
 func newSOARIntegrationListCmd() *cobra.Command {
-	var (
-		asJSON bool
-		custom bool
-	)
+	var custom bool
 	cmd := &cobra.Command{
-		Use:   "list [--custom] [--json]",
+		Use:   "list [--custom]",
 		Short: "List installed integration packs (read-only)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -501,7 +490,7 @@ func newSOARIntegrationListCmd() *cobra.Command {
 			if custom {
 				ints = slices.DeleteFunc(ints, func(i soar.Integration) bool { return !soar.IsDeletableIntegration(i) })
 			}
-			if asJSON {
+			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(ints)
 			}
 			for _, i := range ints {
@@ -517,7 +506,6 @@ func newSOARIntegrationListCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.BoolVar(&custom, "custom", false, "show only deletable (custom pack or clone) integrations")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 

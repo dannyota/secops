@@ -5,11 +5,6 @@ import (
 	"fmt"
 )
 
-// jsonFlagHelp is the one canonical description for every command-local `--json`
-// flag, so `--help` introspection reads the same wording everywhere (the global
-// persistent --json carries its own "where supported" phrasing).
-const jsonFlagHelp = "emit machine-readable JSON"
-
 // emitJSON prints v as indented JSON to stdout — the machine-readable output for
 // the global --json flag. The shape is per-command (documented in usage.md).
 func emitJSON(v any) error {

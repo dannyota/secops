@@ -39,7 +39,6 @@ func newCuratedCmd() *cobra.Command {
 // newCuratedRulesCmd lists the individual Google-managed curated rules (distinct
 // from the rule SETS that `list` shows). Read-only.
 func newCuratedRulesCmd() *cobra.Command {
-	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "rules",
 		Short: "Read-only: list the individual curated (Google-managed) rules",
@@ -53,7 +52,7 @@ func newCuratedRulesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return writeJSONValue(os.Stdout, rules)
 			}
 			for i, r := range rules {
@@ -67,7 +66,6 @@ func newCuratedRulesCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
@@ -83,10 +81,7 @@ type curatedRow struct {
 }
 
 func newCuratedListCmd() *cobra.Command {
-	var (
-		filter string
-		asJSON bool
-	)
+	var filter string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Read-only: list curated rule-set deployments (with their enable/alerting state)",
@@ -103,7 +98,7 @@ func newCuratedListCmd() *cobra.Command {
 			if filter != "" {
 				rows = filterCuratedRows(rows, filter)
 			}
-			if asJSON {
+			if jsonOut {
 				return writeJSONValue(os.Stdout, rows)
 			}
 			return emitCuratedRows(os.Stdout, rows)
@@ -111,7 +106,6 @@ func newCuratedListCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&filter, "filter", "", "case-insensitive substring filter on the rule-set display name")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 

@@ -1765,6 +1765,19 @@ Documentation for the operational layer, and the release scaffolding.
 
 ---
 
+### Wave 63 — One `--json` mechanism *(done)*
+
+- **The global persistent `--json` is now the only `--json`.** Commands that had
+  defined a duplicate command-local `--json` flag (shadowing the global) now read
+  the package-level `jsonOut` directly; the per-constructor `asJSON` variables and
+  the shared `jsonFlagHelp` constant are gone. No user-visible change — every
+  command still honors `--json` exactly as before, via one binding.
+- **Drift guard.** A tree-walking invariant test asserts that no command other
+  than the root declares a local `--json` flag (cobra's `LocalFlags()` excludes
+  the inherited persistent flag), so a re-introduced duplicate fails the suite.
+
+---
+
 ## Non-goals
 
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).

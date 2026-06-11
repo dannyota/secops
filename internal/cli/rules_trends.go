@@ -60,9 +60,8 @@ func printTrendRows(rows []trendRow) {
 
 func newRulesTrendsCmd() *cobra.Command {
 	var (
-		hours  int
-		rules  string
-		asJSON bool
+		hours int
+		rules string
 	)
 	cmd := &cobra.Command{
 		Use:   "trends",
@@ -111,7 +110,7 @@ func newRulesTrendsCmd() *cobra.Command {
 				return err
 			}
 			rows := emitTrendRows(trends, names)
-			if asJSON {
+			if jsonOut {
 				return emitJSON(rows)
 			}
 			printTrendRows(rows)
@@ -121,7 +120,6 @@ func newRulesTrendsCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.IntVar(&hours, "hours", 7*24, "look-back window in hours (default 7 days)")
 	f.StringVar(&rules, "rule", "", "comma-separated rule refs (id/name/slug); empty = all rules")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
@@ -153,10 +151,7 @@ func newRulesCountsCmd() *cobra.Command {
 }
 
 func newRulesEventsCmd() *cobra.Command {
-	var (
-		maxEvents int
-		asJSON    bool
-	)
+	var maxEvents int
 	cmd := &cobra.Command{
 		Use:   "events <rule> <detection-id>",
 		Short: "Read-only: the UDM events behind one detection (the evidence pivot)",
@@ -179,7 +174,7 @@ func newRulesEventsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if asJSON {
+			if jsonOut {
 				return writeRawJSON(os.Stdout, raw)
 			}
 			return emitDetectionEventsSummary(raw)
@@ -187,7 +182,6 @@ func newRulesEventsCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.IntVar(&maxEvents, "max", 0, "max events over all event variables (0 = server default)")
-	f.BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	return markJSON(cmd)
 }
 
