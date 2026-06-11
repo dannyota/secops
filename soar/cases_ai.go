@@ -49,7 +49,7 @@ const (
 
 // Settled reports whether generation has finished (successfully or not).
 func (s *CaseSummary) Settled() bool {
-	return s.State == SummaryStateSuccessful || s.State == SummaryStateError
+	return s != nil && (s.State == SummaryStateSuccessful || s.State == SummaryStateError)
 }
 
 // GetOrCreateCaseSummary fetches (generating on first request) the AI summary
@@ -168,7 +168,7 @@ func (r *AlertRecommendation) UnmarshalJSON(b []byte) error {
 
 // Settled reports whether recommendation generation has finished.
 func (r *AlertRecommendation) Settled() bool {
-	return r.State == "SUCCEEDED" || r.State == "FAILED"
+	return r != nil && (r.State == "SUCCEEDED" || r.State == "FAILED")
 }
 
 // FetchCaseAlertRecommendation polls one AI alert recommendation by id.

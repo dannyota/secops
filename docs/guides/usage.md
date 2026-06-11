@@ -36,10 +36,17 @@ or `secopsctl config --show-path`.
 `query raw`, `parsers sample-logs`, `parsers validate`, `entity summarize`, `alerts list`, `alerts get`, `iocs find`, `iocs get`,
 `iocs related`, `ti collections`, `ti collection`, `ti related`, `watchlists list`, `watchlists get`,
 `curated list`, `curated rules`, `rules detections`, `rules errors`,
-`rules retrohunt list`, `rules retrohunt get`, `cases soar-id`, `soar case list`, `soar case get`,
-`soar case values`, `soar case comment list`, `soar playbook list`, `soar playbook validate`,
+`rules retrohunt list`, `rules retrohunt get`, `rules trends`, `rules counts`, `rules events`,
+`curated detections`, `curated trends`, `curated events`, `query gemini`,
+`alerts investigate --latest`, `cases soar-id`, `soar case list`, `soar case get`,
+`soar case values`, `soar case comment list`, `soar case counts`, `soar case summarize`,
+`soar playbook list`, `soar playbook validate`,
+`soar playbook versions`, `soar playbook stats`, `soar playbook export`,
 `soar playbook components integrations`, `soar playbook components actions`,
 `soar playbook components jobs`, `soar playbook components connectors`,
+`soar playbook components flow`, `soar playbook components triggers`,
+`soar playbook components blocks`, `soar playbook components usage`,
+`soar integration action template`, `soar integration job-def template`,
 `soar playbook mold extract`, `soar playbook mold apply`,
 `soar playbook trigger set`, `soar playbook test-cases`,
 `soar playbook debug-step-data`, `soar playbook simulation-enrichment`,
@@ -173,7 +180,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar case comment list --id N` | List a case's comments (the case-wall record; `--alert` scopes to one alert). |
 | `soar case summarize --id N` | The structured AI summary of a case — narrative, reasons, next steps (polls until generation settles). |
 | `soar case alert recommend --id N --alert <ident>` | Generate + fetch the AI recommendation for one alert in a case (the alert must be open at alert level; each run starts a generation server-side — refused in read-only mode). |
-| `alerts enrich <id>` / `alerts actions <id>` | A SIEM alert's enrichment context / the integration actions executable against its entities (currently blocked server-side — clean error). |
+| `alerts enrich <id>` / `alerts actions <id>` | A SIEM alert's enrichment context / the integration actions executable against its entities. Where the enrichment-agent surface is unavailable (chronicle 500 / SOAR 404), the command surfaces a clean combined error. |
 | `info soar-integrations` | Report installed SOAR integration packs, connector/job runtime counts, bound environments, and gaps such as `config_without_runtime` or `runtime_disabled`. |
 | `soar integration list` | List installed integration packs. |
 | `soar integration instances --integration <id>` | List an integration's configured instances (id · environment · name) — the fields `integration delete` needs, which `list` (packs only) does not expose. |
