@@ -72,25 +72,11 @@ func TestLiveAuthoringWriteSmoke(t *testing.T) {
 			t.Fatalf("fetch template: %v", err)
 		}
 		name := fmt.Sprintf("secopsctl-smoke-action-%d", time.Now().UnixNano())
-		body := fillTemplate(t, tpl, integration, name, "print('secopsctl write smoke')\n")
-		// Set a known description so the update leg has something observable to
-		// change in the (summary-only) catalog.
-		body = withField(t, body, "description", "v1")
-		created, err := c.CreateActionDef(ctx, integration, body)
-		if err != nil {
+		body := withField(t, fillTemplate(t, tpl, integration, name, "print('secopsctl write smoke')\n"), "description", "v1")
+		if _, err := c.CreateActionDef(ctx, integration, body); err != nil {
 			t.Fatalf("create: %v", err)
 		}
 
-		// UPDATE leg: re-save the create RESPONSE (its `name` is populated, so
-		// this is an update, not a second create) with a changed description.
-		updateBody := withField(t, created, "description", "v2")
-		if _, err := c.UpdateActionDef(ctx, integration, updateBody); err != nil {
-			t.Fatalf("update: %v (pins the update shape — if this 4xxs, the update is PATCH, not POST-with-name)", err)
-		}
-
-		// Resolve the id from the per-integration list; assert the update was an
-		// UPDATE (still exactly one action with this name) and that it took
-		// (description is v2), then delete by EXACT id.
 		find := func(stage string) (id, desc string, count int) {
 			defs, err := c.ListActions(ctx, integration)
 			if err != nil {
@@ -103,23 +89,42 @@ func TestLiveAuthoringWriteSmoke(t *testing.T) {
 			}
 			return id, desc, count
 		}
-		id, desc, count := find("after update")
+		id, _, _ := find("after create")
 		if id == "" {
-			t.Fatalf("action %q not found in the catalog — delete it manually", name)
+			t.Fatalf("created action %q not found in the catalog — delete it manually", name)
 		}
+		// Safety net registered as soon as the id is known, so a later failure
+		// (the update leg in particular) can never leak the throwaway — deletes
+		// only if the happy-path delete below didn't already remove it.
+		t.Cleanup(func() {
+			if _, _, count := find("cleanup"); count == 0 {
+				return
+			}
+			if err := c.DeleteActionDef(ctx, integration, id); err != nil {
+				t.Errorf("cleanup: delete action %s: %v — remove %q manually", id, err, name)
+			}
+		})
+
+		// UPDATE leg: a sparse PATCH by numeric id (a POST always creates — it
+		// collides on displayName — so updates go through PATCH+updateMask).
+		if _, err := c.UpdateActionDef(ctx, integration, id, []byte(`{"description":"v2"}`), "description"); err != nil {
+			t.Fatalf("update (PATCH by id): %v", err)
+		}
+		_, desc, count := find("after update")
 		if count != 1 {
-			t.Errorf("update created a duplicate: %d actions named %q (update should be in-place)", count, name)
+			t.Errorf("update created a duplicate: %d actions named %q (update must be in-place)", count, name)
 		}
 		if desc != "v2" {
 			t.Errorf("description = %q after update, want v2 (the update did not take)", desc)
 		}
+
 		if err := c.DeleteActionDef(ctx, integration, id); err != nil {
-			t.Fatalf("delete %s: %v — remove action %q manually", id, err, name)
+			t.Fatalf("delete %s: %v", id, err)
 		}
 		if _, _, count := find("after delete"); count != 0 {
 			t.Errorf("action %q (id %s) still listed after delete", name, id)
 		}
-		t.Logf("OK action authoring loop: create -> update(desc v1->v2, in-place) -> delete, id %s, verified gone", id)
+		t.Logf("OK action authoring loop: create -> update(desc v1->v2, in-place PATCH) -> delete, id %s, verified gone", id)
 	})
 
 	t.Run("job", func(t *testing.T) {

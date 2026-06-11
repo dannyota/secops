@@ -368,7 +368,7 @@ func newSOARIntegrationInstallCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&identifier, "identifier", "", "marketplace integration identifier (from `soar marketplace list`) (required)")
+	f.StringVar(&identifier, "identifier", "", "marketplace integration identifier (from 'soar marketplace list') (required)")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")

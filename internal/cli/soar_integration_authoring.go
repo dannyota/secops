@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -48,38 +49,49 @@ func newSOARIntegrationJobCmd() *cobra.Command {
 func newAuthoringUpdateCmd(kind string) *cobra.Command {
 	var (
 		integration string
-		file        string
+		id          string
+		script      string
+		description string
 		dryRun, yes bool
 	)
 	cmd := &cobra.Command{
-		Use:   "update --integration <key> --file <def.json>",
-		Short: "MUTATING (guarded): save changes to an existing custom " + kind + " definition",
-		Long: "Update an existing custom Python " + kind + " definition. --file is the\n" +
-			"COMPLETE modified definition, including the server-assigned `name` from a\n" +
-			"prior create/list — that populated name is what makes this an update rather\n" +
-			"than a create. Read the current definition with `--json`-friendly tooling,\n" +
-			"edit it, and pass it here.",
+		Use:   "update --integration <key> --id N (--script <f.py> | --description <s>)",
+		Short: "MUTATING (guarded): patch fields of an existing custom " + kind + " definition",
+		Long: "Update an existing custom Python " + kind + " definition by its numeric id\n" +
+			"(from `soar playbook components " + collectionFor(kind) + "` or a prior create).\n" +
+			"It is a sparse PATCH — pass only what changes (`--script` swaps the Python\n" +
+			"body, `--description` the text) and only those fields are touched. Create is\n" +
+			"a separate verb; a save here never creates a duplicate.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			b, err := os.ReadFile(file)
+			fields := map[string]any{}
+			if cmd.Flags().Changed("script") {
+				src, err := os.ReadFile(script)
+				if err != nil {
+					return err
+				}
+				fields["script"] = string(src)
+			}
+			if cmd.Flags().Changed("description") {
+				fields["description"] = description
+			}
+			if len(fields) == 0 {
+				return fmt.Errorf("nothing to update — pass --script and/or --description")
+			}
+			mask := make([]string, 0, len(fields))
+			for k := range fields {
+				mask = append(mask, k)
+			}
+			sort.Strings(mask)
+			body, err := json.Marshal(fields)
 			if err != nil {
 				return err
-			}
-			if !json.Valid(b) {
-				return fmt.Errorf("%s is not valid JSON", file)
-			}
-			body := json.RawMessage(b)
-			// The create-vs-update switch is the server-assigned `name` (empty
-			// = create); an update body with an empty name would silently
-			// CREATE a duplicate, so require it populated.
-			if resourceNameOf(body) == "" {
-				return fmt.Errorf("the definition has an empty `name` — that field is a create, not an update; pass a body whose name is the server-assigned resource name from a prior create/list")
 			}
 			c, err := newSOARClient()
 			if err != nil {
 				return err
 			}
-			action := fmt.Sprintf("update %s definition %q in integration %s (%d-byte body)", kind, displayNameOf(body, ""), integration, len(body))
+			action := fmt.Sprintf("update %s definition %s in integration %s (fields: %s)", kind, id, integration, strings.Join(mask, ","))
 			dr, ay := soarGuard(action, dryRun, yes)
 			if dr || !ay {
 				fmt.Fprintf(os.Stdout, "DRY RUN: would %s.\n", action)
@@ -87,14 +99,14 @@ func newAuthoringUpdateCmd(kind string) *cobra.Command {
 			}
 			var out json.RawMessage
 			if kind == "action" {
-				out, err = c.UpdateActionDef(baseContext(), integration, body)
+				out, err = c.UpdateActionDef(baseContext(), integration, id, body, mask...)
 			} else {
-				out, err = c.UpdateJobDef(baseContext(), integration, body)
+				out, err = c.UpdateJobDef(baseContext(), integration, id, body, mask...)
 			}
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stdout, "updated %s definition %s.\n", kind, definitionIDOf(out))
+			fmt.Fprintf(os.Stdout, "updated %s definition %s (%s).\n", kind, id, strings.Join(mask, ","))
 			if jsonOut {
 				return writeRawJSON(os.Stdout, out)
 			}
@@ -103,11 +115,21 @@ func newAuthoringUpdateCmd(kind string) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&integration, "integration", "", "integration key the definition belongs to (required)")
-	f.StringVar(&file, "file", "", "the complete modified definition JSON (required; name populated)")
+	f.StringVar(&id, "id", "", "the definition's numeric id (required; from 'components "+collectionFor(kind)+"')")
+	f.StringVar(&script, "script", "", "Python source file to set as the new definition body")
+	f.StringVar(&description, "description", "", "new definition description")
 	_ = cmd.MarkFlagRequired("integration")
-	_ = cmd.MarkFlagRequired("file")
+	_ = cmd.MarkFlagRequired("id")
 	guardRunFlags(cmd, &dryRun, &yes)
 	return markJSON(cmd)
+}
+
+// collectionFor maps the authoring kind to its `components` catalog subcommand.
+func collectionFor(kind string) string {
+	if kind == "action" {
+		return "actions"
+	}
+	return "jobs"
 }
 
 func newAuthoringTemplateCmd(kind string, hasAsync bool) *cobra.Command {
@@ -221,7 +243,7 @@ func newAuthoringCreateCmd(kind string) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&integration, "integration", "", "integration key the definition belongs to (required)")
-	f.StringVar(&file, "file", "", "complete definition JSON (an edited `template` output)")
+	f.StringVar(&file, "file", "", "complete definition JSON (an edited 'template' output)")
 	f.StringVar(&name, "name", "", "display name for the new definition")
 	f.StringVar(&script, "script", "", "Python source file for the definition body")
 	f.StringVar(&description, "description", "", "definition description")
@@ -275,7 +297,7 @@ func newAuthoringDeleteCmd(kind string) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&integration, "integration", "", "integration key (required)")
-	f.StringVar(&id, "id", "", "the definition's numeric id (required; from `components actions` or the create output)")
+	f.StringVar(&id, "id", "", "the definition's numeric id (required; from 'components actions' or the create output)")
 	_ = cmd.MarkFlagRequired("integration")
 	_ = cmd.MarkFlagRequired("id")
 	guardRunFlags(cmd, &dryRun, &yes)
@@ -330,19 +352,6 @@ func displayNameOf(body json.RawMessage, fallback string) string {
 		return probe.DisplayName
 	}
 	return fallback
-}
-
-// resourceNameOf extracts the `name` field — the server-assigned resource
-// name. It is the create-vs-update marker (empty = create), distinct from the
-// human displayName.
-func resourceNameOf(body json.RawMessage) string {
-	var probe struct {
-		Name string `json:"name"`
-	}
-	if json.Unmarshal(body, &probe) == nil {
-		return strings.TrimSpace(probe.Name)
-	}
-	return ""
 }
 
 // definitionIDOf extracts the created definition's numeric id (or resource

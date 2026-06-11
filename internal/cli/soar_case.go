@@ -245,7 +245,7 @@ func newCaseAssignCmd() *cobra.Command {
 		},
 	}
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
-	cmd.Flags().StringVar(&user, "user", "", "target user id — a username (list them with `soar users list`) or a role as @RoleName (required)")
+	cmd.Flags().StringVar(&user, "user", "", "target user id — a username (list them with 'soar users list') or a role as @RoleName (required)")
 	_ = cmd.MarkFlagRequired("user")
 	return markJSON(cmd)
 }
@@ -299,7 +299,7 @@ func newCaseStageCmd() *cobra.Command {
 		},
 	}
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
-	cmd.Flags().StringVar(&stage, "stage", "", "target stage (required) — list valid stages with `soar case values stages`")
+	cmd.Flags().StringVar(&stage, "stage", "", "target stage (required) — list valid stages with 'soar case values stages'")
 	_ = cmd.MarkFlagRequired("stage")
 	return markJSON(cmd)
 }
@@ -335,7 +335,7 @@ func newCaseTagCmd(remove bool) *cobra.Command {
 		},
 	}
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
-	cmd.Flags().StringVar(&tag, "tag", "", "tag value (required) — list existing tags with `soar case values tags`")
+	cmd.Flags().StringVar(&tag, "tag", "", "tag value (required) — list existing tags with 'soar case values tags'")
 	_ = cmd.MarkFlagRequired("tag")
 	return markJSON(cmd)
 }
@@ -438,7 +438,7 @@ func newCaseCloseCmd() *cobra.Command {
 	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
 	f := cmd.Flags()
 	f.StringVar(&reason, "reason", "", "close reason: malicious | not-malicious | maintenance | inconclusive | unknown (required)")
-	f.StringVar(&rootCause, "root-cause", "", "close root cause (your custom root-cause name) — list options with `soar case values root-causes`")
+	f.StringVar(&rootCause, "root-cause", "", "close root cause (your custom root-cause name) — list options with 'soar case values root-causes'")
 	f.StringVar(&comment, "comment", "", "close comment (free-text note)")
 	_ = cmd.MarkFlagRequired("reason")
 	return markJSON(cmd)

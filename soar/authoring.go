@@ -62,15 +62,14 @@ func (c *Client) CreateActionDef(ctx context.Context, integration string, body j
 	return c.createDef(ctx, integration, "actions", body)
 }
 
-// UpdateActionDef saves changes to an existing custom action definition. The
-// create and update legs share one endpoint with addOrUpdate semantics (as the
-// IDE's Save does): POST integrations/{key}/actions with a body whose `name`
-// (the server-assigned resource name from the create response) is POPULATED —
-// an empty name is a create, a set name is an update. Pass the modified
-// create-response body verbatim so numeric fields survive untouched. LIVE
-// MUTATION.
-func (c *Client) UpdateActionDef(ctx context.Context, integration string, body json.RawMessage) (json.RawMessage, error) {
-	return c.createDef(ctx, integration, "actions", body)
+// UpdateActionDef patches fields of an existing custom action definition by its
+// numeric id: PATCH integrations/{key}/actions/{id}?updateMask=<fields>. The
+// body carries only the changed fields and updateMask names them (a v1alpha
+// sparse update). Create is POST (CreateActionDef); update is PATCH by id — a
+// POST always creates (it collides on displayName), so updates must go through
+// here. LIVE MUTATION.
+func (c *Client) UpdateActionDef(ctx context.Context, integration, actionID string, body json.RawMessage, fields ...string) (json.RawMessage, error) {
+	return c.patchDef(ctx, integration, "actions", actionID, body, fields)
 }
 
 // DeleteActionDef deletes one custom action definition by its numeric id
@@ -87,11 +86,11 @@ func (c *Client) CreateJobDef(ctx context.Context, integration string, body json
 	return c.createDef(ctx, integration, "jobs", body)
 }
 
-// UpdateJobDef saves changes to an existing custom job definition — the jobs
-// twin of UpdateActionDef (POST integrations/{key}/jobs with a populated
-// name). LIVE MUTATION.
-func (c *Client) UpdateJobDef(ctx context.Context, integration string, body json.RawMessage) (json.RawMessage, error) {
-	return c.createDef(ctx, integration, "jobs", body)
+// UpdateJobDef patches fields of an existing custom job definition by its
+// numeric id — the jobs twin of UpdateActionDef (PATCH
+// integrations/{key}/jobs/{id}?updateMask=<fields>). LIVE MUTATION.
+func (c *Client) UpdateJobDef(ctx context.Context, integration, jobID string, body json.RawMessage, fields ...string) (json.RawMessage, error) {
+	return c.patchDef(ctx, integration, "jobs", jobID, body, fields)
 }
 
 // DeleteJobDef deletes one custom job definition by its numeric id. LIVE
@@ -110,6 +109,26 @@ func (c *Client) createDef(ctx context.Context, integration, collection string, 
 	var out json.RawMessage
 	res := fmt.Sprintf("integrations/%s/%s", integration, collection)
 	if err := c.t.V1Alpha(ctx, "POST", res, body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// patchDef applies a sparse v1alpha PATCH to one definition by numeric id.
+func (c *Client) patchDef(ctx context.Context, integration, collection, id string, body json.RawMessage, fields []string) (json.RawMessage, error) {
+	if strings.TrimSpace(integration) == "" || strings.TrimSpace(id) == "" {
+		return nil, fmt.Errorf("soar: integration and id are required")
+	}
+	if len(body) == 0 {
+		return nil, fmt.Errorf("soar: a definition body is required")
+	}
+	res := fmt.Sprintf("integrations/%s/%s/%s", integration, collection, id)
+	opts := []transport.Option{}
+	if len(fields) > 0 {
+		opts = append(opts, transport.UpdateMask(fields...))
+	}
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "PATCH", res, body, &out, opts...); err != nil {
 		return nil, err
 	}
 	return out, nil

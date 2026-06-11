@@ -43,7 +43,7 @@ func newCaseAlertCmd() *cobra.Command {
 func alertGuardFlags(cmd *cobra.Command, caseID *int, alert *string, dryRun, yes *bool) {
 	f := cmd.Flags()
 	f.IntVar(caseID, "id", 0, "SOAR case id (required)")
-	f.StringVar(alert, "alert", "", "alert identifier, as printed by `soar case get` (required)")
+	f.StringVar(alert, "alert", "", "alert identifier, as printed by 'soar case get' (required)")
 	guardRunFlags(cmd, dryRun, yes)
 	_ = cmd.MarkFlagRequired("id")
 	_ = cmd.MarkFlagRequired("alert")
@@ -117,7 +117,7 @@ func newCaseAlertCloseCmd() *cobra.Command {
 	alertGuardFlags(cmd, &caseID, &alert, &dryRun, &yes)
 	f := cmd.Flags()
 	f.StringVar(&reason, "reason", "", "close reason: malicious | not-malicious | maintenance | inconclusive (required)")
-	f.StringVar(&rootCause, "root-cause", "", "close root cause — list options with `soar case values root-causes`")
+	f.StringVar(&rootCause, "root-cause", "", "close root cause — list options with 'soar case values root-causes'")
 	f.StringVar(&comment, "comment", "", "close comment (free-text note)")
 	f.StringVar(&useful, "usefulness", "", "alert usefulness stat: none | useful | not-useful")
 	_ = cmd.MarkFlagRequired("reason")

@@ -222,7 +222,7 @@ func newCaseAlertRecommendCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.IntVar(&caseID, "id", 0, "SOAR case id (required)")
-	f.StringVar(&alert, "alert", "", "alert identifier (from `soar case get`) or numeric caseAlert id (required)")
+	f.StringVar(&alert, "alert", "", "alert identifier (from 'soar case get') or numeric caseAlert id (required)")
 	_ = cmd.MarkFlagRequired("id")
 	_ = cmd.MarkFlagRequired("alert")
 	return markJSON(cmd)

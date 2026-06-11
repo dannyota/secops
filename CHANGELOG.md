@@ -45,8 +45,12 @@ layer, the playbook authoring palette, and agent-safety guardrails.
   `components usage` resolves an action by name for impact analysis.
 - Lifecycle completion: `versions`/`restore`, `stats`, `export`/`import`,
   `step skip`, batch `delete`, and job-instance schedule management.
+- `soar playbook step insert` — splice a brand-new action step into a
+  playbook graph offline (fresh identity, rewired relations), reviewable
+  before save.
 - Custom Python definitions over the API: `soar integration action | job-def
-  template | create | delete` (the IDE's create flow, guarded).
+  template | create | update | delete` (the IDE's authoring flow, guarded —
+  create is POST, update is a sparse PATCH by id).
 
 ### Agent safety
 
@@ -62,6 +66,20 @@ layer, the playbook authoring palette, and agent-safety guardrails.
 
 - `soar settings api-keys create | revoke` alongside `list` — the key value
   is minted locally (crypto/rand), shown exactly once, never logged.
+
+### CLI UX
+
+- The root `--help` now renders titled command groups (Setup & health / Read &
+  query / Config as code / SOAR / Utilities), a getting-started pointer
+  (`config` → `doctor` → `commands`/`surfaces`), and Example blocks on the
+  high-traffic commands; a mistyped command suggests the nearest match.
+- Sharper errors: invalid enum flags echo your verbatim input and list the
+  valid set, `curated --precision` validates before the live-deploy banner,
+  `--hours <= 0` is rejected up front, and missing files name the flag.
+- Flag spellings aligned (old names kept as hidden aliases): `alerts list
+  --filter` (was `--query`), `soar case run-action`/`context set --id` (was
+  `--case-id`), `soar integration uninstall --key` (was `--name`). Flag value
+  placeholders no longer render stray tokens.
 
 ### Fixes
 

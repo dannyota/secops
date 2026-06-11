@@ -76,7 +76,7 @@ func newSOARPlaybookStepInsertCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&file, "file", "", "playbook definition JSON to edit (required)")
-	f.StringVar(&mold, "mold", "", "exported action-step mold JSON (required; see `mold extract`)")
+	f.StringVar(&mold, "mold", "", "exported action-step mold JSON (required; see 'mold extract')")
 	f.StringVar(&after, "after", "", "anchor step name/identifier the new step follows (required)")
 	f.StringVar(&branch, "branch", "", "anchor branch to splice when it has several (the relation's condition value)")
 	f.StringVar(&instance, "instance-name", "", "override the generated unique instance name")

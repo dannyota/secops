@@ -139,7 +139,7 @@ func newSOARPlaybookRestoreCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&version, "version", "", "version identifier from `soar playbook versions` (required)")
+	f.StringVar(&version, "version", "", "version identifier from 'soar playbook versions' (required)")
 	f.StringVar(&comment, "comment", "", "restore comment (why the rollback)")
 	f.BoolVar(&override, "override", false, "replace the current definition outright")
 	guardRunFlags(cmd, &dryRun, &yes)
@@ -292,7 +292,7 @@ func newSOARPlaybookExportCmd() *cobra.Command {
 	f.StringVar(&name, "name", "", "playbook name (resolved via the live playbook list)")
 	f.StringVar(&identifier, "identifier", "", "playbook definition identifier (uuid)")
 	f.StringVar(&out, "out", "", "output file (default: JSON to stdout)")
-	f.BoolVar(&asZip, "zip", false, "export the platform zip bundle (for `import`) instead of JSON")
+	f.BoolVar(&asZip, "zip", false, "export the platform zip bundle (for 'import') instead of JSON")
 	// Default mode writes the playbook definition as JSON to stdout.
 	return markJSON(cmd)
 }

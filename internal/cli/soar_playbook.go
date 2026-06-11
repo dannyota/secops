@@ -1020,7 +1020,7 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
-	f.StringVar(&playbook, "playbook", "", "playbook name — resolved to its definition id via `soar playbook list`")
+	f.StringVar(&playbook, "playbook", "", "playbook name — resolved to its definition id via 'soar playbook list'")
 	f.StringVar(&alert, "alert", "", "alert identifier (auto-resolved from the case when omitted)")
 	f.StringVar(&definition, "definition", "", "playbook definition id (overrides --playbook)")
 	f.BoolVar(&fetchSteps, "fetch-steps", true, "include step details")

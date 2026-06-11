@@ -138,7 +138,7 @@ Every list/search command shares: a **filter**, a **time window**, a **limit**,
 
 ```
 secopsctl query udm '<udm filter>' [--hours N | --from TS --to TS] [--limit N] [--json]   # events (built)
-secopsctl alerts list [--query EXPR] [--hours N | --from TS --to TS] [--limit N] [--json]  # alerts snapshot (built, read)
+secopsctl alerts list [--filter EXPR] [--hours N | --from TS --to TS] [--limit N] [--json]  # alerts snapshot (built, read)
 secopsctl alerts get  <alert-id> [--detections] [--json]                                   # one alert + its SOAR case id (built, read)
 secopsctl alerts update <alert-id>… --status closed --verdict false-positive [--yes]       # guarded alert disposition (built; dry-run default)
 secopsctl cases soar-id <case-uuid>…                                                       # SIEM uuid -> SOAR case id bridge (built, read)
