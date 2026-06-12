@@ -233,12 +233,13 @@ func newSOARPlaybookExportCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "export (--name <playbook> | --identifier <uuid>) [--out <file>] [--zip]",
-		Short: "Read-only: export a playbook definition (JSON with blocks, or a zip bundle)",
-		Long: "Export one playbook. Default: the full definition WITH nested blocks as JSON\n" +
-			"(the format `soar playbook mold` and `soar build-playbook` consume). --zip\n" +
-			"exports the platform bundle instead (the format `soar playbook import`\n" +
-			"takes — cross-tenant promotion / offline backup). Writes to --out, or\n" +
-			"stdout for JSON.",
+		Short: "Read-only: export a playbook definition (save-compatible JSON, or a zip bundle)",
+		Long: "Export one playbook. Default: the full definition as save-compatible JSON —\n" +
+			"the same shape `pull playbooks` writes, so the export → edit → `push playbook`\n" +
+			"loop round-trips and the file is the input `soar playbook mold` /\n" +
+			"`soar build-playbook` consume. --zip exports the platform bundle instead\n" +
+			"(the format `soar playbook import` takes — cross-tenant promotion / offline\n" +
+			"backup). Writes to --out, or stdout for JSON.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lc, err := newSOARLegacyClient()
@@ -251,7 +252,12 @@ func newSOARPlaybookExportCmd() *cobra.Command {
 				return err
 			}
 			if !asZip {
-				raw, err := lc.ExportWorkflowWithBlocks(ctx, id)
+				// GetPlaybook returns the camelCase, string-enum definition — the
+				// SAME shape `pull playbooks` writes and `push playbook` accepts — so
+				// export → edit → push round-trips. (The legacy
+				// ExportWorkflowWithBlocks bundle is PascalCase/int-enum and not
+				// save-compatible; the platform bundle is `--zip`.)
+				raw, err := lc.GetPlaybook(ctx, id)
 				if err != nil {
 					return err
 				}

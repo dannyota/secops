@@ -52,13 +52,27 @@ func playbookNameOf(raw json.RawMessage) string {
 
 // playbooksSurface exposes SOAR playbooks as config-as-code through the engine.
 func playbooksSurface(lc *legacy.Client) reconcile.Surface {
-	build := func(raw json.RawMessage) (reconcile.Object, error) {
-		canon, err := canonicalPlaybook(raw)
+	// build computes the engine object for a playbook body. keepRaw controls what
+	// goes in Object.Raw: a LIVE body is stored value-redacted (Write persists it,
+	// so an inline secret never lands on disk); a LOCAL (on-disk) body is kept
+	// verbatim so push deploys the operator's real value. Either way the canonical
+	// (the diff basis) is computed from the value-redacted form, so a masked value
+	// is identical on both sides and never produces a phantom diff.
+	build := func(raw json.RawMessage, keepRaw bool) (reconcile.Object, error) {
+		redacted, err := valueRedactor.RedactJSON(raw)
 		if err != nil {
 			return reconcile.Object{}, err
 		}
+		canon, err := canonicalPlaybook(redacted)
+		if err != nil {
+			return reconcile.Object{}, err
+		}
+		stored := redacted
+		if keepRaw {
+			stored = raw
+		}
 		name := playbookNameOf(raw)
-		return reconcile.Object{Slug: Slugify(name), ServerID: name, Canonical: canon, Raw: raw}, nil
+		return reconcile.Object{Slug: Slugify(name), ServerID: name, Canonical: canon, Raw: stored}, nil
 	}
 
 	resolveByName := func(ctx context.Context, name string) (reconcile.Object, error) {
@@ -66,7 +80,18 @@ func playbooksSurface(lc *legacy.Client) reconcile.Surface {
 		if err != nil {
 			return reconcile.Object{}, err
 		}
-		return build(body)
+		return build(body, false) // live body → store value-redacted
+	}
+
+	// save refuses a body still carrying a redaction marker: pushing a pulled,
+	// redacted playbook would deploy the mask as the real value. Supply the real
+	// value (or an env/credential reference) before pushing.
+	save := func(ctx context.Context, raw json.RawMessage) error {
+		if reconcile.ContainsValue(raw, redactedMarker) {
+			return fmt.Errorf("refusing to save playbook: body still contains a redaction marker (%s); restore the real value (or use a credential/env reference) before pushing", redactedMarker)
+		}
+		_, err := lc.SavePlaybook(ctx, raw)
+		return err
 	}
 
 	return reconcile.Surface{
@@ -88,7 +113,7 @@ func playbooksSurface(lc *legacy.Client) reconcile.Surface {
 					res.Incomplete = true
 					continue
 				}
-				o, berr := build(body)
+				o, berr := build(body, false) // live body → store value-redacted
 				if berr != nil {
 					warnf("playbook %q: %v", card.Name, berr)
 					res.Incomplete = true
@@ -119,7 +144,7 @@ func playbooksSurface(lc *legacy.Client) reconcile.Surface {
 				if verr := legacy.ValidatePlaybookForSave(raw); verr != nil {
 					return nil, fmt.Errorf("playbook %s: %w", e.Name(), verr)
 				}
-				o, berr := build(raw)
+				o, berr := build(raw, true) // local body → keep verbatim for push
 				if berr != nil {
 					return nil, fmt.Errorf("playbook %s: %w", e.Name(), berr)
 				}
@@ -140,13 +165,13 @@ func playbooksSurface(lc *legacy.Client) reconcile.Surface {
 		// Create/Update are a whole-body save; SavePlaybook coerces int->str,
 		// validates the name, and mints a new uuid — so re-resolve by name after.
 		Create: func(ctx context.Context, local reconcile.Object) (reconcile.Object, error) {
-			if _, err := lc.SavePlaybook(ctx, local.Raw); err != nil {
+			if err := save(ctx, local.Raw); err != nil {
 				return reconcile.Object{}, err
 			}
 			return resolveByName(ctx, playbookNameOf(local.Raw))
 		},
 		Update: func(ctx context.Context, local, live reconcile.Object) (reconcile.Object, error) {
-			if _, err := lc.SavePlaybook(ctx, local.Raw); err != nil {
+			if err := save(ctx, local.Raw); err != nil {
 				return reconcile.Object{}, err
 			}
 			return resolveByName(ctx, live.ServerID)

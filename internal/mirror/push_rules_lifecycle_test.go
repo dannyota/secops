@@ -1,12 +1,64 @@
 package mirror
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"danny.vn/secops/chronicle"
 )
+
+// An alerting-only flip must send ONLY `alerting` (no unchanged `enabled`), so the
+// PATCH updateMask covers exactly the changed field and the API never 409s on a
+// no-op enabled field.
+func TestRuleDeployDiffUpdate(t *testing.T) {
+	// Only alerting differs: enabled already true.
+	want := deploymentMeta{Enabled: true, Alerting: true, RunFrequency: "LIVE"}
+	have := chronicle.RuleDeployment{Enabled: true, Alerting: false, RunFrequency: "LIVE"}
+	upd := ruleDeployDiffUpdate(want, have)
+	if upd.Enabled != nil {
+		t.Errorf("enabled should not be sent when unchanged, got %v", *upd.Enabled)
+	}
+	if upd.Alerting == nil || *upd.Alerting != true {
+		t.Errorf("alerting should be sent true, got %v", upd.Alerting)
+	}
+	if upd.RunFrequency != "" {
+		t.Errorf("runFrequency should not be sent when unchanged, got %q", upd.RunFrequency)
+	}
+
+	// Enabled and frequency change too.
+	want = deploymentMeta{Enabled: true, Alerting: false, RunFrequency: "HOURLY"}
+	have = chronicle.RuleDeployment{Enabled: false, Alerting: false, RunFrequency: "LIVE"}
+	upd = ruleDeployDiffUpdate(want, have)
+	if upd.Enabled == nil || *upd.Enabled != true {
+		t.Errorf("enabled should be sent true, got %v", upd.Enabled)
+	}
+	if upd.Alerting != nil {
+		t.Errorf("alerting unchanged should not be sent, got %v", *upd.Alerting)
+	}
+	if upd.RunFrequency != "HOURLY" {
+		t.Errorf("runFrequency should be sent HOURLY, got %q", upd.RunFrequency)
+	}
+}
+
+func TestIsAlreadyInDesiredState(t *testing.T) {
+	cases := []struct {
+		err  error
+		want bool
+	}{
+		{&chronicle.APIError{Status: http.StatusConflict, Body: `{"message":"live rule already enabled"}`}, true},
+		{&chronicle.APIError{Status: http.StatusConflict, Body: `{"message":"live rule already disabled"}`}, true},
+		{&chronicle.APIError{Status: http.StatusConflict, Body: `{"message":"etag mismatch"}`}, false},
+		{&chronicle.APIError{Status: http.StatusBadRequest, Body: `already enabled`}, false},
+		{nil, false},
+	}
+	for i, tc := range cases {
+		if got := isAlreadyInDesiredState(tc.err); got != tc.want {
+			t.Errorf("case %d: isAlreadyInDesiredState = %v, want %v", i, got, tc.want)
+		}
+	}
+}
 
 func TestSameRuleText(t *testing.T) {
 	if !sameRuleText("rule x {}\n", "rule x {}") {

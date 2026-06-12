@@ -2,8 +2,10 @@ package mirror
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -248,35 +250,86 @@ func PushRulesDeployFiltered(ctx context.Context, c *chronicle.Client, rulesDir,
 		return 0, nil
 	}
 
-	changed, failed := 0, 0
+	changed, noop, failed := 0, 0, 0
 	for _, cd := range cands {
-		upd := chronicle.RuleDeploymentUpdate{
-			Enabled:  new(cd.want.Enabled),
-			Alerting: new(cd.want.Alerting),
-		}
-		if cd.want.RunFrequency != "" {
-			upd.RunFrequency = cd.want.RunFrequency
-		}
+		// Field-mask the PATCH to ONLY the fields that differ from live. Sending an
+		// unchanged `enabled` alongside an alerting-only flip makes Chronicle 409
+		// ("live rule already enabled") on a no-op field; the masked update sends
+		// just the field that changed.
+		upd := ruleDeployDiffUpdate(cd.want, cd.have)
 		dep, derr := c.UpdateRuleDeployment(ctx, cd.comp.RuleID, upd)
 		if derr != nil {
+			// A 409 "already enabled/disabled" means live already matches the desired
+			// state for that field — the intended change is in effect, not a failure.
+			if isAlreadyInDesiredState(derr) {
+				noop++
+				fmt.Fprintf(w, "  ok       %s: already in desired state\n", cd.comp.DisplayName)
+				// Refresh the companion from live so the mirror reflects reality.
+				if live, gerr := c.GetRuleDeployment(ctx, cd.comp.RuleID); gerr == nil && live != nil {
+					recordDeployment(cd.comp, live, cd.path, w)
+				}
+				continue
+			}
 			failed++
 			fmt.Fprintf(w, "  FAIL     %s: %v\n", cd.comp.DisplayName, derr)
 			continue
 		}
 		if dep != nil {
-			cd.comp.Deployment = deploymentMeta{
-				Name: dep.Name, Enabled: dep.Enabled, Alerting: dep.Alerting, Archived: dep.Archived,
-				RunFrequency: dep.RunFrequency, ExecutionState: dep.ExecutionState,
-			}
-			if werr := cd.comp.write(cd.path); werr != nil {
-				fmt.Fprintf(w, "  WARN %s: deployed live but companion write failed: %v\n", cd.comp.DisplayName, werr)
-			}
+			recordDeployment(cd.comp, dep, cd.path, w)
 		}
 		changed++
 		fmt.Fprintf(w, "  deployed %s\n", cd.comp.DisplayName)
 	}
-	fmt.Fprintf(w, "\nDone. %d deployed, %d failed.\n", changed, failed)
+	// The summary reflects what actually changed live: applied vs already-in-state
+	// (a no-op confirmation) vs genuinely failed.
+	fmt.Fprintf(w, "\nDone. %d deployed, %d already in desired state, %d failed.\n", changed, noop, failed)
+	if failed > 0 {
+		return changed, fmt.Errorf("rules-deploy: %d rule(s) failed to deploy", failed)
+	}
 	return changed, nil
+}
+
+// ruleDeployDiffUpdate builds a deployment update carrying ONLY the fields whose
+// desired value differs from live, so the PATCH updateMask covers exactly the
+// changed fields (an alerting-only flip sends `alerting` alone). Archived is never
+// sent here — archived transitions are blocked out of this path upstream and the
+// server requires `archived` to be sent alone.
+func ruleDeployDiffUpdate(want deploymentMeta, have chronicle.RuleDeployment) chronicle.RuleDeploymentUpdate {
+	var upd chronicle.RuleDeploymentUpdate
+	if want.Enabled != have.Enabled {
+		upd.Enabled = new(want.Enabled)
+	}
+	if want.Alerting != have.Alerting {
+		upd.Alerting = new(want.Alerting)
+	}
+	if want.RunFrequency != "" && want.RunFrequency != have.RunFrequency {
+		upd.RunFrequency = want.RunFrequency
+	}
+	return upd
+}
+
+// isAlreadyInDesiredState reports whether err is a 409 whose body says the rule is
+// already enabled/disabled — the desired state is met, so it is success-with-note,
+// not a failure.
+func isAlreadyInDesiredState(err error) bool {
+	var apiErr *chronicle.APIError
+	if !errors.As(err, &apiErr) || apiErr.Status != http.StatusConflict {
+		return false
+	}
+	body := strings.ToLower(apiErr.Body)
+	return strings.Contains(body, "already enabled") || strings.Contains(body, "already disabled")
+}
+
+// recordDeployment writes the live deployment back into the rule's companion .yaml
+// so the local mirror matches what is deployed.
+func recordDeployment(comp *ruleCompanion, dep *chronicle.RuleDeployment, path string, w io.Writer) {
+	comp.Deployment = deploymentMeta{
+		Name: dep.Name, Enabled: dep.Enabled, Alerting: dep.Alerting, Archived: dep.Archived,
+		RunFrequency: dep.RunFrequency, ExecutionState: dep.ExecutionState,
+	}
+	if werr := comp.write(path); werr != nil {
+		fmt.Fprintf(w, "  WARN %s: deployed live but companion write failed: %v\n", comp.DisplayName, werr)
+	}
 }
 
 // --- helpers ----------------------------------------------------------------

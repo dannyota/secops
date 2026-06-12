@@ -25,10 +25,53 @@ func newSOARPushCmd() *cobra.Command {
 	cmd.AddCommand(
 		newSOARBulkCloseCmd(),
 		newSOARPlaybookSaveCmd(),
+		newSOARGroupingPushCmd(),
 	)
 	for _, name := range mirror.SOARSurfaceNames() {
 		cmd.AddCommand(newSOAREnginePushCmd(name))
 	}
+	return cmd
+}
+
+// newSOARGroupingPushCmd builds the guarded reconcile push for alert-grouping
+// rules. Unlike the engine surfaces it uses the MODERN soar client (the v1alpha
+// alertGroupingRules API on the siemplify-soar host), so it is wired separately
+// rather than through the legacy engine registry. --prune deletes server-only
+// rules but never the non-deletable catch-all fallback (category "ALL").
+func newSOARGroupingPushCmd() *cobra.Command {
+	var (
+		dryRun bool
+		yes    bool
+		prune  bool
+		out    string
+	)
+	cmd := &cobra.Command{
+		Use:   "grouping [--prune]",
+		Short: "Reconcile local alert-grouping rules to live (create/update; --prune to delete, never the fallback)",
+		Long: "Reconcile grouping/rules/*.json (alert-grouping rules) to live via the modern\n" +
+			"v1alpha alertGroupingRules API. Dry-run by default; --prune deletes server-only\n" +
+			"rules but refuses the non-deletable catch-all fallback rule (category \"ALL\").\n" +
+			"Edit the General/Overflow settings (grouping/settings.json) in SOAR Settings.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := newSOARClient()
+			if err != nil {
+				return err
+			}
+			dr, ay := soarGuard("grouping reconcile", dryRun, yes)
+			dir := filepath.Join(mirror.DataRoot(out), mirror.DirSOAR, mirror.DirSOARGrouping, "rules")
+			_, err = reconcile.Push(baseContext(), mirror.GroupingRulesSurface(c), dir, reconcile.PushOpts{
+				DryRun: dr, AssumeYes: ay, Prune: prune,
+			}, os.Stdout)
+			return err
+		},
+	}
+	f := cmd.Flags()
+	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
+	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
+	f.BoolVar(&prune, "prune", false, "also delete server-only rules (never the catch-all fallback)")
+	f.StringVar(&out, "out", "", "data root directory (default: cwd)")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return cmd
 }
 
@@ -70,6 +113,12 @@ func newSOAREnginePushCmd(name string) *cobra.Command {
 					fmt.Fprintf(os.Stdout, "note: --prune is a no-op for %q (%s); "+
 						"live-only objects are reported, never deleted\n", name, reason)
 				}
+			}
+			// Apply the same .secopsctl-redact masking pull uses, so the live
+			// object canonicalizes to the redacted form and a masked value is not
+			// seen as a diff (and the marker guard refuses to deploy a mask).
+			if err := applyValueRedaction(mirror.DataRoot(out), nil); err != nil {
+				return err
 			}
 			dr, ay := soarGuard(name+" reconcile", dryRun, yes)
 			dir := filepath.Join(mirror.DataRoot(out), mirror.DirSOAR, s.Dir)

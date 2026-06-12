@@ -11,14 +11,14 @@ import (
 
 	"danny.vn/secops/internal/mirror"
 	"danny.vn/secops/internal/mirror/reconcile"
-	"danny.vn/secops/soar"
 	"danny.vn/secops/soar/legacy"
 )
 
 func newSOARPullCmd() *cobra.Command {
 	var (
-		out   string
-		prune bool
+		out     string
+		prune   bool
+		redacts []string
 	)
 	bespoke := []string{"grouping", "cases"}
 	engine := mirror.SOARSurfaceNames()
@@ -37,18 +37,16 @@ func newSOARPullCmd() *cobra.Command {
 		ValidArgs: valid,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := args[0]
-			root := filepath.Join(mirror.DataRoot(out), mirror.DirSOAR)
+			dataRoot := mirror.DataRoot(out)
+			root := filepath.Join(dataRoot, mirror.DirSOAR)
 			ctx := baseContext()
 			pullOpts := reconcile.PullOpts{Prune: prune}
-
-			runModern := func(fn func(*soar.Client, string) (int, error), sub string) error {
-				c, err := newSOARClient()
-				if err != nil {
-					return err
-				}
-				_, err = fn(c, filepath.Join(root, sub))
+			// Mask inline-secret values (e.g. a webhook URL with a token in a
+			// playbook step param) per .secopsctl-redact + --redact before writing.
+			if err := applyValueRedaction(dataRoot, redacts); err != nil {
 				return err
 			}
+
 			runLegacy := func(fn func(*legacy.Client, string) (int, error), sub string) error {
 				lc, err := newSOARLegacyClient()
 				if err != nil {
@@ -70,7 +68,20 @@ func newSOARPullCmd() *cobra.Command {
 				return err
 			}
 
-			grp := func(c *soar.Client, d string) (int, error) { return mirror.PullSOARGrouping(ctx, c, d) }
+			// Grouping rules use the MODERN soar client; the settings singleton is
+			// read from the reliable legacy AppKey config endpoint — so it needs both.
+			grp := func(d string) error {
+				c, err := newSOARClient()
+				if err != nil {
+					return err
+				}
+				lc, err := newSOARLegacyClient()
+				if err != nil {
+					return err
+				}
+				_, err = mirror.PullSOARGrouping(ctx, c, lc, d, prune)
+				return err
+			}
 			cases := func(lc *legacy.Client, d string) (int, error) { return mirror.PullSOARCases(ctx, lc, d) }
 
 			if slices.Contains(engine, target) {
@@ -78,11 +89,11 @@ func newSOARPullCmd() *cobra.Command {
 			}
 			switch target {
 			case "grouping":
-				return runModern(grp, mirror.DirSOARGrouping)
+				return grp(filepath.Join(root, mirror.DirSOARGrouping))
 			case "cases":
 				return runLegacy(cases, mirror.DirSOARCases)
 			case "all":
-				if err := runModern(grp, mirror.DirSOARGrouping); err != nil {
+				if err := grp(filepath.Join(root, mirror.DirSOARGrouping)); err != nil {
 					return err
 				}
 				if err := runLegacy(cases, mirror.DirSOARCases); err != nil {
@@ -102,5 +113,6 @@ func newSOARPullCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&out, "out", "", "output root directory (default: cwd)")
 	f.BoolVar(&prune, "prune", false, "remove local files with no live counterpart")
+	f.StringArrayVar(&redacts, "redact", nil, "regex masking matched substrings of inline string values on write (repeatable); for a durable, drift-safe rule put the pattern in .secopsctl-redact at the data root")
 	return cmd
 }

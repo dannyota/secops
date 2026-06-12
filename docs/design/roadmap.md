@@ -1884,6 +1884,90 @@ shared constructor.
 
 ---
 
+### Wave 68 — Operator-confidence fixes: deploy field-masking, drift/pull parity, playbook round-trip, grouping reconcile, decode + redaction hardening *(built — offline-tested; live write paths gated)*
+
+- **Goal.** Close a set of correctness and fidelity gaps surfaced by dogfooding
+  the config-as-code loop against live state, so a clean mirror stays clean, a
+  guarded deploy reports truthfully, the documented single-edit loops round-trip,
+  a high-blast-radius control becomes reviewable as code, and a pull never
+  re-writes a secret. Tenant-neutral cleanup; every mutation stays dry-run-first.
+- **Field-masked rule deployment + truthful summary *(done)*.** `push rules-deploy`
+  previously sent the full deployment block (including `enabled`) even when only
+  `alerting` differed, so re-applying an already-enabled rule drew an avoidable
+  `409 "already enabled"` and the summary reported a change that *did* apply as
+  FAILED. The apply step now field-masks the PATCH to ONLY the fields that differ
+  from live (an alerting-only flip sends `alerting` alone, via the SDK's
+  per-field updateMask); a residual `409 already enabled/disabled` is treated as
+  success-with-note (the desired state is met), and the summary distinguishes
+  `deployed` / `already in desired state` / `failed`, returning a non-zero error
+  only on a genuine failure.
+- **`drift` ↔ `pull` normalization parity (reference lists) *(done)*.** An EMPTY
+  reference list canonicalized as `[]` live (`make([]string, 0)`) but `null` on
+  disk (an empty `.txt` read as nil), so `drift` phantom-reported it as `~1`
+  immediately after a clean `pull`. `canonicalRefList` now normalizes entries to a
+  non-nil slice on both sides, so the canonical matches. Drift also NAMES the
+  diverged object(s) — the report appends `[+a ~b -c]` and `--json` carries
+  `created_names`/`updated_names`/`deleted_names`/`untracked_names` — so a bare
+  count is no longer undiagnosable.
+- **Round-trippable playbook export *(done — live-validated)*.** `soar playbook
+  export` emitted the legacy `ExportWorkflowWithBlocks` bundle — a PascalCase,
+  integer-enum shape (`Definition.CreationSource: 1`, `Steps[].Type: 0`,
+  `Triggers` plural) that the v1alpha bridge save does not accept, so the
+  documented export → edit → `push playbook` loop failed (the gap manifested as
+  `Expected string TokenType for enum …`). It now sources the default JSON from
+  `GetPlaybook` — the SAME camelCase, string-enum definition `pull playbooks`
+  writes and the save accepts — so the loop round-trips, and the file is exactly
+  what `soar playbook mold` / `build-playbook` already consume (they read
+  camelCase). The PascalCase legacy bundle was consumed by nothing; the platform
+  bundle stays on `--zip`. Confirmed live: an exported playbook is camelCase with
+  string enums (`creationSource: USER_OR_API_INITIATED`, `trigger.type`,
+  `steps[].type`) and passes the save preflight.
+- **`soar push grouping` (alert-grouping reconcile) *(done)*.** Alert-grouping
+  rules were pull-only. They now reconcile through the engine on the MODERN
+  v1alpha `alertGroupingRules` API (siemplify-soar host, AppKey) via a bespoke
+  `reconcile.Surface` (the modern client doesn't ride the legacy jsonSurface
+  adapter): `soar pull grouping` writes `grouping/rules/<slug>.json` (the writable
+  config — category / groupingType / entityType / categoryDetails — plus a
+  `_server` id block), and `soar push grouping [--prune]` creates/updates/deletes,
+  dry-run by default. `--prune` deletes server-only rules but the Delete closure
+  refuses the non-deletable catch-all fallback (`category: ALL`). **Fidelity
+  sub-gap *(done, read)*:** the General/Overflow settings singleton (formerly an
+  empty `settings.yaml`) is now snapshotted to `grouping/settings.json` from the
+  reliable legacy AppKey config endpoint (`GetMaximumAlertsGroupingConfiguration`),
+  falling back to the modern `moduleSettings` bag; settings stay read-only (edit in
+  SOAR Settings) — settings push is a documented next step.
+- **Numeric-as-string decode hardening (`entity summarize`) *(done)*.** Chronicle
+  renders int64 counters as JSON strings (proto3 JSON), so `entity summarize`
+  failed to decode `alertCounts.count`. A tolerant `flexInt` (decodes a JSON
+  string OR number, null → 0; marshals back as a number) now backs `AlertCount`
+  and the sibling entity-summary counters (timeline buckets, widget totals,
+  prevalence counts).
+- **Pull-time redaction (closes the Wave 50 deferred item) *(done)*.** Some
+  integration actions take secret-valued parameters as plain inline strings
+  (e.g. a webhook URL with a token in a playbook step param), and `soar pull
+  playbooks` wrote those values verbatim — re-leaking a secret into the mirror.
+  A value redactor masks matched substrings on write, with patterns from a
+  committed `.secopsctl-redact` file at the data root plus an ad-hoc `--redact`
+  flag on `soar pull`. It is DRIFT-SAFE: pull, drift, and push all load the same
+  `.secopsctl-redact`, so a masked value canonicalizes identically on every side
+  and never produces a phantom diff; a marker guard refuses to push a body still
+  carrying the redaction marker. (Referencing a SOAR credential so the URL is
+  never inline remains the cleaner alternative where the action supports it.)
+- **Exit.** An alerting-only deploy sends only `alerting` and reports the applied
+  change as success; `drift` is clean on a freshly-pulled mirror and names any
+  real divergence; an exported playbook re-saves through `push playbook`;
+  alert-grouping rules reconcile through pull → diff → push and the
+  General/Overflow settings are captured; `entity summarize` decodes counter
+  fields; and `soar pull playbooks` no longer writes secret values into the
+  mirror. All changes are offline-tested; the live write paths (grouping
+  create/patch/delete, playbook save) stay gated behind the standard dry-run/`--yes`
+  guard pending an approved live run.
+- **Docs.** CATALOG (`rules`, `reference_lists` / `drift`, `soar playbook`,
+  `grouping`, `entity`), SIEM-DESIGN, SOAR-DESIGN, SURFACES (alert-grouping
+  reconcile + General/Overflow settings singleton + pull-time redaction), usage guide.
+
+---
+
 ## Non-goals
 
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).

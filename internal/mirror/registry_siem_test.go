@@ -60,6 +60,34 @@ func TestReflistPullPushRoundTrips(t *testing.T) {
 	}
 }
 
+// TestReflistEmptyListNoPhantomDrift: an EMPTY reference list must canonicalize
+// identically live (entries built as make([]string,0) → JSON []) and on disk (an
+// empty .txt read as nil → JSON null). Without the nonNil normalization in
+// canonicalRefList the two differ and drift phantom-reports the list as ~1 right
+// after a clean pull.
+func TestReflistEmptyListNoPhantomDrift(t *testing.T) {
+	live, err := reflistObject(chronicle.ReferenceList{
+		Name: "projects/p/locations/us/instances/i/referenceLists/empty", DisplayName: "empty",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := writeReferenceList(dir, live); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadReferenceLists(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("loaded %d objects, want 1", len(loaded))
+	}
+	if !bytes.Equal(loaded[0].Canonical, live.Canonical) {
+		t.Errorf("empty-list canonical differs (phantom drift):\nlive:\n%s\nloaded:\n%s", live.Canonical, loaded[0].Canonical)
+	}
+}
+
 func TestReadEntryLines(t *testing.T) {
 	dir := t.TempDir()
 	// Missing file -> no entries, no error.

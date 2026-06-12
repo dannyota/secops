@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"danny.vn/secops/soar"
 	"danny.vn/secops/soar/legacy"
 )
 
@@ -41,48 +40,8 @@ const (
 // the reliable legacy AppKey reconcile engine (soar_operational_surfaces.go);
 // `soar pull/push connectors|jobs` now route through the engine.
 
-// PullSOARGrouping snapshots the alert-grouping rules and module settings into
-// <outDir>/rules/<rule>.yaml and <outDir>/settings.yaml. Returns rules written.
-func PullSOARGrouping(ctx context.Context, c *soar.Client, outDir string) (int, error) {
-	rulesDir, err := EnsureDir(filepath.Join(outDir, "rules"))
-	if err != nil {
-		return 0, err
-	}
-
-	rules, err := c.ListAlertGroupingRules(ctx)
-	if err != nil {
-		return 0, err
-	}
-	for _, r := range rules {
-		name := r.Name
-		if name == "" {
-			name = r.ID
-		}
-		meta := map[string]any{
-			"id": r.ID, "name": r.Name, "category": r.Category,
-			"grouping_type": r.GroupingType, "entity_type": r.EntityType,
-		}
-		if err := writeYAML(filepath.Join(rulesDir, Slugify(name)+".yaml"), meta); err != nil {
-			return 0, err
-		}
-	}
-
-	// Module settings (AlertGroupingSettings) as a flat name->value map.
-	if props, perr := c.ListModuleSettingProperties(ctx, "AlertGroupingSettings"); perr != nil {
-		warnf("module settings AlertGroupingSettings: %v", perr)
-	} else {
-		settings := map[string]string{}
-		for _, p := range props {
-			settings[p.Name] = p.Value
-		}
-		if err := writeYAML(filepath.Join(outDir, "settings.yaml"), settings); err != nil {
-			return 0, err
-		}
-	}
-
-	fmt.Printf("soar-grouping:   wrote %d rule(s) + settings -> %s/\n", len(rules), outDir)
-	return len(rules), nil
-}
+// PullSOARGrouping (alert-grouping rules + the General/Overflow settings
+// singleton) lives in grouping_surface.go — it reconciles through the engine.
 
 // PullSOARCases snapshots the current OPEN case queue (legacy external API) to
 // <outDir>/open.json. Cases are live data, not config — this is a point-in-time

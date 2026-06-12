@@ -7,9 +7,44 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
+
+// flexInt is an integer the API may render as a JSON number or, for proto3 int64
+// fields, as a quoted string. It decodes either form (and null → 0); the zero
+// value omits under omitempty and marshals back as a plain number.
+type flexInt int
+
+func (n *flexInt) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || string(data) == "null" {
+		*n = 0
+		return nil
+	}
+	if data[0] == '"' {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		if s == "" {
+			*n = 0
+			return nil
+		}
+		i, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("flexInt %q: %w", s, err)
+		}
+		*n = flexInt(i)
+		return nil
+	}
+	var i int
+	if err := json.Unmarshal(data, &i); err != nil {
+		return err
+	}
+	*n = flexInt(i)
+	return nil
+}
 
 // Entity summary and IoC listing.
 //
@@ -78,16 +113,17 @@ func (e *Entity) EntityType() string {
 	return e.Metadata.EntityType
 }
 
-// AlertCount is the number of alerts a given rule raised for the entity.
+// AlertCount is the number of alerts a given rule raised for the entity. The API
+// renders the count as a JSON string (proto3 int64 JSON), so it is a flexInt.
 type AlertCount struct {
-	Rule  string `json:"rule,omitempty"`
-	Count int    `json:"count,omitempty"`
+	Rule  string  `json:"rule,omitempty"`
+	Count flexInt `json:"count,omitempty"`
 }
 
 // TimelineBucket is one fixed-width slot of the activity timeline.
 type TimelineBucket struct {
-	AlertCount int `json:"alertCount,omitempty"`
-	EventCount int `json:"eventCount,omitempty"`
+	AlertCount flexInt `json:"alertCount,omitempty"`
+	EventCount flexInt `json:"eventCount,omitempty"`
 }
 
 // Timeline is the bucketed alert/event activity over the query window.
@@ -98,15 +134,15 @@ type Timeline struct {
 
 // WidgetMetadata is UI widget framing returned alongside the summary.
 type WidgetMetadata struct {
-	URI        string `json:"uri,omitempty"`
-	Detections int    `json:"detections,omitempty"`
-	Total      int    `json:"total,omitempty"`
+	URI        string  `json:"uri,omitempty"`
+	Detections flexInt `json:"detections,omitempty"`
+	Total      flexInt `json:"total,omitempty"`
 }
 
 // PrevalenceData is one (time, count) prevalence sample for the entity.
 type PrevalenceData struct {
 	PrevalenceTime time.Time `json:"prevalenceTime,omitzero"`
-	Count          int       `json:"count,omitempty"`
+	Count          flexInt   `json:"count,omitempty"`
 }
 
 // FileProperty is a single key/value file attribute.

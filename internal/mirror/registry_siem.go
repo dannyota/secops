@@ -227,6 +227,12 @@ func readEntryLines(path string) ([]string, error) {
 }
 
 func canonicalRefList(spec refListSpec) ([]byte, error) {
+	// Normalize entries to a non-nil slice so an EMPTY reference list canonicalizes
+	// identically on both sides: the live side builds entries with make([]string, 0)
+	// (JSON []), while the on-disk side reads an empty .txt as nil (JSON null).
+	// Canonicalize re-marshals as-is, so [] vs null would otherwise phantom-report
+	// an empty list as drifted (~1) immediately after a clean pull.
+	spec.Entries = nonNil(spec.Entries)
 	raw, err := json.Marshal(spec)
 	if err != nil {
 		return nil, err

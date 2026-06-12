@@ -40,6 +40,12 @@ func newDriftCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := baseContext()
 			root := mirror.DataRoot(out)
+			// Apply the same .secopsctl-redact masking pull/push use, so a value
+			// masked on pull is also masked when the live object is canonicalized
+			// here — otherwise drift would phantom-report the redacted field.
+			if err := applyValueRedaction(root, nil); err != nil {
+				return err
+			}
 
 			wantSIEM, wantSOAR, unknown := selectDriftTargets(args, siem, soar)
 			if len(unknown) > 0 {
@@ -108,14 +114,18 @@ func newDriftCmd() *cobra.Command {
 
 			if jsonOut {
 				type surf struct {
-					Name       string `json:"name"`
-					Created    int    `json:"created"`
-					Updated    int    `json:"updated"`
-					Deleted    int    `json:"deleted"`
-					Untracked  int    `json:"untracked"`
-					Incomplete bool   `json:"incomplete"`
-					Drifted    bool   `json:"drifted"`
-					Error      string `json:"error,omitempty"`
+					Name           string   `json:"name"`
+					Created        int      `json:"created"`
+					Updated        int      `json:"updated"`
+					Deleted        int      `json:"deleted"`
+					Untracked      int      `json:"untracked"`
+					Incomplete     bool     `json:"incomplete"`
+					Drifted        bool     `json:"drifted"`
+					Error          string   `json:"error,omitempty"`
+					CreatedNames   []string `json:"created_names,omitempty"`
+					UpdatedNames   []string `json:"updated_names,omitempty"`
+					DeletedNames   []string `json:"deleted_names,omitempty"`
+					UntrackedNames []string `json:"untracked_names,omitempty"`
 				}
 				out := struct {
 					DriftedSurfaces       int    `json:"drifted_surfaces"`
@@ -127,6 +137,8 @@ func newDriftCmd() *cobra.Command {
 						Name: it.Name, Created: it.Created, Updated: it.Updated,
 						Deleted: it.Deleted, Untracked: it.Untracked,
 						Incomplete: it.Incomplete, Drifted: it.Drifted(),
+						CreatedNames: it.CreatedNames, UpdatedNames: it.UpdatedNames,
+						DeletedNames: it.DeletedNames, UntrackedNames: it.UntrackedNames,
 					}
 					if it.Err != nil {
 						s.Error = it.Err.Error()

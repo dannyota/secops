@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"danny.vn/secops/internal/mirror/reconcile"
 )
@@ -29,15 +30,21 @@ type DriftTarget struct {
 	Dir     string
 }
 
-// DriftItem is the drift outcome for one surface.
+// DriftItem is the drift outcome for one surface. The *Names slices carry the
+// slug of each diverged object so a report can name what drifted (a bare "~1" is
+// undiagnosable without a manual diff).
 type DriftItem struct {
-	Name       string
-	Created    int  // local-only (would be created)
-	Updated    int  // changed (would be updated)
-	Deleted    int  // live-only orphan on a prune-eligible surface (would be pruned)
-	Untracked  int  // live-only on a NoDelete surface (not push-reconcilable; pull to adopt)
-	Incomplete bool // the live listing was incomplete (a per-item read failed)
-	Err        error
+	Name           string
+	Created        int  // local-only (would be created)
+	Updated        int  // changed (would be updated)
+	Deleted        int  // live-only orphan on a prune-eligible surface (would be pruned)
+	Untracked      int  // live-only on a NoDelete surface (not push-reconcilable; pull to adopt)
+	Incomplete     bool // the live listing was incomplete (a per-item read failed)
+	Err            error
+	CreatedNames   []string
+	UpdatedNames   []string
+	DeletedNames   []string
+	UntrackedNames []string
 }
 
 // Indeterminate reports that drift could not be judged (error or incomplete list).
@@ -90,21 +97,26 @@ func Drift(ctx context.Context, targets []DriftTarget, w io.Writer) DriftReport 
 		item.Incomplete = live.Incomplete
 		item.Created = len(plan.Creates())
 		item.Updated = len(plan.Updates())
+		item.CreatedNames = planSlugs(plan.Creates())
+		item.UpdatedNames = planSlugs(plan.Updates())
 		// Live-only orphans are reconcilable only where push can prune; elsewhere
 		// (NoDelete) they are "untracked" — reported, not gate-failing.
-		liveOnly := len(plan.Deletes())
+		liveOnly := plan.Deletes()
 		if t.Surface.Caps.PruneEligible && !t.Surface.Caps.NoDelete {
-			item.Deleted = liveOnly
+			item.Deleted = len(liveOnly)
+			item.DeletedNames = planSlugs(liveOnly)
 		} else {
-			item.Untracked = liveOnly
+			item.Untracked = len(liveOnly)
+			item.UntrackedNames = planSlugs(liveOnly)
 		}
 
 		switch {
 		case item.Incomplete:
 			fmt.Fprintf(w, "  %-26s INDETERMINATE live list incomplete — could not verify\n", t.Surface.Name)
 		case item.Drifted():
-			fmt.Fprintf(w, "  %-26s DRIFT         +%d ~%d -%d%s\n",
-				t.Surface.Name, item.Created, item.Updated, item.Deleted, untrackedNote(item.Untracked))
+			fmt.Fprintf(w, "  %-26s DRIFT         +%d ~%d -%d%s%s\n",
+				t.Surface.Name, item.Created, item.Updated, item.Deleted,
+				untrackedNote(item.Untracked), item.driftNames())
 		default:
 			fmt.Fprintf(w, "  %-26s in sync%s\n", t.Surface.Name, untrackedNote(item.Untracked))
 		}
@@ -118,4 +130,35 @@ func untrackedNote(n int) string {
 		return ""
 	}
 	return fmt.Sprintf("  (%d untracked live-only — pull to adopt)", n)
+}
+
+// planSlugs returns the slugs of the given plan items, in plan order.
+func planSlugs(items []reconcile.PlanItem) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]string, len(items))
+	for i, it := range items {
+		out[i] = it.Slug
+	}
+	return out
+}
+
+// driftNames appends the diverged object slugs to a DRIFT line so the report
+// names what changed (e.g. "  [+a ~b -c]") rather than a bare count.
+func (d DriftItem) driftNames() string {
+	parts := make([]string, 0, len(d.CreatedNames)+len(d.UpdatedNames)+len(d.DeletedNames))
+	for _, n := range d.CreatedNames {
+		parts = append(parts, "+"+n)
+	}
+	for _, n := range d.UpdatedNames {
+		parts = append(parts, "~"+n)
+	}
+	for _, n := range d.DeletedNames {
+		parts = append(parts, "-"+n)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "  [" + strings.Join(parts, " ") + "]"
 }

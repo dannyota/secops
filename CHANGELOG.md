@@ -3,6 +3,54 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.4.0 — 2026-06-12
+
+Operator-confidence fixes from dogfooding the config-as-code loop, plus a new
+alert-grouping reconcile surface.
+
+### Added
+
+- `soar push grouping` — alert-grouping rules as config-as-code via the modern
+  v1alpha `alertGroupingRules` API (siemplify-soar host). Reconciles
+  create/update/delete; `--prune` deletes server-only rules but refuses the
+  non-deletable catch-all fallback (`category: ALL`). Validated end to end against
+  a live instance.
+- Pull-time value redaction: a committed `.secopsctl-redact` patterns file (one
+  regex per line) at the data root, plus an ad-hoc `--redact` flag on `soar pull`,
+  masks secrets that arrive as plain inline strings (e.g. a webhook URL carrying a
+  token in a playbook step parameter). Drift-safe — pull, drift, and push load the
+  same patterns, so a masked value never produces a phantom diff; a marker guard
+  refuses to push a body still carrying the redaction marker.
+- `drift` now names the diverged objects — `[+a ~b -c]` in the text report and
+  `created_names` / `updated_names` / `deleted_names` / `untracked_names` in
+  `--json` — so a bare count is diagnosable.
+
+### Fixed
+
+- `push rules-deploy` field-masks the deployment PATCH to only the fields that
+  differ from live, so an alerting-only flip no longer trips a 409 on an unchanged
+  `enabled`; a residual "already enabled/disabled" 409 is treated as
+  success-with-note; and the summary reports deployed / already-in-desired-state /
+  failed truthfully, exiting non-zero only on a genuine failure.
+- `drift reference_lists` no longer phantom-reports an empty reference list as
+  changed immediately after a clean pull (entries canonicalize to `[]` on both
+  the live and on-disk sides).
+- `entity summarize` decodes counters the API renders as JSON strings (proto3
+  int64), fixing the decode error on `alertCounts.count` and the sibling
+  prevalence/timeline/widget counters.
+
+### Changed (migration)
+
+- `soar playbook export` (default JSON) now emits the save-compatible definition —
+  the same shape `pull playbooks` writes — so the export → edit → `push playbook`
+  loop round-trips and the file is what `soar playbook mold` / `build-playbook`
+  consume. The platform bundle is unchanged on `--zip`. Anything that parsed the
+  previous (save-incompatible) export JSON should adopt the new shape.
+- `soar pull grouping` writes `grouping/rules/*.json` (full reconcilable config)
+  plus the General/Overflow settings singleton at `grouping/settings.json`,
+  replacing the earlier lossy `rules/*.yaml` and empty `settings.yaml`. Re-pull
+  existing grouping mirrors.
+
 ## v0.3.1 — 2026-06-12
 
 Network-layer fix: `force_ipv4` now applies to every outbound connection.
