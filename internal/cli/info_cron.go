@@ -20,6 +20,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"danny.vn/secops/auth"
+	"danny.vn/secops/config"
 	"danny.vn/secops/internal/mirror"
 )
 
@@ -906,7 +908,15 @@ func checkCronHeartbeats(ctx context.Context, specs []cronHeartbeatSpec, hc *htt
 		return nil
 	}
 	if hc == nil {
-		hc = &http.Client{Timeout: 10 * time.Second}
+		// Honor force_ipv4 from the config file. Read it validation-free so a
+		// partial config (e.g. force_ipv4 set but SIEM keys absent) still pins
+		// the dialer — `info cron` works without a complete config, and
+		// SECOPS_FORCE_IPV4 alone is honored inside HTTPTransport.
+		force := config.ReadForEdit(config.Find(cfgFile)).ForceIPv4
+		hc = &http.Client{
+			Timeout:   10 * time.Second,
+			Transport: auth.HTTPTransport(force),
+		}
 	}
 	rows := make([]cronHeartbeatRow, 0, len(specs))
 	for _, spec := range specs {

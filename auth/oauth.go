@@ -77,15 +77,10 @@ func (c *oauthCreds) resolve() (oauth2.TokenSource, error) {
 		// library an IPv4-pinned HTTP client via the context so the token endpoint
 		// calls honor it too (not just the API transports).
 		ctx := context.Background()
-		if dc := IPv4DialContext(c.forceIPv4); dc != nil {
+		if c.forceIPv4 || ForceIPv4Env() {
 			ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{
-				Timeout: 60 * time.Second,
-				Transport: &http.Transport{
-					Proxy:               http.ProxyFromEnvironment,
-					DialContext:         dc,
-					ForceAttemptHTTP2:   true,
-					TLSHandshakeTimeout: 10 * time.Second,
-				},
+				Timeout:   60 * time.Second,
+				Transport: HTTPTransport(c.forceIPv4),
 			})
 		}
 		creds, err := google.FindDefaultCredentials(ctx, c.scopes...)

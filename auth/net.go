@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -36,4 +37,27 @@ func IPv4DialContext(force bool) func(ctx context.Context, network, addr string)
 		}
 		return d.DialContext(ctx, network, addr)
 	}
+}
+
+// HTTPTransport returns the standard outbound *http.Transport for every
+// secopsctl HTTP client: http.DefaultTransport-equivalent dialing, pooling,
+// and timeouts, with the dialer pinned to IPv4 when forced — by the argument
+// (from config) or by SECOPS_FORCE_IPV4 (see IPv4DialContext).
+func HTTPTransport(forceIPv4 bool) *http.Transport {
+	t := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	if dc := IPv4DialContext(forceIPv4); dc != nil {
+		t.DialContext = dc
+	}
+	return t
 }

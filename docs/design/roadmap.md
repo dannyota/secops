@@ -1863,6 +1863,25 @@ report bad input.
   dashboards, reference_lists, rule_exclusions, feeds) that signal they are
   extras and that config-as-code is `pull/push <x>`.
 
+### Wave 67 — force_ipv4 everywhere: one shared HTTP transport *(done)*
+
+An audit of every outbound HTTP path against the `force_ipv4` setting found one
+gap and four hand-rolled copies of the same transport. Both fixed by a single
+shared constructor.
+
+- **`auth.HTTPTransport(forceIPv4)`** (`auth/net.go`): the standard outbound
+  `*http.Transport` — `http.DefaultTransport`-equivalent dialing, pooling, and
+  timeouts, with the dialer pinned to IPv4 when forced (config flag or
+  `SECOPS_FORCE_IPV4`). All five HTTP clients now build from it: the Chronicle
+  SIEM client, the shared SOAR transport (modern + legacy), the in-process
+  OAuth token-minting client, the Secret Manager `secret_ref` fetcher, and the
+  `info cron --heartbeat-status` checker.
+- **Gap closed.** The heartbeat checker previously used a plain default client,
+  ignoring `force_ipv4`. It now reads the flag validation-free
+  (`config.ReadForEdit`), so a partial config — `force_ipv4` set but SIEM keys
+  absent — still pins the dialer, and `info cron` keeps working with no config
+  at all.
+
 ---
 
 ## Non-goals

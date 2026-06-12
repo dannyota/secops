@@ -256,9 +256,10 @@ func Load(explicit string) (*Instance, error) {
 // ~/.secopsctl/instance.yaml.
 func DefaultPath() string { return userdir.InstanceConfigPath() }
 
-// ReadForEdit reads the config file at path for the interactive `config` command
-// to pre-fill prompts, WITHOUT env overlay or validation so it shows what is
-// actually persisted. A missing or unparseable file yields an empty Instance.
+// ReadForEdit reads the config file at path WITHOUT env overlay or validation,
+// so it shows exactly what is persisted — for the interactive `config` command
+// to pre-fill prompts, and for best-effort reads that must tolerate a partial
+// config. A missing or unparseable file yields an empty Instance.
 func ReadForEdit(path string) *Instance {
 	if path == "" {
 		return &Instance{}

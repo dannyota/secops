@@ -112,17 +112,11 @@ func accessSecretManager(ctx context.Context, c *chronicle.Client, ref string) (
 		return "", fmt.Errorf("feeds: build Secret Manager request: %w", err)
 	}
 
-	hc := &http.Client{Timeout: 60 * time.Second}
-	base := http.DefaultTransport
-	if dc := auth.IPv4DialContext(c.Settings().ForceIPv4); dc != nil {
-		base = &http.Transport{
-			Proxy:               http.ProxyFromEnvironment,
-			DialContext:         dc,
-			ForceAttemptHTTP2:   true,
-			TLSHandshakeTimeout: 10 * time.Second,
-		}
+	force := c.Settings().ForceIPv4
+	hc := &http.Client{
+		Timeout:   60 * time.Second,
+		Transport: auth.RoundTripper(auth.OAuth(auth.WithForceIPv4(force)), auth.HTTPTransport(force)),
 	}
-	hc.Transport = auth.RoundTripper(auth.OAuth(auth.WithForceIPv4(c.Settings().ForceIPv4)), base)
 
 	resp, err := hc.Do(req)
 	if err != nil {

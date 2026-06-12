@@ -148,9 +148,11 @@ rules in [05-curated-rules.md](05-curated-rules.md).
 
 Some corporate VPNs and Context-Aware-Access setups have unreliable IPv6 routing
 to `*.googleapis.com`, which shows up as intermittent ADC reauth prompts and
-connection resets. `secopsctl` ships an opt-in workaround: `IPv4DialContext`
-(`auth/net.go`) installs a dialer that rewrites `tcp`/`tcp6` to `tcp4`, applied to
-the API transports **and** the in-process token-minting calls.
+connection resets. `secopsctl` ships an opt-in workaround: every outbound HTTP
+client is built from the shared `auth.HTTPTransport` (`auth/net.go`), whose
+dialer rewrites `tcp`/`tcp6` to `tcp4` when forcing is on — the SIEM and SOAR
+API transports, the in-process token-minting calls, and the ancillary calls
+(Secret Manager `secret_ref` reads, `info cron` heartbeat checks) alike.
 
 It is **off by default.** It activates when either the config `force_ipv4: true`
 or `SECOPS_FORCE_IPV4` is truthy (`1`, `true`, or `yes`). On a healthy network you
