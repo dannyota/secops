@@ -3,6 +3,21 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.3.1 — 2026-06-12
+
+Network-layer fix: `force_ipv4` now applies to every outbound connection.
+
+- One shared `auth.HTTPTransport` builds all five outbound HTTP clients —
+  the Chronicle SIEM client, the SOAR transport (modern + legacy), in-process
+  OAuth token minting, Secret Manager `secret_ref` reads, and the `info cron`
+  heartbeat checker — with `http.DefaultTransport`-equivalent pooling and
+  timeouts, and the dialer pinned to IPv4 when `force_ipv4` /
+  `SECOPS_FORCE_IPV4` is on.
+- The `info cron --heartbeat-status` client previously ignored the flag. It
+  now reads it validation-free, so a partial config (`force_ipv4` set but
+  SIEM keys absent) still pins the dialer, and `info cron` keeps working
+  with no config file at all.
+
 ## v0.3.0 — 2026-06-11
 
 The operational release: the alert → case → rule triage loop, the AI-assist
