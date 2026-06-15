@@ -61,6 +61,31 @@ func TestCanonicalizeStripsVolatile(t *testing.T) {
 	}
 }
 
+// Server-managed actor ids (createUserId/updateUserId) are stripped at any depth,
+// like the time fields — they are attribution, churn on every edit, and would leak
+// a real user id into a committed file.
+func TestCanonicalizeStripsActorIds(t *testing.T) {
+	raw := json.RawMessage(`{
+		"displayName": "keep",
+		"createUserId": "user-abc",
+		"updateUserId": "user-def",
+		"nested": {"updateUserId": "user-ghi", "value": "kept"}
+	}`)
+	out, err := Canonicalize(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	for _, gone := range []string{"createUserId", "updateUserId", "user-abc", "user-def", "user-ghi"} {
+		if strings.Contains(s, gone) {
+			t.Errorf("expected actor id %q stripped (any depth), got:\n%s", gone, s)
+		}
+	}
+	if !strings.Contains(s, "keep") || !strings.Contains(s, "kept") {
+		t.Errorf("real config must survive:\n%s", s)
+	}
+}
+
 func TestCanonicalizeExtraStrip(t *testing.T) {
 	raw := json.RawMessage(`{"name":"x","ruleCount":9,"keep":true}`)
 	out, err := Canonicalize(raw, "ruleCount")

@@ -3,6 +3,19 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.4.1 — 2026-06-15
+
+### Fixed
+
+- Server-managed actor ids (`createUserId` / `updateUserId`) are now stripped
+  GLOBALLY by the reconcile engine (alongside the time fields), instead of as a
+  `dashboards`-only special case, so no config-as-code surface can write a tenant
+  user id into a committed file (and `updateUserId` no longer churns the diff on
+  every edit). Removed the dead, leaky `PullDashboards` puller (no caller; it wrote
+  raw CURATED dashboard list items including `createUserId`); `pull dashboards` uses
+  the engine surface. Live-validated: pulled dashboards carry no actor ids and
+  `drift dashboards` is in sync.
+
 ## v0.4.0 — 2026-06-12
 
 Operator-confidence fixes from dogfooding the config-as-code loop, plus a new

@@ -23,10 +23,12 @@ import (
 // wholesale on update, so the dry-run preview is essential. The dashboard PATCH
 // carries no etag (NoEtag); access is immutable after create.
 
-// dashboardExtraStrip are volatile/user-specific keys dropped from the diff basis
-// at any depth (beyond the engine's default name/etag/time stripping). Confirmed
-// present on live dashboards: per-user view state and the create/update actor ids.
-var dashboardExtraStrip = []string{"createUserId", "updateUserId", "dashboardUserData"}
+// dashboardExtraStrip are dashboard-specific volatile keys dropped from the diff
+// basis at any depth. `dashboardUserData` is per-user view state (saved filters,
+// layout) that changes per viewer. The create/update actor ids (createUserId /
+// updateUserId) are stripped globally by the engine (reconcile.actorKeys), so they
+// are not listed here.
+var dashboardExtraStrip = []string{"dashboardUserData"}
 
 // dashboardConfig is the writable subset parsed out of the canonical body to
 // drive Create/Update.

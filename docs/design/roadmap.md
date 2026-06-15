@@ -1968,6 +1968,30 @@ shared constructor.
 
 ---
 
+### Wave 69 — Global server actor-id strip (dashboards leak hardening) *(done — live-validated; v0.4.1)*
+
+A post-v0.4.0 patch: the server-managed user-attribution fields `createUserId` /
+`updateUserId` were stripped only as a `dashboards` special case, but they appear
+on the dashboards list AND get and could appear on any raw-body surface — they
+churn on every edit (phantom drift) and a real user id in a committed file is a
+tenant-identifier leak.
+
+- **Global strip.** `createUserId` / `updateUserId` move into the reconcile core
+  (`reconcile.actorKeys`), stripped at ANY depth like the time fields, so EVERY
+  raw-body surface (dashboards, the SOAR jsonSurfaces, grouping) is covered — not
+  just the one that first surfaced them. Removed from the dashboard-specific
+  `extraStrip` (now redundant; `dashboardUserData`, per-viewer state, stays there).
+- **Dead, leaky puller removed.** `PullDashboards` (the legacy export-envelope
+  puller) had no caller and, for CURATED dashboards, wrote the raw list item
+  *including* `createUserId`. Deleted. `pull dashboards` uses the engine surface,
+  which fetches each CUSTOM dashboard in FULL view (the list `definition` is a stub
+  — charts omitted — so the per-item GET is required, not redundant).
+- **Live-validated.** Pulled dashboards carry no actor ids (25 CUSTOM, zero leaks)
+  and `drift dashboards` is in sync; the engine's actor-key strip is unit-tested.
+- **Docs.** CATALOG (`dashboards` row), ROADMAP, CHANGELOG (v0.4.1).
+
+---
+
 ## Non-goals
 
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).

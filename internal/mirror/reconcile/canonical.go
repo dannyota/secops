@@ -22,6 +22,17 @@ var timeKeys = map[string]bool{
 	"revisionCreateTime":               true,
 }
 
+// actorKeys are server-stamped "who created / last updated this" user ids,
+// stripped at ANY depth — the user-attribution equivalent of timeKeys. They are
+// never config: updateUserId changes on every edit (phantom drift), and a real
+// user id written to a committed file is a tenant-identifier leak. Stripped
+// globally so any raw-body surface (dashboards, the SOAR jsonSurfaces, …) is
+// covered, not just the one that first surfaced them.
+var actorKeys = map[string]bool{
+	"createUserId": true,
+	"updateUserId": true,
+}
+
 // topIdentityKeys are stripped only at the ROOT object: they are the object's
 // own server identity (carried separately in Object.ServerID/Etag), not config.
 // They are NOT stripped at depth, where a nested "id"/"etag" may be a meaningful
@@ -73,7 +84,7 @@ func strip(v any, extra map[string]bool, root bool) any {
 	case map[string]any:
 		out := make(map[string]any, len(t))
 		for k, val := range t {
-			if timeKeys[k] || strings.HasSuffix(k, "UnixTimeInMs") || extra[k] {
+			if timeKeys[k] || actorKeys[k] || strings.HasSuffix(k, "UnixTimeInMs") || extra[k] {
 				continue
 			}
 			if root && topIdentityKeys[k] {
