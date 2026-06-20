@@ -557,7 +557,7 @@ skipped as low-value: UI preference blobs (`savedColumnSets`, `sharedPreferenceS
   Monitoring prerequisites documented.
 - **Docs.** SIEM-DESIGN, SURFACES, CATALOG.
 
-### Wave 20 — MSSP & federation *(mixed plane; multi-tenant only)*  *(built — `federationGroups` (chronicle reconcile) + `tenants`/`multitenantDirectory` (chronicle reads, `chronicle/federation.go`); `idp-mappings` (`legacySoarIdpMappingGroups`) turned out to be a **two-host surface** — it 500s on the chronicle host but answers on the **SOAR host** (AppKey), so it was moved to the SOAR plane (`soar/idp_mappings.go`) and is **read-validated** there (3 groups + external providers). On this single-tenant instance `federationGroups`/`tenants` are 403 (feature/partner-gated); **multitenantDirectory is read-validated**. Writes (federation groups, IdP mappings) touch live access — built, gated, not live-written.)*
+### Wave 20 — MSSP & federation *(mixed plane; multi-tenant only)*  *(built — `federationGroups` (chronicle reconcile) + `tenants`/`multitenantDirectory` (chronicle reads, `chronicle/federation.go`); `idp-mappings` (`legacySoarIdpMappingGroups`) is a **two-host surface** — it 500s on the chronicle host but answers on the **SOAR host** (AppKey), so it lives on the SOAR plane (`soar/idp_mappings.go`) and is **read-validated** there. On a single-tenant instance `federationGroups`/`tenants` are 403 (feature/partner-gated); **multitenantDirectory is read-validated**. Writes (federation groups, IdP mappings) touch live access — built, gated, not live-written.)*
 
 - **Goal.** Multi-tenant / access-mapping config-as-code (meaningful only on
   MSSP / multi-tenant deployments).
@@ -1811,10 +1811,10 @@ action/job, not just creating and deleting one.
   `--description` the text, and only the named fields are touched. SDK
   `UpdateActionDef`/`UpdateJobDef`.
 - **Create is POST, update is PATCH by id.** Create and update do NOT share an
-  addOrUpdate POST: a live run found that POSTing again collides on
+  addOrUpdate POST: POSTing again collides on
   `displayName` ("already exists") rather than updating, so the verb uses
   `PATCH integrations/{key}/{actions,jobs}/{id}?updateMask=<fields>` — the
-  standard v1alpha sparse update, confirmed against the live tenant.
+  standard v1alpha sparse update.
 - **Live-validated.** `TestLiveAuthoringWriteSmoke` runs create → update
   (description v1→v2, in-place PATCH) → delete for **actions**, asserting the
   update touches exactly one record and the change takes; the job leg covers
