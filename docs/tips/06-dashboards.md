@@ -13,7 +13,7 @@ Two SDK operations, two very different costs:
 | Operation | SDK | View | Returns |
 |---|---|---|---|
 | **List** | `ListNativeDashboards` | `BASIC` | Inventory only — server `name`, `displayName`, `type`. Fast, light. **No chart definitions.** |
-| **Full export** | `ExportDashboard` / `GetDashboard(…, full=true)` | `FULL` | The complete definition — every chart, its UDM/YARA-L query, layout, filters. Heavier; per dashboard. |
+| **Full export** | `ExportDashboard` / `GetDashboard(…, full=true)` | `FULL` | The complete definition — chart references, layout, filters. Heavier; per dashboard. **The chart query bodies are not inlined:** each `definition.charts[]` entry references a separate chart resource (whose UDM/YARA-L query is a further `dashboardQuery` reference). Dereference with `GetChart`/`GetQuery` or `dashboards charts <id>`. |
 
 A full export of every dashboard is large and slow, so the listing exists for the
 common case: "what dashboards exist and who owns them." Export the specific
@@ -58,8 +58,12 @@ Custom dashboards encode your team's operational views — track them closely.
 config (`displayName`, `description`, `access`, `definition.{filters,charts}`)
 plus a reserved `_server` identity block. Two things matter on push:
 
-- **Charts replace wholesale.** `definition.charts` is sent as a unit on update,
-  not merged — a dropped chart in the JSON drops it live. Review the dry-run.
+- **Charts replace wholesale, but reference-only.** `definition.charts` is sent
+  as a unit on update, not merged — a dropped chart in the JSON drops it live —
+  but each entry only *references* a chart by resource name; the YARA-L query is
+  not in the dashboard body. So `push dashboards` re-points and re-lays-out
+  existing charts; it **cannot author a chart's query**. Author queries with
+  `dashboards add-chart` / `edit-chart` (below). Review the dry-run either way.
 - **`access` is immutable after create.** Changing `DASHBOARD_PRIVATE` ↔
   `DASHBOARD_PUBLIC` in the JSON is rejected. To change visibility, copy the
   dashboard into a new one with the desired access:
@@ -74,6 +78,26 @@ plus a reserved `_server` identity block. Two things matter on push:
 
 Volatile keys (`createUserId`, `updateUserId`, `dashboardUserData`) are stripped
 from the diff basis, so per-user view state never shows up as a spurious change.
+
+## Authoring charts and queries
+
+A chart spans three resources: the dashboard references a **chart**, and the
+chart references a **query** (the YARA-L). Because the query never lives in the
+dashboard body, it is authored with dedicated chart verbs, not `push dashboards`:
+
+- `dashboards add-chart <id> --title <t> --query <yaral>` (or `--query-file <f>`)
+  adds a chart and its query in one call (`:addChart`). Layout, datasource,
+  interval, and tile type default sensibly; override with `--layout` /
+  `--datasource` / `--interval` / `--tile-type`.
+- `dashboards edit-chart <id> --chart-id <c> --query <yaral>` replaces a chart's
+  query (`:editChart`), round-tripping the query's etag for optimistic concurrency.
+- `dashboards remove-chart <id> --chart-id <c>` removes a chart (`:removeChart`).
+- `dashboards charts <id>` lists every chart with its resolved query (read-only;
+  `--json` for the full list) — the way to recover a `--chart-id` or review what
+  a dashboard actually runs.
+
+All three mutating verbs are guarded: dry-run by default, `--yes` to apply.
+Re-`pull dashboards` afterwards so the local mirror matches live.
 
 ## Don't hand-edit the JSON
 

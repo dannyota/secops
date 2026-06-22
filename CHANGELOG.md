@@ -3,6 +3,25 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.4.3 — 2026-06-22
+
+### Added
+
+- `dashboards` chart-authoring CLI verbs surface the Wave 70 SDK ops so a charted
+  dashboard can be built from the command line:
+  - `dashboards add-chart <id> --title <t> --query <yaral>` (or `--query-file`) adds
+    a chart and its YARA-L query in one `:addChart` call; `--layout`/`--datasource`/
+    `--interval`/`--tile-type` default sensibly and JSON flags are validated up front.
+  - `dashboards edit-chart <id> --chart-id <c> --query <yaral>` replaces a chart's
+    query via `:editChart`, round-tripping the query's etag.
+  - `dashboards remove-chart <id> --chart-id <c>` removes a chart.
+  - `dashboards charts <id>` lists each chart with its resolved query (read-only;
+    `--json`), the way to recover a `--chart-id` or review what a dashboard runs.
+
+  The mutating verbs are guarded (dry-run by default, `--yes` to apply). Validated
+  end to end by `TestLiveDashboardsChartCLISmoke`. A lossless deref-on-pull
+  round-trip (capturing chart queries into the mirror) remains a tracked follow-up.
+
 ## v0.4.2 — 2026-06-22
 
 ### Added

@@ -14,12 +14,21 @@ func init() { rootCmd.AddCommand(newDashboardsCmd()) }
 func newDashboardsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dashboards <verb>",
-		Short: "Extra: imperative dashboard ops (duplicate) — config-as-code is `pull/push dashboards`",
-		Long: "Operations on native dashboards outside the reconcile loop. Today: duplicate\n" +
-			"(the supported way to change a dashboard's immutable access — recreate with the\n" +
-			"new access, then re-pull). Config-as-code is `pull dashboards` / `push dashboards`.",
+		Short: "Extra: imperative dashboard ops (charts, duplicate) — config-as-code is `pull/push dashboards`",
+		Long: "Operations on native dashboards outside the reconcile loop:\n" +
+			"  add-chart / edit-chart / remove-chart — author a chart's YARA-L query\n" +
+			"    (the dashboard body is reference-only, so `push dashboards` can't);\n" +
+			"  charts — list a dashboard's charts with their resolved queries (read-only);\n" +
+			"  duplicate — the supported way to change a dashboard's immutable access.\n" +
+			"Config-as-code for the dashboard itself is `pull dashboards` / `push dashboards`.",
 	}
-	cmd.AddCommand(newDashboardsDuplicateCmd())
+	cmd.AddCommand(
+		newDashboardsAddChartCmd(),
+		newDashboardsEditChartCmd(),
+		newDashboardsRemoveChartCmd(),
+		newDashboardsChartsCmd(),
+		newDashboardsDuplicateCmd(),
+	)
 	return cmd
 }
 

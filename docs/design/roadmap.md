@@ -2026,11 +2026,48 @@ the query round-trips → the dashboard definition references the chart but carr
   `addChart`/`editChart`, not the config-as-code `push dashboards` reconcile path,
   which stays reference-only. Authoring a full chart in the SecOps UI from the same
   queries remains a fine alternative for visual layout/series tuning.
-- **Follow-up (next wave candidate).** Surface `addChart`/`editChart` as a
-  `secopsctl dashboards` authoring command (with `--dry-run`/`--yes`), and/or expand
-  `pull dashboards` to dereference each chart into its query for a full round-trip.
+- **Follow-up.** The CLI authoring command lands in **Wave 71**; a lossless
+  deref-on-pull round-trip (capturing each chart's query into the mirror) remains
+  open.
 - **Docs.** CATALOG (`dashboards` row — chart-query authoring path), SURFACES
   (native-dashboard chart/query resources), ROADMAP, CHANGELOG (v0.4.2).
+
+---
+
+### Wave 71 — `dashboards` chart-authoring CLI verbs *(done — live-validated; v0.4.3)*
+
+Wave 70 proved the SDK can author a chart's YARA-L through `:addChart` / `:editChart`;
+this wave surfaces that as operator-facing CLI verbs so a charted dashboard can be
+built from the command line, not just the SDK or the SecOps UI. The existing
+`dashboards <verb>` group gains:
+
+- **`dashboards add-chart <id> --title <t> (--query <yaral> | --query-file <f>)`** —
+  adds a chart and its query in one `:addChart` call. `--layout`, `--datasource`,
+  `--interval`, `--tile-type` default sensibly; JSON flags are validated before the
+  call so a malformed value fails clean instead of as a server 400.
+- **`dashboards edit-chart <id> --chart-id <c> (--query | --query-file)`** — resolves
+  the chart's `dashboardQuery` and its etag, then replaces the query via `:editChart`.
+- **`dashboards remove-chart <id> --chart-id <c>`** — `:removeChart`.
+- **`dashboards charts <id>`** — read-only: dereferences each chart (`GetChart` →
+  `GetQuery`) and prints title / tile type / datasources / YARA-L; `--json` for the
+  full list. This is also how an operator recovers a `--chart-id`.
+
+The three mutating verbs use the standard dry-run-by-default / `--yes` guard.
+
+**Live-validated** end to end by `TestLiveDashboardsChartCLISmoke` (drives the real
+cobra RunE on a throwaway dashboard: add-chart → charts derefs the query →
+edit-chart → charts shows the new query → remove-chart → delete, self-cleaning).
+Offline tests cover the dry-run guard short-circuit, query-file reading, tile-type
+mapping, and JSON-flag validation.
+
+- **Still open (deferred).** A lossless deref-on-pull round-trip — `pull dashboards`
+  capturing each chart's query body into the mirror so existing dashboards round-trip
+  with their queries — would need the reconcile surface to author through
+  `addChart`/`editChart` rather than the reference-only `definition.charts` replace;
+  tracked as a future wave.
+- **Docs.** CATALOG (`dashboards` row), SURFACES, command reference (`guides/usage`),
+  `tips/06-dashboards` (authoring section + corrected FULL-view note), ROADMAP,
+  CHANGELOG (v0.4.3).
 
 ---
 

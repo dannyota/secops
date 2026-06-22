@@ -120,6 +120,10 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 | `rules retrohunt` | Manage retrohunts (run a rule over historical data). |
 | `parsers activate <log-type> <id>` | Make a parser version ACTIVE (live ingestion switches; use `parsers versions` to find a prior id to roll back to). |
 | `dashboards duplicate <id>` | Copy a dashboard with a new `--name`/`--access` — the supported way to change the immutable `access`. |
+| `dashboards add-chart <id>` | Add a chart with a YARA-L `--query` (or `--query-file`) to a dashboard via `:addChart` — the only way to author a chart query (the dashboard body is reference-only). Guarded (`--dry-run`/`--yes`). |
+| `dashboards edit-chart <id> --chart-id <c>` | Replace a chart's YARA-L `--query` via `:editChart` (resolves the chart's query and round-trips its etag). Guarded. |
+| `dashboards remove-chart <id> --chart-id <c>` | Remove a chart from a dashboard via `:removeChart`. Guarded. |
+| `dashboards charts <id>` | List a dashboard's charts with their resolved YARA-L queries (read-only; derefs each chart → query). `--json` for the full list. |
 
 ## 🔒 SOAR — read-only
 
