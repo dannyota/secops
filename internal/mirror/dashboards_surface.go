@@ -493,7 +493,9 @@ func dashboardsUpdate(c *chronicle.Client) func(context.Context, reconcile.Objec
 func addDesiredChart(ctx context.Context, c *chronicle.Client, dashID string, ch desiredChart) error {
 	layout := ch.ChartLayout
 	if len(layout) == 0 {
-		layout = json.RawMessage(`{"startX":0,"spanX":12,"startY":0,"spanY":8}`)
+		// Native dashboards use a 96-column grid; default a chart with no layout
+		// to full width and the most common row height.
+		layout = json.RawMessage(`{"startX":0,"spanX":96,"startY":0,"spanY":16}`)
 	}
 	// The server attaches a query only when both query and interval are present,
 	// so a query authored without an interval would silently be dropped — default

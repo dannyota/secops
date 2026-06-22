@@ -179,7 +179,7 @@ func newDashboardsAddChartCmd() *cobra.Command {
 	cmd.Flags().StringVar(&queryFile, "query-file", "", "read the YARA-L query from a file")
 	cmd.Flags().StringVar(&interval, "interval", `{"relativeTime":{"timeUnit":"DAY","startTimeVal":"1"}}`, "query input interval (JSON)")
 	cmd.Flags().StringVar(&datasource, "datasource", `{"dataSources":["UDM"]}`, "chart datasource (JSON)")
-	cmd.Flags().StringVar(&layout, "layout", `{"startX":0,"spanX":12,"startY":0,"spanY":8}`, "chart layout (JSON)")
+	cmd.Flags().StringVar(&layout, "layout", `{"startX":0,"spanX":96,"startY":0,"spanY":16}`, "chart layout on the 96-column grid (JSON: startX/spanX 0–96, startY/spanY); default is full-width")
 	cmd.Flags().StringVar(&visualization, "visualization", "", "optional visualization config (JSON)")
 	cmd.Flags().StringVar(&tileType, "tile-type", "visualization", "tile type: visualization | button")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")

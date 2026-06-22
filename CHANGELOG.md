@@ -3,6 +3,16 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.4.5 — 2026-06-22
+
+### Fixed
+
+- Default chart layout for `dashboards add-chart` (and the reconcile fallback when
+  an authored chart omits its layout) is now full-width on the native-dashboard
+  **96-column grid** (`spanX: 96`, `spanY: 16`) instead of the previous `spanX: 12`,
+  which rendered a chart at one-eighth of the width. `chartLayout` `startX`/`spanX`
+  range over `0–96`. Explicit `--layout` values are unaffected.
+
 ## v0.4.4 — 2026-06-22
 
 ### Added

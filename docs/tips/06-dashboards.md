@@ -103,7 +103,10 @@ dashboard body, it is authored with dedicated chart verbs, not `push dashboards`
 - `dashboards add-chart <id> --title <t> --query <yaral>` (or `--query-file <f>`)
   adds a chart and its query in one call (`:addChart`). Layout, datasource,
   interval, and tile type default sensibly; override with `--layout` /
-  `--datasource` / `--interval` / `--tile-type`.
+  `--datasource` / `--interval` / `--tile-type`. **Layout is a 96-column grid** —
+  `chartLayout` is `{startX, spanX, startY, spanY}` where `startX`/`spanX` range
+  over `0–96` (full width is `spanX: 96`, half is `48`); `add-chart` defaults to a
+  full-width chart at the standard row height.
 - `dashboards edit-chart <id> --chart-id <c> --query <yaral>` replaces a chart's
   query (`:editChart`), round-tripping the query's etag for optimistic concurrency.
 - `dashboards remove-chart <id> --chart-id <c>` removes a chart (`:removeChart`).
