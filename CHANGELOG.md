@@ -3,6 +3,24 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.4.2 — 2026-06-22
+
+### Added
+
+- Native-dashboard **chart-query authoring** is live-validated. A dashboard's
+  `definition.charts[]` is reference-only by API design — each entry references a
+  `dashboardCharts` resource by name, and the YARA-L query lives one hop further in
+  a `dashboardQueries` resource — so `push dashboards` (wholesale `definition.charts`
+  replace) re-points chart references and layout but cannot author a chart query.
+  The query is authored through the dedicated chart ops the SDK carries:
+  `AddChart` (`:addChart`, with an inline `dashboardQuery{query,input}`),
+  `EditChart` (`:editChart`, etag-guarded), `RemoveChart`, `GetChart`, `GetQuery`.
+  Proven end to end by `TestLiveDashboardChartAuthoringWriteSmoke` (create →
+  add chart with a YARA-L query → confirm the query round-trips → confirm the
+  dashboard definition stays reference-only → edit the query → remove → delete),
+  with offline tests pinning the request shapes. Surfacing these as a CLI command
+  and dereferencing chart bodies on `pull dashboards` are tracked follow-ups.
+
 ## v0.4.1 — 2026-06-15
 
 ### Fixed

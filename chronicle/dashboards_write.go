@@ -92,8 +92,13 @@ func (c *Client) CreateDashboard(ctx context.Context, displayName, description, 
 	return &out, nil
 }
 
-// GetDashboard fetches a single dashboard. When full is true the FULL view
-// (charts + queries inlined) is requested; otherwise BASIC.
+// GetDashboard fetches a single dashboard. When full is true the FULL view (the
+// complete definition: chart references, layout, filters) is requested; otherwise
+// BASIC (the definition is a stub — no charts). Note the FULL view does NOT inline
+// the chart query bodies: definition.charts[].dashboardChart is a resource-name
+// reference to a separate dashboardChart, whose chartDatasource.dashboardQuery is a
+// further reference to a dashboardQuery (the YARA-L). Use GetChart/GetQuery to
+// dereference, or :addChart/:editChart to author them.
 //
 // dashboardID may be a bare id or a fully-qualified resource name.
 func (c *Client) GetDashboard(ctx context.Context, dashboardID string, full bool) (*NativeDashboard, error) {

@@ -1992,6 +1992,48 @@ tenant-identifier leak.
 
 ---
 
+### Wave 70 — Dashboard chart-query authoring: the `:addChart` / `:editChart` path *(done — live-validated)*
+
+`pull dashboards` is **chart-reference-only**, and the official schema shows this
+is by API design, not a pull shortcut: a dashboard's `definition.charts[]` is a
+`ChartConfig` of `{dashboardChart (string ref), chartLayout, filtersIds}` — the
+`dashboardChart` is a **resource-name reference** to a separate `dashboardCharts`
+resource, whose `chartDatasource.dashboardQuery` is in turn a reference to a
+`dashboardQueries` resource that holds the YARA-L. **The query text never lives in
+the dashboard body.** Consequently `push dashboards` (wholesale `definition.charts`
+replace) can re-point chart references and layout but **cannot author a chart
+query** — the original "replace charts wholesale, so inline authoring should work"
+hypothesis is false for the reconcile path.
+
+The query is authored through the dedicated chart ops the SDK already carries:
+
+- **`AddChart` (`nativeDashboards/<id>:addChart`)** posts `{dashboardChart,
+  chartLayout, dashboardQuery{query, input}}`; the server creates the
+  `dashboardCharts` + `dashboardQueries` resources and appends a `ChartConfig`
+  reference to the dashboard definition.
+- **`EditChart` (`:editChart`)** edits an existing query via editMask
+  `dashboard_query.query` (etag-guarded); `RemoveChart`, `GetChart`, `GetQuery`
+  round out the surface.
+
+**Live-validated** end to end on a labeled throwaway dashboard: create →
+`:addChart` with an inline YARA-L `dashboardQuery` → `getChart`/`getQuery` confirm
+the query round-trips → the dashboard definition references the chart but carries
+**no** query text (reference-only proven) → `:editChart` changes the query →
+`:removeChart` → delete (self-cleaning). Offline tests pin the request shapes
+(`AddChart` body, `EditChart` mask + name qualification).
+
+- **Disposition.** secopsctl **can** author chart queries — through
+  `addChart`/`editChart`, not the config-as-code `push dashboards` reconcile path,
+  which stays reference-only. Authoring a full chart in the SecOps UI from the same
+  queries remains a fine alternative for visual layout/series tuning.
+- **Follow-up (next wave candidate).** Surface `addChart`/`editChart` as a
+  `secopsctl dashboards` authoring command (with `--dry-run`/`--yes`), and/or expand
+  `pull dashboards` to dereference each chart into its query for a full round-trip.
+- **Docs.** CATALOG (`dashboards` row — chart-query authoring path), SURFACES
+  (native-dashboard chart/query resources), ROADMAP, CHANGELOG (v0.4.2).
+
+---
+
 ## Non-goals
 
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).

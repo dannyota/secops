@@ -130,7 +130,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
-| dashboards (native) | reconcile | ✅ | — |
+| dashboards (native) | reconcile + imperative | ✅ | reconcile is **reference-only** (`definition.charts[].dashboardChart` is a scalar resource-name ref — the YARA-L lives in separate `dashboardCharts`→`dashboardQueries`); chart-query authoring via SDK `AddChart`/`EditChart` (`:addChart`/`:editChart`, W70 live-validated). CLI command + lossless (deref-on-pull) round-trip ⬜ |
 | **data-access labels** (`dataAccessLabels`) | imperative | ✅ SDK CRUD; create→get→delete write-validated (self-cleaning smoke) | imperative, NOT reconcile: create→list lags + create-despite-error break diffing; CLI ⬜ |
 | **data-access scopes** (`dataAccessScopes`) | imperative | ✅ SDK CRUD; create→get→delete write-validated (throwaway unassigned scope) | imperative (same quirks as labels); CLI ⬜ |
 | **risk config** (`{instance}/riskConfig`) | imperative | ✅ `GetRiskConfig` + idempotent `UpdateRiskConfig` write-validated (singleton sub-resource) | path is the singleton `{instance}/riskConfig` (GET/PATCH), not a colon verb; CLI ⬜ |
