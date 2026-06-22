@@ -26,10 +26,25 @@ create/update path, so the reconcile surface **skips them entirely** (not pulled
 never planned for write). Reach for `ListNativeDashboards` directly when you want
 the lightweight inventory including curated entries.
 
-On an instance with many dashboards, the per-dashboard `FULL` fetch can hit the
-rate limit and return `429`. If a full pull rate-limits, retry; or pull a subset
-by exporting only the dashboards you need with `ExportDashboard` /
-`GetDashboard(…, full=true)` so each run fetches fewer dashboards.
+### Two pull modes: reference-only (default) vs `--with-charts`
+
+A dashboard's `FULL` view returns its charts as **references** — `definition.charts[]`
+names each chart's resource, but the YARA-L query is one hop further, in a separate
+`dashboardQuery` resource. So there are two ways to pull:
+
+- **`pull dashboards` (default)** keeps charts as references: each chart is its
+  layout + filters + a reserved `_server.chart` id. Cheap (a handful of requests for
+  the whole instance) and `drift`-deterministic. Use it for the everyday review loop.
+- **`pull dashboards --with-charts`** dereferences every chart into its inline query
+  (`title`, `query`, `interval`, `visualization`, …) so the dashboard round-trips with
+  its YARA-L intact. Heavier — a `GetChart` + `GetQuery` per chart — and on a large
+  instance it can hit the per-minute API quota; a chart that can't be fetched
+  standalone (some `404`) or that hits the quota (`429`) **degrades to a reference**,
+  so a pull never loses a dashboard. Re-pull to pick up a transiently-skipped chart.
+
+`push` and `drift` adapt to whichever shape is on disk — an inline mirror has its live
+side dereferenced to match, a reference-only mirror compares references — so you never
+phantom-diff one shape against the other.
 
 ```mermaid
 flowchart TD

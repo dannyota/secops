@@ -3,6 +3,28 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.4.4 — 2026-06-22
+
+### Added
+
+- `pull dashboards --with-charts` dereferences each chart into its inline YARA-L
+  query so a dashboard round-trips as code (the dashboard body only references
+  charts; the query lives in separate `dashboardCharts`→`dashboardQueries`
+  resources). The default `pull dashboards` stays reference-only — a handful of
+  requests and deterministic `drift` — while `--with-charts` does the heavier
+  per-chart deref; a chart that can't be fetched standalone (some 404) or that hits
+  the per-minute quota (429) degrades to a reference rather than losing the
+  dashboard. `push` and `drift` detect an inline mirror and dereference the live
+  side to match (so an inline mirror never phantom-diffs a reference-only live).
+
+### Changed
+
+- `push dashboards` of an inline mirror reconciles charts: a new chart via
+  `:addChart`, a changed query / title / visualization / drilldown via `:editChart`
+  (etag-guarded). Chart layout/filters/datasource edits, reordering, and removal are
+  reported rather than applied — edit layout in the UI and remove charts with
+  `dashboards remove-chart`. Per-chart server ids are kept out of the diff basis.
+
 ## v0.4.3 — 2026-06-22
 
 ### Added

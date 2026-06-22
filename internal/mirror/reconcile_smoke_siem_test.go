@@ -176,14 +176,14 @@ func TestLiveReconcileDataTableWriteSmoke(t *testing.T) {
 	}
 }
 
-// TestLiveReconcileDashboardWriteSmoke exercises the dashboards write loop on a
-// throwaway CUSTOM dashboard: create → write/load round-trip → update the
-// description → delete. It drives the surface closures DIRECTLY rather than
-// reconcile.Push, because the dashboards List fetches every CUSTOM dashboard in
-// FULL view — repeating that per plan rebuild can rate-limit (429) on instances
-// with many dashboards. The engine plan path itself is covered by the read round-trip and the
-// data_tables/feeds write smokes; here we validate the dashboard-specific
-// create/update/delete + canonical round-trip with a minimal call count.
+// TestLiveReconcileDashboardWriteSmoke exercises the inline dashboards write loop
+// on a throwaway CUSTOM dashboard: create (dashboard + an inline chart with a
+// YARA-L query) → write/load round-trip → edit the chart's query → delete. It
+// drives the surface closures DIRECTLY rather than reconcile.Push, because the
+// dashboards List fetches every CUSTOM dashboard in FULL view (and derefs each
+// chart), which can rate-limit (429) on instances with many dashboards. Here we
+// validate the dashboard-specific create/edit/delete + the lossless canonical
+// round-trip with a minimal call count.
 func TestLiveReconcileDashboardWriteSmoke(t *testing.T) {
 	c, ctx := liveChronicleClient(t)
 	requireSIEMSmokeWrite(t)
@@ -195,12 +195,21 @@ func TestLiveReconcileDashboardWriteSmoke(t *testing.T) {
 	label := smokeLabel("dash")
 	dir := t.TempDir()
 
-	createCanon, err := reconcile.Canonicalize(fmt.Appendf(nil,
-		`{"displayName":%q,"description":"secopsctl reconcile smoke","access":"DASHBOARD_PRIVATE","type":"CUSTOM"}`, label))
-	if err != nil {
-		t.Fatal(err)
-	}
-	local := reconcile.Object{Slug: Slugify(label), Canonical: createCanon}
+	createRaw := fmt.Appendf(nil, `{
+	  "displayName": %q,
+	  "description": "secopsctl reconcile smoke",
+	  "access": "DASHBOARD_PRIVATE",
+	  "type": "CUSTOM",
+	  "definition": {"charts": [{
+	    "title": "smoke chart",
+	    "tileType": "TILE_TYPE_VISUALIZATION",
+	    "chartLayout": {"startX": 0, "spanX": 12, "startY": 0, "spanY": 8},
+	    "datasource": {"dataSources": ["UDM"]},
+	    "query": "metadata.event_type = \"NETWORK_DNS\"",
+	    "interval": {"relativeTime": {"timeUnit": "DAY", "startTimeVal": "1"}}
+	  }]}
+	}`, label)
+	local := reconcile.Object{Slug: Slugify(label), Raw: createRaw}
 
 	deleted := false
 	var serverID string
@@ -213,7 +222,7 @@ func TestLiveReconcileDashboardWriteSmoke(t *testing.T) {
 		}
 	})
 
-	// Create (direct closure).
+	// Create — dashboard + its chart + query; the echo derefs back to the query.
 	echo, err := s.Create(ctx, local)
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -222,8 +231,12 @@ func TestLiveReconcileDashboardWriteSmoke(t *testing.T) {
 	if serverID == "" {
 		t.Fatal("create returned no ServerID")
 	}
+	if !strings.Contains(string(echo.Raw), "NETWORK_DNS") {
+		t.Errorf("created dashboard echo missing the inline chart query:\n%s", echo.Raw)
+	}
 
-	// Round-trip: write the echo, reload from disk, canonical must match.
+	// Round-trip: write the echo, reload from disk, canonical must match (a fresh
+	// pull of the just-pushed dashboard diffs clean).
 	if err := s.Write(dir, echo); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -232,22 +245,30 @@ func TestLiveReconcileDashboardWriteSmoke(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	if len(loaded) != 1 || loaded[0].ServerID != serverID {
-		t.Fatalf("round-trip: loaded %d obj (id=%v), want 1 with id %q", len(loaded), loaded, serverID)
+		t.Fatalf("round-trip: loaded %d obj, want 1 with id %q", len(loaded), serverID)
 	}
 	if !bytes.Equal(loaded[0].Canonical, echo.Canonical) {
 		t.Fatalf("create round-trip canonical mismatch:\n echo: %s\n disk: %s", echo.Canonical, loaded[0].Canonical)
 	}
 
-	// Update: edit the description, run the Update closure, confirm it applied.
-	editedCanon := json.RawMessage(strings.Replace(string(echo.Canonical),
-		"secopsctl reconcile smoke", "secopsctl reconcile smoke (edited)", 1))
-	edited := reconcile.Object{Slug: echo.Slug, ServerID: serverID, Canonical: editedCanon}
+	// Edit the chart's query in the loaded mirror (keeping its _server ids), run
+	// the Update closure, and confirm the new query reconciled via :editChart.
+	want, err := parseDesired(loaded[0].Raw)
+	if err != nil {
+		t.Fatalf("parse loaded: %v", err)
+	}
+	want.Definition.Charts[0].Query = `metadata.event_type = "USER_LOGIN"`
+	editedRaw, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edited := reconcile.Object{Slug: loaded[0].Slug, ServerID: serverID, Raw: editedRaw}
 	echo2, err := s.Update(ctx, edited, echo)
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
-	if !strings.Contains(string(echo2.Canonical), "(edited)") {
-		t.Errorf("update not applied:\n%s", echo2.Canonical)
+	if !strings.Contains(string(echo2.Raw), "USER_LOGIN") {
+		t.Errorf("query edit not applied:\n%s", echo2.Raw)
 	}
 
 	// Delete + confirm gone.

@@ -146,6 +146,11 @@ func runPush(cmd *cobra.Command, args []string) error {
 
 	if s, ok := mirror.BuildSIEMSurface(target, client); ok {
 		dir := filepath.Join(mirror.DataRoot(pushOut), s.Dir)
+		// Compare each dashboard in its own shape: an inline mirror file gets its
+		// live side dereferenced; a reference-only file is compared as references.
+		if target == "dashboards" {
+			s = mirror.DashboardsSurfaceForMirror(client, dir)
+		}
 		if err := ensureDataDir(target, dir, dryRun); err != nil {
 			return err
 		}

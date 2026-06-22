@@ -22,6 +22,10 @@ type pullTarget struct {
 	run    func(c *chronicle.Client, outDir, filter string) (int, error)
 }
 
+// pullWithCharts is the --with-charts flag: dereference dashboard charts into
+// their inline queries on pull (read by the dashboards puller).
+var pullWithCharts bool
+
 // pullOrder is the canonical target order, also used to expand "all".
 var pullOrder = []pullTarget{
 	{"rules", mirror.DirRules, func(c *chronicle.Client, out, _ string) (int, error) {
@@ -34,12 +38,16 @@ var pullOrder = []pullTarget{
 		return mirror.PullDataTables(baseContext(), c, out)
 	}},
 	{"dashboards", mirror.DirDashboards, func(c *chronicle.Client, out, _ string) (int, error) {
-		// dashboards reconcile on the engine: pull the canonical config (CUSTOM
-		// only) so a pulled snapshot pushes back via `push dashboards`. (The legacy
-		// export-envelope puller is not round-trippable through the engine.)
+		// dashboards reconcile on the engine. By default charts are kept as
+		// references (cheap, deterministic drift); --with-charts dereferences each
+		// chart into its inline YARA-L query (heavier — a GetChart + GetQuery per
+		// chart). Either snapshot pushes back via `push dashboards`.
 		s, ok := mirror.BuildSIEMSurface("dashboards", c)
 		if !ok {
 			return 0, fmt.Errorf("dashboards surface not registered")
+		}
+		if pullWithCharts {
+			s = mirror.DashboardsSurfaceDeref(c)
 		}
 		return reconcile.Pull(baseContext(), s, out, os.Stdout)
 	}},
@@ -201,6 +209,8 @@ func init() {
 		"filter expression (only used by 'curated_rules')")
 	pf.StringVar(&outDir, "out", "",
 		"output root directory for pulled artifacts (default: cwd)")
+	pf.BoolVar(&pullWithCharts, "with-charts", false,
+		"dashboards: dereference each chart into its inline YARA-L query (heavier; default keeps charts as references)")
 	// `pull <target> --help` appends the target's behavior note.
 	attachTargetHelp(pullCmd, names)
 

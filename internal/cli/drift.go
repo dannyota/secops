@@ -74,7 +74,13 @@ func newDriftCmd() *cobra.Command {
 					if !ok {
 						return fmt.Errorf("drift: SIEM surface %q not registered", name)
 					}
-					targets = append(targets, mirror.DriftTarget{Surface: s, Dir: filepath.Join(root, s.Dir)})
+					dir := filepath.Join(root, s.Dir)
+					// Compare each dashboard in its own shape (inline file → deref
+					// the live side; reference-only file → compare as references).
+					if name == "dashboards" {
+						s = mirror.DashboardsSurfaceForMirror(c, dir)
+					}
+					targets = append(targets, mirror.DriftTarget{Surface: s, Dir: dir})
 				}
 			}
 			if len(wantSOAR) > 0 {

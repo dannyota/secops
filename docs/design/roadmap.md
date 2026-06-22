@@ -2071,6 +2071,48 @@ mapping, and JSON-flag validation.
 
 ---
 
+### Wave 72 — Dashboard chart round-trip: inline deref-on-pull (`--with-charts`) *(done — live-validated; v0.4.4)*
+
+The Wave 70/71 finding was that a dashboard's `definition.charts[]` only references
+charts — the YARA-L lives a hop away in separate `dashboardCharts`→`dashboardQueries`
+resources — so a plain pull captures references, not queries. This wave makes the
+mirror able to carry the queries and reconcile them, while keeping the everyday loop
+cheap.
+
+- **`pull dashboards` is reference-only by default.** Each chart is captured as its
+  layout + filters + a `_server.chart` id, with no per-chart calls — the everyday
+  pull stays a handful of requests and `drift` is deterministic.
+- **`pull dashboards --with-charts` dereferences** every chart into the inline shape:
+  `{title, tileType, chartLayout, filtersIds, datasource, visualization, query,
+  interval, _server:{chart,query}}`. The query text now lives in the mirror. This is
+  heavier — a `GetChart` + `GetQuery` per chart — and on a large instance can hit the
+  per-minute API quota; a chart that 404s (some charts aren't retrievable standalone)
+  or 429s **degrades gracefully to a reference** so a pull never loses a dashboard.
+- **`push`/`drift` adapt to the mirror's shape.** They detect an inline mirror and
+  dereference the live side to match (so an inline local never phantom-diffs against a
+  reference-only live); a reference-only mirror reconciles dashboard-level fields only.
+- **`push` reconciles an inline mirror** via the chart ops: a new chart (no `_server`)
+  through `:addChart`, a changed query / title / visualization / drilldown through
+  `:editChart` (etag-guarded). Chart **layout/filters/datasource edits, reordering, and
+  removal are reported, not applied** by push (so a change is never silently dropped) —
+  edit layout in the UI and remove charts with `dashboards remove-chart`.
+
+Per-chart `_server` ids are stripped from the diff basis (they ride
+`dashboardExtraStrip`), so server ids never churn a diff. **Live-validated:** the
+default reference-only pull → drift is clean and fast; the engine write-smoke creates a
+dashboard with an inline chart, round-trips the canonical, edits the query via
+`:editChart`, and deletes (self-cleaning). Offline tests cover both shapes, the
+inline↔reference detection, and the no-op round-trip.
+
+- **Disposition.** Chart queries are now first-class in the mirror on demand. A fully
+  lossless layout/reorder/removal round-trip through `push` (vs the UI / the
+  `remove-chart` verb) remains the one open edge.
+- **Docs.** CATALOG (`dashboards` row), SURFACES, command reference (`guides/usage` —
+  `--with-charts`), `tips/06-dashboards` (pull modes + reconcile boundary), ROADMAP,
+  CHANGELOG (v0.4.4).
+
+---
+
 ## Non-goals
 
 - No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).
