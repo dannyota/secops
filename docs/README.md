@@ -1,19 +1,71 @@
-# secopsctl docs
+# secopsctl
 
 Operate **Google SecOps** (Chronicle SIEM + Siemplify SOAR) **as code** — one Go
-CLI and unofficial SDK. Two products, two planes, one loop.
+CLI and one importable Go SDK that treat your SIEM/SOAR the way Terraform treats
+infrastructure. The core loop is **pull live state → review the `git diff` →
+push it back**, driven by a single reconciliation engine across every surface.
+Live events, alerts, and cases are read and acted on directly — never reconciled
+from a file. It's **tenant-neutral** (nothing baked in; everything comes from one
+config file) and built for humans and LLM agents alike: deterministic flags,
+optional `--json`, a clear `--help`.
 
-## 🧭 Find your way
+> **⚠️ `pull` is read-only. Every `push` is a live production deploy.** Mutating
+> commands default to `--dry-run` and print a `LIVE DEPLOY` banner — nothing
+> changes until you pass `--yes`. Always dry-run, read it, then deploy.
 
-| Folder | For | Start here |
-|---|---|---|
-| 🧭 **[guides/](guides/)** | using `secopsctl` | [Install](guides/install.md) → [Configure & auth](guides/configure.md) → [The loop](guides/the-loop.md) · then [Triage](guides/triage.md) · [Playbooks](guides/playbooks.md) · [Rules](guides/rules.md) · [Query](guides/query.md) · [SOAR cases](guides/soar-cases.md) · [Reconcile](guides/reconcile.md) · [Go SDK](guides/sdk.md) · [Command reference](guides/usage.md) |
-| 📐 **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Catalog (status)](design/catalog.md) · [Roadmap](design/roadmap.md) |
-| 💡 **[tips/](tips/)** | the SecOps craft | [All tips](tips/README.md) — [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [dashboards](tips/06-dashboards.md) · [feeds & parsers](tips/08-feeds-parsers.md) · [SOAR ops](tips/09-soar-operations.md) |
+New here? **[Install](guides/install.md) → [Configure & auth](guides/configure.md) →
+[The loop](guides/the-loop.md).** Building it? **[Architecture](design/architecture.md).**
+Want the status of every surface? **[Catalog](design/catalog.md).**
 
-New here? [Install](guides/install.md), then the [loop](guides/the-loop.md). Building it?
-[Architecture](design/architecture.md). Unfamiliar term? [Glossary](GLOSSARY.md).
-Writing docs? [Style guide](STYLE.md).
+## ⏱️ In 60 seconds
+
+```bash
+# 1 — build the single static binary (Go ≥ 1.26)
+go install danny.vn/secops/cmd/secopsctl@latest   # or: go build -o secopsctl ./cmd/secopsctl
+
+# 2 — point it at your tenant (one-screen form → ~/.secopsctl/instance.yaml, 0600, git-ignored)
+secopsctl config
+
+# 3 — verify config + auth + both planes reach (read-only smoke test)
+secopsctl doctor
+
+# 4 — run the loop: pull live state, review it as a diff, push it back
+secopsctl pull rules
+git diff                       # ← the review surface
+secopsctl push rules-create --dry-run   # preview; add --yes to deploy
+```
+
+Two credentials, two independent planes: **SIEM** uses Google **ADC** (minted
+in-process, nothing on disk); **SOAR** uses a long-lived **AppKey**. SIEM alone
+gives a clean `doctor` — add SOAR whenever you need it. Full walkthrough,
+including where to find your four identifiers and your SOAR host:
+[Configure & auth](guides/configure.md).
+
+## 🚀 What you can do
+
+- **Config as code** — `pull` → `git diff` → `push` across SIEM and SOAR
+  surfaces (rules, reference lists, data tables, feeds, parsers, dashboards,
+  playbooks, webhooks, environments, …), reconciled by one engine with a
+  canonical diff and `--prune` to delete. See [The loop](guides/the-loop.md)
+  and [Reconcile surfaces](guides/reconcile.md).
+- **Work the queue** — case counts and server-side filters, per-case and
+  per-alert triage verbs, and the alert ⇄ case ⇄ rule bridges; AI-assisted with
+  per-alert Gemini investigations, structured case summaries, and
+  environment-grounded chat. See [Triage](guides/triage.md) and
+  [SOAR cases](guides/soar-cases.md).
+- **Playbooks end to end** — discover the authoring palette (every action, flow
+  function, trigger, block), author offline or through the API, then run, debug,
+  roll back, and promote. See [Playbooks](guides/playbooks.md).
+- **Hunt and search** — ad-hoc UDM search over events from the command line,
+  with `--json` for piping. See [Query](guides/query.md).
+- **Use it as a Go SDK** — three importable clients (pure API, no file I/O),
+  split by surface and credential; constructing one never touches the network.
+  See [Go SDK](guides/sdk.md).
+- **Built for agents** — a hard read-only mode (`SECOPS_READONLY=1` /
+  `--read-only`), `--non-interactive`, a machine-readable command catalog
+  (`secopsctl commands --json`), and a local mutation audit log, on top of the
+  dry-run-first guard on every mutating verb. See
+  [LLM & automation](tips/10-llm-and-automation.md).
 
 ## 🧩 The model in one screen
 
@@ -59,6 +111,16 @@ flowchart LR
 
 <sub>† One case, two APIs on the SOAR domain: `soar case list` defaults to the New API (v1alpha) and auto-falls back to the reliable Legacy AppKey queue. \* curated = Google-managed: read + enable/disable, not full CUD. Authoritative set + live status in [design/catalog.md](design/catalog.md).</sub>
 
+## 🧭 Find your way
+
+| Folder | For | Start here |
+|---|---|---|
+| 🧭 **[guides/](guides/)** | using `secopsctl` | [Install](guides/install.md) → [Configure & auth](guides/configure.md) → [The loop](guides/the-loop.md) · then [Triage](guides/triage.md) · [Playbooks](guides/playbooks.md) · [Rules](guides/rules.md) · [Query](guides/query.md) · [SOAR cases](guides/soar-cases.md) · [Reconcile](guides/reconcile.md) · [Go SDK](guides/sdk.md) · [Command reference](guides/usage.md) |
+| 📐 **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Surfaces](design/surfaces.md) · [Catalog (status)](design/catalog.md) · [Roadmap](design/roadmap.md) |
+| 💡 **[tips/](tips/)** | the SecOps craft | [All tips](tips/README.md) — [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [dashboards](tips/06-dashboards.md) · [feeds & parsers](tips/08-feeds-parsers.md) · [SOAR ops](tips/09-soar-operations.md) |
+
+Unfamiliar term? [Glossary](GLOSSARY.md). Writing docs? [Style guide](STYLE.md).
+
 ## 📏 The rules these docs follow
 
 - **[design/catalog.md](design/catalog.md) is the source of truth for status** — every
@@ -68,3 +130,5 @@ flowchart LR
 - **Docs land with the code** in the same change; a wrong diagram is a bug.
 - **Tenant-neutral** everywhere — placeholders only, enforced by the leak guard.
 - Full conventions: **[STYLE.md](STYLE.md)**.
+</content>
+</invoke>
