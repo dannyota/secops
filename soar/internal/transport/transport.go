@@ -66,6 +66,11 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("soar: %s request failed with HTTP %d%s: %s", e.Method, e.Status, rid, body)
 }
 
+// Retryable reports whether the failed request is safe to retry under the
+// transport's policy: a 429 (any method) or a 5xx on an idempotent method.
+// Surfaced so a structured error can tell a caller whether a retry is sound.
+func (e *Error) Retryable() bool { return retryable(e.Method, e.Status, false) }
+
 // requestIDHeaders are the response headers that may carry a server request id.
 var requestIDHeaders = []string{"X-Goog-Request-Id", "X-Request-Id", "X-Cloud-Trace-Context"}
 

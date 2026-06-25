@@ -1,13 +1,15 @@
 package mirror
 
+// Types, Surface constructors, and LIST/PULL side for the dashboards surface.
+// CREATE/UPDATE, chart reconcile helpers, validation, and small utilities live in
+// dashboards_surface_reconcile.go.
+
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"danny.vn/secops/chronicle"
@@ -39,10 +41,17 @@ import (
 // reserved top-level `_server` id. `push` reconciles:
 //   - dashboard-level fields (displayName/description/filters) via PATCH;
 //   - a new chart (no `_server`) via :addChart (creates chart + query);
-//   - a changed query/title/visualization/drilldown via :editChart (etag-guarded).
-// Chart LAYOUT/filters/datasource edits, reordering, and chart REMOVAL are not
-// applied by push — they are reported so the change is never silently dropped;
-// edit layout in the UI and remove charts with `dashboards remove-chart`.
+//   - a changed query/title/visualization/drilldown via :editChart (etag-guarded);
+//   - chart LAYOUT, filtersIds, and REORDER via a definition.charts PATCH — but
+//     ONLY when the desired and live chart SETS are identical (the PATCH replaces
+//     the charts array wholesale, so a differing set could drop a chart); a
+//     membership change defers the layout/order to the next push.
+//
+// Chart REMOVAL is REPORTED, not applied (push has no --prune gate for
+// sub-resources; deleting a chart absent from a stale mirror would destroy an
+// out-of-band edit) — remove charts explicitly with `dashboards remove-chart`.
+// Datasource edits and visualization/drilldown CLEARS are likewise reported, not
+// applied (neither editChart nor the PATCH can express them) — make those in the UI.
 
 // dashboardExtraStrip are keys dropped from the diff basis at ANY depth.
 // `dashboardUserData` is per-viewer state. `_server` is the reserved identity
@@ -121,11 +130,12 @@ func dashboardsSurfaceWith(c *chronicle.Client, derefFor func(name string) bool)
 		// (high-blast) → not prune-eligible.
 		Caps: reconcile.Capabilities{NoEtag: true},
 
-		List:    dashboardsList(c, derefFor),
-		LoadDir: loadDashboards,
-		Write:   writeDashboardObject,
-		Create:  dashboardsCreate(c),
-		Update:  dashboardsUpdate(c),
+		List:     dashboardsList(c, derefFor),
+		LoadDir:  loadDashboards,
+		Write:    writeDashboardObject,
+		Create:   dashboardsCreate(c),
+		Update:   dashboardsUpdate(c),
+		Validate: validateDashboardObject,
 		Delete: func(ctx context.Context, live reconcile.Object) error {
 			return c.DeleteDashboard(ctx, lastSegment(live.ServerID))
 		},
@@ -166,6 +176,7 @@ func dashboardsList(c *chronicle.Client, derefFor func(name string) bool) func(c
 			return reconcile.ListResult{}, err
 		}
 		res := reconcile.ListResult{}
+		degradedCharts, degradedDashboards := 0, 0
 		for _, d := range list {
 			if d.Type != "CUSTOM" {
 				continue // CURATED dashboards are read-only/unmanaged
@@ -176,11 +187,15 @@ func dashboardsList(c *chronicle.Client, derefFor func(name string) bool) func(c
 				res.Incomplete = true
 				continue
 			}
-			desired, derr := buildDesiredDashboard(ctx, c, full.Raw, derefFor(d.Name))
+			desired, degraded, derr := buildDesiredDashboard(ctx, c, full.Raw, derefFor(d.Name))
 			if derr != nil {
 				warnf("dashboards: deref %s: %v", d.DisplayName, derr)
 				res.Incomplete = true
 				continue
+			}
+			if degraded > 0 {
+				degradedCharts += degraded
+				degradedDashboards++
 			}
 			o, berr := buildDashboardObject(desired)
 			if berr != nil {
@@ -190,6 +205,16 @@ func dashboardsList(c *chronicle.Client, derefFor func(name string) bool) func(c
 			}
 			res.Objects = append(res.Objects, o)
 		}
+		// Surface degraded charts loudly: a chart that 404/429'd on the per-chart
+		// deref was kept as a reference (no query captured), so the mirror is
+		// partially reference-only. Without this the partial state is silent until a
+		// later drift. Re-pull to capture the charts that were transiently
+		// unavailable.
+		if degradedCharts > 0 {
+			warnf("dashboards: %d chart(s) across %d dashboard(s) degraded to a reference (404/429 on deref) — "+
+				"those charts' queries are NOT in the mirror; re-run `pull dashboards --with-charts` to capture them",
+				degradedCharts, degradedDashboards)
+		}
 		return res, nil
 	}
 }
@@ -198,7 +223,8 @@ func dashboardsList(c *chronicle.Client, derefFor func(name string) bool) func(c
 // desired shape. When deref is set, each chart reference is followed to its
 // dashboardChart + dashboardQuery so the query text is captured locally;
 // otherwise each chart is kept as a reference (layout + filters + _server.chart).
-func buildDesiredDashboard(ctx context.Context, c *chronicle.Client, raw json.RawMessage, deref bool) (json.RawMessage, error) {
+func buildDesiredDashboard(ctx context.Context, c *chronicle.Client, raw json.RawMessage, deref bool) (json.RawMessage, int, error) {
+	degraded := 0
 	var live struct {
 		Name        string `json:"name"`
 		DisplayName string `json:"displayName"`
@@ -215,7 +241,7 @@ func buildDesiredDashboard(ctx context.Context, c *chronicle.Client, raw json.Ra
 		} `json:"definition"`
 	}
 	if err := json.Unmarshal(raw, &live); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	var d desiredDashboard
 	d.Name, d.DisplayName, d.Description = live.Name, live.DisplayName, live.Description
@@ -244,6 +270,7 @@ func buildDesiredDashboard(ctx context.Context, c *chronicle.Client, raw json.Ra
 		if err != nil {
 			warnf("dashboards: %q chart %s not dereferenced (kept as a reference): %v",
 				live.DisplayName, lastSegment(cc.DashboardChart), err)
+			degraded++
 			d.Definition.Charts = append(d.Definition.Charts, dc)
 			continue
 		}
@@ -258,7 +285,7 @@ func buildDesiredDashboard(ctx context.Context, c *chronicle.Client, raw json.Ra
 			} `json:"chartDatasource"`
 		}
 		if err := json.Unmarshal(chartRaw, &ch); err != nil {
-			return nil, err
+			return nil, degraded, err
 		}
 		dc.Title, dc.TileType = ch.DisplayName, ch.TileType
 		dc.Visualization, dc.DrillDownConfig = ch.Visualization, ch.DrillDownConfig
@@ -271,20 +298,22 @@ func buildDesiredDashboard(ctx context.Context, c *chronicle.Client, raw json.Ra
 			qRaw, qerr := c.GetQuery(ctx, qref)
 			if qerr != nil {
 				warnf("dashboards: %q chart %q query not dereferenced: %v", live.DisplayName, dc.Title, qerr)
+				degraded++
 			} else {
 				var q struct {
 					Query string          `json:"query"`
 					Input json.RawMessage `json:"input"`
 				}
 				if err := json.Unmarshal(qRaw, &q); err != nil {
-					return nil, err
+					return nil, degraded, err
 				}
 				dc.Query, dc.Interval = q.Query, q.Input
 			}
 		}
 		d.Definition.Charts = append(d.Definition.Charts, dc)
 	}
-	return json.Marshal(d)
+	out, err := json.Marshal(d)
+	return out, degraded, err
 }
 
 // dashboardCanonical strips the root resource name (identity, carried in
@@ -374,286 +403,4 @@ func writeDashboardObject(dir string, o reconcile.Object) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, o.Slug+".json"), append(b, '\n'), 0o644)
-}
-
-func dashboardsCreate(c *chronicle.Client) func(context.Context, reconcile.Object) (reconcile.Object, error) {
-	return func(ctx context.Context, local reconcile.Object) (reconcile.Object, error) {
-		want, err := parseDesired(local.Raw)
-		if err != nil {
-			return reconcile.Object{}, err
-		}
-		created, err := c.CreateDashboard(ctx, want.DisplayName, want.Description, want.Access,
-			want.Definition.Filters, nil)
-		if err != nil {
-			return reconcile.Object{}, err
-		}
-		id := lastSegment(created.Name)
-		for _, ch := range want.Definition.Charts {
-			if err := addDesiredChart(ctx, c, id, ch); err != nil {
-				return reconcile.Object{}, fmt.Errorf("add chart %q: %w", ch.Title, err)
-			}
-		}
-		return refreshDashboard(ctx, c, id, dashboardWantsInline(local.Raw))
-	}
-}
-
-func dashboardsUpdate(c *chronicle.Client) func(context.Context, reconcile.Object, reconcile.Object) (reconcile.Object, error) {
-	return func(ctx context.Context, local, live reconcile.Object) (reconcile.Object, error) {
-		want, err := parseDesired(local.Raw)
-		if err != nil {
-			return reconcile.Object{}, err
-		}
-		have, err := parseDesired(live.Raw)
-		if err != nil {
-			return reconcile.Object{}, err
-		}
-		if want.Access != "" && have.Access != "" && want.Access != have.Access {
-			return reconcile.Object{}, fmt.Errorf(
-				"dashboards: access of %q changed (%s -> %s); access is immutable after create — recreate the dashboard to change it",
-				lastSegment(live.ServerID), have.Access, want.Access)
-		}
-		id := lastSegment(live.ServerID)
-
-		liveByID := map[string]desiredChart{}
-		for _, ch := range have.Definition.Charts {
-			if ch.Server != nil && ch.Server.Chart != "" {
-				liveByID[ch.Server.Chart] = ch
-			}
-		}
-
-		var deferred []string
-		wantIDs := map[string]bool{}
-		for _, ch := range want.Definition.Charts {
-			if ch.Server == nil || ch.Server.Chart == "" {
-				if err := addDesiredChart(ctx, c, id, ch); err != nil {
-					return reconcile.Object{}, fmt.Errorf("add chart %q: %w", ch.Title, err)
-				}
-				continue
-			}
-			wantIDs[ch.Server.Chart] = true
-			lv, ok := liveByID[ch.Server.Chart]
-			if !ok {
-				warnf("dashboards: chart %q references id %s not present live; skipping (re-pull to refresh)",
-					ch.Title, lastSegment(ch.Server.Chart))
-				continue
-			}
-			if err := editDesiredChart(ctx, c, id, ch, lv); err != nil {
-				return reconcile.Object{}, fmt.Errorf("edit chart %q: %w", ch.Title, err)
-			}
-			if !rawEqual(ch.ChartLayout, lv.ChartLayout) || !slices.Equal(ch.FiltersIds, lv.FiltersIds) {
-				deferred = append(deferred, fmt.Sprintf("layout/filters of %q", ch.Title))
-			}
-			if !rawEqual(ch.Datasource, lv.Datasource) {
-				deferred = append(deferred, fmt.Sprintf("datasource of %q", ch.Title))
-			}
-			// A field cleared to nil isn't applied by editChart (it would be an
-			// empty edit) — report it rather than silently dropping the clear.
-			if (ch.Visualization == nil && lv.Visualization != nil) || (ch.DrillDownConfig == nil && lv.DrillDownConfig != nil) {
-				deferred = append(deferred, fmt.Sprintf("visualization/drilldown clear of %q", ch.Title))
-			}
-		}
-		for cid, lv := range liveByID {
-			if !wantIDs[cid] {
-				deferred = append(deferred, fmt.Sprintf("removal of %q", lv.Title))
-			}
-		}
-		if len(deferred) > 0 {
-			warnf("dashboards: %s not reconciled by push (queries and chart content WERE applied) — "+
-				"edit layout/order/datasource in the SecOps UI, remove charts with `dashboards remove-chart`",
-				strings.Join(deferred, "; "))
-		}
-
-		upd := chronicle.DashboardUpdate{}
-		changed := false
-		if want.DisplayName != have.DisplayName {
-			upd.DisplayName = &want.DisplayName
-			changed = true
-		}
-		if want.Description != have.Description {
-			upd.Description = &want.Description
-			changed = true
-		}
-		if !rawSliceEqual(want.Definition.Filters, have.Definition.Filters) {
-			upd.Filters = nonNilRaw(want.Definition.Filters)
-			changed = true
-		}
-		if changed {
-			if _, err := c.UpdateDashboard(ctx, id, upd); err != nil {
-				return reconcile.Object{}, err
-			}
-		}
-		return refreshDashboard(ctx, c, id, dashboardWantsInline(local.Raw))
-	}
-}
-
-// --- chart reconcile helpers ------------------------------------------------
-
-// addDesiredChart creates a chart (and its query) on a dashboard via :addChart.
-// chartLayout is required by the API, so a missing one gets a default.
-func addDesiredChart(ctx context.Context, c *chronicle.Client, dashID string, ch desiredChart) error {
-	layout := ch.ChartLayout
-	if len(layout) == 0 {
-		// Native dashboards use a 96-column grid; default a chart with no layout
-		// to full width and the most common row height.
-		layout = json.RawMessage(`{"startX":0,"spanX":96,"startY":0,"spanY":16}`)
-	}
-	// The server attaches a query only when both query and interval are present,
-	// so a query authored without an interval would silently be dropped — default
-	// the interval rather than lose the query.
-	interval := ch.Interval
-	if ch.Query != "" && len(interval) == 0 {
-		interval = json.RawMessage(`{"relativeTime":{"timeUnit":"DAY","startTimeVal":"1"}}`)
-	}
-	_, err := c.AddChart(ctx, dashID, chronicle.AddChartInput{
-		DisplayName:     ch.Title,
-		TileType:        ch.TileType,
-		ChartLayout:     layout,
-		ChartDatasource: ch.Datasource,
-		Visualization:   ch.Visualization,
-		DrillDownConfig: ch.DrillDownConfig,
-		Query:           ch.Query,
-		Interval:        interval,
-	})
-	return err
-}
-
-// editDesiredChart applies the safe, reconcilable chart edits: the YARA-L
-// query/interval (dashboardQuery) and the chart's display name / visualization /
-// drilldown (dashboardChart). It does NOT touch chartDatasource (it carries the
-// query reference — editing it risks breaking the link) or layout. Etags are
-// fetched fresh right before the edit.
-func editDesiredChart(ctx context.Context, c *chronicle.Client, dashID string, want, live desiredChart) error {
-	in := chronicle.EditChartInput{}
-
-	if want.Query != live.Query || !rawEqual(want.Interval, live.Interval) {
-		if want.Server == nil || want.Server.Query == "" {
-			warnf("dashboards: chart %q has no existing query to edit; add a query via the UI or recreate the chart", want.Title)
-		} else {
-			etag := ""
-			if qRaw, err := c.GetQuery(ctx, want.Server.Query); err == nil {
-				etag = jsonField(qRaw, "etag")
-			}
-			body := map[string]any{"name": want.Server.Query, "query": want.Query, "etag": etag}
-			if want.Interval != nil {
-				body["input"] = want.Interval
-			}
-			b, err := json.Marshal(body)
-			if err != nil {
-				return err
-			}
-			in.DashboardQuery = b
-		}
-	}
-
-	// Collect the chart-resource fields that have a value to SET. A field cleared
-	// to nil (want nil, live present) is NOT sent here — clearing via editChart
-	// would otherwise yield an empty edit mask (an error); it is reported as a
-	// deferred change by the caller instead.
-	fields := map[string]any{}
-	if want.Title != live.Title {
-		fields["displayName"] = want.Title
-	}
-	if want.Visualization != nil && !rawEqual(want.Visualization, live.Visualization) {
-		fields["visualization"] = want.Visualization
-	}
-	if want.DrillDownConfig != nil && !rawEqual(want.DrillDownConfig, live.DrillDownConfig) {
-		fields["drillDownConfig"] = want.DrillDownConfig
-	}
-	if len(fields) > 0 {
-		etag := ""
-		if cRaw, err := c.GetChart(ctx, want.Server.Chart); err == nil {
-			etag = jsonField(cRaw, "etag")
-		}
-		fields["name"], fields["etag"] = want.Server.Chart, etag
-		b, err := json.Marshal(fields)
-		if err != nil {
-			return err
-		}
-		in.DashboardChart = b
-	}
-
-	if len(in.DashboardQuery) == 0 && len(in.DashboardChart) == 0 {
-		return nil
-	}
-	_, err := c.EditChart(ctx, dashID, in)
-	return err
-}
-
-// refreshDashboard re-fetches a dashboard in FULL view and rebuilds the engine
-// object (so the on-disk mirror matches live after a mutation). deref matches the
-// shape the operator is keeping — inline if their mirror carries chart queries,
-// reference-only otherwise — so a push never silently up- or down-grades the shape.
-func refreshDashboard(ctx context.Context, c *chronicle.Client, id string, deref bool) (reconcile.Object, error) {
-	full, err := c.GetDashboard(ctx, id, true)
-	if err != nil {
-		return reconcile.Object{}, err
-	}
-	desired, err := buildDesiredDashboard(ctx, c, full.Raw, deref)
-	if err != nil {
-		return reconcile.Object{}, err
-	}
-	return buildDashboardObject(desired)
-}
-
-// dashboardWantsInline reports whether an on-disk dashboard body is the inline
-// (query-bearing) shape, so a push refresh preserves it. A reference-only mirror
-// has no chart titles/queries.
-func dashboardWantsInline(raw json.RawMessage) bool {
-	d, err := parseDesired(raw)
-	if err != nil {
-		return false
-	}
-	for _, ch := range d.Definition.Charts {
-		if ch.Title != "" || ch.Query != "" {
-			return true
-		}
-	}
-	return false
-}
-
-// --- small helpers ----------------------------------------------------------
-
-func parseDesired(raw json.RawMessage) (desiredDashboard, error) {
-	var d desiredDashboard
-	err := json.Unmarshal(raw, &d)
-	return d, err
-}
-
-// rawEqual reports whether two raw JSON values are semantically equal (key order
-// normalized). Two empty values are equal.
-func rawEqual(a, b json.RawMessage) bool {
-	if len(a) == 0 && len(b) == 0 {
-		return true
-	}
-	if len(a) == 0 || len(b) == 0 {
-		return false
-	}
-	var av, bv any
-	if json.Unmarshal(a, &av) != nil || json.Unmarshal(b, &bv) != nil {
-		return bytes.Equal(a, b)
-	}
-	ab, _ := json.Marshal(av)
-	bb, _ := json.Marshal(bv)
-	return bytes.Equal(ab, bb)
-}
-
-func rawSliceEqual(a, b []json.RawMessage) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !rawEqual(a[i], b[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// nonNilRaw guarantees a non-nil slice so an absent filters list is sent as an
-// explicit empty replacement (a true wholesale replace) rather than "unchanged".
-func nonNilRaw(s []json.RawMessage) []json.RawMessage {
-	if s == nil {
-		return []json.RawMessage{}
-	}
-	return s
 }

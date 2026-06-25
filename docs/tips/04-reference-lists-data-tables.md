@@ -16,7 +16,7 @@ the same slug-file convention as everything else
 An ordered set of single-value entries referenced from a rule (e.g.
 `$ip in %trusted_ranges`). Each list is two files:
 
-```
+```text
 reference_lists/<slug>.txt    # one entry per line — the source of truth
 reference_lists/<slug>.yaml   # metadata
 ```
@@ -72,7 +72,7 @@ The preview resolves the target and prints only the entry count. Re-pull
 A multi-column, typed table — a small reference database a rule can join against.
 Each table is two files:
 
-```
+```text
 data_tables/<slug>.csv    # rows, with a header row from the column names
 data_tables/<slug>.yaml   # column types + metadata
 ```
@@ -101,7 +101,7 @@ fixed in the YAML.
 (type, name, or set of columns) does **not** silently rebuild the table — it
 **errors**:
 
-```
+```text
 data_tables: column structure of "<id>" changed; columns are immutable after
 create (delete and recreate the table to change columns)
 ```

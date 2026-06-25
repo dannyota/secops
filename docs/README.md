@@ -116,10 +116,10 @@ flowchart LR
 | Folder | For | Start here |
 |---|---|---|
 | 🧭 **[guides/](guides/)** | using `secopsctl` | [Install](guides/install.md) → [Configure & auth](guides/configure.md) → [The loop](guides/the-loop.md) · then [Triage](guides/triage.md) · [Playbooks](guides/playbooks.md) · [Rules](guides/rules.md) · [Query](guides/query.md) · [SOAR cases](guides/soar-cases.md) · [Reconcile](guides/reconcile.md) · [Go SDK](guides/sdk.md) · [Command reference](guides/usage.md) |
-| 📐 **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Surfaces](design/surfaces.md) · [Catalog (status)](design/catalog.md) · [Roadmap](design/roadmap.md) |
+| 📐 **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Surfaces](design/surfaces.md) · [Catalog (status)](design/catalog.md) |
 | 💡 **[tips/](tips/)** | the SecOps craft | [All tips](tips/README.md) — [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [dashboards](tips/06-dashboards.md) · [feeds & parsers](tips/08-feeds-parsers.md) · [SOAR ops](tips/09-soar-operations.md) |
 
-Unfamiliar term? [Glossary](GLOSSARY.md). Writing docs? [Style guide](STYLE.md).
+Unfamiliar term? [Glossary](GLOSSARY.md). Writing docs? [Style guide](STYLE.md). Running an AI agent? [`skills/secopsctl/SKILL.md`](../skills/secopsctl/SKILL.md) — the operating guide for agents driving this CLI.
 
 ## 📏 The rules these docs follow
 
@@ -130,5 +130,3 @@ Unfamiliar term? [Glossary](GLOSSARY.md). Writing docs? [Style guide](STYLE.md).
 - **Docs land with the code** in the same change; a wrong diagram is a bug.
 - **Tenant-neutral** everywhere — placeholders only, enforced by the leak guard.
 - Full conventions: **[STYLE.md](STYLE.md)**.
-</content>
-</invoke>

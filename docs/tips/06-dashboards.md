@@ -107,15 +107,88 @@ dashboard body, it is authored with dedicated chart verbs, not `push dashboards`
   `chartLayout` is `{startX, spanX, startY, spanY}` where `startX`/`spanX` range
   over `0–96` (full width is `spanX: 96`, half is `48`); `add-chart` defaults to a
   full-width chart at the standard row height.
-- `dashboards edit-chart <id> --chart-id <c> --query <yaral>` replaces a chart's
-  query (`:editChart`), round-tripping the query's etag for optimistic concurrency.
+- `dashboards edit-chart <id> --chart-id <c>` edits a chart **in place** —
+  `--query`/`--query-file` (the YARA-L), `--visualization`/`--chart-type` (the
+  chart type), and/or `--layout` (the grid position) — so changing a chart's type
+  or position no longer needs a remove + re-add that churns its id and order. The
+  query and visualization edits go through `:editChart` (etag-guarded); `--layout`
+  goes through the dashboard's `definition.charts` (chart layout is not an
+  `:editChart` field), preserving every other chart.
 - `dashboards remove-chart <id> --chart-id <c>` removes a chart (`:removeChart`).
 - `dashboards charts <id>` lists every chart with its resolved query (read-only;
   `--json` for the full list) — the way to recover a `--chart-id` or review what
   a dashboard actually runs.
 
-All three mutating verbs are guarded: dry-run by default, `--yes` to apply.
-Re-`pull dashboards` afterwards so the local mirror matches live.
+The mutating verbs are guarded: dry-run by default, `--yes` to apply. Re-`pull
+dashboards` afterwards so the local mirror matches live.
+
+### Typed charts without hand-writing the visualization
+
+`--visualization` is a raw passthrough to the chart's echarts-style object, where
+the `encode` variable names must match the query's `match:`/`outcome:` variables
+(without `$`) — a mismatch renders a silent blank chart. Instead of hand-authoring
+it, pass `--chart-type`:
+
+- `add-chart`/`edit-chart --chart-type bar|line|pie|table --x <var> --y <var>
+  [--series-by <var>]` **generates** the visualization and **validates** the encode
+  variables against the query's columns — both `outcome:` `$vars` AND bare `match:`
+  field references — so a typo fails clean up front, not as a blank chart. A pie uses
+  `itemName`/`value`; `--series-by` produces a stacked bar/line; `table` carries no
+  visualization.
+
+A chart query is an AGGREGATION (stats) query: the `match:` section groups by a
+field, the `outcome:` computes the value. Validate it first with `query stats`
+(`query udm` rejects an aggregation), then map `--x`/`--y` to those columns:
+
+```bash
+# 1. validate the aggregation returns data
+secopsctl query stats --hours 24 'metadata.event_type = "USER_LOGIN"
+match:
+  principal.hostname
+outcome:
+  $count = count(metadata.id)
+order:
+  $count desc'
+
+# 2. author a bar chart — --x is the match field, --y the outcome var (no $)
+secopsctl dashboards add-chart <dashboard-id> --title "Logins by host" \
+  --chart-type bar --x principal.hostname --y count \
+  --query 'metadata.event_type = "USER_LOGIN"
+match:
+  principal.hostname
+outcome:
+  $count = count(metadata.id)
+order:
+  $count desc' --yes
+
+# 3. confirm it renders data
+secopsctl dashboards run-chart <dashboard-id> --chart-id <chart-id>
+```
+
+### Building many charts at once
+
+- `dashboards add-charts <id> --file <charts.json>` authors a whole dashboard's
+  charts from a JSON array in one guarded run. It is validated up front, **paced**
+  (`--pace`, default 1s) to stay under the per-minute chart quota, and **idempotent**
+  — a chart whose title already exists is skipped, so a re-run after a partial
+  failure converges instead of duplicating. `add-chart --if-absent` is the
+  single-chart equivalent.
+
+### Verifying what a chart renders
+
+Authoring is only half the loop — these read back the **values** a chart produces
+(`dashboardQueries:execute`), so a blank or errored chart is caught from the CLI/CI
+instead of the UI:
+
+- `dashboards run-chart <id> --chart-id <c>` (alias `values`) executes the chart's
+  query and prints the computed rows/series (`--json` raw, `--clear-cache`,
+  `--filter`).
+- `dashboards verify <id>` executes **every** chart and flags the ones returning an
+  error or 0 rows — a headless dashboard health check that exits non-zero when any
+  chart needs attention.
+- `query stats '<aggregation YARA-L>'` runs a `match:`/`outcome:` aggregation
+  (which `query udm` rejects) and prints the result table — validate a chart's
+  stats query before authoring it.
 
 ## Don't hand-edit the JSON
 

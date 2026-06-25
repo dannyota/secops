@@ -44,7 +44,7 @@ flowchart LR
 
 The descriptor: closures the caller fills with the SDK; the engine never sees it.
 
-```
+```go
 Surface{ Name, Dir, Caps,
          List(ctx)→ListResult,          // live state (+ Incomplete flag)
          LoadDir(dir)→[]Object,         // local files
@@ -222,7 +222,7 @@ connector/job runtime cards.
 **The registry is the spine — and it is code.** Each family is one declarative
 entry in `internal/mirror/surface_families.go`:
 
-```
+```go
 SurfaceFamily{ Name, Area, Plane, Host, Auth, Generation, APIVersion, Lane, Status, SDKLocation }
 ```
 

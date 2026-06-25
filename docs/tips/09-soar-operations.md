@@ -141,5 +141,3 @@ Export and version the SOAR state that matters for review and disaster recovery:
 
 As with every other entity, the file is the reviewable artifact; the live
 instance is the thing you actually deploy to.
-</content>
-</invoke>

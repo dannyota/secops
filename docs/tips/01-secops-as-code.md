@@ -23,7 +23,7 @@ flowchart LR
 
 | Step | What it does | Side effect |
 |---|---|---|
-| **pull** | read the live instance, write local files | read-only on the tenant; **overwrites local files** — commit WIP first |
+| **pull** | read the live instance, write local files | read-only against the instance; **overwrites local files** — commit WIP first |
 | **review** | `git diff` shows live-vs-edit; the audit trail and the gate | none — a reviewer approves a diff, not a vibe |
 | **push** | apply the reviewed change to the live instance | **every `push` is a production deploy to a live SIEM** |
 | **re-pull** | pull the affected entity again after a mutation | syncs companion metadata (server IDs, `etag`, deployment state) to live |

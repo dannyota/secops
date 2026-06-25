@@ -118,7 +118,7 @@ both answer live (`chronicle/legacy.go`).
 
 ## Package layout
 
-```
+```text
 danny.vn/secops/
 │
 ├── auth/                         OAuth(ADC)  +  APIKey/SOARAppKey      ← unchanged
@@ -161,7 +161,7 @@ danny.vn/secops/
 
 ## Wire shapes actually sent — modeled as types
 
-```
+```text
 legacy/cases.go     CaseQueueRequest{ SortBy, RequestedPage, PageSize, Statuses[] }   // 1=OPEN 2=CLOSED
                     BulkCloseRequest{ CasesIDs[], CloseReason, RootCause, CloseComment, DynamicParameters[] }
                       └ CloseReason enum: 0 Malicious · 1 NotMalicious · 2 Maintenance · 3 Inconclusive · 4 Unknown

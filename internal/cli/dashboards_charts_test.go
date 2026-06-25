@@ -30,10 +30,10 @@ func TestDashboardsChartVerbsDryRun(t *testing.T) {
 		t.Errorf("add-chart dry-run output unexpected:\n%s", out)
 	}
 
-	// edit-chart: dry-run previews the replacement query.
+	// edit-chart: dry-run previews which parts change (query/viz/layout).
 	out = runDryRun(t, newDashboardsEditChartCmd(),
 		"db_1", "--chart-id", "ch_1", "--query", `metadata.event_type = "USER_LOGIN"`)
-	if !strings.Contains(out, "DRY RUN") || !strings.Contains(out, "USER_LOGIN") {
+	if !strings.Contains(out, "DRY RUN") || !strings.Contains(out, "ch_1") || !strings.Contains(out, "query=true") {
 		t.Errorf("edit-chart dry-run output unexpected:\n%s", out)
 	}
 

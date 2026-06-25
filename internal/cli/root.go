@@ -65,6 +65,16 @@ func Execute() int {
 	assignCommandGroups(rootCmd)
 	requireSubcommand(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
+		// Under --json a failure is emitted as a structured envelope on stdout so
+		// an agent/script branches on {code,message,retryable,request_id} instead
+		// of regexing the stderr prose. The exit code is unchanged.
+		if jsonOut && renderErrorJSON(err) {
+			var ec *exitCoder
+			if errors.As(err, &ec) {
+				return ec.ExitCode()
+			}
+			return 1
+		}
 		var ec *exitCoder
 		if errors.As(err, &ec) {
 			fmt.Fprintf(os.Stderr, "secopsctl: %v\n", err)
@@ -112,6 +122,7 @@ func requireSubcommand(cmd *cobra.Command) {
 var commandGroupByName = map[string]string{
 	// Setup & health.
 	"config": groupSetup, "doctor": groupSetup, "info": groupSetup, "version": groupSetup,
+	"capabilities": groupSetup,
 	// Read & query.
 	"query": groupRead, "entity": groupRead, "rules": groupRead, "curated": groupRead,
 	"alerts": groupRead, "cases": groupRead, "watchlists": groupRead, "ti": groupRead,

@@ -71,3 +71,13 @@ breaks (not `\n`) and escape literal angle brackets in labels as `&lt;`/`&gt;`.
   heading** — a table directly under a heading renders as flat pipes on the site.
 - New page under `docs/`? add it to the left-nav in `docs/_layouts/default.html`
   (hand-maintained) or it's unreachable from the site.
+
+## 📏 Length + lint (enforced)
+
+- **A doc is capped at 450 lines** (`scripts/check-lengths.sh`, in CI + pre-commit).
+  Over it → split into a focused page or trim; history survives in git. A doc that
+  becomes a long log (the old 2417-line roadmap) belongs out of `docs/` / in git
+  history, not on a reader's — or an agent's — path.
+- **Fenced code blocks must declare a language** (` ```bash `/` ```go `/` ```text `)
+  and the kramdown blank-line rules are linted by `markdownlint-cli2`
+  (`.markdownlint.jsonc`). Run `npx markdownlint-cli2 "docs/**/*.md"` before a docs PR.

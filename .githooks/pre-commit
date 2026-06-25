@@ -61,4 +61,16 @@ if [ -n "$hits" ]; then
   } >&2
   exit 1
 fi
+
+# File-length budget (CLAUDE.md §4): Markdown docs <= 450, Go source <= 700 lines.
+if [ -x scripts/check-lengths.sh ]; then
+  if ! out="$(bash scripts/check-lengths.sh 2>&1)"; then
+    {
+      echo "✋ commit blocked by the file-length budget (scripts/check-lengths.sh):"
+      printf '%s\n' "$out" | grep -E 'TOO LONG|FAIL'
+      echo "Split the file by topic (history stays in git). Override: git commit --no-verify"
+    } >&2
+    exit 1
+  fi
+fi
 exit 0

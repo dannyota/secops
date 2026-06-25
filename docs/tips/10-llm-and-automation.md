@@ -146,5 +146,3 @@ Cross-references:
 - the vendor-tag verification lesson — [07-udm-queries.md](07-udm-queries.md)
 - ingest health — [08-feeds-parsers.md](08-feeds-parsers.md)
 - SOAR case hygiene — [09-soar-operations.md](09-soar-operations.md)
-</content>
-</invoke>

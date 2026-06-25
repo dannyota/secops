@@ -197,6 +197,30 @@ type Summary struct {
 	Failed         int
 	SkippedDeletes []PlanItem
 	SkipReason     string
+	// Changes is the per-object plan (every create/update/delete, excluding
+	// unchanged) — the inspectable, serialization-friendly view of the plan an
+	// agent reads under --json before deciding to apply.
+	Changes []PlanChange
+}
+
+// PlanChange is one object's planned action without the payload bytes — the
+// JSON-friendly projection of a PlanItem.
+type PlanChange struct {
+	Action   string `json:"action"` // create | update | delete
+	Slug     string `json:"slug"`
+	ServerID string `json:"server_id,omitempty"`
+}
+
+// changesFromPlan projects the non-unchanged plan items to PlanChange.
+func changesFromPlan(p Plan) []PlanChange {
+	var out []PlanChange
+	for _, it := range p.Items {
+		if it.Action == ActionUnchanged {
+			continue
+		}
+		out = append(out, PlanChange{Action: it.Action.String(), Slug: it.Slug, ServerID: it.ServerID})
+	}
+	return out
 }
 
 // Push reconciles dir to live: Create new files, Update changed ones, and (only
@@ -211,7 +235,7 @@ func Push(ctx context.Context, s Surface, dir string, opts PushOpts, w io.Writer
 	}
 
 	creates, updates, deletes := plan.Creates(), plan.Updates(), plan.Deletes()
-	sum := Summary{Unchanged: plan.Unchanged()}
+	sum := Summary{Unchanged: plan.Unchanged(), Changes: changesFromPlan(plan)}
 
 	canPrune, reason := prunable(s, dir, opts.Prune, live.Incomplete)
 
@@ -228,6 +252,31 @@ func Push(ctx context.Context, s Surface, dir string, opts PushOpts, w io.Writer
 		fmt.Fprintf(w, "Nothing to do — %s is in sync.\n", s.Name)
 		return sum, nil
 	}
+
+	// Static validation of to-be-written objects: surface a body the server would
+	// reject NOW (in the dry-run preview) instead of as a late 400 at --yes. In a
+	// real apply an invalid object aborts before any mutation.
+	if s.Validate != nil {
+		var invalid []string
+		for _, it := range plan.Items {
+			if (it.Action == ActionCreate || it.Action == ActionUpdate) && it.Local != nil {
+				if verr := s.Validate(*it.Local); verr != nil {
+					invalid = append(invalid, fmt.Sprintf("%s: %v", it.Slug, verr))
+				}
+			}
+		}
+		if len(invalid) > 0 {
+			fmt.Fprintf(w, "\n%d object(s) fail validation:\n", len(invalid))
+			for _, m := range invalid {
+				fmt.Fprintf(w, "  INVALID  %s\n", m)
+			}
+			if !opts.DryRun {
+				return sum, fmt.Errorf("%s: %d object(s) fail validation; fix before applying", s.Name, len(invalid))
+			}
+			fmt.Fprintln(w, "(dry run: fix these before --yes — the API would reject them)")
+		}
+	}
+
 	if opts.DryRun {
 		fmt.Fprintln(w, "\nDRY RUN — no API calls made. Re-run without --dry-run to apply.")
 		// Reflect the plan in the returned Summary so callers (e.g. --json) can see

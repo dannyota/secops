@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -35,13 +36,27 @@ func markJSON(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-// commandRow is one catalog entry (the --json element shape).
+// commandRow is one catalog entry (the --json element shape). The flag detail
+// (type / default / required / enum) lets an agent build a correct invocation on
+// the first try instead of inferring a flag from training data.
 type commandRow struct {
-	Path  string   `json:"path"`            // command path without the binary name
-	Kind  string   `json:"kind"`            // "read" | "guarded-mutation"
-	JSON  bool     `json:"json"`            // honors the global --json flag
-	Short string   `json:"short"`           // one-line description
-	Flags []string `json:"flags,omitempty"` // local flag names
+	Path    string     `json:"path"`              // command path without the binary name
+	Kind    string     `json:"kind"`              // "read" | "guarded-mutation"
+	JSON    bool       `json:"json"`              // honors the global --json flag
+	Short   string     `json:"short"`             // one-line description
+	Args    string     `json:"args,omitempty"`    // positional-arg spec (from Use)
+	Example string     `json:"example,omitempty"` // a one-line invocation example
+	Flags   []flagInfo `json:"flags,omitempty"`   // local flags, with type/required/enum
+}
+
+// flagInfo describes one local flag for the catalog.
+type flagInfo struct {
+	Name     string   `json:"name"`
+	Type     string   `json:"type"` // pflag value type: string|bool|int|stringSlice|…
+	Default  string   `json:"default,omitempty"`
+	Required bool     `json:"required,omitempty"`
+	Enum     []string `json:"enum,omitempty"` // accepted values, parsed from the flag's help
+	Usage    string   `json:"usage,omitempty"`
 }
 
 func newCommandsCmd() *cobra.Command {
@@ -100,11 +115,13 @@ func collectCommands(cmd *cobra.Command, prefix string) []commandRow {
 			((c.Run != nil || c.RunE != nil) && !helpOnlyParents[c])
 		if runnable {
 			rows = append(rows, commandRow{
-				Path:  path,
-				Kind:  commandKind(c),
-				JSON:  c.Annotations[jsonAnnotation] == "true",
-				Short: c.Short,
-				Flags: localFlagNames(c),
+				Path:    path,
+				Kind:    commandKind(c),
+				JSON:    c.Annotations[jsonAnnotation] == "true",
+				Short:   c.Short,
+				Args:    positionalSpec(c),
+				Example: strings.TrimSpace(c.Example),
+				Flags:   localFlagInfos(c),
 			})
 		}
 		rows = append(rows, collectCommands(c, path)...)
@@ -122,15 +139,68 @@ func commandKind(c *cobra.Command) string {
 	return "read"
 }
 
-// localFlagNames lists the command's own flag names (not inherited globals).
-func localFlagNames(c *cobra.Command) []string {
-	var names []string
+// localFlagInfos lists the command's own flags (not inherited globals) with the
+// detail an agent needs to build a valid invocation: value type, default,
+// whether the flag is required, and any accepted-value set parsed from the help.
+func localFlagInfos(c *cobra.Command) []flagInfo {
+	var infos []flagInfo
 	c.LocalFlags().VisitAll(func(f *pflag.Flag) {
 		if f.Hidden || f.Name == "help" {
 			return
 		}
-		names = append(names, f.Name)
+		_, required := f.Annotations[cobra.BashCompOneRequiredFlag]
+		infos = append(infos, flagInfo{
+			Name:     f.Name,
+			Type:     f.Value.Type(),
+			Default:  f.DefValue,
+			Required: required,
+			Enum:     enumFromUsage(f.Usage),
+			Usage:    f.Usage,
+		})
 	})
-	sort.Strings(names)
-	return names
+	sort.Slice(infos, func(i, j int) bool { return infos[i].Name < infos[j].Name })
+	return infos
+}
+
+// positionalSpec returns the positional-argument portion of a command's Use
+// string (everything after the verb name), e.g. "update <alert-id> [<id>...]"
+// → "<alert-id> [<id>...]". Empty when the command takes no positionals.
+func positionalSpec(c *cobra.Command) string {
+	use := strings.TrimSpace(c.Use)
+	if i := strings.IndexAny(use, " \t"); i >= 0 {
+		return strings.TrimSpace(use[i+1:])
+	}
+	return ""
+}
+
+// enumPattern matches a run of pipe-separated tokens, each ≥2 chars (so an "a|b"
+// prose pipe never matches) — the idiomatic way these commands document an
+// accepted-value set (e.g. "precise|broad", "malicious | not-malicious | …").
+var enumPattern = regexp.MustCompile(`[A-Za-z][\w-]+(?:\s*\|\s*[A-Za-z][\w-]+)+`)
+
+// placeholderRE matches an angle-bracket placeholder like "<step-name|id>" — a
+// usage grammar token, not an accepted-value set, so its pipe must not be read as
+// an enum.
+var placeholderRE = regexp.MustCompile(`<[^>]*>`)
+
+// enumFromUsage extracts an accepted-value list from a flag's help text, or nil.
+// Angle-bracket placeholders are stripped first (their `|` is grammar, not an
+// enum), then the first pipe-run of ≥2-char tokens is taken. Parsing the help
+// keeps the catalog's enum in lock-step with it instead of a drift-prone registry.
+func enumFromUsage(usage string) []string {
+	run := enumPattern.FindString(placeholderRE.ReplaceAllString(usage, ""))
+	if run == "" {
+		return nil
+	}
+	parts := strings.Split(run, "|")
+	vals := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			vals = append(vals, p)
+		}
+	}
+	if len(vals) < 2 {
+		return nil
+	}
+	return vals
 }

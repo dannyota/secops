@@ -26,6 +26,7 @@ const (
 	DirDataTaps         = "datataps"
 	DirErrorNotifs      = "error_notifications"
 	DirFederation       = "federation_groups"
+	DirSavedQueries     = "saved_queries"
 )
 
 var slugRE = regexp.MustCompile(`[^A-Za-z0-9._-]+`)

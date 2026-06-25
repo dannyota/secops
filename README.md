@@ -134,7 +134,7 @@ The [docs site](https://secops.danny.vn) is organized in three folders:
 | Folder | For | Start here |
 |---|---|---|
 | [guides/](docs/guides/) | **using** secopsctl | [Install](docs/guides/install.md) → [Configure](docs/guides/configure.md) → [The loop](docs/guides/the-loop.md) · then [Triage](docs/guides/triage.md) · [Playbooks](docs/guides/playbooks.md) · [Rules](docs/guides/rules.md) · [Query](docs/guides/query.md) · [SOAR cases](docs/guides/soar-cases.md) · [Reconcile](docs/guides/reconcile.md) · [Go SDK](docs/guides/sdk.md) · [Command reference](docs/guides/usage.md) |
-| [design/](docs/design/) | **building** secopsctl | [Architecture](docs/design/architecture.md) · [Surfaces](docs/design/surfaces.md) · [Catalog (status)](docs/design/catalog.md) · [Roadmap](docs/design/roadmap.md) |
+| [design/](docs/design/) | **building** secopsctl | [Architecture](docs/design/architecture.md) · [Surfaces](docs/design/surfaces.md) · [Catalog (status)](docs/design/catalog.md) · [Roadmap](ROADMAP.md) |
 | [tips/](docs/tips/) | the SecOps **craft** | [SecOps as code](docs/tips/01-secops-as-code.md) · [YARA-L](docs/tips/03-yara-l-rules.md) · [SOAR ops](docs/tips/09-soar-operations.md) |
 
 Example UDM filters are in [`examples/queries/`](examples/queries/); unfamiliar

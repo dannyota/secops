@@ -171,87 +171,148 @@ func PushRulesCreateWithOptions(ctx context.Context, c *chronicle.Client, rulesD
 	created := 0
 	failed := 0
 	for _, cand := range valid {
-		stem := stemOf(cand.path)
-		rule, cerr := c.CreateRule(ctx, cand.text)
-		if cerr != nil {
+		if cerr := createAndDeployRule(ctx, c, cand.path, cand.text, opts, w); cerr != nil {
 			failed++
 			fmt.Fprintf(w, "  FAIL     %s: %v\n", filepath.Base(cand.path), cerr)
 			continue
 		}
-		ruleID := rule.RuleID()
-
-		// Deploy with the requested initial state. Multi-event rules (those with
-		// a match block) cannot run LIVE, so the API may return enabled=false for
-		// the default LIVE request; in that default-compatible case, re-issue at
-		// HOURLY to preserve the operator's enabled=true intent.
-		dep, derr := c.UpdateRuleDeployment(ctx, ruleID, ruleDeploymentUpdateFromCreateOptions(opts))
-		if derr != nil {
-			fmt.Fprintf(w, "  WARN %s: created but deploy failed: %v\n", stem, derr)
-			dep = nil
-		} else if opts.Enabled && opts.RunFrequency == "LIVE" && dep != nil && !dep.Enabled {
-			effective := dep.RunFrequency
-			if effective == "" || effective == "LIVE" {
-				effective = "HOURLY"
-			}
-			alerting := opts.Alerting
-			if redep, rderr := c.UpdateRuleDeployment(ctx, ruleID, chronicle.RuleDeploymentUpdate{
-				Enabled:      new(true),
-				Alerting:     &alerting,
-				RunFrequency: effective,
-			}); rderr != nil {
-				fmt.Fprintf(w, "  WARN %s: re-deploy at %s failed: %v\n", stem, effective, rderr)
-			} else {
-				dep = redep
-			}
-		}
-
-		display := rule.DisplayName
-		if display == "" {
-			display = stem
-		}
-		severity := ""
-		if rule.Severity != nil {
-			severity = rule.Severity.DisplayName
-		}
-		comp := ruleCompanion{
-			DisplayName:           display,
-			RuleID:                ruleID,
-			Name:                  rule.Name,
-			Etag:                  rule.Etag,
-			Type:                  rule.Type,
-			Severity:              severity,
-			AllowedRunFrequencies: rule.AllowedRunFrequencies,
-			TimeWindowDuration:    rule.TimeWindowDuration,
-			Deployment: deploymentMeta{
-				Enabled:      opts.Enabled,
-				Alerting:     opts.Alerting,
-				Archived:     false,
-				RunFrequency: opts.RunFrequency,
-			},
-		}
-		if dep != nil {
-			comp.Deployment = deploymentMeta{
-				Name:           dep.Name,
-				Enabled:        dep.Enabled,
-				Alerting:       dep.Alerting,
-				Archived:       dep.Archived,
-				RunFrequency:   dep.RunFrequency,
-				ExecutionState: dep.ExecutionState,
-			}
-		}
-
-		yamlPath := strings.TrimSuffix(cand.path, filepath.Ext(cand.path)) + ".yaml"
-		if werr := comp.write(yamlPath); werr != nil {
-			// The rule IS live; failing to record it locally is a real problem,
-			// but don't lose the live state silently — report and keep going.
-			fmt.Fprintf(w, "  WARN %s: created live but companion write failed: %v\n", stem, werr)
-		}
 		created++
-		fmt.Fprintf(w, "  created  %s  (%s)\n", display, ruleID)
 	}
 
 	fmt.Fprintf(w, "\nDone. %d created, %d failed.\n", created, failed)
 	return created, nil
+}
+
+// PromoteRule validates one YARA-L file, then creates AND deploys it to the
+// requested initial state in a single guarded step — the "ship a new rule" path
+// that otherwise needs `push rules-create` followed by `push rules-deploy`. It
+// refuses a file that already has a companion .yaml (that rule is tracked; use
+// rules-update / rules-deploy). Returns the number of rules promoted (0 or 1).
+func PromoteRule(ctx context.Context, c *chronicle.Client, file string, opts RulesCreateDeploymentOptions, dryRun, assumeYes bool, w io.Writer) (int, error) {
+	opts, err := normalizeRulesCreateDeploymentOptions(opts)
+	if err != nil {
+		return 0, err
+	}
+	yamlPath := strings.TrimSuffix(file, filepath.Ext(file)) + ".yaml"
+	if _, statErr := os.Stat(yamlPath); statErr == nil {
+		return 0, fmt.Errorf("%s already has a companion %s — that rule is tracked; use `push rules-update` / `push rules-deploy`, not promote",
+			filepath.Base(file), filepath.Base(yamlPath))
+	}
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		return 0, err
+	}
+	text := string(raw)
+
+	res, verr := c.ValidateRule(ctx, text)
+	switch {
+	case verr != nil:
+		return 0, fmt.Errorf("validate %s: %w", filepath.Base(file), verr)
+	case res != nil && !res.Success:
+		return 0, fmt.Errorf("validate %s: %s", filepath.Base(file), res.Message)
+	}
+
+	liveBanner(w, fmt.Sprintf("PROMOTE rule %s (create + deploy)", filepath.Base(file)))
+	fmt.Fprintf(w, "Validated %s. Would create and deploy (enabled=%v, alerting=%v, frequency=%s).\n",
+		filepath.Base(file), opts.Enabled, opts.Alerting, opts.RunFrequency)
+
+	if dryRun {
+		fmt.Fprintln(w, "DRY RUN -- no API calls made. Re-run without --dry-run to promote.")
+		return 0, nil
+	}
+	if !assumeYes {
+		fmt.Fprintln(w, "Refusing to promote without confirmation (pass --yes). Aborted.")
+		return 0, nil
+	}
+	if cerr := createAndDeployRule(ctx, c, file, text, opts, w); cerr != nil {
+		return 0, cerr
+	}
+	fmt.Fprintln(w, "\nDone. 1 promoted.")
+	return 1, nil
+}
+
+// createAndDeployRule creates one rule from YARA-L text, deploys it to the
+// requested initial state (with the multi-event LIVE→HOURLY fallback), and writes
+// the companion .yaml next to path. A non-nil error means the create failed (the
+// rule was not made); deploy/companion-write problems are reported as warnings
+// but do not fail the create, since the rule IS live. Shared by rules-create and
+// rules promote.
+func createAndDeployRule(ctx context.Context, c *chronicle.Client, path, text string, opts RulesCreateDeploymentOptions, w io.Writer) error {
+	stem := stemOf(path)
+	rule, cerr := c.CreateRule(ctx, text)
+	if cerr != nil {
+		return cerr
+	}
+	ruleID := rule.RuleID()
+
+	// Deploy with the requested initial state. Multi-event rules (those with a
+	// match block) cannot run LIVE, so the API may return enabled=false for the
+	// default LIVE request; in that default-compatible case, re-issue at HOURLY to
+	// preserve the operator's enabled=true intent.
+	dep, derr := c.UpdateRuleDeployment(ctx, ruleID, ruleDeploymentUpdateFromCreateOptions(opts))
+	if derr != nil {
+		fmt.Fprintf(w, "  WARN %s: created but deploy failed: %v\n", stem, derr)
+		dep = nil
+	} else if opts.Enabled && opts.RunFrequency == "LIVE" && dep != nil && !dep.Enabled {
+		effective := dep.RunFrequency
+		if effective == "" || effective == "LIVE" {
+			effective = "HOURLY"
+		}
+		alerting := opts.Alerting
+		if redep, rderr := c.UpdateRuleDeployment(ctx, ruleID, chronicle.RuleDeploymentUpdate{
+			Enabled:      new(true),
+			Alerting:     &alerting,
+			RunFrequency: effective,
+		}); rderr != nil {
+			fmt.Fprintf(w, "  WARN %s: re-deploy at %s failed: %v\n", stem, effective, rderr)
+		} else {
+			dep = redep
+		}
+	}
+
+	display := rule.DisplayName
+	if display == "" {
+		display = stem
+	}
+	severity := ""
+	if rule.Severity != nil {
+		severity = rule.Severity.DisplayName
+	}
+	comp := ruleCompanion{
+		DisplayName:           display,
+		RuleID:                ruleID,
+		Name:                  rule.Name,
+		Etag:                  rule.Etag,
+		Type:                  rule.Type,
+		Severity:              severity,
+		AllowedRunFrequencies: rule.AllowedRunFrequencies,
+		TimeWindowDuration:    rule.TimeWindowDuration,
+		Deployment: deploymentMeta{
+			Enabled:      opts.Enabled,
+			Alerting:     opts.Alerting,
+			Archived:     false,
+			RunFrequency: opts.RunFrequency,
+		},
+	}
+	if dep != nil {
+		comp.Deployment = deploymentMeta{
+			Name:           dep.Name,
+			Enabled:        dep.Enabled,
+			Alerting:       dep.Alerting,
+			Archived:       dep.Archived,
+			RunFrequency:   dep.RunFrequency,
+			ExecutionState: dep.ExecutionState,
+		}
+	}
+
+	yamlPath := strings.TrimSuffix(path, filepath.Ext(path)) + ".yaml"
+	if werr := comp.write(yamlPath); werr != nil {
+		// The rule IS live; failing to record it locally is a real problem, but
+		// don't lose the live state silently — report and keep going.
+		fmt.Fprintf(w, "  WARN %s: created live but companion write failed: %v\n", stem, werr)
+	}
+	fmt.Fprintf(w, "  created  %s  (%s)\n", display, ruleID)
+	return nil
 }
 
 // PushRulesDisable disables locally-tracked rules whose companion

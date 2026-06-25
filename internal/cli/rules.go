@@ -44,6 +44,7 @@ func newRulesCmd() *cobra.Command {
 		newRulesTrendsCmd(),
 		newRulesCountsCmd(),
 		newRulesEventsCmd(),
+		newRulesPromoteCmd(),
 	)
 	return cmd
 }

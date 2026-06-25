@@ -136,7 +136,7 @@ stateDiagram-v2
 Every list/search command shares: a **filter**, a **time window**, a **limit**,
 **pagination**, and an **output format**.
 
-```
+```bash
 secopsctl query udm '<udm filter>' [--hours N | --from TS --to TS] [--limit N] [--json]   # events (built)
 secopsctl alerts list [--filter EXPR] [--hours N | --from TS --to TS] [--limit N] [--json]  # alerts snapshot (built, read)
 secopsctl alerts get  <alert-id> [--detections] [--json]                                   # one alert + its SOAR case id (built, read)
@@ -168,7 +168,7 @@ default**, real apply needs `--yes`.
 **1. Per-item** — unambiguous, low blast radius. Case verbs are **built today**
 under `soar case` (Legacy AppKey, live-validated); `alerts` is the planned model:
 
-```
+```bash
 secopsctl alerts update <id> --verdict FALSE_POSITIVE --priority LOW [--comment "…"]   # planned
 secopsctl soar case describe --id N --description "triaged: benign"                    # built
 secopsctl soar case assign   --id N --user <analyst>                                   # built
@@ -179,10 +179,11 @@ secopsctl soar case close    --id N --reason "<…>" --root-cause "…"         
 
 - **Reviewed-ids (preferred).** Query → eyeball → act on the *explicit* set:
 
-  ```
+  ```bash
   secopsctl alerts list --filter '…' --json | jq -r '.[].id' > ids.txt   # review the set
   secopsctl alerts bulk close --ids @ids.txt --reason FALSE_POSITIVE --yes
   ```
+
   The operator reviewed exactly what they're acting on. `--ids` accepts
   `1,2,3` or `@file`.
 
@@ -191,10 +192,11 @@ secopsctl soar case close    --id N --reason "<…>" --root-cause "…"         
   to mutate until re-run with `--yes`, and a **`--limit` caps the blast radius**
   (refuse if the match set exceeds it unless `--limit` is raised explicitly):
 
-  ```
+  ```bash
   secopsctl <bulk verb> --filter 'rule="<noisy>" AND priority=LOW' --reason FALSE_POSITIVE --dry-run
     → "MATCHES 412 cases (cap 100). Sample: …. Re-run with --yes --limit 500 to apply."
   ```
+
   Queue bulk-close is built today as `soar push bulk-close` (a fixed reason enum);
   the generalized `--filter`/`--limit`-capped bulk model above is the planned shape.
 
@@ -213,7 +215,7 @@ bare `cases list/get/search` command reaches the chronicle-host UUID path, which
 today — prefer `soar case`. Authoritative per-command status is in
 [catalog.md](catalog.md).*
 
-```
+```text
 secopsctl query udm | alerts list/get | iocs find/get/related | ti collections/related | entity summarize # read
 secopsctl query udm '<filter>' --raw [--limit N]                                             # raw log line per matched event (UDM-scoped) -> parsers run --logs -
 secopsctl query raw '<regex>' [--unparsed] [--limit N]                                        # content-based raw log search (reaches no-parser logs) -> parsers run --logs -
@@ -250,7 +252,7 @@ the chronicle host: `soar case list` defaults to the modern New API (v1alpha,
 which returns the case **and its alerts** (each alert carries the `--alert` id the
 verbs take). Cases key on an **integer** id (`--id N`), not a UUID.
 
-```
+```text
 # query
 secopsctl soar case list  [--status open|closed|all] [--limit N] [--json] # New API, Legacy fallback (default open)
 secopsctl soar case get <id>                                              # case + its alerts (Legacy)
@@ -285,7 +287,7 @@ pieces of the operator model above are **not yet wired**: the alert **act** verb
 not run), and the generalized subset-act model on a SIEM-native namespace
 (reviewed-`--ids` preferred, `--filter` gated dry-run-first and `--limit`-capped —
 beyond today's fixed-reason `soar push bulk-close`). Both follow the same guard: read
-+ `--dry-run` previews ship first, and no `--yes` bulk mutation is trusted until a
+and `--dry-run` previews ship first, and no `--yes` bulk mutation is trusted until a
 gated live smoke runs against an inert throwaway.
 
 ## Non-goals

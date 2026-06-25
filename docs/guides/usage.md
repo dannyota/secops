@@ -61,6 +61,9 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `query nl <text>` | Translate a natural-language query to UDM and search (`--translate-only` to just print the UDM). |
 | `query gemini <question>` | Ask SecOps Gemini a question (YARA-L authoring help, UDM fields, environment-grounded answers). `--opt-in` once per account. |
 | `query raw <pattern>` | Content-based raw-log search (`searchRawLogs raw = /<pattern>/`) — prints each match's FULL raw ingested log line (for `parsers run --logs -`). Reaches logs with no parser; complements `query udm --raw`. `--unparsed` / `--hours` / `--from`,`--to` / `--limit`. |
+| `query stats <aggregation>` | Run an AGGREGATION query — one with a `match:`/`outcome:` projection (which `query udm` rejects with a 400) — and print the computed columns/rows (`--json` raw). The way to validate a dashboard chart's stats query before authoring it. Syntax: the `match:` section takes a field reference (`target.hostname`), the `outcome:` declares the value (`$c = count(metadata.id)`). Example below. |
+| `query run --file <path>` / `-` | Run a UDM predicate from a file (or stdin with `-`); blank/`#`-comment lines ignored — so a tracked `.udm` file is a runnable query. Same window/`--limit`/`--raw`/`--json` as `query udm`. |
+| `query saved [<name>]` | Run a saved query by name from the tracked `<dataRoot>/saved_queries/<name>.udm` pack, or list the pack with no name. |
 | `entity summarize <type> <value>` | Summarize an entity (alerts by rule, related entities, prevalence) over `--hours` (default 7d). |
 | `curated list` | List curated (Google-managed) rule-set deployments + enable/alerting state. |
 | `curated rules` | List the individual curated rules. |
@@ -120,10 +123,13 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 | `rules retrohunt` | Manage retrohunts (run a rule over historical data). |
 | `parsers activate <log-type> <id>` | Make a parser version ACTIVE (live ingestion switches; use `parsers versions` to find a prior id to roll back to). |
 | `dashboards duplicate <id>` | Copy a dashboard with a new `--name`/`--access` — the supported way to change the immutable `access`. |
-| `dashboards add-chart <id>` | Add a chart with a YARA-L `--query` (or `--query-file`) to a dashboard via `:addChart` — the only way to author a chart query (the dashboard body is reference-only). Guarded (`--dry-run`/`--yes`). |
-| `dashboards edit-chart <id> --chart-id <c>` | Replace a chart's YARA-L `--query` via `:editChart` (resolves the chart's query and round-trips its etag). Guarded. |
+| `dashboards add-chart <id>` | Add a chart with a YARA-L `--query` (or `--query-file`) via `:addChart` — the only way to author a chart query (the dashboard body is reference-only). `--chart-type bar\|line\|pie\|table --x <var> --y <var> [--series-by <var>]` GENERATES the visualization and validates the encode vars against the query's columns (vs hand-writing `--visualization`). `--if-absent` skips when a chart with the title exists. Guarded (`--dry-run`/`--yes`). The `<id>` is the server id in the pulled `<slug>.json` `_server` block (or from `dashboards charts`). |
+| `dashboards add-charts <id> --file <charts.json>` | Batch-author a whole dashboard's charts from a JSON array — validated up front, idempotent (existing titles skipped), `--pace`d under the chart quota. Guarded. |
+| `dashboards edit-chart <id> --chart-id <c>` | Edit a chart IN PLACE: `--query`/`--query-file` (the YARA-L), `--visualization`/`--chart-type` (the type), and/or `--layout` (grid position) — no remove+re-add churn. Guarded. |
 | `dashboards remove-chart <id> --chart-id <c>` | Remove a chart from a dashboard via `:removeChart`. Guarded. |
-| `dashboards charts <id>` | List a dashboard's charts with their resolved YARA-L queries (read-only; derefs each chart → query). `--json` for the full list. |
+| `dashboards charts <id>` | List a dashboard's charts with their resolved YARA-L queries (read-only; derefs each chart → query). `--json` for the full list — also how to recover a `--chart-id`. |
+| `dashboards run-chart <id> --chart-id <c>` | (alias `values`) Execute a chart's query (`dashboardQueries:execute`) and print the VALUES it renders — rows/series (`--json`, `--clear-cache`, `--filter`). The verify half of authoring. |
+| `dashboards verify <id>` | Execute every chart and flag the ones returning 0 rows or an error — a headless/CI dashboard health check (exit 2 if any chart needs attention). |
 
 ## 🔒 SOAR — read-only
 
@@ -403,5 +409,5 @@ secopsctl soar legacy call <write-op> --method POST --write --body req.json --ye
 - [Install](install.md) · [Configure](configure.md) · [The loop](the-loop.md)
 - [Rules](rules.md) · [Query](query.md) · [SOAR cases](soar-cases.md) · [Reconcile](reconcile.md) · [SDK](sdk.md)
 - [Architecture](../design/architecture.md) · [Surfaces](../design/surfaces.md) · [Catalog](../design/catalog.md) (surface status — source of truth)
-- [SIEM design](../design/siem.md) · [SOAR design](../design/soar.md) · [Roadmap](../design/roadmap.md)
+- [SIEM design](../design/siem.md) · [SOAR design](../design/soar.md)
 - [Glossary](../GLOSSARY.md)

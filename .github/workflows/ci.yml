@@ -59,3 +59,15 @@ jobs:
       # OSS rulesets — no login/token required. The local pre-commit gate uses
       # `semgrep --pro`; CI runs the open rulesets so it is green without secrets.
       - run: semgrep scan --config p/golang --config p/secrets --error --quiet
+
+  docs:
+    name: docs lint + length budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Lint-only (no autoformat): enforces fenced-code languages (MD040) and the
+      # kramdown blank-line rules (MD022/031/032) so the Jekyll/kramdown site never
+      # silently mis-renders a table/list. Config: .markdownlint.jsonc.
+      - run: npx --yes markdownlint-cli2 "docs/**/*.md" "ROADMAP.md" "skills/**/*.md"
+      # File-length budget: Markdown docs <= 450, Go source <= 700 lines (CLAUDE.md §4).
+      - run: ./scripts/check-lengths.sh

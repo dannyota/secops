@@ -123,78 +123,7 @@ func init() {
 			"      --from 2024-01-02T00:00:00Z --to 2024-01-03T00:00:00Z --json",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			filter := args[0]
-			// Reject a non-positive look-back before any work (only meaningful when
-			// --from is not set; an explicit window comes from --from/--to).
-			if fromTS == "" {
-				if err := checkHours(hours); err != nil {
-					return err
-				}
-			}
-			// --raw fetches a raw log per matched event, so cap conservatively unless
-			// the operator set --limit explicitly (the event-only default is 10000).
-			if raw && !cmd.Flags().Changed("limit") {
-				limit = 100
-			}
-
-			start, end, err := resolveWindow(hours, fromTS, toTS)
-			if err != nil {
-				return err
-			}
-
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-
-			events, more, err := c.SearchUDMPage(baseContext(), filter, start, end, limit)
-			if err != nil {
-				return err
-			}
-			// The server caps results at --limit; warn (to stderr, so --json stays
-			// clean for piping) when it had more so a partial set isn't mistaken
-			// for the full match.
-			if more {
-				fmt.Fprintf(os.Stderr, "warning: result truncated at --limit=%d; more events match — raise --limit or narrow the time range.\n", limit)
-			}
-
-			// --raw: download each matched event's FULL raw log and print one per line
-			// (for `parsers run --logs -`). Reuses the events already fetched: lift each
-			// raw-log id (udm.metadata.id) and fetch the complete bytes.
-			if raw {
-				ids := chronicle.RawLogIDsFromUDMEvents(events)
-				if len(ids) == 0 {
-					fmt.Fprintln(os.Stderr, "no raw logs: the matched events carry no raw-log id (or none matched)")
-					return nil
-				}
-				lines, err := c.FindRawLogLines(baseContext(), ids)
-				if err != nil {
-					return err
-				}
-				return emitRawLines(lines)
-			}
-
-			if jsonOut {
-				// Print the raw events verbatim as an indented JSON array. An
-				// empty result set is rendered as "[]".
-				if len(events) == 0 {
-					fmt.Println("[]")
-					return nil
-				}
-				b, err := json.MarshalIndent(events, "", "  ")
-				if err != nil {
-					return err
-				}
-				fmt.Println(string(b))
-				return nil
-			}
-
-			fmt.Printf("UDM search returned %d event(s).\n", len(events))
-			for i, ev := range events {
-				when, etype := udmSummary(ev)
-				fmt.Printf("  %4d  %s  %s\n", i+1, when, etype)
-			}
-			return nil
+			return runUDMQuery(args[0], hours, fromTS, toTS, limit, raw, cmd.Flags().Changed("limit"))
 		},
 	}
 

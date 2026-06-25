@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"danny.vn/secops/auth"
 	"danny.vn/secops/chronicle"
+	"danny.vn/secops/config"
 )
 
 func init() {
@@ -45,9 +47,55 @@ type doctorCheck struct {
 
 func runDoctor(cmd *cobra.Command, args []string) error {
 	ctx := baseContext()
-	var checks []doctorCheck
+	checks, allOK, cfgErr := healthChecks(ctx)
 
-	inst, cfgErr := loadInstance()
+	if jsonOut {
+		if err := emitJSON(struct {
+			OK      bool          `json:"ok"`
+			Version string        `json:"version"`
+			Checks  []doctorCheck `json:"checks"`
+		}{OK: allOK, Version: versionLine(), Checks: checks}); err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("secopsctl doctor")
+		fmt.Printf("  %-13s    %s\n", "version", versionLine())
+		for _, c := range checks {
+			switch {
+			case c.Skipped:
+				fmt.Printf("  %-13s -  %s\n", c.label, c.Detail)
+			case c.OK:
+				fmt.Printf("  %-13s ✓  %s\n", c.label, c.Detail)
+			default:
+				fmt.Printf("  %-13s ✗  %s\n", c.label, c.Error)
+				if c.Hint != "" {
+					fmt.Printf("  %-13s    ↳ %s\n", "", c.Hint)
+				}
+			}
+		}
+		fmt.Println()
+		if allOK {
+			fmt.Println("  → all checks passed.")
+		} else {
+			fmt.Println("  → some checks failed.")
+		}
+	}
+
+	if cfgErr != nil {
+		return errors.New("doctor: config check failed")
+	}
+	if !allOK {
+		return errors.New("doctor: one or more checks failed")
+	}
+	return nil
+}
+
+// healthChecks runs the config/auth/SIEM/SOAR probes and returns the per-check
+// outcomes, an all-passed flag, and the config error (if config itself failed).
+// Shared by `doctor` and the `capabilities` session-bootstrap probe.
+func healthChecks(ctx context.Context) (checks []doctorCheck, allOK bool, cfgErr error) {
+	var inst *config.Instance
+	inst, cfgErr = loadInstance()
 	if cfgErr != nil {
 		checks = append(checks, doctorCheck{Name: "config", label: "config", Error: cfgErr.Error()})
 	} else {
@@ -96,50 +144,11 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	allOK := true
+	allOK = true
 	for _, c := range checks {
 		if !c.Skipped && !c.OK {
 			allOK = false
 		}
 	}
-
-	if jsonOut {
-		if err := emitJSON(struct {
-			OK      bool          `json:"ok"`
-			Version string        `json:"version"`
-			Checks  []doctorCheck `json:"checks"`
-		}{OK: allOK, Version: versionLine(), Checks: checks}); err != nil {
-			return err
-		}
-	} else {
-		fmt.Println("secopsctl doctor")
-		fmt.Printf("  %-13s    %s\n", "version", versionLine())
-		for _, c := range checks {
-			switch {
-			case c.Skipped:
-				fmt.Printf("  %-13s -  %s\n", c.label, c.Detail)
-			case c.OK:
-				fmt.Printf("  %-13s ✓  %s\n", c.label, c.Detail)
-			default:
-				fmt.Printf("  %-13s ✗  %s\n", c.label, c.Error)
-				if c.Hint != "" {
-					fmt.Printf("  %-13s    ↳ %s\n", "", c.Hint)
-				}
-			}
-		}
-		fmt.Println()
-		if allOK {
-			fmt.Println("  → all checks passed.")
-		} else {
-			fmt.Println("  → some checks failed.")
-		}
-	}
-
-	if cfgErr != nil {
-		return errors.New("doctor: config check failed")
-	}
-	if !allOK {
-		return errors.New("doctor: one or more checks failed")
-	}
-	return nil
+	return checks, allOK, cfgErr
 }

@@ -1,0 +1,9 @@
+# Example .secopsctl-redact — pull-time secret redaction patterns (one regex per line).
+# Copy to your data root as `.secopsctl-redact`; matched substrings are masked with
+# ***REDACTED*** on pull/drift/push (drift-safe — the same patterns load on every side).
+# Blank lines and # comments are ignored.
+#
+# Inline webhook secrets that some integration actions store as plain step params:
+sig=[A-Za-z0-9%_-]+
+https://[a-z0-9.]*webhook\.office\.com/[^"]+
+https://hooks\.slack\.com/services/[^"]+

@@ -52,6 +52,7 @@ func newSOARSettingsCmd() *cobra.Command {
 				return lc.AddOrUpdateMoveCaseBetweenEnvironmentsPolicySettings
 			}),
 		newSOARAPIKeysCmd(),
+		newSOARGroupingSettingsCmd(),
 	)
 	return cmd
 }

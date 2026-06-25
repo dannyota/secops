@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 
 	"danny.vn/secops/internal/mirror"
 	"danny.vn/secops/internal/mirror/reconcile"
+	"danny.vn/secops/soar"
 	"danny.vn/secops/soar/legacy"
 )
 
@@ -143,6 +145,7 @@ func newSOAREnginePushCmd(name string) *cobra.Command {
 func newSOARBulkCloseCmd() *cobra.Command {
 	var (
 		idsArg    string
+		where     string
 		reason    string
 		rootCause string
 		comment   string
@@ -151,16 +154,41 @@ func newSOARBulkCloseCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "bulk-close",
-		Short: "Bulk-close SOAR cases by id (reason: malicious|not-malicious|maintenance|inconclusive|unknown)",
-		Args:  cobra.NoArgs,
+		Short: "Bulk-close SOAR cases by id or by a filter (reason: malicious|not-malicious|maintenance|inconclusive|unknown)",
+		Long: "Close many SOAR cases in one guarded command with a typed close-reason, root\n" +
+			"cause, and comment. Select the cases by explicit ids (--ids) or by a modern\n" +
+			"cases-list filter (--where), e.g. the stale/duplicate sets a case-hygiene job\n" +
+			"would sweep. With --where, the matching cases are listed and counted before\n" +
+			"the guard so the set is reviewable. Dry-run by default; --yes to apply.",
+		Example: "  # by id\n" +
+			"  secopsctl soar push bulk-close --ids 101,102 --reason not-malicious\n\n" +
+			"  # by filter: close a stale set with a root cause, reviewed first\n" +
+			"  secopsctl soar push bulk-close \\\n" +
+			"      --where \"status = 'OPENED' and priority = 'PRIORITY_LOW'\" \\\n" +
+			"      --reason maintenance --root-cause 'Auto-closed: stale'",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ids, err := parseIntList(idsArg)
-			if err != nil {
-				return err
+			if (idsArg == "") == (where == "") {
+				return fmt.Errorf("exactly one of --ids or --where is required")
 			}
 			cr, err := parseCloseReason(reason)
 			if err != nil {
 				return err
+			}
+			var ids []int
+			if idsArg != "" {
+				if ids, err = parseIntList(idsArg); err != nil {
+					return err
+				}
+			} else {
+				if ids, err = resolveCaseIDsByFilter(baseContext(), where); err != nil {
+					return err
+				}
+				if len(ids) == 0 {
+					fmt.Fprintf(os.Stdout, "no cases match the filter — nothing to close.\n")
+					return nil
+				}
+				fmt.Fprintf(os.Stdout, "filter matched %d case(s): %s\n", len(ids), joinInts(ids))
 			}
 			lc, err := newSOARLegacyClient()
 			if err != nil {
@@ -172,15 +200,58 @@ func newSOARBulkCloseCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&idsArg, "ids", "", "comma-separated SOAR case ids (required)")
+	f.StringVar(&idsArg, "ids", "", "comma-separated SOAR case ids (one of --ids/--where required)")
+	f.StringVar(&where, "where", "", "modern cases-list filter selecting the cases to close (alternative to --ids)")
 	f.StringVar(&reason, "reason", "maintenance", "close reason: malicious | not-malicious | maintenance | inconclusive | unknown")
 	f.StringVar(&rootCause, "root-cause", "", "close root cause")
 	f.StringVar(&comment, "comment", "", "close comment")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	_ = cmd.MarkFlagRequired("ids")
+	cmd.MarkFlagsMutuallyExclusive("ids", "where")
 	return cmd
+}
+
+// resolveCaseIDsByFilter lists cases matching a modern cases-list filter and
+// returns their integer SOAR ids (the last segment of each case resource name) —
+// the id form the legacy bulk-close endpoint takes.
+func resolveCaseIDsByFilter(ctx context.Context, filter string) ([]int, error) {
+	c, err := newSOARClient()
+	if err != nil {
+		return nil, err
+	}
+	cases, err := c.ListCasesTyped(ctx, soar.CaseListOptions{Filter: filter})
+	if err != nil {
+		return nil, fmt.Errorf("resolve --where: %w", err)
+	}
+	ids := make([]int, 0, len(cases))
+	for i := range cases {
+		id, err := soarCaseIntID(cases[i].Name)
+		if err != nil {
+			return nil, fmt.Errorf("case %q: %w", cases[i].Name, err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// soarCaseIntID parses the integer case id from a case resource name
+// (…/cases/<id>) or a bare numeric string.
+func soarCaseIntID(name string) (int, error) {
+	seg := name
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		seg = name[i+1:]
+	}
+	return strconv.Atoi(strings.TrimSpace(seg))
+}
+
+// joinInts renders an int slice as a comma-separated string for previews.
+func joinInts(xs []int) string {
+	parts := make([]string, len(xs))
+	for i, x := range xs {
+		parts[i] = strconv.Itoa(x)
+	}
+	return strings.Join(parts, ",")
 }
 
 func newSOARPlaybookSaveCmd() *cobra.Command {

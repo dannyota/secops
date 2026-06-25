@@ -35,7 +35,7 @@ its own `enabled` and `alerting` flags.
 
 `pull curated` writes a single flat snapshot:
 
-```
+```text
 curated/deployments.yaml
 ```
 
@@ -55,7 +55,7 @@ parsed back into the category / set / precision keys.
 This pulls the **full catalog** of curated rules — every rule's YARA-L source plus
 metadata — laid out by category and rule set:
 
-```
+```text
 curated/rules/<category_slug>/<rule_set_slug>/<rule_slug>.yaral
 curated/rules/<category_slug>/<rule_set_slug>/<rule_slug>.yaml
 curated/rules/_index.yaml      # lookup + counts
@@ -86,7 +86,7 @@ filename.
 The full catalog is large. `pull curated_rules --filter EXPR` passes a filter
 expression **straight through to the API**. Common forms (combine with `AND`):
 
-```
+```text
 category_name:"Cloud Threats"
 policy_name:"<rule set display name>"
 rule_precision:"Precise"

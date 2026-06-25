@@ -172,23 +172,25 @@ func runPush(cmd *cobra.Command, args []string) error {
 		}
 		if jsonOut {
 			return emitJSON(struct {
-				Target      string `json:"target"`
-				DryRun      bool   `json:"dry_run"`
-				Applied     bool   `json:"applied"`
-				Created     int    `json:"created"`
-				Updated     int    `json:"updated"`
-				Deleted     int    `json:"deleted"`
-				Unchanged   int    `json:"unchanged"`
-				Failed      int    `json:"failed"`
-				Skipped     int    `json:"skipped_deletes"`
-				SkipReason  string `json:"skip_reason,omitempty"`
-				WouldChange bool   `json:"would_change"`
+				Target      string                 `json:"target"`
+				DryRun      bool                   `json:"dry_run"`
+				Applied     bool                   `json:"applied"`
+				Created     int                    `json:"created"`
+				Updated     int                    `json:"updated"`
+				Deleted     int                    `json:"deleted"`
+				Unchanged   int                    `json:"unchanged"`
+				Failed      int                    `json:"failed"`
+				Skipped     int                    `json:"skipped_deletes"`
+				SkipReason  string                 `json:"skip_reason,omitempty"`
+				WouldChange bool                   `json:"would_change"`
+				Items       []reconcile.PlanChange `json:"items,omitempty"`
 			}{
 				Target: target, DryRun: dryRun, Applied: !dryRun && assumeYes,
 				Created: sum.Created, Updated: sum.Updated, Deleted: sum.Deleted,
 				Unchanged: sum.Unchanged, Failed: sum.Failed,
 				Skipped: len(sum.SkippedDeletes), SkipReason: sum.SkipReason,
 				WouldChange: sum.Created+sum.Updated+sum.Deleted > 0,
+				Items:       sum.Changes,
 			})
 		}
 		return nil

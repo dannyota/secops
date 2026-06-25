@@ -11,7 +11,7 @@ For the surrounding loop see [01-secops-as-code.md](01-secops-as-code.md); for h
 
 Each rule is two files sharing a slug stem:
 
-```
+```text
 rules/<slug>.yaral   # the YARA-L 2.0 rule text — this is what you edit
 rules/<slug>.yaml    # metadata + deployment state — mostly written by pull
 ```
@@ -114,7 +114,7 @@ flowchart TD
 Common flags: `--dry-run` (preview only — the effective default), `--yes` (apply
 for real), `--rules-dir DIR` (override the default `<dataRoot>/rules`).
 
-```
+```bash
 secopsctl push rules-create  [--dry-run | --yes]   # new .yaral → live rule
 secopsctl push rules-create --enabled=false --dry-run
 secopsctl push rules-create --alerting=false --run-frequency=HOURLY --dry-run

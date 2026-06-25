@@ -80,7 +80,11 @@ func newAlertsListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return emitAlerts(os.Stdout, snap)
+			if err := emitAlerts(os.Stdout, snap); err != nil {
+				return err
+			}
+			warnAlertsTruncated(snap, limit)
+			return nil
 		},
 	}
 	f := cmd.Flags()
@@ -222,16 +226,28 @@ func newAlertsUpdateCmd() *cobra.Command {
 		severity, confidence, riskScore               int
 		disregarded                                   bool
 		dryRun, yes                                   bool
+		alertWhere                                    string
+		alertStdinIDs                                 bool
+		alertWhereHours, alertWhereLimit              int
 	)
 	cmd := &cobra.Command{
-		Use:   "update <alert-id> [<alert-id>...]",
+		Use:   "update [<alert-id>...]",
 		Short: "MUTATING (guarded): set triage feedback on one or more alerts",
 		Long: "Set alert feedback — the SIEM-side disposition: status, verdict, priority,\n" +
 			"reason, reputation, scores, comment, root cause. Enum flags accept short\n" +
 			"lower-case values (closed, false-positive, high, not-malicious, …) or the\n" +
-			"full wire tokens. Several alert ids fan out the same update per id.\n" +
-			"Guarded: dry-run by default, --yes to apply.",
-		Args: cobra.MinimumNArgs(1),
+			"full wire tokens. Apply the same update to many alerts in one guarded,\n" +
+			"reviewable command: pass ids as arguments, resolve a known false-positive\n" +
+			"burst with --where <snapshot-filter>, or stream ids on stdin with --stdin-ids\n" +
+			"(the resolved set is listed before the guard). Guarded: dry-run by default,\n" +
+			"--yes to apply.",
+		Example: "  # close a false-positive burst matching a filter, reviewed first\n" +
+			"  secopsctl alerts update --where 'detection.rule_name=\"Noisy Rule\"' \\\n" +
+			"      --status closed --verdict false-positive --reason not-malicious\n\n" +
+			"  # ids from a pipeline\n" +
+			"  secopsctl alerts list --json | jq -r '.[].id' | \\\n" +
+			"    secopsctl alerts update --stdin-ids --status reviewed",
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate each enum flag against its documented set BEFORE transforming
 			// to the wire token, so the error quotes the operator's verbatim input
@@ -275,14 +291,12 @@ func newAlertsUpdateCmd() *cobra.Command {
 			if err := u.Validate(); err != nil {
 				return err
 			}
-			ids := make([]string, 0, len(args))
-			for _, a := range args {
-				if a = strings.TrimSpace(a); a != "" {
-					ids = append(ids, a)
-				}
+			ids, err := resolveAlertIDs(args, alertWhere, alertStdinIDs, alertWhereHours, alertWhereLimit)
+			if err != nil {
+				return err
 			}
 			if len(ids) == 0 {
-				return fmt.Errorf("at least one non-empty alert id is required")
+				return fmt.Errorf("no alert ids — pass ids as arguments, --where <filter>, or --stdin-ids")
 			}
 			action := fmt.Sprintf("alerts update %s (%s)", strings.Join(ids, ","), describeAlertUpdate(u))
 			return guardedSIEMMutation(action, dryRun, yes, func() error {
@@ -307,10 +321,73 @@ func newAlertsUpdateCmd() *cobra.Command {
 	f.BoolVar(&disregarded, "disregarded", false, "mark the alert disregarded (=false to clear)")
 	f.StringVar(&comment, "comment", "", "analyst comment (an explicit empty string clears it)")
 	f.StringVar(&rootCause, "root-cause", "", "root cause (an explicit empty string clears it)")
+	f.StringVar(&alertWhere, "where", "", "resolve target alert ids from a server-side snapshot filter (a known FP burst)")
+	f.BoolVar(&alertStdinIDs, "stdin-ids", false, "read additional alert ids from stdin, one per line (# / blank lines skipped)")
+	f.IntVar(&alertWhereHours, "hours", 24, "--where: look-back window in hours for resolving ids")
+	f.IntVar(&alertWhereLimit, "limit", 1000, "--where: max alerts to resolve (a larger burst is reported, not silently dropped)")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return markJSON(cmd)
+}
+
+// resolveAlertIDs gathers the target alert ids for a bulk update from up to three
+// sources — positional args, stdin (--stdin-ids), and a server-side --where
+// snapshot filter — deduplicating while preserving first-seen order. The resolved
+// set is printed to stderr so it is reviewable before the guard in every mode.
+func resolveAlertIDs(args []string, where string, stdinIDs bool, hours, limit int) ([]string, error) {
+	seen := map[string]bool{}
+	var ids []string
+	add := func(id string) {
+		if id = strings.TrimSpace(id); id != "" && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	for _, a := range args {
+		add(a)
+	}
+	if stdinIDs {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("read --stdin-ids: %w", err)
+		}
+		for line := range strings.SplitSeq(string(data), "\n") {
+			if t := strings.TrimSpace(line); t != "" && !strings.HasPrefix(t, "#") {
+				add(t)
+			}
+		}
+	}
+	if where != "" {
+		if err := checkHours(hours); err != nil {
+			return nil, err
+		}
+		c, err := newChronicleClient()
+		if err != nil {
+			return nil, err
+		}
+		start, end := timeWindow(hours)
+		snap, err := c.GetAlerts(baseContext(), start, end, limit, where, "", nil)
+		if err != nil {
+			return nil, fmt.Errorf("resolve --where: %w", err)
+		}
+		// Refuse a partial mutation: if the filter matched more alerts than the
+		// snapshot returned (capped at --limit), applying to the subset would
+		// silently leave the rest untouched while the command reports success.
+		if limit > 0 && len(snap.Alerts) >= limit && snap.FilteredAlertsCount > len(snap.Alerts) {
+			return nil, fmt.Errorf("--where matched %d alerts but only %d were resolved (--limit=%d); "+
+				"raise --limit to cover them all (or narrow --where / the window) — refusing a partial update",
+				snap.FilteredAlertsCount, len(snap.Alerts), limit)
+		}
+		for i := range snap.Alerts {
+			add(snap.Alerts[i].ID)
+		}
+	}
+	if len(ids) > 0 && (where != "" || stdinIDs) {
+		// Show exactly what will be updated before the guard banner.
+		fmt.Fprintf(os.Stderr, "resolved %d alert(s) to update: %s\n", len(ids), strings.Join(ids, " "))
+	}
+	return ids, nil
 }
 
 // describeAlertUpdate renders the set fields of an update for the guard preview.
@@ -382,8 +459,25 @@ func emitAlerts(w io.Writer, snap *chronicle.AlertsSnapshot) error {
 	if snap.FilteredAlertsCount > len(snap.Alerts) {
 		fmt.Fprintf(w, " (of %d filtered)", snap.FilteredAlertsCount)
 	}
+	if snap.BaselineAlertsCount > snap.FilteredAlertsCount {
+		fmt.Fprintf(w, " — %d in the window before the filter", snap.BaselineAlertsCount)
+	}
 	fmt.Fprintln(w, ".")
 	return nil
+}
+
+// warnAlertsTruncated surfaces a completeness signal when the snapshot was capped
+// at --limit and more alerts match. The alerts API is a polling snapshot with no
+// server cursor, so the only way to "page" is to raise --limit or narrow the
+// window — say so explicitly (on stderr, so a --json stdout stays clean) rather
+// than letting a truncated view read as complete.
+func warnAlertsTruncated(snap *chronicle.AlertsSnapshot, limit int) {
+	if limit > 0 && len(snap.Alerts) >= limit && snap.FilteredAlertsCount > len(snap.Alerts) {
+		fmt.Fprintf(os.Stderr,
+			"warning: showing %d of %d matching alerts — capped at --limit=%d. "+
+				"The alerts snapshot has no cursor; raise --limit or narrow --hours/--from for the full set.\n",
+			len(snap.Alerts), snap.FilteredAlertsCount, limit)
+	}
 }
 
 // alertCreated returns the alert's best available creation time — the legacy

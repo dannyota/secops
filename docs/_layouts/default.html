@@ -215,10 +215,11 @@
       <ul>
         <li><a href="{{ '/design/architecture/' | relative_url }}"{% if page.url contains '/design/architecture' %} class="on"{% endif %}>Architecture</a></li>
         <li><a href="{{ '/design/surfaces/' | relative_url }}"{% if page.url contains '/design/surfaces' %} class="on"{% endif %}>Surfaces</a></li>
-        <li><a href="{{ '/design/catalog/' | relative_url }}"{% if page.url contains '/design/catalog' %} class="on"{% endif %}>Catalog (status)</a></li>
+        <li><a href="{{ '/design/catalog/' | relative_url }}"{% if page.url == '/design/catalog/' %} class="on"{% endif %}>Catalog (status)</a></li>
+        <li><a href="{{ '/design/catalog-siem/' | relative_url }}"{% if page.url contains '/design/catalog-siem' %} class="on"{% endif %}>Catalog — SIEM detail</a></li>
+        <li><a href="{{ '/design/catalog-soar/' | relative_url }}"{% if page.url contains '/design/catalog-soar' %} class="on"{% endif %}>Catalog — SOAR detail</a></li>
         <li><a href="{{ '/design/siem/' | relative_url }}"{% if page.url contains '/design/siem' %} class="on"{% endif %}>SIEM</a></li>
         <li><a href="{{ '/design/soar/' | relative_url }}"{% if page.url contains '/design/soar' %} class="on"{% endif %}>SOAR</a></li>
-        <li><a href="{{ '/design/roadmap/' | relative_url }}"{% if page.url contains '/design/roadmap' %} class="on"{% endif %}>Roadmap</a></li>
       </ul>
       <p class="title sec">reference/</p>
       <ul>

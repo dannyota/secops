@@ -141,12 +141,19 @@ func newCuratedSetCmd() *cobra.Command {
 			if upd.Enabled == nil && upd.Alerting == nil {
 				return fmt.Errorf("nothing to set: pass --enabled and/or --alerting")
 			}
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			// Blast-radius preview: show the current → requested state of THIS
+			// precision deployment and note the sibling precision is untouched, so the
+			// operator sees exactly what a set×precision flip changes before --yes.
+			// Best-effort (a read) — a lookup failure never blocks the toggle.
+			if !jsonOut {
+				printCuratedBlastRadius(baseContext(), c, category, ruleSet, precision, upd)
+			}
 			action := fmt.Sprintf("curated set %s/%s/%s -> %s", category, ruleSet, precision, describeCuratedUpd(upd))
 			return guardedSIEMMutation(action, dryRun, yes, func() error {
-				c, err := newChronicleClient()
-				if err != nil {
-					return err
-				}
 				_, err = c.UpdateCuratedRuleSetDeployment(baseContext(), category, ruleSet, precision, upd)
 				return err
 			})
@@ -165,6 +172,46 @@ func newCuratedSetCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("ruleset")
 	_ = cmd.MarkFlagRequired("precision")
 	return markJSON(cmd)
+}
+
+// printCuratedBlastRadius previews what a `curated set` toggle changes: the
+// current enabled/alerting state of the addressed precision deployment, the
+// requested transition, and a reminder that a curated deployment is set ×
+// precision (so the sibling precision is unaffected and per-rule control does not
+// exist — a platform limit). Best-effort: any lookup error is a note, not a stop.
+func printCuratedBlastRadius(ctx context.Context, c *chronicle.Client, category, ruleSet, precision string, upd chronicle.CuratedDeploymentUpdate) {
+	deps, err := c.ListCuratedRuleSetDeployments(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "note: could not read current curated state (%v); preview shows the requested change only\n", err)
+		return
+	}
+	var cur *chronicle.CuratedRuleSetDeployment
+	for i := range deps {
+		cat, rs, prec, perr := chronicle.ParseCuratedDeploymentName(deps[i].Name)
+		if perr == nil && cat == category && rs == ruleSet && strings.EqualFold(prec, precision) {
+			cur = &deps[i]
+			break
+		}
+	}
+	// To stderr: a preview aid, kept off stdout so a --json caller's stdout stays
+	// clean (it is also gated on !jsonOut at the call site).
+	w := os.Stderr
+	fmt.Fprintf(w, "blast radius — curated deployment %s/%s/%s:\n", category, ruleSet, precision)
+	if cur == nil {
+		fmt.Fprintln(w, "  current: (deployment not found in the live list; the toggle creates/sets it)")
+	} else {
+		fmt.Fprintf(w, "  current: enabled=%v alerting=%v\n", cur.Enabled, cur.Alerting)
+		transition := func(field string, from bool, to *bool) {
+			if to != nil && *to != from {
+				fmt.Fprintf(w, "  change : %s %v -> %v\n", field, from, *to)
+			}
+		}
+		transition("enabled", cur.Enabled, upd.Enabled)
+		transition("alerting", cur.Alerting, upd.Alerting)
+	}
+	fmt.Fprintln(w, "  scope  : a curated deployment is set × precision — the other precision and per-rule")
+	fmt.Fprintln(w, "           state are unaffected (no per-rule toggle exists). See `curated trends` /")
+	fmt.Fprintln(w, "           `curated detections` for this set's recent detection volume.")
 }
 
 // curatedRows lists every deployment and joins it with category/rule-set display
@@ -246,7 +293,7 @@ func guardedSIEMMutation(action string, dryRunFlag, yesFlag bool, do func() erro
 	fmt.Fprintf(w, "!! Action: %s\n", action)
 	fmt.Fprintln(w, bar)
 	if dryRun {
-		fmt.Fprintln(w, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+		fmt.Fprintln(w, "DRY RUN -- no changes applied. Re-run with --yes to apply.")
 		return nil
 	}
 	if !assumeYes {

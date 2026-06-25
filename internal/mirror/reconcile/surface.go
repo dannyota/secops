@@ -75,4 +75,11 @@ type Surface struct {
 	Create func(ctx context.Context, local Object) (Object, error)
 	Update func(ctx context.Context, local, live Object) (Object, error)
 	Delete func(ctx context.Context, live Object) error
+
+	// Validate, when set, statically checks a to-be-written (Create/Update) local
+	// object's shape BEFORE any API call, so a body the server would reject at
+	// --yes surfaces in the dry-run preview instead of as a late 400. A nil hook
+	// means no extra validation (the diff is the only check). Best-effort and
+	// structural — it is not a substitute for the server's own validation.
+	Validate func(local Object) error
 }

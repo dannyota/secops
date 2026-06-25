@@ -1,0 +1,31 @@
+// markdownlint config — LINT-ONLY (no autoformat; the docs are hand-wrapped and a
+// reflow would create a huge noisy diff and fight the style). The value here is
+// (1) MD040: every code fence must declare a language, and (2) regression-proofing
+// the kramdown blank-line rules (a table/list/heading/fence without a surrounding
+// blank line renders as flat text on the Jekyll/kramdown site).
+{
+  "default": true,
+
+  // ── Disabled: too much churn or doesn't fit the intentional style ──
+  "MD013": false, // line length — long table rows + command examples are intentional
+  "MD033": false, // inline HTML — <br/> in mermaid labels, <sub>, <...> placeholders
+  "MD024": false, // duplicate headings — Goal/Scope/Exit repeat across wave sections
+  "MD026": false, // trailing punctuation in headings — wave headings end in ")"
+  "MD028": false, // blank line in blockquote — multi-paragraph > blocks are intentional
+  "MD036": false, // emphasis-as-heading — **bold** is used as an in-list section marker
+  "MD041": false, // first line need not be a top heading (some files open with a note)
+  "MD060": false, // table pipe-spacing style — compact "|---|" separators are intentional
+  "MD056": false, // table column count — the catalog's dense cells embed `a|b` code spans
+                  //   (pipes inside backticks); renders on kramdown, pervasive, huge churn
+  "MD038": false, // spaces in code spans — same dense-cell pipe artifact as MD056
+
+  // ── Enabled / tuned: the actual value ──
+  "MD004": { "style": "dash" }, // list markers: enforce "-" (prevents "*" drift)
+  "MD022": true,                // blank line around headings (kramdown)
+  "MD031": true,                // blank line around fenced code (kramdown)
+  "MD032": true,                // blank line around lists (kramdown)
+  "MD040": true,                // fenced code blocks MUST declare a language
+  "MD010": { "code_blocks": false }, // no hard tabs in PROSE (Go code blocks use tabs — allowed)
+  "MD049": { "style": "asterisk" },
+  "MD050": { "style": "asterisk" }
+}

@@ -47,7 +47,7 @@ string uses a word you don't recognize.
 | **AppKey path / "the reliable path"** | The Legacy SOAR API. It's the most complete and dependable surface, so case and most SOAR work runs on it. |
 | **v1 / v1beta / v1alpha** | Google API versions. Newer surfaces are often only on `v1alpha`. "Prefer v1 > v1beta > v1alpha" just means "use the newest version that actually works for that endpoint." You never set this — `secopsctl` pins each Chronicle-host surface to its working version in one place (`chronicle/versions.go`). (The SOAR host serves v1alpha only, so the ladder doesn't apply there.) |
 
-## Status markers (in catalog.md, surfaces.md, roadmap.md)
+## Status markers (in catalog.md, surfaces.md, ROADMAP.md)
 
 | Marker | Meaning |
 |:-:|---|
@@ -62,7 +62,7 @@ string uses a word you don't recognize.
 
 | Term | What it means for you |
 |---|---|
-| **Wave N** | A planned phase of work in [ROADMAP.md](design/roadmap.md). Just sequencing context — "Wave 7" tells you when a feature landed, nothing you need to act on. |
+| **Wave N** | A planned phase of work in [ROADMAP.md](../ROADMAP.md). Just sequencing context — "Wave 7" tells you when a feature landed, nothing you need to act on. |
 | **dataRoot** (a.k.a. `<dataRoot>`) | The local directory the mirror reads and writes — the current working directory by default. `pull` writes `./rules`, `./reference_lists`, `./data_tables`, etc. under it; `push` and `drift` read from it. Override with `--out` (and `--rules-dir` for the rules folder specifically). |
 | **slug** | The filename for an object, derived from its display name. The real server id lives in the companion `.yaml`/`.json`, so renaming a slug file casually can mean delete-and-recreate on `push` — rename with care. |
 | **companion YAML/JSON** | The metadata file beside a pulled object (e.g. `<rule>.yaral` + `<rule>.yaml`) holding its server id, etag, and deployment state. |

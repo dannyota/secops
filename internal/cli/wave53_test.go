@@ -133,7 +133,7 @@ func TestGuardFlagPairInvariant(t *testing.T) {
 	for _, r := range collectCommands(rootCmd, "") {
 		hasYes, hasDry := false, false
 		for _, f := range r.Flags {
-			switch f {
+			switch f.Name {
 			case "yes":
 				hasYes = true
 			case "dry-run":

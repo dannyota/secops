@@ -28,17 +28,21 @@ func init() {
 func newCasesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cases <verb>",
-		Short: "Extra: read a case on the Chronicle host by UUID (this path 500s today — prefer `soar case`)",
-		Long: "Reach a case on the Chronicle host (chronicle.googleapis.com, ADC) by UUID.\n" +
-			"This collection currently 500s at every API version, so for case work use\n" +
-			"`soar case` — the same case on the SOAR host, where it works. Reads only here.",
+		Short: "Bridge a SIEM case UUID to its SOAR case id (the Chronicle-host case path)",
+		Long: "Operate cases on the Chronicle host (chronicle.googleapis.com, ADC). The only\n" +
+			"working verb here is `cases soar-id`, which maps a SIEM case UUID to the SOAR\n" +
+			"integer id every `soar case` verb needs. For all other case work use\n" +
+			"`soar case` — the same case on the SOAR host, where it works.\n\n" +
+			"The Chronicle-host cases collection (list / get / search) currently 500s at\n" +
+			"every API version, so those verbs are hidden from help (still runnable for the\n" +
+			"day the endpoint stabilizes; `secopsctl surfaces` reports the surface blocked).",
 	}
-	cmd.AddCommand(
-		newCasesListCmd(),
-		newCasesGetCmd(),
-		newCasesSearchCmd(),
-		newCasesSoarIDCmd(),
-	)
+	// The Chronicle-host list/get/search 500 today; hide them so the surface stops
+	// reading as usable, but keep them runnable for when the endpoint stabilizes.
+	// `cases soar-id` (the uuid→id bridge) is the working verb and stays visible.
+	list, get, search := newCasesListCmd(), newCasesGetCmd(), newCasesSearchCmd()
+	list.Hidden, get.Hidden, search.Hidden = true, true, true
+	cmd.AddCommand(list, get, search, newCasesSoarIDCmd())
 	return cmd
 }
 

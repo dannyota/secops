@@ -49,6 +49,11 @@ func requestIDFromHeader(h http.Header) string {
 	return ""
 }
 
+// Retryable reports whether the failed request is safe to retry under the
+// transport's policy: a 429 (any method) or a 5xx on an idempotent method.
+// Surfaced so a structured error can tell a caller whether a retry is sound.
+func (e *APIError) Retryable() bool { return retryable(e.Method, e.Status, false) }
+
 // IsNotFound reports whether err is an APIError with a 404 status. Useful for
 // the numeric-vs-string project-form fallback.
 func IsNotFound(err error) bool {

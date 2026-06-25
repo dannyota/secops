@@ -3,6 +3,64 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.5.0 — 2026-06-25
+
+An operator-experience and agent-enablement milestone (Waves 73–83): the CLI's
+own surface becomes machine-discoverable, daily triage scales, deploy previews
+get more honest, the last config-as-code fidelity edges close, and dashboard
+authoring gains a verify half. Built, offline-tested, and live-validated against
+an instance; every mutation stays behind the standard dry-run/`--yes` guard.
+
+### Added
+
+- **Agent enablement.** `secopsctl capabilities [--json|--offline]` — one
+  session-bootstrap call fusing version, per-plane auth health, read-only state,
+  and a surface-status rollup (validated vs blocked). `commands --json` now
+  carries per-flag `{type, default, required, enum, usage}`, positional-arg spec,
+  and an example per command. A failed command under `--json` emits a structured
+  `{code, message, retryable, status, request_id}` envelope on stderr (so stdout
+  stays clean for the payload). `push --json` dry-run includes a per-object change
+  plan (`items[]`).
+- **secopsctl Claude Code skill** shipped in-repo (`skills/secopsctl/SKILL.md`),
+  pointing at the machine-readable surface as its source of truth.
+- **Query library.** `query run --file <path>|-` and `query saved [<name>]` run a
+  UDM predicate from a file/stdin or from a tracked `saved_queries/` pack.
+- **Alert triage at scale.** `alerts update --where <filter>` / `--stdin-ids`
+  apply one update to many alerts in a reviewed, guarded command; `alerts list`
+  surfaces a completeness signal (baseline count + a truncation warning — the
+  alerts snapshot has no server cursor).
+- **Bulk case close from a filter.** `soar push bulk-close --where <filter>`
+  selects cases by a modern cases-list filter with a typed close-reason.
+- **Rule promote.** `rules promote <file.yaral>` validates, creates, and deploys
+  a new rule in one guarded step.
+- **Curated blast-radius preview.** `curated set` previews the addressed
+  deployment's current → requested state and the set×precision scope before the
+  guard.
+- **Dashboard reconcile completion.** A schema-checked dry-run (an API-invalid
+  body now fails the preview, not just at `--yes`); chart layout / filters /
+  reorder / removal reconcile through `push`; `pull --with-charts` reports the
+  count of charts that degraded to a reference.
+- **Grouping settings.** `soar settings grouping get` reads the alert-grouping
+  General/Overflow settings singleton (the legacy max-alerts value plus any modern
+  moduleSettings properties); guarded `set` writes where the instance exposes
+  writable properties (the max-alerts singleton is read-mostly — no API SET).
+- **Query stats.** `query stats '<match:/outcome: YARA-L>'` runs an aggregation
+  query (which `query udm` rejects) and prints the result table — validate a chart
+  query before authoring it.
+- **Dashboard chart execute & verify.** `dashboards run-chart`/`values` prints the
+  values a chart renders; `dashboards verify` flags empty/errored charts (a
+  headless dashboard health check) — the missing verify half of authoring.
+- **Chart-type authoring.** `add-chart`/`edit-chart --chart-type bar|line|pie|table
+  --x --y [--series-by]` generate + validate the visualization (vs hand-writing
+  echarts JSON); `edit-chart` edits visualization/layout in place; `add-charts
+  --file` batch-authors a dashboard (paced, idempotent).
+
+### Changed
+
+- The blocked Chronicle-host case verbs (`cases list/get/search`) are hidden from
+  help (still runnable for when the endpoint stabilizes); the working `cases
+  soar-id` uuid→id bridge stays visible.
+
 ## v0.4.5 — 2026-06-22
 
 ### Fixed
