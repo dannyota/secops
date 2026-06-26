@@ -7,19 +7,21 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	"danny.vn/secops/chronicle"
 )
 
-// The `cases` command reaches a case on the Chronicle host by UUID (ADC). This is
-// the ALTERNATE path: the chronicle.googleapis.com cases collection currently
-// HTTP-500s at every API version, so for case work prefer `soar case` — the same
-// case on the SOAR host, where it works (modern v1alpha list + the reliable AppKey
-// verbs). Kept here as the typed alternate-path reader; reads are free. There is
-// one case reachable by several APIs, not two case systems. See docs/design/siem.md.
+// `cases` is the single, canonical case command. A case is ONE record, not a SIEM
+// case and a separate SOAR case; this command works it directly, auto-routed to the
+// SOAR host (AppKey, the reliable lane) where every case verb answers. The verb
+// tree is shared with the hidden back-compat `soar case` alias (see caseVerbs).
+//
+// `cases soar-id` is the one Chronicle-host (ADC) read kept here: it bridges a SIEM
+// case UUID (an alert's caseName) to the SOAR integer id the other verbs take. The
+// Chronicle-host cases collection itself errors at every API version, so it is not
+// surfaced — there is one case reachable by several APIs, not two case systems.
 
 func init() {
 	rootCmd.AddCommand(newCasesCmd())
@@ -28,21 +30,16 @@ func init() {
 func newCasesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cases <verb>",
-		Short: "Bridge a SIEM case UUID to its SOAR case id (the Chronicle-host case path)",
-		Long: "Operate cases on the Chronicle host (chronicle.googleapis.com, ADC). The only\n" +
-			"working verb here is `cases soar-id`, which maps a SIEM case UUID to the SOAR\n" +
-			"integer id every `soar case` verb needs. For all other case work use\n" +
-			"`soar case` — the same case on the SOAR host, where it works.\n\n" +
-			"The Chronicle-host cases collection (list / get / search) currently 500s at\n" +
-			"every API version, so those verbs are hidden from help (still runnable for the\n" +
-			"day the endpoint stabilizes; `secopsctl surfaces` reports the surface blocked).",
+		Short: "Work SOAR cases: read (list, get) + guarded triage (assign, tag, close, ...)",
+		Long: "Operate cases against the live tenant. A case is one record; this command is\n" +
+			"auto-routed to the SOAR host where every verb works (`soar case …` remains as\n" +
+			"a hidden back-compat alias). `list` and `get` read only; every mutating verb\n" +
+			"defaults to a dry run — pass --yes to apply.\n\n" +
+			"caseId is the SOAR integer id, not the SIEM UUID. Bridge a UUID (e.g. an\n" +
+			"alert's caseName) to its id with `cases soar-id`.",
 	}
-	// The Chronicle-host list/get/search 500 today; hide them so the surface stops
-	// reading as usable, but keep them runnable for when the endpoint stabilizes.
-	// `cases soar-id` (the uuid→id bridge) is the working verb and stays visible.
-	list, get, search := newCasesListCmd(), newCasesGetCmd(), newCasesSearchCmd()
-	list.Hidden, get.Hidden, search.Hidden = true, true, true
-	cmd.AddCommand(list, get, search, newCasesSoarIDCmd())
+	cmd.AddCommand(caseVerbs()...)
+	cmd.AddCommand(newCasesSoarIDCmd())
 	return cmd
 }
 
@@ -139,160 +136,7 @@ func soarIDRows(uuids []string, cases []chronicle.LegacyCase) []soarIDRow {
 	return rows
 }
 
-// --- read layer -------------------------------------------------------------
-
-func newCasesListCmd() *cobra.Command {
-	var (
-		filter   string
-		orderBy  string
-		expand   string
-		pageSize int
-		limit    int
-	)
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List cases on the Chronicle host (alternate path; 500s today — prefer `soar case list`)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-			if orderBy == "" {
-				orderBy = "createTime desc"
-			}
-			cases, err := c.ListCasesOpts(baseContext(), chronicle.CaseListOptions{
-				Filter: filter, OrderBy: orderBy, Expand: expand, PageSize: pageSize,
-			})
-			if err != nil {
-				return err
-			}
-			total := len(cases)
-			cases = capCases(cases, limit)
-			// Don't let the cap masquerade as the full result set.
-			if len(cases) < total {
-				fmt.Fprintf(os.Stderr, "warning: showing %d of %d case(s) (--limit=%d); raise --limit for the rest.\n", len(cases), total, limit)
-			}
-			return emitCases(os.Stdout, cases, jsonOut)
-		},
-	}
-	f := cmd.Flags()
-	f.StringVar(&filter, "filter", "", "case filter expression")
-	f.StringVar(&orderBy, "order-by", "", "comma-separated sort (default: createTime desc)")
-	f.StringVar(&expand, "expand", "", "expand fields, e.g. tags,products")
-	f.IntVar(&pageSize, "page-size", 0, "per-page cap (server default if 0)")
-	f.IntVar(&limit, "limit", 100, "max cases to return (0 = no cap)")
-	return markJSON(cmd)
-}
-
-func newCasesGetCmd() *cobra.Command {
-	var expand string
-	cmd := &cobra.Command{
-		Use:   "get <case-id>",
-		Short: "Get a single case by id (UUID) or resource name",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-			cs, err := c.GetCase(baseContext(), args[0], expand)
-			if err != nil {
-				return err
-			}
-			if jsonOut {
-				return writeRawJSON(os.Stdout, cs.Raw)
-			}
-			return emitCases(os.Stdout, []chronicle.Case{*cs}, false)
-		},
-	}
-	f := cmd.Flags()
-	f.StringVar(&expand, "expand", "", "expand fields, e.g. tags,products,events")
-	return markJSON(cmd)
-}
-
-func newCasesSearchCmd() *cobra.Command {
-	var (
-		hours    int
-		ids      string
-		pageSize int
-	)
-	cmd := &cobra.Command{
-		Use:   "search",
-		Short: "Time-windowed case search via the chronicle legacy: RPC (legacyListCases 404s today)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-			s := chronicle.CaseSearch{PageSize: pageSize}
-			if hours > 0 {
-				s.EndTime = time.Now().UTC()
-				s.StartTime = s.EndTime.Add(-time.Duration(hours) * time.Hour)
-			}
-			if ids != "" {
-				s.CaseIDs = splitCSV(ids)
-			}
-			raw, err := c.SearchCases(baseContext(), s)
-			if err != nil {
-				return err
-			}
-			// The legacy page is instance-shaped; it is always emitted raw.
-			return writeRawJSON(os.Stdout, raw)
-		},
-	}
-	f := cmd.Flags()
-	f.IntVar(&hours, "hours", 0, "look back this many hours (createTime window)")
-	f.StringVar(&ids, "ids", "", "comma-separated case ids to fetch")
-	f.IntVar(&pageSize, "page-size", 100, "page size")
-	// Output is always raw JSON (the instance-shaped legacy page).
-	return markJSON(cmd)
-}
-
 // --- helpers ----------------------------------------------------------------
-
-// capCases trims the slice to limit (0 = no cap).
-func capCases(cases []chronicle.Case, limit int) []chronicle.Case {
-	if limit > 0 && len(cases) > limit {
-		return cases[:limit]
-	}
-	return cases
-}
-
-// emitCases prints cases as a compact table, or as a raw JSON array under --json.
-func emitCases(w io.Writer, cases []chronicle.Case, asJSON bool) error {
-	if asJSON {
-		return writeCasesJSON(w, cases)
-	}
-	if len(cases) == 0 {
-		fmt.Fprintln(w, "no cases.")
-		return nil
-	}
-	fmt.Fprintf(w, "%-38s %-16s %-9s %-22s %s\n", "ID", "PRIORITY", "STATUS", "ASSIGNEE", "TITLE")
-	for i := range cases {
-		c := &cases[i]
-		fmt.Fprintf(w, "%-38s %-16s %-9s %-22s %s\n",
-			c.CaseID(), trimPriority(c.Priority), orDash(c.Status), orDash(c.Assignee), truncate(c.DisplayName, 60))
-	}
-	fmt.Fprintf(w, "\n%d case(s).\n", len(cases))
-	return nil
-}
-
-// writeCasesJSON emits the cases' raw server objects as a JSON array.
-func writeCasesJSON(w io.Writer, cases []chronicle.Case) error {
-	parts := make([]json.RawMessage, 0, len(cases))
-	for i := range cases {
-		if len(cases[i].Raw) > 0 {
-			parts = append(parts, cases[i].Raw)
-		}
-	}
-	b, err := json.Marshal(parts)
-	if err != nil {
-		return err
-	}
-	return writeRawJSON(w, b)
-}
 
 // writeRawJSON pretty-prints raw JSON to w with a trailing newline.
 func writeRawJSON(w io.Writer, raw json.RawMessage) error {

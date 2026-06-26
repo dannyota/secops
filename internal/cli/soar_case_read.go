@@ -49,6 +49,7 @@ type soarAlertCard struct {
 	Product              string `json:"product"`
 	Priority             int    `json:"priority"`
 	StartTimeMs          int64  `json:"startTimeUnixTimeInMs"`
+	HasWorkflows         bool   `json:"hasWorkflows"` // a playbook is/was attached to this alert
 	AdditionalProperties struct {
 		RuleGenerator string `json:"ruleGenerator"`
 		RuleID        string `json:"rule_id"`
@@ -83,6 +84,7 @@ type caseListFilters struct {
 	tag       string              // exact tag (case-insensitive); modern lane only
 	since     time.Time           // keep cases updated/created at-or-after this instant
 	rawFilter string              // verbatim modern server-side filter expression
+	sort      string              // client-side sort of the modern result: priority|created|updated
 }
 
 func (f caseListFilters) active() bool {
@@ -137,6 +139,7 @@ func newCaseListCmd() *cobra.Command {
 		tag      string
 		since    string
 		filter   string
+		sortBy   string
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -176,6 +179,7 @@ func newCaseListCmd() *cobra.Command {
 			filters := caseListFilters{
 				assignee: strings.TrimSpace(assignee), priority: prio,
 				tag: strings.TrimSpace(tag), since: cutoff, rawFilter: strings.TrimSpace(filter),
+				sort: strings.TrimSpace(sortBy),
 			}
 			pageSize := limit
 			if pageSize <= 0 {
@@ -219,7 +223,44 @@ func newCaseListCmd() *cobra.Command {
 	f.StringVar(&tag, "tag", "", "keep cases carrying this tag (modern lane only)")
 	f.StringVar(&since, "since", "", "keep cases updated since (duration like 24h, RFC3339, or YYYY-MM-DD)")
 	f.StringVar(&filter, "filter", "", "verbatim server-side filter for the modern cases API")
+	f.StringVar(&sortBy, "sort", "", "client-side sort (modern lane): priority (worst first) | created | updated (newest first)")
 	return markJSON(cmd)
+}
+
+// sortCases reorders modern cases in place. priority sorts worst-first; created/
+// updated sort newest-first by the case's epoch-millis timestamps.
+func sortCases(cases []soar.Case, sortBy string) error {
+	switch sortBy {
+	case "", "none":
+		return nil
+	case "priority":
+		slices.SortStableFunc(cases, func(a, b soar.Case) int { return casePriorityRank(b.Priority) - casePriorityRank(a.Priority) })
+	case "created":
+		slices.SortStableFunc(cases, func(a, b soar.Case) int { c1, _, _ := caseMeta(&a); c2, _, _ := caseMeta(&b); return c2.Compare(c1) })
+	case "updated":
+		slices.SortStableFunc(cases, func(a, b soar.Case) int { _, u1, _ := caseMeta(&a); _, u2, _ := caseMeta(&b); return u2.Compare(u1) })
+	default:
+		return fmt.Errorf("--sort must be priority, created, or updated, got %q", sortBy)
+	}
+	return nil
+}
+
+// casePriorityRank maps a PRIORITY_* token to a sortable rank (critical highest).
+func casePriorityRank(p string) int {
+	switch p {
+	case "PRIORITY_CRITICAL":
+		return 5
+	case "PRIORITY_HIGH":
+		return 4
+	case "PRIORITY_MEDIUM":
+		return 3
+	case "PRIORITY_LOW":
+		return 2
+	case "PRIORITY_INFO", "PRIORITY_INFORMATIONAL":
+		return 1
+	default:
+		return 0
+	}
 }
 
 // runModernCaseList lists cases via the modern v1alpha API (SOAR host), fetching
@@ -273,6 +314,9 @@ func runModernCaseList(pageSize int, status string, asJSON bool, filters caseLis
 		}
 		kept = append(kept, cs)
 	}
+	if err := sortCases(kept, filters.sort); err != nil {
+		return err
+	}
 	if asJSON {
 		raws := make([]json.RawMessage, 0, len(kept))
 		for _, cs := range kept {
@@ -283,14 +327,16 @@ func runModernCaseList(pageSize int, status string, asJSON bool, filters caseLis
 		return enc.Encode(raws)
 	}
 	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tTITLE\tPRIORITY\tSTATUS\tSTAGE\tASSIGNEE")
-	for _, cs := range kept {
+	fmt.Fprintln(tw, "ID\tTITLE\tPRIORITY\tSTATUS\tSTAGE\tASSIGNEE\tSLA")
+	for i := range kept {
+		cs := &kept[i]
 		id := cs.DisplayID
 		if id == "" { // modern payload keys the id under the resource name
 			id = cs.Name[strings.LastIndex(cs.Name, "/")+1:]
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			id, truncate(cs.Title, 40), prettyPriority(cs.Priority), cs.Status, cs.Stage, dashIfEmpty(cs.Assignee))
+		_, _, sla := caseMeta(cs)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			id, truncate(cs.Title, 40), prettyPriority(cs.Priority), cs.Status, cs.Stage, dashIfEmpty(cs.Assignee), orDash(sla))
 	}
 	if err := tw.Flush(); err != nil {
 		return err
@@ -588,6 +634,10 @@ func emitSOARCaseFull(w io.Writer, raw json.RawMessage) error {
 				line += "  (" + id + ")"
 			}
 			fmt.Fprintf(w, "%s   — tune: rules detections %q\n", line, rule)
+		}
+		if a.HasWorkflows {
+			fmt.Fprintf(w, "       ▸ playbook(s) attached — timeline: cases wall --case-id %d ; faults: soar playbook summary --case-id %d --alert %s\n",
+				cs.ID, cs.ID, a.Identifier)
 		}
 	}
 	return nil

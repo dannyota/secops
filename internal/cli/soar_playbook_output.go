@@ -3,7 +3,6 @@ package cli
 // soar_playbook_output.go — summary/results/result/python-logs command constructors and JSON print/scan helpers.
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -29,6 +28,7 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 		fetchSteps     bool
 		collapseBlocks bool
 		showErrors     bool
+		steps          bool
 	)
 	cmd := &cobra.Command{
 		Use:   "summary --case-id N --playbook <name>",
@@ -76,7 +76,7 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 				if jsonOut {
 					return writeRawJSON(os.Stdout, raw)
 				}
-				printWorkflowSummary(cmd.OutOrStdout(), raw, showErrors)
+				printWorkflowSummary(cmd.OutOrStdout(), raw, showErrors, steps)
 				return nil
 			}
 			return preferModern("soar playbook summary",
@@ -113,6 +113,7 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 	f.BoolVar(&fetchSteps, "fetch-steps", true, "include step details")
 	f.BoolVar(&collapseBlocks, "collapse-blocks", false, "collapse nested block details")
 	f.BoolVar(&showErrors, "show-errors", false, "print full faulted-step error messages (default truncates)")
+	f.BoolVar(&steps, "steps", false, "print the full per-step execution trace (every completed step, not just faulted ones) — for debugging a run that finished but did the wrong thing")
 	_ = cmd.MarkFlagRequired("case-id")
 	return markJSON(cmd)
 }
@@ -285,6 +286,7 @@ func resolveCaseAlert(ctx context.Context, lc *legacy.Client, caseID int) (strin
 	var cd struct {
 		Alerts []struct {
 			Name                 string `json:"name"`
+			HasWorkflows         bool   `json:"hasWorkflows"`
 			AdditionalProperties struct {
 				AlertGroupIdentifier string `json:"alertGroupIdentifier"`
 			} `json:"additionalProperties"`
@@ -293,21 +295,54 @@ func resolveCaseAlert(ctx context.Context, lc *legacy.Client, caseID int) (strin
 	if err := json.Unmarshal(raw, &cd); err != nil {
 		return "", fmt.Errorf("parse case %d details: %w", caseID, err)
 	}
-	var ids, names []string
+	// Dedupe by group id — grouped alerts share one alertGroupIdentifier, so a
+	// "5 alerts" case is often a single workflow target.
+	type alertRef struct {
+		id    string
+		hasWF bool
+	}
+	seen := map[string]bool{}
+	var refs []alertRef
 	for _, a := range cd.Alerts {
-		if id := strings.TrimSpace(a.AdditionalProperties.AlertGroupIdentifier); id != "" {
-			ids = append(ids, id)
-			names = append(names, a.Name)
+		id := strings.TrimSpace(a.AdditionalProperties.AlertGroupIdentifier)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		refs = append(refs, alertRef{id, a.HasWorkflows})
+	}
+	if len(refs) == 0 {
+		return "", fmt.Errorf("case %d exposes no alert identifier — pass --alert <id>", caseID)
+	}
+	if len(refs) == 1 {
+		return refs[0].id, nil
+	}
+	// Several distinct alert groups: prefer the playbook-bearing one(s). If exactly
+	// one alert carries workflows, that's unambiguously the summary target.
+	var withWF []alertRef
+	for _, r := range refs {
+		if r.hasWF {
+			withWF = append(withWF, r)
 		}
 	}
-	switch len(ids) {
-	case 0:
-		return "", fmt.Errorf("case %d exposes no alert identifier — pass --alert <id>", caseID)
-	case 1:
-		return ids[0], nil
-	default:
-		return "", fmt.Errorf("case %d has %d alerts (%s) — pass --alert <id>", caseID, len(ids), strings.Join(names, ", "))
+	if len(withWF) == 1 {
+		return withWF[0].id, nil
 	}
+	// Still ambiguous — list the actual --alert IDS (marking playbook-bearing ones),
+	// not the (often identical) alert names.
+	cands := refs
+	if len(withWF) > 1 {
+		cands = withWF
+	}
+	var lines []string
+	for _, r := range cands {
+		mark := ""
+		if r.hasWF {
+			mark = "  [has playbook]"
+		}
+		lines = append(lines, "  --alert "+r.id+mark)
+	}
+	return "", fmt.Errorf("case %d has %d alert groups — re-run with one of:\n%s", caseID, len(refs), strings.Join(lines, "\n"))
 }
 
 func workflowSummaryBody(caseID int, alert, definition string, fetchSteps, collapseBlocks bool) (map[string]any, error) {
@@ -359,7 +394,7 @@ type faultedStep struct {
 	LogsExplorerURL         string `json:"logsExplorerUrl"`
 }
 
-func printWorkflowSummary(w io.Writer, raw json.RawMessage, showErrors bool) {
+func printWorkflowSummary(w io.Writer, raw json.RawMessage, showErrors, showSteps bool) {
 	m, ok := rawJSONObject(raw)
 	if !ok {
 		printGenericItemsSummary(w, "workflow summary records", raw)
@@ -382,6 +417,48 @@ func printWorkflowSummary(w io.Writer, raw json.RawMessage, showErrors bool) {
 		printJSONField(w, m, key, snakeCase(key))
 	}
 	printFaultedSteps(w, m["faultedSteps"], showErrors)
+	if showSteps {
+		printStepTrace(w, m["completedSteps"], showErrors)
+	}
+}
+
+// playbookTraceStep is the subset of a workflow step rendered by --steps: the
+// per-step execution trace (status · integration/action · result), so a run that
+// completed but behaved wrong is debuggable, not just one with faulted steps.
+type playbookTraceStep struct {
+	Status                  string `json:"status"`
+	Name                    string `json:"name"`
+	Integration             string `json:"integration"`
+	ActionName              string `json:"actionName"`
+	Message                 string `json:"message"`
+	IntegrationInstanceName string `json:"integrationInstanceName"`
+	LogsExplorerURL         string `json:"logsExplorerUrl"`
+	CreationTimeMs          int64  `json:"creationTimeUnixTimeInMs"`
+}
+
+// printStepTrace renders every completed step as a chronological execution trace.
+func printStepTrace(w io.Writer, rawSteps json.RawMessage, showErrors bool) {
+	var steps []playbookTraceStep
+	if json.Unmarshal(rawSteps, &steps) != nil || len(steps) == 0 {
+		return
+	}
+	sort.SliceStable(steps, func(i, j int) bool { return steps[i].CreationTimeMs < steps[j].CreationTimeMs })
+	fmt.Fprintln(w, "  steps (execution trace, oldest first):")
+	for i := range steps {
+		s := &steps[i]
+		action := strings.TrimSpace(s.Integration + " / " + s.ActionName)
+		label := defaultString(strings.TrimSpace(s.Name), action)
+		fmt.Fprintf(w, "    %-10s %s\n", defaultString(s.Status, "?"), label)
+		if msg := strings.TrimSpace(s.Message); msg != "" {
+			if !showErrors {
+				msg = truncate(msg, 100)
+			}
+			fmt.Fprintf(w, "               %s\n", msg)
+		}
+		if s.LogsExplorerURL != "" {
+			fmt.Fprintf(w, "               logs: %s\n", s.LogsExplorerURL)
+		}
+	}
 }
 
 // printFaultedSteps expands each faulted step with its action, error message, and
@@ -509,184 +586,4 @@ func printPendingStepCount(w io.Writer, raw json.RawMessage) {
 		}
 	}
 	printGenericItemsSummary(w, "pending steps", raw)
-}
-
-func rawRecordList(raw json.RawMessage) []json.RawMessage {
-	if records, err := rawListRecords(raw); err == nil && len(records) > 0 {
-		return records
-	}
-	root, ok := rawJSONObject(raw)
-	if !ok {
-		return nil
-	}
-	for _, key := range []string{"items", "data", "payload", "results", "actionResults", "logs", "objects"} {
-		if records := rawArray(root[key]); len(records) > 0 {
-			return records
-		}
-		if nested, ok := rawJSONObject(root[key]); ok {
-			if records, err := rawListRecords(root[key]); err == nil && len(records) > 0 {
-				return records
-			}
-			for _, nestedKey := range []string{"items", "records", "objectsList", "results", "logs"} {
-				if records := rawArray(nested[nestedKey]); len(records) > 0 {
-					return records
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func rawJSONObject(raw json.RawMessage) (map[string]json.RawMessage, bool) {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || raw[0] != '{' {
-		return nil, false
-	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return nil, false
-	}
-	for _, key := range []string{"payload", "data", "result", "response"} {
-		if nested, ok := rawJSONObject(m[key]); ok {
-			return nested, true
-		}
-	}
-	return m, true
-}
-
-func rawArray(raw json.RawMessage) []json.RawMessage {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || raw[0] != '[' {
-		return nil
-	}
-	var records []json.RawMessage
-	if err := json.Unmarshal(raw, &records); err != nil {
-		return nil
-	}
-	return records
-}
-
-func jsonArrayLen(raw json.RawMessage) int {
-	return len(rawArray(raw))
-}
-
-func hasJSONValue(m map[string]json.RawMessage, key string) bool {
-	raw, ok := m[key]
-	if !ok {
-		return false
-	}
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
-		return false
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return strings.TrimSpace(s) != ""
-	}
-	return true
-}
-
-func printJSONField(w io.Writer, m map[string]json.RawMessage, key, label string) {
-	if !hasJSONValue(m, key) {
-		return
-	}
-	if value := rawScalarString(m[key]); value != "" {
-		fmt.Fprintf(w, "%s: %s\n", label, value)
-	}
-}
-
-func rawScalarString(raw json.RawMessage) string {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
-		return ""
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return s
-	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
-	var v any
-	if err := dec.Decode(&v); err != nil {
-		return ""
-	}
-	return displayJSONScalar(v)
-}
-
-func firstJSONByte(raw json.RawMessage) byte {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 {
-		return 0
-	}
-	return raw[0]
-}
-
-func snakeCase(s string) string {
-	var b strings.Builder
-	for i, r := range s {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			b.WriteByte('_')
-		}
-		b.WriteRune(r)
-	}
-	return strings.ToLower(b.String())
-}
-
-func sortedMapKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func displayJSONScalar(v any) string {
-	switch x := v.(type) {
-	case nil:
-		return ""
-	case json.Number:
-		return x.String()
-	case string:
-		return x
-	case float64:
-		return strconv.FormatFloat(x, 'f', -1, 64)
-	case bool:
-		return strconv.FormatBool(x)
-	default:
-		return fmt.Sprintf("%v", x)
-	}
-}
-
-func numericJSONValue(v any) (int64, bool) {
-	switch x := v.(type) {
-	case json.Number:
-		n, err := x.Int64()
-		return n, err == nil
-	case float64:
-		n := int64(x)
-		return n, float64(n) == x
-	case string:
-		n, err := strconv.ParseInt(x, 10, 64)
-		return n, err == nil
-	default:
-		return 0, false
-	}
-}
-
-func stepLabel(step playbookStepDoc, idx int) string {
-	if step.Name != "" {
-		return step.Name
-	}
-	if step.Identifier != "" {
-		return step.Identifier
-	}
-	return fmt.Sprintf("#%d", idx)
-}
-
-func defaultString(s, def string) string {
-	if s == "" {
-		return def
-	}
-	return s
 }

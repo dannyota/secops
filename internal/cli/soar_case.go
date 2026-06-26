@@ -20,16 +20,14 @@ import (
 // alertIdentifier, and the verb's payload. Every verb is a LIVE mutation, so it
 // shares the dry-run / --yes / banner guard with `soar push`.
 
-func newSOARCaseCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "case <verb>",
-		Short: "Per-case triage: read (list, get) + guarded mutations (assign, tag, close, ...)",
-		Long: "Per-case workflow against the live SOAR tenant (AppKey, the reliable lane).\n" +
-			"caseId is the SOAR integer id (not the SIEM UUID). `list` and `get` read\n" +
-			"only; every mutating verb defaults to a dry run — pass --yes to apply (or\n" +
-			"confirm interactively).",
-	}
-	cmd.AddCommand(
+// caseVerbs builds the full per-case command tree (reads + guarded mutations).
+// A case is ONE record; the same tree backs both the canonical top-level `cases`
+// command and its hidden back-compat `soar case` alias. It is built fresh on each
+// call so the two registrations never share cobra state. The verbs run on the
+// SOAR host (AppKey, the reliable lane); caseId is the SOAR integer id, not the
+// SIEM UUID — bridge a UUID to its id with `cases soar-id`.
+func caseVerbs() []*cobra.Command {
+	return []*cobra.Command{
 		newCaseListCmd(),
 		newCaseGetCmd(),
 		newCaseRunActionCmd(),
@@ -54,7 +52,28 @@ func newSOARCaseCmd() *cobra.Command {
 		newCaseValuesCmd(),
 		newCaseSummarizeCmd(),
 		newCaseCountsCmd(),
-	)
+		newCaseOverviewCmd(),
+		newCaseWorkloadCmd(),
+		newCaseAgingCmd(),
+		newCaseStatsCmd(),
+		newCaseTaskCmd(),
+		newCaseEvidenceCmd(),
+	}
+}
+
+// newSOARCaseCmd is the hidden back-compat alias of the top-level `cases` command,
+// kept under `soar` so existing `soar case …` invocations keep working unchanged.
+// The canonical command is `cases` (see newCasesCmd).
+func newSOARCaseCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:    "case <verb>",
+		Hidden: true,
+		Short:  "Back-compat alias of the top-level `cases` command",
+		Long: "Deprecated spelling kept for back-compat — use `cases` instead. A case is\n" +
+			"one record; `cases …` is the canonical command (auto-routed to the SOAR\n" +
+			"host). Every `soar case <verb>` still resolves here unchanged.",
+	}
+	cmd.AddCommand(caseVerbs()...)
 	return cmd
 }
 
@@ -227,15 +246,31 @@ func newCaseAssignCmd() *cobra.Command {
 	var (
 		caseID      int
 		alert, user string
+		idsArg      string
 		dryRun, yes bool
 	)
 	cmd := &cobra.Command{
-		Use:   "assign --id N --user <userId>",
-		Short: "Assign a case to a user",
-		Long: "Assign a case to an analyst or role. --id is the SOAR integer case id from\n" +
-			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
+		Use:   "assign (--id N | --ids 1,2,3) --user <userId>",
+		Short: "Assign a case (or many) to a user",
+		Long: "Assign one or more cases to an analyst or role. --id is the SOAR integer case\n" +
+			"id from `soar case list`; --ids assigns a whole set in one bulk call\n" +
+			"(ExecuteBulkAssign). Guarded: dry-run by default, --yes to apply live.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if idsArg != "" {
+				ids, err := parseIntList(idsArg)
+				if err != nil {
+					return err
+				}
+				body := map[string]any{"casesIds": ids, "userName": user}
+				return caseAction(fmt.Sprintf("assign case(s) %v -> %q", ids, user), body, dryRun, yes,
+					func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
+						return lc.BulkAssign(ctx, body)
+					})
+			}
+			if caseID == 0 {
+				return fmt.Errorf("a case id is required (--id or --ids)")
+			}
 			body := caseBody(caseID, alert)
 			body["userId"] = user
 			return caseAction(fmt.Sprintf("assign case %d -> %q", caseID, user), body, dryRun, yes,
@@ -244,8 +279,13 @@ func newCaseAssignCmd() *cobra.Command {
 				})
 		},
 	}
-	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
-	cmd.Flags().StringVar(&user, "user", "", "target user id — a username (list them with 'soar users list') or a role as @RoleName (required)")
+	f := cmd.Flags()
+	f.IntVar(&caseID, "id", 0, "SOAR case id")
+	f.StringVar(&idsArg, "ids", "", "comma-separated case ids (bulk form)")
+	f.StringVar(&alert, "alert", "", "scope a single-case assign to one alert (ignored with --ids)")
+	guardRunFlags(cmd, &dryRun, &yes)
+	cmd.MarkFlagsMutuallyExclusive("id", "ids")
+	f.StringVar(&user, "user", "", "target user — a username (list them with 'soar users list') or a role as @RoleName (required)")
 	_ = cmd.MarkFlagRequired("user")
 	return markJSON(cmd)
 }
@@ -280,16 +320,32 @@ func newCaseStageCmd() *cobra.Command {
 	var (
 		caseID       int
 		alert, stage string
+		idsArg       string
 		dryRun, yes  bool
 	)
 	cmd := &cobra.Command{
-		Use:   "stage --id N --stage <s>",
-		Short: "Change a case's stage",
-		Long: "Move a case to a different workflow stage (list valid stages with\n" +
+		Use:   "stage (--id N | --ids 1,2,3) --stage <s>",
+		Short: "Change a case's (or many cases') stage",
+		Long: "Move one or more cases to a workflow stage (list valid stages with\n" +
 			"`soar case values stages`). --id is the SOAR integer case id from\n" +
-			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
+			"`soar case list`; --ids moves a whole set in one bulk call\n" +
+			"(ExecuteBulkChangeCaseStage). Guarded: dry-run by default, --yes to apply.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if idsArg != "" {
+				ids, err := parseIntList(idsArg)
+				if err != nil {
+					return err
+				}
+				body := map[string]any{"casesIds": ids, "stage": stage}
+				return caseAction(fmt.Sprintf("set case(s) %v stage -> %q", ids, stage), body, dryRun, yes,
+					func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
+						return lc.BulkChangeCaseStage(ctx, body)
+					})
+			}
+			if caseID == 0 {
+				return fmt.Errorf("a case id is required (--id or --ids)")
+			}
 			body := caseBody(caseID, alert)
 			body["stage"] = stage
 			return caseAction(fmt.Sprintf("set case %d stage -> %q", caseID, stage), body, dryRun, yes,
@@ -298,31 +354,57 @@ func newCaseStageCmd() *cobra.Command {
 				})
 		},
 	}
-	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
-	cmd.Flags().StringVar(&stage, "stage", "", "target stage (required) — list valid stages with 'soar case values stages'")
+	f := cmd.Flags()
+	f.IntVar(&caseID, "id", 0, "SOAR case id")
+	f.StringVar(&idsArg, "ids", "", "comma-separated case ids (bulk form)")
+	f.StringVar(&alert, "alert", "", "scope a single-case stage change to one alert (ignored with --ids)")
+	guardRunFlags(cmd, &dryRun, &yes)
+	cmd.MarkFlagsMutuallyExclusive("id", "ids")
+	f.StringVar(&stage, "stage", "", "target stage (required) — list valid stages with 'soar case values stages'")
 	_ = cmd.MarkFlagRequired("stage")
 	return markJSON(cmd)
 }
 
-// newCaseTagCmd builds both `case tag` (add) and `case untag` (remove).
+// newCaseTagCmd builds both `case tag` (add) and `case untag` (remove). The add
+// form takes --ids for a bulk tag (ExecuteBulkAddCaseTag); untag stays single
+// (there is no bulk-remove-tag endpoint).
 func newCaseTagCmd(remove bool) *cobra.Command {
 	var (
 		caseID      int
 		alert, tag  string
+		idsArg      string
 		dryRun, yes bool
 	)
 	use, verb := "tag", "add tag to"
 	if remove {
 		use, verb = "untag", "remove tag from"
 	}
+	useLine := use + " --id N --tag <s>"
+	if !remove {
+		useLine = use + " (--id N | --ids 1,2,3) --tag <s>"
+	}
 	cmd := &cobra.Command{
-		Use:   use + " --id N --tag <s>",
+		Use:   useLine,
 		Short: strings.ToUpper(use[:1]) + use[1:] + " a case",
 		Long: strings.ToUpper(verb[:1]) + verb[1:] + " a case (list existing tags with\n" +
 			"`soar case values tags`). --id is the SOAR integer case id from\n" +
 			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if !remove && idsArg != "" {
+				ids, err := parseIntList(idsArg)
+				if err != nil {
+					return err
+				}
+				body := map[string]any{"casesIds": ids, "tags": []string{tag}}
+				return caseAction(fmt.Sprintf("add tag to case(s) %v: %q", ids, tag), body, dryRun, yes,
+					func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
+						return lc.BulkAddCaseTag(ctx, body)
+					})
+			}
+			if caseID == 0 {
+				return fmt.Errorf("a case id is required (--id%s)", map[bool]string{true: "", false: " or --ids"}[remove])
+			}
 			body := caseBody(caseID, alert)
 			body["tag"] = tag
 			return caseAction(fmt.Sprintf("%s case %d: %q", verb, caseID, tag), body, dryRun, yes,
@@ -334,8 +416,15 @@ func newCaseTagCmd(remove bool) *cobra.Command {
 				})
 		},
 	}
-	caseGuardFlags(cmd, &caseID, &alert, &dryRun, &yes, true)
-	cmd.Flags().StringVar(&tag, "tag", "", "tag value (required) — list existing tags with 'soar case values tags'")
+	f := cmd.Flags()
+	f.IntVar(&caseID, "id", 0, "SOAR case id")
+	f.StringVar(&alert, "alert", "", "scope a single-case tag to one alert (ignored with --ids)")
+	if !remove {
+		f.StringVar(&idsArg, "ids", "", "comma-separated case ids (bulk add form)")
+		cmd.MarkFlagsMutuallyExclusive("id", "ids")
+	}
+	guardRunFlags(cmd, &dryRun, &yes)
+	f.StringVar(&tag, "tag", "", "tag value (required) — list existing tags with 'soar case values tags'")
 	_ = cmd.MarkFlagRequired("tag")
 	return markJSON(cmd)
 }

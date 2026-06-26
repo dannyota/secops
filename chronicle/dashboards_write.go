@@ -184,8 +184,11 @@ func (c *Client) DeleteDashboard(ctx context.Context, dashboardID string) error 
 }
 
 // DuplicateDashboard copies an existing dashboard into a new CUSTOM dashboard
-// with the given displayName/accessType. The endpoint is POST
-// {instance}/nativeDashboards/<id>:duplicate.
+// with the given displayName/accessType. The server mints the copy its own
+// independent charts and queries — no chart or query id is shared with the
+// source — so the copy renders and deletes like any other dashboard. A single
+// call; see DeepCopyDashboard for the client-side equivalent. The endpoint is
+// POST {instance}/nativeDashboards/<id>:duplicate.
 func (c *Client) DuplicateDashboard(ctx context.Context, dashboardID, displayName, accessType, description string) (*NativeDashboard, error) {
 	type nd struct {
 		DisplayName string `json:"displayName"`
@@ -209,9 +212,11 @@ func (c *Client) DuplicateDashboard(ctx context.Context, dashboardID, displayNam
 	return &out, nil
 }
 
-// _validImportKeys are the keys the import payload's dashboard object must
-// contain at least one of, matching the wrapper's guard.
-var _validImportKeys = []string{"dashboard", "dashboardCharts", "dashboardQueries"}
+// ValidImportKeys are the keys an import payload's dashboard object must
+// contain at least one of, matching the wrapper's guard. Exported so callers
+// that pre-shape an import document (e.g. the CLI's export/import) check against
+// the same allow-list ImportDashboard enforces.
+var ValidImportKeys = []string{"dashboard", "dashboardCharts", "dashboardQueries"}
 
 // ImportDashboard imports a single native dashboard from an export-shaped JSON
 // object. payload is the dashboard object itself (containing at least one of
@@ -224,7 +229,7 @@ func (c *Client) ImportDashboard(ctx context.Context, payload json.RawMessage) (
 		return nil, fmt.Errorf("chronicle: import dashboard payload is not a JSON object: %w", err)
 	}
 	ok := false
-	for _, k := range _validImportKeys {
+	for _, k := range ValidImportKeys {
 		if _, present := probe[k]; present {
 			ok = true
 			break
@@ -234,7 +239,7 @@ func (c *Client) ImportDashboard(ctx context.Context, payload json.RawMessage) (
 		return nil, &APIError{
 			Method: "POST",
 			URL:    c.resourcePath("nativeDashboards:import", false),
-			Body:   "dashboard must contain at least one of: " + strings.Join(_validImportKeys, ", "),
+			Body:   "dashboard must contain at least one of: " + strings.Join(ValidImportKeys, ", "),
 		}
 	}
 
@@ -331,6 +336,71 @@ func (c *Client) GetChart(ctx context.Context, chartID string) (json.RawMessage,
 		return nil, err
 	}
 	return out, nil
+}
+
+// BatchGetCharts fetches several dashboard charts in ONE call — the console's own
+// dashboardCharts:batchGet — instead of one GetChart per id, so dereferencing a
+// dashboard's charts costs a single request. ids may be bare ids or full resource
+// names. Returns each chart's raw JSON.
+//
+// Note: batchGet is all-or-nothing — if any requested chart no longer exists the
+// server returns a 500, so this is for healthy dashboards (copy/pull); callers
+// that must isolate which chart is missing (e.g. verify) keep per-chart GetChart.
+//
+// Endpoint: GET {instance}/dashboardCharts:batchGet?names=<full>… (project ID form).
+func (c *Client) BatchGetCharts(ctx context.Context, ids []string) ([]json.RawMessage, error) {
+	q := url.Values{}
+	for _, id := range ids {
+		if id != "" {
+			q.Add("names", c.qualify("dashboardCharts", id))
+		}
+	}
+	var out struct {
+		DashboardCharts []json.RawMessage `json:"dashboardCharts"`
+	}
+	if err := c.get(ctx, c.resourcePath("dashboardCharts:batchGet", false), &out, withQuery(q)); err != nil {
+		return nil, err
+	}
+	return out.DashboardCharts, nil
+}
+
+// chartIDOf returns the bare id from a chart body's "name" field, or "".
+func chartIDOf(raw json.RawMessage) string {
+	var nm struct {
+		Name string `json:"name"`
+	}
+	if json.Unmarshal(raw, &nm) == nil {
+		return resourceID(nm.Name)
+	}
+	return ""
+}
+
+// ChartsByID resolves chart ids to their raw bodies, keyed by bare id, using ONE
+// dashboardCharts:batchGet when it succeeds and falling back to a per-chart
+// GetChart when the batch fails — batchGet is all-or-nothing, so a dashboard with
+// a dangling chart 500s it, and the fallback still resolves the charts that exist.
+// So a healthy dashboard costs a single call while a broken one degrades to N. Ids
+// that don't resolve (dangling) are simply absent from the map; the caller decides
+// how to render a missing chart. Never returns an error — it is best-effort.
+func (c *Client) ChartsByID(ctx context.Context, ids []string) map[string]json.RawMessage {
+	out := make(map[string]json.RawMessage, len(ids))
+	if len(ids) == 0 {
+		return out
+	}
+	if bodies, err := c.BatchGetCharts(ctx, ids); err == nil {
+		for _, b := range bodies {
+			if id := chartIDOf(b); id != "" {
+				out[id] = b
+			}
+		}
+		return out
+	}
+	for _, id := range ids {
+		if b, err := c.GetChart(ctx, id); err == nil {
+			out[lastSegment(id)] = b // match how callers (and the batch path) key by trailing id segment
+		}
+	}
+	return out
 }
 
 // EditChartInput selects what to edit. dashboardQuery and/or dashboardChart are

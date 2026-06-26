@@ -16,8 +16,9 @@ import (
 // surface over the SIEM-plane threatCollections (Mandiant campaigns/reports/etc.).
 func newTICmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ti",
-		Short: "Threat Intelligence (read-only): browse Mandiant threat collections",
+		Use:     "threat-intel",
+		Aliases: []string{"ti"},
+		Short:   "Threat Intelligence (read-only): browse Mandiant threat collections",
 		Long: "Read the Google/Mandiant threat-intelligence the tenant is matched against\n" +
 			"(campaigns, reports, actors, malware, vulnerabilities). Read-only.",
 	}

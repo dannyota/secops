@@ -3,6 +3,48 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.5.1 — 2026-06-26
+
+Dashboard portability, a quota-aware transport, and a broad operator command
+suite that wires SDK surfaces the CLI had not yet exposed. Every mutation stays
+behind the standard dry-run/`--yes` guard with a structured `--json` result.
+
+### Added
+
+- **Dashboard portability.** `dashboards export <id>` / `import <file>`
+  round-trip a dashboard with its charts and queries as one JSON document.
+  `dashboards duplicate` uses the server `:duplicate` verb (the copy gets its own
+  independent charts and queries) with a `--deep-copy` client-side fallback.
+  `cases overview` surfaces a case's entities and the overview widget template.
+- **Detection lifecycle.** `rules test <file.yaral>` dry-runs a rule against
+  historical data (preview detections, no deploy); `rules versions` (+ `--show`);
+  `rule-exclusions list|get`; `rules retrohunt create --wait`; `coverage`
+  (MITRE ATT&CK).
+- **Investigation.** `entities graph <detection-id>` (findings-graph pivot) and
+  `entities risk-scores`.
+- **Triage.** `alerts list --sort`, `cases list --sort` + an SLA column,
+  `cases workload|aging|stats`, and bulk `cases assign|tag|stage --ids`.
+- **Case work.** `cases run-action` (run an integration action on a case),
+  `cases task`, and `cases evidence`.
+- **RBAC / data.** `data-access labels|scopes` CRUD; `watchlists
+  create|delete|remove-entity`.
+- **SOAR ops.** `soar connector stat|run`.
+- **Platform / data.** `log-types`, `forwarders` (+ collectors),
+  `feeds list|get|service-account`, and `ingestion health`.
+
+### Changed
+
+- **Quota-aware transport.** The chronicle and SOAR clients honor a 429's
+  `Retry-After` / `RetryInfo`, add equal jitter and a total backoff budget, plus an
+  opt-in client-side rate limiter (off by default); the CLI prints a clear hint
+  when retries exhaust. A non-idempotent POST is not retried on a 5xx.
+- `alerts enrich` reads the collection that backs the per-alert context view
+  (rule, UDM events, entities/indicators, MITRE tags, triage, case bridge).
+- Chart reads (`dashboards charts`, `pull --with-charts`, the copy path) use one
+  `dashboardCharts:batchGet` with a per-chart fallback; `dashboards verify` treats
+  a 4xx chart failure as broken and a 429/5xx as transient.
+- The bundled agent skill (`skills/secopsctl/SKILL.md`) covers the new commands.
+
 ## v0.5.0 — 2026-06-25
 
 An operator-experience and agent-enablement milestone (Waves 73–83): the CLI's

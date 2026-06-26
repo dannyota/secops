@@ -53,10 +53,6 @@ var APIVersions = map[string]string{
 	"forwarders":      forwardersAPIVersion,
 	"bigquery_export": bigQueryExportAPIVersion,
 	"coverage":        coverageAPIVersion,
-	// Alternate, unused Chronicle-host cases path: 500s at every version, so the
-	// v1beta segment is not a working pin (see case.go). The working case path is
-	// on the SOAR host (soar.ListCases).
-	"cases_chronicle_alt": caseAPIVersion,
 }
 
 // APIVersionFor returns the pinned API version for a Chronicle-host surface

@@ -37,6 +37,8 @@ func newRulesCmd() *cobra.Command {
 	cmd.AddCommand(
 		newRulesListCmd(),
 		newRulesValidateCmd(),
+		newRulesTestCmd(),
+		newRulesVersionsCmd(),
 		newRulesDetectionsCmd(),
 		newRulesErrorsCmd(),
 		newRulesAlertsCmd(),
@@ -451,6 +453,7 @@ func newRetrohuntGetCmd() *cobra.Command {
 func newRetrohuntCreateCmd() *cobra.Command {
 	var (
 		hours       int
+		wait        bool
 		dryRun, yes bool
 	)
 	cmd := &cobra.Command{
@@ -481,15 +484,42 @@ func newRetrohuntCreateCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				rhID := lastSegment(rh.Name)
 				if !jsonOut {
-					fmt.Fprintf(os.Stdout, "started retrohunt %s (state %s)\n", lastSegment(rh.Name), orDash(rh.State))
+					fmt.Fprintf(os.Stdout, "started retrohunt %s (state %s)\n", rhID, orDash(rh.State))
 				}
-				return nil
+				if !wait {
+					return nil
+				}
+				// Poll to completion, then print the final record (detections are
+				// then readable with `rules detections`). Bounded so a stuck run
+				// fails fast rather than hanging.
+				const maxPolls, interval = 120, 5 * time.Second
+				for i := range maxPolls {
+					got, gerr := c.GetRetrohunt(baseContext(), ruleID, rhID)
+					if gerr != nil {
+						return gerr
+					}
+					if got.State != "RUNNING" && got.State != "STATE_UNSPECIFIED" && got.State != "" {
+						if jsonOut {
+							return emitJSON(got)
+						}
+						fmt.Fprintf(os.Stdout, "retrohunt %s finished: state %s — read matches with `rules detections %s --hours %d`\n",
+							rhID, got.State, ruleID, hoursOrDefault(hours))
+						return nil
+					}
+					if i > 0 && i%6 == 0 {
+						fmt.Fprintf(os.Stderr, "still running… (%s elapsed)\n", time.Duration(i)*interval)
+					}
+					time.Sleep(interval)
+				}
+				return fmt.Errorf("retrohunt %s did not finish after %s — poll with `rules retrohunt get`", rhID, maxPolls*interval)
 			})
 		},
 	}
 	f := cmd.Flags()
 	f.IntVar(&hours, "hours", 168, "look-back window in hours (default 7d)")
+	f.BoolVar(&wait, "wait", false, "poll until the retrohunt finishes, then report its final state")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")

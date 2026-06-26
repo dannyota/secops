@@ -1,9 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"sort"
 	"strings"
+	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -59,13 +64,100 @@ func newCaseWallCmd() *cobra.Command {
 			if jsonOut {
 				return writeRawJSON(os.Stdout, raw)
 			}
-			printGenericItemsSummary(cmd.OutOrStdout(), "case wall records", raw)
-			return nil
+			return emitCaseWall(cmd.OutOrStdout(), raw)
 		},
 	}
 	cmd.Flags().IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
 	_ = cmd.MarkFlagRequired("case-id")
 	return markJSON(cmd)
+}
+
+// caseWallRecord is one entry on the case wall — the case's chronological
+// automation+analyst timeline. The human-readable content lives in
+// activityDataJson (a nested JSON string), keyed by activityKind.
+type caseWallRecord struct {
+	ActivityKind     string          `json:"activityKind"`
+	CreatorUserID    string          `json:"creatorUserId"`
+	CreateTime       json.RawMessage `json:"createTime"` // unix-millis number OR RFC3339 string, surface-dependent
+	AlertIdentifier  string          `json:"alertIdentifier"`
+	ActivityDataJSON string          `json:"activityDataJson"`
+}
+
+// emitCaseWall renders the case wall as a timeline (oldest first): time · kind ·
+// what happened — so playbook attachments, action results, alert grouping, and
+// status/stage changes are visible from the CLI, not hidden behind a bare count.
+func emitCaseWall(w io.Writer, raw json.RawMessage) error {
+	var resp struct {
+		CaseWallRecords []caseWallRecord `json:"caseWallRecords"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return err
+	}
+	recs := resp.CaseWallRecords
+	if len(recs) == 0 {
+		fmt.Fprintln(w, "no case wall records.")
+		return nil
+	}
+	sort.SliceStable(recs, func(i, j int) bool { return wallEpoch(recs[i].CreateTime) < wallEpoch(recs[j].CreateTime) })
+
+	tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+	fmt.Fprintln(tw, "TIME\tKIND\tACTIVITY")
+	for i := range recs {
+		r := &recs[i]
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", fmtWallTime(r.CreateTime), orDash(r.ActivityKind), truncate(wallActivity(r.ActivityDataJSON), 72))
+	}
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "\n%d record(s) (oldest first; --json for the full records).\n", len(recs))
+	return nil
+}
+
+// wallActivity pulls the human-readable line from a wall record's nested
+// activityDataJson (the `comment`, with `activityDescription` as a fallback).
+func wallActivity(dataJSON string) string {
+	if strings.TrimSpace(dataJSON) == "" {
+		return ""
+	}
+	var d struct {
+		Comment             string `json:"comment"`
+		ActivityDescription string `json:"activityDescription"`
+	}
+	if json.Unmarshal([]byte(dataJSON), &d) != nil {
+		return ""
+	}
+	if c := strings.TrimSpace(d.Comment); c != "" && c != "None" {
+		return c
+	}
+	if a := strings.TrimSpace(d.ActivityDescription); a != "" && a != "None" {
+		return a
+	}
+	return ""
+}
+
+// wallEpoch returns a sortable unix-millis value from a wall createTime, which is
+// a number (unix millis) on the modern surface or an RFC3339 string elsewhere.
+func wallEpoch(raw json.RawMessage) int64 {
+	s := strings.Trim(string(raw), `"`)
+	if s == "" {
+		return 0
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t.UnixMilli()
+	}
+	var n int64
+	_, _ = fmt.Sscan(s, &n)
+	return n
+}
+
+// fmtWallTime renders a wall record's timestamp compactly (local
+// "2006-01-02 15:04") from either a unix-millis number or an RFC3339 string.
+func fmtWallTime(raw json.RawMessage) string {
+	ms := wallEpoch(raw)
+	if ms <= 0 {
+		return "-"
+	}
+	return time.UnixMilli(ms).Local().Format("2006-01-02 15:04")
 }
 
 func newCaseContextCmd() *cobra.Command {

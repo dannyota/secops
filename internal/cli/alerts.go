@@ -34,8 +34,7 @@ func newAlertsCmd() *cobra.Command {
 			"default, --yes to apply); `investigate` starts a generation unless --latest.",
 	}
 	cmd.AddCommand(newAlertsListCmd(), newAlertsGetCmd(), newAlertsUpdateCmd(),
-		newAlertsEnrichCmd(), newAlertsActionsCmd(), newAlertsRunActionsCmd(),
-		newAlertsInvestigateCmd())
+		newAlertsEnrichCmd(), newAlertsInvestigateCmd())
 	return cmd
 }
 
@@ -45,6 +44,7 @@ func newAlertsListCmd() *cobra.Command {
 		from, to      string
 		filter, query string
 		limit         int
+		sortBy        string
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -80,6 +80,9 @@ func newAlertsListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := sortAlerts(snap.Alerts, sortBy); err != nil {
+				return err
+			}
 			if err := emitAlerts(os.Stdout, snap); err != nil {
 				return err
 			}
@@ -95,7 +98,51 @@ func newAlertsListCmd() *cobra.Command {
 	f.StringVar(&query, "query", "", "deprecated alias of --filter")
 	_ = f.MarkHidden("query")
 	f.IntVar(&limit, "limit", 100, "max alerts to return (0 = server default)")
+	f.StringVar(&sortBy, "sort", "", "client-side sort: priority (worst first) | created (newest first)")
 	return markJSON(cmd)
+}
+
+// sortAlerts reorders an alert snapshot in place for triage. priority sorts by
+// feedback-summary priority (critical first); created sorts newest first. An
+// empty sort leaves the server order untouched.
+func sortAlerts(alerts []chronicle.Alert, sortBy string) error {
+	switch sortBy {
+	case "":
+		return nil
+	case "priority":
+		slices.SortStableFunc(alerts, func(a, b chronicle.Alert) int {
+			return alertPriorityRank(b) - alertPriorityRank(a) // desc: worst first
+		})
+	case "created":
+		slices.SortStableFunc(alerts, func(a, b chronicle.Alert) int {
+			return strings.Compare(alertCreated(&b), alertCreated(&a)) // desc: newest RFC3339 first
+		})
+	default:
+		return fmt.Errorf("--sort must be priority or created, got %q", sortBy)
+	}
+	return nil
+}
+
+// alertPriorityRank maps the feedback-summary priority token to a sortable rank
+// (critical highest; 0 when absent/unknown).
+func alertPriorityRank(a chronicle.Alert) int {
+	if a.FeedbackSummary == nil {
+		return 0
+	}
+	switch a.FeedbackSummary.Priority {
+	case "PRIORITY_CRITICAL":
+		return 5
+	case "PRIORITY_HIGH":
+		return 4
+	case "PRIORITY_MEDIUM":
+		return 3
+	case "PRIORITY_LOW":
+		return 2
+	case "PRIORITY_INFO":
+		return 1
+	default:
+		return 0
+	}
 }
 
 func newAlertsGetCmd() *cobra.Command {

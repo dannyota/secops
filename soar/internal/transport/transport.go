@@ -25,7 +25,10 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"danny.vn/secops/auth"
+	"danny.vn/secops/internal/httpretry"
 )
 
 // APIVersion is the SOAR API version the v1alpha surface targets.
@@ -89,6 +92,9 @@ type Transport struct {
 	settings Settings
 	base     string
 	http     *http.Client
+	// limiter paces outgoing requests so a bursty multi-call operation can't trip
+	// the API quota. nil means no client-side pacing.
+	limiter *rate.Limiter
 }
 
 // New builds a Transport. creds must be an AppKey credential (auth.SOARAppKey);
@@ -101,11 +107,26 @@ func New(s Settings, creds auth.Credentials, httpClient *http.Client) *Transport
 			Transport: auth.RoundTripper(creds, auth.HTTPTransport(s.ForceIPv4)),
 		}
 	}
+	// No client-side pacing by default (opt in via SetLimiter); the bounded
+	// Retry-After-honoring retry recovers from a 429 without slowing bulk reads.
 	return &Transport{
 		settings: s,
 		base:     strings.TrimRight(s.BaseURL, "/"),
 		http:     httpClient,
 	}
+}
+
+// SetLimiter sets a request-pacing limiter (nil disables pacing). Off by default.
+func (t *Transport) SetLimiter(l *rate.Limiter) { t.limiter = l }
+
+// retryPolicy is the shared default policy with the package knobs overlaid (so a
+// test that zeros baseBackoff gets instant retries). Budget bounds the TOTAL
+// backoff across the loop, not just a single wait.
+func retryPolicy() httpretry.Policy {
+	p := httpretry.DefaultPolicy()
+	p.MaxAttempts = maxRetries + 1
+	p.Base = baseBackoff
+	return p
 }
 
 // Settings returns a copy of the instance settings.
@@ -246,14 +267,39 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 		bodyBytes = j
 	}
 
+	policy := retryPolicy()
 	var lastErr error
-	for attempt := range maxRetries + 1 {
+	var wait, spent time.Duration
+	// nextWait computes the pre-retry delay and reports whether to retry: false once
+	// attempts are exhausted OR the accumulated backoff would exceed the total
+	// Budget, so an honored 429 hint can't hang a command for minutes.
+	nextWait := func(attempt int, hint time.Duration) (time.Duration, bool) {
+		if attempt >= policy.MaxAttempts-1 {
+			return 0, false
+		}
+		w := policy.Backoff(attempt+1, hint, httpretry.Jitter())
+		if policy.Budget > 0 && spent+w > policy.Budget {
+			return 0, false
+		}
+		spent += w
+		return w, true
+	}
+	for attempt := range policy.MaxAttempts {
 		if attempt > 0 {
-			backoff := time.Duration(1<<uint(attempt-1)) * baseBackoff
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(backoff):
+			case <-time.After(wait):
+			}
+		}
+		// Optional client-side pacing (off by default). A ctx-driven Wait failure
+		// must surface as ctx.Err() so the CLI's timeout/quota hints apply.
+		if t.limiter != nil {
+			if err := t.limiter.Wait(ctx); err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				return err
 			}
 		}
 
@@ -276,8 +322,11 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 		resp, err := t.http.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("soar: %s request failed: %w", method, err)
-			if attempt < maxRetries && retryable(method, 0, true) {
-				continue
+			if retryable(method, 0, true) {
+				if w, ok := nextWait(attempt, 0); ok {
+					wait = w
+					continue
+				}
 			}
 			return lastErr
 		}
@@ -297,9 +346,18 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 		}
 
 		apiErr := &Error{Method: method, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: requestIDFromHeader(resp.Header)}
-		if attempt < maxRetries && retryable(method, resp.StatusCode, false) {
-			lastErr = apiErr
-			continue
+		if retryable(method, resp.StatusCode, false) {
+			// Honor the server's Retry-After / RetryInfo ONLY for a 429 (quota); a
+			// 5xx uses the short backoff so a transient error fails fast.
+			var hint time.Duration
+			if resp.StatusCode == http.StatusTooManyRequests {
+				hint = httpretry.ParseHint(resp.Header, data)
+			}
+			if w, ok := nextWait(attempt, hint); ok {
+				wait = w
+				lastErr = apiErr
+				continue
+			}
 		}
 		return apiErr
 	}

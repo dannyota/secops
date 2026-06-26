@@ -77,7 +77,8 @@ func newSOARClient() (*soar.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return soar.NewClient(s, auth.SOARAppKey(key))
+	creds := auth.SOARAppKey(key)
+	return soar.NewClient(s, creds, soar.WithHTTPClient(timedHTTPClient(creds, s.ForceIPv4)))
 }
 
 func newSOARLegacyClient() (*legacy.Client, error) {
@@ -85,7 +86,8 @@ func newSOARLegacyClient() (*legacy.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return legacy.NewClient(s, auth.SOARAppKey(key), nil), nil
+	creds := auth.SOARAppKey(key)
+	return legacy.NewClient(s, creds, timedHTTPClient(creds, s.ForceIPv4)), nil
 }
 
 func init() {
@@ -101,7 +103,7 @@ func init() {
 	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARCaseCmd(), newSOARLegacyCmd(),
 		newSOARIntegrationCmd(), newSOARSettingsCmd(), newSOARMarketplaceCmd(), newSOARUsersCmd(),
 		newSOARPlaybookCmd(), newSOARJobCmd(), newSOARPackageIntegrationCmd(), newSOARBuildPlaybookCmd(),
-		newSOARAuditCmd())
+		newSOARAuditCmd(), newSOARConnectorCmd())
 	rootCmd.AddCommand(soarCmd)
 }
 

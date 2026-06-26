@@ -24,8 +24,103 @@ func newFeedsCmd() *cobra.Command {
 			"config-as-code is `pull feeds` / `push feeds`; deleting is a guarded one-off\n" +
 			"(feeds are deliberately not prune-eligible, since a delete stops ingestion).",
 	}
-	cmd.AddCommand(newFeedsSchemasCmd(), newFeedsDeleteCmd())
+	cmd.AddCommand(newFeedsSchemasCmd(), newFeedsDeleteCmd(), newFeedsServiceAccountCmd(),
+		newFeedsListCmd(), newFeedsGetCmd())
 	return cmd
+}
+
+func newFeedsListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Read-only: list live feeds with state (and failure message if failed)",
+		Long: "List the instance's feeds with their runtime state — a quick imperative read\n" +
+			"of what is ingesting and what has failed (the config-as-code snapshot is\n" +
+			"`pull feeds`). JSON or table.",
+		Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			feeds, err := c.ListFeeds(baseContext())
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return emitJSON(feeds)
+			}
+			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+			fmt.Fprintln(tw, "UID\tSTATE\tDISPLAY NAME\tNOTE")
+			for i := range feeds {
+				f := &feeds[i]
+				uid := f.UID
+				if uid == "" {
+					uid = lastSegment(f.Name)
+				}
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", uid, orDash(f.State), orDash(f.DisplayName), truncate(f.FailureMsg, 48))
+			}
+			if err := tw.Flush(); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stdout, "\n%d feed(s).\n", len(feeds))
+			return nil
+		},
+	}
+	return markJSON(cmd)
+}
+
+func newFeedsGetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get <feed-id>",
+		Short: "Read-only: get one feed by id (full config + state)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			f, err := c.GetFeed(baseContext(), args[0])
+			if err != nil {
+				return err
+			}
+			return emitJSON(f)
+		},
+	}
+	return markJSON(cmd)
+}
+
+// newFeedsServiceAccountCmd prints the Chronicle-managed service account a
+// push/webhook feed source must be granted access to (the email to put in an
+// IAM grant when onboarding a GCS/PubSub-style feed). Read-only.
+func newFeedsServiceAccountCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "service-account",
+		Short: "Read-only: the Chronicle-managed service account email for feed IAM grants",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			sa, err := c.FetchFeedServiceAccount(baseContext())
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return emitJSON(sa)
+			}
+			email := sa.ServiceAccountEmail
+			if email == "" {
+				email = sa.ServiceAccount
+			}
+			if email == "" { // the live API returns the email as the resource name's last segment
+				email = lastSegment(sa.Name)
+			}
+			fmt.Fprintln(os.Stdout, orDash(email))
+			return nil
+		},
+	}
+	return markJSON(cmd)
 }
 
 func newFeedsDeleteCmd() *cobra.Command {

@@ -108,7 +108,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 |---|---|---|---|
 | entities (`:summarizeEntity`) | operational | ✅ | `:searchEntities` / `:findEntity*` graph RPCs ⬜ (med — partially superseded by `findingsGraph`) |
 | **findings graph** (`findingsGraph`) | operational (read) | ✅ initialize read-validated live (detection-seeded); `exploreNode` wired (params verbatim) | SDK-only (`chronicle/findings_graph.go`); CLI ⬜ |
-| **enrichment agent** (`enrichmentAgent`) | operational | ⛔ 500 on chronicle / 404 on siemplify — wired on both hosts with fallback (`alerts enrich`/`actions`/`run-actions`) | confirm `siemAlertId` form via a live UI request |
+| **alert enrichment** (`alerts enrich`) | operational (read) | ✅ `legacy:legacyBatchGetCollections` (chronicle/ADC) — the console's own path | full per-alert detection collection; the `enrichmentAgent:*` path is a dead 500 (action verbs withheld, SDK kept importable) |
 | **Gemini chat** (`users.conversations`) | operational (read) | ✅ `query gemini` live-validated (HTML blocks rendered as prose) | multi-turn threading SDK-supported (conversation id), CLI single-shot |
 | **watchlist membership** (`watchlists.entities`) | imperative | 🔨 `add-entity` guarded — request shape validated live (the UDM Entity envelope: `{entity:{entity:<Noun>}}`); `RemoveWatchlistEntity` (by entity resource name) + `batchRemove` SDK | the ops can be 501 UNIMPLEMENTED per instance (watchlist CRUD itself write-validated); smoke: `TestLiveWatchlistEntityWriteSmoke` |
 | IoC enterprise search (`legacySearchEnterpriseWideIoCs`) | operational | ✅ read-validated (50 matches); association `regionCode` is an object, decoded either way | — |

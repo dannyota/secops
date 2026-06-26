@@ -29,7 +29,11 @@ Rule-tuning reads (Wave 54, live-validated):
 
 Batch update: `rules:modifyRules` SDK (`ModifyRules`, per-index failure map) — built, exercised by the gated lifecycle smoke; the reconcile sweep stays per-rule PATCH until the batch path passes an approved smoke.
 
-Also: `RunTestRule` (dry-run vs historical data) and `ArchiveRule`.
+Also: `ArchiveRule`. **`rules test <file.yaral>` (W95)** wires `RunTestRule` — dry-run a YARA-L rule against the last `--hours` of data and report the detections it would produce, WITHOUT creating the rule (beyond `validate`'s compile-check); compile errors surface, nothing is stored. Live-validated (5 detections over a real window).
+
+#### entities graph / data-access (W95)
+
+**`entities graph <detection-id>`** seeds the findings-graph pivot (`InitializeFindingsGraph`): root node + connected entities/edges over `--hours`; `entities graph explore --param k=v` expands a node (`ExploreFindingsGraphNode`). Read-only, JSON; live-validated (rootNode + adjacent nodes for a real detection). **`data-access labels|scopes`** list/get/create/delete wire the `chronicle/rbac.go` CRUD — the data-access RBAC that was console-only; create/delete guarded, reads live-validated.
 
 Read live-validated; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create→update→deploy→archive→modifyRules→delete, self-cleaning).
 
@@ -99,7 +103,7 @@ One `<slug>.json` (config + `_server` id). `definition.charts[]` is chart-refere
 Pull modes (Wave 72):
 
 - Default — keeps charts as references (layout + filters + `_server.chart`; cheap, deterministic drift)
-- `pull dashboards --with-charts` — derefs each chart inline (`+query/interval/visualization`; heavier — GetChart+GetQuery per chart, can 429 on a large instance; 404/429 charts degrade gracefully to references)
+- `pull dashboards --with-charts` — derefs each chart inline (`+query/interval/visualization`; the chart bodies are read in one `dashboardCharts:batchGet` per dashboard via `ChartsByID`, falling back to per-chart `GetChart` for a dashboard with a dangling chart; the query is still a `GetQuery` per chart — no batch endpoint; 404/dangling charts degrade gracefully to references)
 
 `push`/`drift` detect an inline mirror and deref the live side to match; `push` of an inline mirror reconciles new charts (`:addChart`) and changed queries/title/viz (`:editChart`, etag-guarded).
 
@@ -128,6 +132,10 @@ Authoring ergonomics (Wave 83, live-validated):
 - `add-chart --if-absent` + batch `add-charts --file <charts.json>` (validated up front, idempotent skip-by-title, `--pace`d under the chart quota) make a whole-dashboard build rerunnable
 
 Live-validated end to end by `TestLiveDashboardsAuthoringSmoke` (generated viz stored as a BAR series; run-chart/verify; in-place type/layout edit keeps the chart id; batch idempotent). Lossless deref-on-pull round-trip is a follow-up.
+
+Copy and delete (live-validated). `dashboards duplicate` defaults to the server **`:duplicate`** verb (`DuplicateDashboard`) — the same path the web console's Duplicate action takes — which mints the copy its **own independent charts and queries** in a single call (the copy shares no chart or query id with the source). `--deep-copy` selects the client-side fallback (`DeepCopyDashboard`): create a new dashboard with the source's filters, then recreate every chart fresh (source charts read in ONE `dashboardCharts:batchGet`; each query read via `GetQuery` and replayed inline through `AddChart`) — also fully independent, for when a server-side copy is unavailable. `dashboards delete` removes a whole dashboard (clean deletes succeed); when the backend returns a 500 it is diagnosed: a **corrupt** dashboard whose `definition.charts` hold dangling/non-owned references (charts owned by another dashboard or already gone) cannot be deleted by the API **or the web console**, the corrupt state can't be repaired first (`:removeChart` 404s; rewriting `definition.charts` 400s), and deleting the chart owner does not unstick the 500 — so it can only be removed by the platform (raise with Google support). Such corrupt dashboards are a legacy artifact, **not** something the current `:duplicate` verb produces.
+
+Portability (live-validated). `dashboards export <id>` writes a self-contained JSON document — the dashboard plus its charts and queries (the `nativeDashboards:export` `inlineDestination.dashboards[0]` object) — and `dashboards import <file>` re-creates it in ONE `nativeDashboards:import` call (the server mints fresh ids, so an import shares no id with the source). A faster build path than `duplicate` + per-chart `add-chart`, and the way to move a dashboard between instances.
 
 ### `curated` / `curated_rules`
 
@@ -317,9 +325,11 @@ The typed `Investigation` carries status/verdict/confidence/summary/nextSteps/no
 
 Graph-pivot investigation (W56). `InitializeFindingsGraph` seeds a graph from a **detection id** over a time range; `ExploreFindingsGraphNode` expands nodes (node ids are tied to the initialising range). **Read-validated live** (`TestLiveWave56Read` — a real detection seed returned root and graph). SDK-only (`chronicle/findings_graph.go`) — the structured "what is connected to this detection" primitive.
 
-### enrichment agent — alerts enrich / actions / run-actions
+### alert enrichment — alerts enrich
 
-Pre-case alert triage (W56): fetch a SIEM alert's enrichment context, list the integration actions executable against its entities, run a batch (guarded `run-actions`, typed `EnrichmentAction`). Wired on both hosts with auto-fallback (`chronicle/enrichment_agent.go`, `soar/enrichment_agent.go`). The chronicle host returns **500 INTERNAL**; the SOAR host 404s — the surface is currently unavailable server-side (clean combined error). Confirm the `siemAlertId` form against a live UI request before concluding more.
+`alerts enrich <id>` (read-only, live-validated) fetches the full per-alert detection collection the console renders when an analyst opens an alert: the rule detection(s), every mapped UDM event, the involved entities/indicators (hosts, users, process path+sha256, domains), the alert's MITRE tags, its SOAR case linkage, and the AI triage verdict when an agent has run. It reads `legacy:legacyBatchGetCollections?collectionIds=<id>` (`chronicle/legacy.go` `BatchGetCollections`, chronicle host / ADC) — the surface the web UI uses. The AI agent's investigation detail is `alerts investigate <id> --latest`.
+
+The earlier `enrichmentAgent:*` path (W56) is a dead end: `fetchAlertData`/`fetchActions`/`executeActions` return **500 INTERNAL** for every variant (across versions and auth forms — AppKey-in-query is a SOAR-host concern, never chronicle) and are **not used by the console**. The pre-case "run an integration action against an alert's entities" verbs that rode it (`actions`/`run-actions`) are therefore withheld rather than shipped always-failing; the SDK methods stay importable (`chronicle/enrichment_agent.go`) for if/when the real surface is captured. The in-case equivalent — `soar case run-action` — works today.
 
 ### watchlist membership — watchlists add-entity
 

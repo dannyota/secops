@@ -83,7 +83,12 @@ plus a reserved `_server` identity block. Two things matter on push:
   `DASHBOARD_PUBLIC` in the JSON is rejected. To change visibility, copy the
   dashboard into a new one with the desired access:
   `secopsctl dashboards duplicate <id> --name <new> --access DASHBOARD_PUBLIC`
-  (guarded; re-pull afterwards). It wraps the SDK's `DuplicateDashboard`.
+  (guarded; re-pull afterwards). By default this uses the server **`:duplicate`**
+  verb (`DuplicateDashboard`) — the same path the web console's Duplicate action
+  takes — which mints the copy its **own independent charts and queries** in a
+  single call (the copy shares no chart or query id with the source).
+  `--deep-copy` selects a client-side fallback that recreates each chart fresh via
+  `AddChart` (also fully independent) for when the server-side copy is unavailable.
 - **No dashboard-level etag.** A dashboard carries no top-level `etag`, so a
   `push dashboards` cannot detect a concurrent live edit of dashboard-level fields
   (`displayName`, `description`, `definition.{filters,charts}`) — it overwrites

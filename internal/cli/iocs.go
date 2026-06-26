@@ -26,8 +26,9 @@ const iocsFindBatch = 1000
 // Threat Intelligence is upstream-sourced.
 func newIoCsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "iocs",
-		Short: "Indicators of Compromise (read-only): resolve a value to its IoC record",
+		Use:     "indicators",
+		Aliases: []string{"iocs"},
+		Short:   "Indicators of Compromise (read-only): resolve a value to its IoC record",
 		Long: "Look up an indicator (hash, domain, IP) against the tenant's IoC matches.\n" +
 			"Read-only — Threat Intelligence is Google/Mandiant-sourced.",
 	}

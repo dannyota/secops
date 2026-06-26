@@ -96,7 +96,7 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `data_tables` | reconcile | ✅ chronicle · v1alpha | `.csv`+`.yaml`; columns immutable after create; rows wholesale destroy-and-replace. |
 | `feeds` | reconcile | ✅ chronicle · v1alpha | `.yaml`; secrets redacted on pull, overlaid on update; `secret_ref` env/Secret Manager; not prune-eligible. |
 | `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate; parser-dev loop + `validate` verb. |
-| `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards only; chart-ref and inline pull modes; chart authoring, run/verify verbs. |
+| `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards only; chart-ref and inline pull modes; chart authoring, run/verify verbs; `duplicate` is a client-side deep-copy (own charts — charts aren't shareable), `delete` diagnoses the undeletable shared-chart shell. |
 | `curated` / `curated_rules` | reconcile + imperative | ✅ chronicle · v1alpha | Google-managed; batch enable/alerting reconcile; curated tuning reads; v1alpha only. |
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
 | `forwarders` | reconcile | ✅ chronicle · v1beta | `.yaml`; prune-eligible; collectors separate nested resource; SDK pinned v1beta (v1 404s). |
@@ -115,10 +115,12 @@ Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.
 
 ### Operational plane — query → act (live data)
 
-> **Cases are a SOAR function** — see **SOAR → cases** below (working path:
-> siemplify · v1alpha). A `cases` CLI command reaches the *same* case on the
-> **chronicle** host by UUID (ADC), but that path 500s at every version, so prefer
-> `soar case`. Tracked in the cases row's notes, not as a separate blocked surface.
+> **Cases are a SOAR function, surfaced as one command** — the top-level `cases`
+> command (alias `soar case`) works the same case on the **siemplify** host, where
+> every verb answers (`cases list` prefers v1alpha and auto-falls back to the legacy
+> AppKey queue). The same case is also addressable on the **chronicle** host by UUID
+> (ADC), but that collection errors at every version, so it is not surfaced — only
+> `cases soar-id` (the UUID→id bridge) reads from chronicle. One case, several APIs.
 
 | Function (CLI) | Lane | Status (marker · domain · version) | Notes |
 |---|---|---|---|
@@ -131,7 +133,7 @@ Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.
 | **alert AI investigation** (`alerts investigate`) | operational | ✅ chronicle · v1alpha | Per-alert Gemini TIN triage (W57); trigger + poll + notebook; `--latest` read-only variant |
 | **Gemini chat** (`query gemini`) | operational (read) | ✅ chronicle · v1alpha | YARA-L / UDM Q&A; live-validated (W56); HTML blocks rendered as prose; `--opt-in` |
 | **findings graph** (`findingsGraph`) | operational (read) | ✅ chronicle · v1alpha | Graph-pivot from detection id (W56); SDK-only (`chronicle/findings_graph.go`) |
-| **enrichment agent** (`alerts enrich`) | operational | ⛔ chronicle · v1alpha (500) · ⛔ siemplify (404) | Pre-case alert triage (W56); both hosts unavailable server-side; auto-fallback wired |
+| **alert enrichment** (`alerts enrich`) | operational (read) | ✅ chronicle · v1alpha | Full per-alert detection collection (rule + UDM events + entities + triage) via `legacy:legacyBatchGetCollections` — the surface the console uses. The `enrichmentAgent:*` path (W56) is a dead 500 and unused by the console; the pre-case action verbs that rode it are withheld (the in-case equivalent is `soar case run-action`). |
 | **watchlist membership** | imperative | 🔨 chronicle (shape validated; op gated per instance) | `watchlists add-entity`; UDM Entity envelope required; membership can 501 per instance |
 
 #### Surface details
@@ -236,6 +238,7 @@ Installing content (integration packages and the connector/job/action definition
 | `soar build-playbook` / `soar playbook mold` / `soar playbook trigger set` | offline utility | — | — | Composes save-ready playbook JSON from an exported base; offline-only; built + offline-tested. |
 | `soar integration scaffold` / `soar package-integration` | offline utility | — | — | Scaffolds Python custom integration dirs; packages to ZIP for IDE import; no API call. |
 | `commands` / `surfaces` / `capabilities` | offline utility | — | — | Machine-readable registries; W73 rich flag schema + capabilities live probe; live-validated. |
+| `skill` / `skill install` | offline utility | — | — | W84; the agent operating guide embedded in the binary (`go install` ships no docs); `--json` for metadata; `install` registers it in an agent skills dir. |
 | structured `--json` errors + dry-run plan | output contract | — | — | W73 live-validated; stderr structured error envelope + stdout dry-run change plan. |
 | `soar integration list` / `uninstall` | imperative | ✅ siemplify · v1alpha | — | Lists installed packs; uninstalls custom-only (`custom:true`); read live-validated. |
 | `soar integration connector list` / `delete` | imperative | ✅ siemplify · v1alpha | — | Connector definitions inside a pack; delete custom-only; read + delete live-validated. |

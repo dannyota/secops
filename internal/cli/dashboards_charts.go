@@ -579,11 +579,12 @@ func newDashboardsChartsCmd() *cobra.Command {
 			}
 
 			views := make([]chartView, 0, len(refs))
+			charts := c.ChartsByID(ctx, refs) // one batchGet for a healthy dashboard
 			for _, ref := range refs {
 				v := chartView{ChartID: lastSegment(ref)}
-				chartRaw, gerr := c.GetChart(ctx, ref)
-				if gerr != nil {
-					v.Error = gerr.Error()
+				chartRaw, ok := charts[lastSegment(ref)]
+				if !ok {
+					v.Error = "chart not found (dangling reference)"
 					views = append(views, v)
 					continue
 				}

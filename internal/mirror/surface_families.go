@@ -171,15 +171,6 @@ func buildSurfaceFamilies() []SurfaceFamily {
 		soarModern("cases", AreaSOAR, LaneOperational, StatusValidated, "soar/cases.go"),
 		soarLegacy("case-verbs", LaneImperative, StatusValidated, "soar/legacy/cases.go"),
 		soarLegacy("bulk-close", LaneImperative, StatusBuilt, "soar/legacy/cases_bulk.go"),
-		// The alternate, unused Chronicle-host cases path: Area=SOAR (the cases
-		// function) but Plane=SIEM (it answers on the chronicle host). 500s at
-		// every version, so it is blocked — the working path is "cases" above.
-		{
-			Name: "cases (chronicle alt)", Area: AreaSOAR, Plane: PlaneSIEM,
-			Host: HostChronicle, Auth: AuthADC, Generation: GenNew,
-			APIVersion: chronicle.APIVersionFor("cases_chronicle_alt"),
-			Lane:       LaneOperational, Status: StatusBlocked, SDKLocation: "chronicle/case.go",
-		},
 
 		// --- SOAR: other operational / imperative / raw ---------------------
 		soarModern("grouping", AreaSOAR, LaneRaw, StatusBuilt, "soar/grouping.go"),

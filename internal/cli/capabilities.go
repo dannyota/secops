@@ -43,12 +43,35 @@ type capSurfaces struct {
 
 // capabilities is the --json bootstrap object.
 type capabilities struct {
-	Version  BuildInfo     `json:"version"`
-	ReadOnly bool          `json:"read_only"`
-	Health   []doctorCheck `json:"health,omitempty"`
-	HealthOK bool          `json:"health_ok"`
-	Probed   bool          `json:"probed"` // false when --offline
-	Surfaces capSurfaces   `json:"surfaces"`
+	Version  BuildInfo         `json:"version"`
+	ReadOnly bool              `json:"read_only"`
+	Health   []doctorCheck     `json:"health,omitempty"`
+	HealthOK bool              `json:"health_ok"`
+	Probed   bool              `json:"probed"` // false when --offline
+	Surfaces capSurfaces       `json:"surfaces"`
+	Skill    string            `json:"skill_command"`             // run this for the agent operating guide
+	Aliases  map[string]string `json:"command_aliases,omitempty"` // back-compat: old command name → canonical name
+}
+
+// collectCommandAliases maps every back-compat alias to its canonical command
+// name, walking the whole tree. Group renames (e.g. `iocs`→`indicators`) live here
+// rather than in the `commands` catalog, which lists only runnable verbs.
+func collectCommandAliases(root *cobra.Command) map[string]string {
+	out := map[string]string{}
+	var walk func(*cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, sub := range c.Commands() {
+			for _, a := range sub.Aliases {
+				out[a] = sub.Name()
+			}
+			walk(sub)
+		}
+	}
+	walk(root)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func runCapabilities(cmd *cobra.Command, _ []string) error {
@@ -59,6 +82,8 @@ func runCapabilities(cmd *cobra.Command, _ []string) error {
 		ReadOnly: readOnlyMode(),
 		Surfaces: rollupSurfaces(),
 		HealthOK: true,
+		Skill:    skillCommand,
+		Aliases:  collectCommandAliases(rootCmd),
 	}
 	if !offline {
 		checks, ok, _ := healthChecks(baseContext())
@@ -109,6 +134,7 @@ func runCapabilities(cmd *cobra.Command, _ []string) error {
 	if len(caps.Surfaces.Blocked) > 0 {
 		fmt.Printf("  blocked (avoid): %v\n", caps.Surfaces.Blocked)
 	}
+	fmt.Printf("  guide: `%s` (operating guide); `%s install` to register it\n", skillCommand, skillCommand)
 	return nil
 }
 

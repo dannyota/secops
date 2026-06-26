@@ -355,7 +355,7 @@ func TestPrintWorkflowSummaryCounts(t *testing.T) {
 	raw := json.RawMessage(`{"completedSteps":[{},{}],"faultedSteps":[{"actionName":"A","status":"FAULTED"}],` +
 		`"retryPendingSteps":[],"totalPendingActionSteps":1,"executionTimeInMs":42,"usedIntegrations":[{},{},{}]}`)
 	var b bytes.Buffer
-	printWorkflowSummary(&b, raw, false)
+	printWorkflowSummary(&b, raw, false, false)
 	out := b.String()
 	for _, want := range []string{"completed: 2", "faulted: 1", "used_integrations: 3", "faulted (1):", "A"} {
 		if !strings.Contains(out, want) {

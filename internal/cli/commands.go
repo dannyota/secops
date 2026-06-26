@@ -41,6 +41,7 @@ func markJSON(cmd *cobra.Command) *cobra.Command {
 // the first try instead of inferring a flag from training data.
 type commandRow struct {
 	Path    string     `json:"path"`              // command path without the binary name
+	Aliases []string   `json:"aliases,omitempty"` // back-compat alternate names for this command
 	Kind    string     `json:"kind"`              // "read" | "guarded-mutation"
 	JSON    bool       `json:"json"`              // honors the global --json flag
 	Short   string     `json:"short"`             // one-line description
@@ -113,9 +114,13 @@ func collectCommands(cmd *cobra.Command, prefix string) []commandRow {
 		path := strings.TrimSpace(prefix + " " + c.Name())
 		runnable := !c.HasSubCommands() ||
 			((c.Run != nil || c.RunE != nil) && !helpOnlyParents[c])
+		// Only runnable verbs are catalog rows (an agent invokes every row). A
+		// navigation-only group is never a row even if it carries aliases — the
+		// old→new group-rename map lives in `capabilities --json` instead.
 		if runnable {
 			rows = append(rows, commandRow{
 				Path:    path,
+				Aliases: c.Aliases,
 				Kind:    commandKind(c),
 				JSON:    c.Annotations[jsonAnnotation] == "true",
 				Short:   c.Short,

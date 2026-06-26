@@ -94,14 +94,14 @@ func TestCommandsCatalog(t *testing.T) {
 	// `info` is a runnable parent (it has subcommands AND real work of its own)
 	// and must appear; navigation-only parents must not.
 	wantKind := map[string]string{
-		"alerts list":     "read",
-		"alerts update":   "guarded-mutation",
-		"soar case get":   "read",
-		"soar case close": "guarded-mutation",
-		"pull":            "read",
-		"push":            "guarded-mutation",
-		"commands":        "read",
-		"info":            "read",
+		"alerts list":   "read",
+		"alerts update": "guarded-mutation",
+		"cases get":     "read",
+		"cases close":   "guarded-mutation",
+		"pull":          "read",
+		"push":          "guarded-mutation",
+		"commands":      "read",
+		"info":          "read",
 	}
 	for path, want := range wantKind {
 		r, ok := byPath[path]
@@ -117,7 +117,7 @@ func TestCommandsCatalog(t *testing.T) {
 		}
 	}
 	// Group parents must not appear (they are navigation, not verbs).
-	for _, parent := range []string{"soar", "soar case", "rules"} {
+	for _, parent := range []string{"soar", "soar case", "cases", "rules"} {
 		if _, ok := byPath[parent]; ok {
 			t.Errorf("group parent %q must not be a catalog row", parent)
 		}

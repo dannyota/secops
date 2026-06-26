@@ -2,7 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
@@ -15,14 +17,68 @@ func init() { rootCmd.AddCommand(newRuleExclusionsCmd()) }
 
 func newRuleExclusionsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rule_exclusions <verb>",
-		Short: "Extra: imperative findings-refinement ops (enable/disable/archive) — config-as-code is `pull/push rule_exclusions`",
+		Use:     "rule-exclusions <verb>",
+		Aliases: []string{"rule_exclusions"},
+		Short:   "Extra: imperative findings-refinement ops (enable/disable/archive) — config-as-code is `pull/push rule_exclusions`",
 		Long: "Operate on findings refinements outside the reconcile loop. Config-as-code\n" +
 			"is `pull rule_exclusions` / `push rule_exclusions`; deployment changes are\n" +
 			"guarded and dry-run by default.",
 	}
-	cmd.AddCommand(newRuleExclusionsDeployCmd())
+	cmd.AddCommand(newRuleExclusionsDeployCmd(), newRuleExclusionsListCmd(), newRuleExclusionsGetCmd())
 	return cmd
+}
+
+func newRuleExclusionsListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Read-only: list rule exclusions (findings refinements) with id, type, query",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			xs, err := c.ListRuleExclusions(baseContext())
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return emitJSON(xs)
+			}
+			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+			fmt.Fprintln(tw, "ID\tDISPLAY NAME\tTYPE\tQUERY")
+			for i := range xs {
+				x := &xs[i]
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", x.ID(), orDash(x.DisplayName), string(x.Type), truncate(x.Query, 50))
+			}
+			if err := tw.Flush(); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stdout, "\n%d rule exclusion(s).\n", len(xs))
+			return nil
+		},
+	}
+	return markJSON(cmd)
+}
+
+func newRuleExclusionsGetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get <id>",
+		Short: "Read-only: get one rule exclusion (incl. its deployment state)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			x, err := c.GetRuleExclusion(baseContext(), args[0])
+			if err != nil {
+				return err
+			}
+			return emitJSON(x)
+		},
+	}
+	return markJSON(cmd)
 }
 
 func newRuleExclusionsDeployCmd() *cobra.Command {

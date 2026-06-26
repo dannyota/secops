@@ -140,7 +140,15 @@ operator model and its **safety**.
   Validate new surfaces against the **reliable** paths (SOAR AppKey, stable SIEM
   reads) + the **swagger**, not the flaky live API. On a 500: fail cleanly with
   the request id, without printing raw request URLs; retry idempotent **reads**,
-  never a **mutation** (double-apply risk).
+  never a **mutation** (double-apply risk). **429 is retried for any method** (it
+  was rejected before processing, so it's safe): the shared `internal/httpretry`
+  policy honors the server's `Retry-After` / `google.rpc.RetryInfo` hint **only for
+  a 429** (so a quota wait is the server-told duration, not a too-short fixed
+  backoff; a transient 5xx keeps the short backoff and fails fast), with equal
+  jitter (a floor so retries keep spacing) bounded by a TOTAL backoff budget so a
+  big hint can't hang a command for minutes. An opt-in token-bucket limiter is
+  available for proactive pacing (off by default). Both transports (chronicle,
+  SOAR) share this one tested package.
 - **Build discipline (how a surface earns "validated").** Swagger-spec the shape →
   **verify SDK signatures by hand** (the spec agents are imprecise) → wire the
   Surface/command → **live read-validate** (pull round-trips clean) → **gated write

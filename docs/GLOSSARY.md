@@ -29,6 +29,42 @@ string uses a word you don't recognize.
 | **ADC** | *Application Default Credentials* — your Google login, set up with `gcloud auth application-default login`. Used for all SIEM commands. The token is minted in memory; nothing is written to disk. |
 | **AppKey** | A long-lived SOAR API key you generate once in the SOAR UI (Settings → Advanced → API Keys). Used for all `soar` commands. Stored `0600` in your config or passed via `$SECOPS_SOAR_APP_KEY`. |
 
+## What you work with: rules, alerts, cases, playbooks
+
+Six words name the chain from *what detects* to *what responds*. They are distinct
+objects — except **workflow**, which is an umbrella, not an object. Keeping them
+straight heads off the most common mix-up: that a "SIEM case" and a "SOAR case"
+are two different things. They are not — see *one concept, not two* below.
+
+| Term | What it is | Plane | Command |
+|---|---|---|---|
+| **rule** | A detection you author in YARA-L over UDM events. A match produces a *detection*; an *alerting* rule also raises an **alert**. | SIEM | `secopsctl rules` |
+| **curated rule** | A detection authored and maintained by Google (curated detections / Applied Threat Intelligence), shipped in rule *sets*. You don't write the logic — you toggle enabled/alerting at set × precision only. | SIEM | `secopsctl curated` |
+| **rule exclusion** | A filter that stops matching events from ever reaching rules (custom *and* curated) — noise suppression, not a rule itself. | SIEM | `secopsctl rule_exclusions` |
+| **alert** | A detection raised for triage — what an alerting rule (custom or curated) produces. Alerts flow into SOAR and group into cases; an alert is then a *member of* its case. | SIEM → SOAR | `secopsctl alerts` (triage) · `soar case alert …` (as a case member) |
+| **case** | The investigation record an analyst works: grouped alerts plus entities, comments, tasks, SLA, and playbook runs. **One record** — see below. | SOAR | `secopsctl soar case` |
+| **playbook** | A SOAR automation: an ordered graph of actions and flow steps run against a case or alert (enrich, notify, contain). | SOAR | `secopsctl soar playbook` |
+| **workflow** | *Not a distinct object* — an umbrella for SOAR automation overall: **playbooks** plus the **jobs** and **alert-grouping** rules around them. "Build a workflow" means author a **playbook**. | SOAR | (playbook / job / grouping) |
+
+The chain in one line: a **rule** (or **curated rule**) fires on UDM events →
+raises an **alert** → alerts group into a **case** → a **playbook** automates the
+response.
+
+### One concept, not two — commands that look split but aren't
+
+A few entities are reachable on both the SIEM (Chronicle/ADC) and SOAR
+(Siemplify/AppKey) hosts. That is a *transport* split — the same record behind two
+doors — not two separate objects. The goal is one command per concept, with
+`secopsctl` picking the host for you.
+
+| You might think… | Reality |
+|---|---|
+| "a SIEM case vs a SOAR case" | **One** case. The case verbs live under `soar case` today and are being unified under a single top-level `cases` command (ROADMAP Wave 85), auto-routed to the host that serves them. (An alternate Chronicle-host path reaches the same case by UUID but is unused — it errors at every API version.) |
+| "a SIEM alert vs a SOAR alert" | **One** alert. You triage it on the SIEM side (`alerts`) and act on it as a member of its **case** on the SOAR side (`soar case alert …`). Same record, two stages of one life. |
+| "`iocs` vs `ti`" | Two *different* things that cross-reference. **`iocs`** resolves an indicator value seen in your environment to its IoC record; **`ti`** browses the upstream Mandiant threat-intelligence catalog (collections / campaigns / reports). `iocs related` and `ti iocs` are the bridge between them. |
+| "`rules` vs `curated` vs `rule_exclusions`" | Three roles, not three copies: **`rules`** = detections you author; **`curated`** = Google-managed detections you toggle; **`rule_exclusions`** = event filters that keep noise out of both. |
+| "`pull`/`push` vs `soar pull`/`soar push`" | Same core loop, two planes: top-level for SIEM config, `soar …` for SOAR config. The verbs behave identically; only the host and auth differ. |
+
 ## Words you'll see in the design docs
 
 | Term | What it means for you |
@@ -72,4 +108,4 @@ string uses a word you don't recognize.
 | **read-only mode** | `--read-only` or `SECOPS_READONLY=1`: every guarded mutation degrades to a dry-run preview (even with `--yes`) and verbs that would start an AI generation are refused. The hard launcher-level guard for autonomous agents. |
 | **audit log** | `$SECOPSCTL_HOME/audit.jsonl` (default `~/.secopsctl/audit.jsonl`): one JSONL record per **confirmed** mutation or read-only refusal — time, action, decision. Guard decisions, not server outcomes. |
 | **CBN** | *Configuration-Based Normalization* — the parser language, the format of each `<LOG_TYPE>.conf` parser file `pull` writes. See the [feeds & parsers tip](tips/08-feeds-parsers.md). |
-| **case (one case, two ids)** | A case is a single record, not two separate cases. It works on **both** the Legacy SOAR AppKey API (integer id — the broad, reliable path, `soar case`) and the New API on the **siemplify** domain (v1alpha, live-validated — `soar case list` defaults to it). There is also an alternate Chronicle-host path that addresses the same case by UUID (ADC), but that one path 500s at every version, so it isn't used. |
+| **case (one case, two ids)** | A case is a single record, not a SIEM case and a separate SOAR case. The same record carries an integer id on the Legacy SOAR AppKey API (the broad, reliable path) and is also served by the New API (v1alpha) on the **siemplify** host; `soar case list` defaults to the New path. The bridge between the two ids is `cases soar-id`, which resolves a SIEM case UUID (an alert's `caseName`) to its SOAR integer id. There is also an alternate Chronicle-host path that addresses the same case by UUID (ADC), but it errors at every version, so it isn't used. These verbs are being unified under a single top-level `cases` command (ROADMAP Wave 85) so one record means one command. |

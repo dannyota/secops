@@ -159,13 +159,17 @@ func init() {
 		ValidArgs: names,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := args[0]
+			// Target names are snake_case (they mirror the on-disk directory), but
+			// accept the hyphenated spelling too so `reference-lists` /
+			// `rule-exclusions` (the renamed command forms) also work as targets.
+			key := strings.ReplaceAll(target, "-", "_")
 
 			// Resolve the ordered set of targets to run.
 			var todo []pullTarget
-			if target == "all" {
+			if key == "all" {
 				todo = pullOrder
 			} else {
-				t, ok := byName[target]
+				t, ok := byName[key]
 				if !ok {
 					return fmt.Errorf("unknown pull target %q (want one of: %s)",
 						target, strings.Join(names, ", "))
@@ -175,7 +179,7 @@ func init() {
 
 			// --filter is only meaningful for curated_rules. Warn (don't fail)
 			// when it is set for any other single target.
-			if filterExpr != "" && target != "curated_rules" && target != "all" {
+			if filterExpr != "" && key != "curated_rules" && key != "all" {
 				fmt.Fprintf(os.Stderr,
 					"warning: --filter only applies to 'curated_rules'; ignored for %q\n",
 					target)

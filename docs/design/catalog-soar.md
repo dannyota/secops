@@ -85,15 +85,17 @@ Wave 16. Modern API: siemplify · v1alpha — SDK full CRUD (`soar/case_data_sur
 
 ## Operational + imperative — query → act / per-entity verbs
 
-### `soar case list` / `get <id>`
+### `cases list` / `get <id>` (alias `soar case …`)
 
-`list` defaults to the modern v1alpha cases API on the siemplify domain (`soar.ListCases`, live-validated) and auto-falls back to the legacy queue (`ListCaseCards`) on error; `--legacy` forces legacy. `list` sends the web-UI query params — server-side `filter` (`--status` → `status = 'OPENED'`/`'CLOSED'`), `orderBy=updateTime desc`, and `expand` (products/tasks/tags/closureDetails/sla/alertsSla) via `ListCasesOpts` (client-side status re-check kept as a safety net); live-validated (open vs closed return different counts).
+A case is one record, surfaced as one command: the top-level `cases` command is the
+canonical spelling and `soar case …` remains as a hidden back-compat alias (the same
+verb tree). `cases list` defaults to the modern v1alpha cases API on the siemplify domain (`soar.ListCases`, live-validated) and auto-falls back to the legacy queue (`ListCaseCards`) on error; `--legacy` forces legacy. `list` sends the web-UI query params — server-side `filter` (`--status` → `status = 'OPENED'`/`'CLOSED'`), `orderBy=updateTime desc`, and `expand` (products/tasks/tags/closureDetails/sla/alertsSla) via `ListCasesOpts` (client-side status re-check kept as a safety net); live-validated (open vs closed return different counts).
 
 **Triage filters (W52, live-validated):** `--assignee` (substring) / `--priority` / `--tag` / `--since` narrow the fetched page client-side on both lanes (`--tag`/`--filter` are modern-lane and fail loud on the legacy queue); `--filter` passes a verbatim server-side expression to the modern API (`priority = 'PRIORITY_HIGH'` confirmed honored server-side).
 
 `get <id>` uses legacy `GetCaseFullDetails` → case and its alerts (each with its `--alert` id for the verbs) — and per alert the firing rule (`additionalProperties.ruleGenerator` + `rule_id`) with a `rules detections` pivot hint (W52, live-validated): the case→rule-tuning bridge. Shared `preferModern` helper.
 
-**Alternate path (not used):** the same case is reachable on the chronicle host by UUID (ADC), but that collection 500s at v1/v1beta/v1alpha — so W77 hides the `cases list/get/search` verbs from help (still runnable for when the endpoint stabilizes; `surfaces` reports the surface blocked) and prefers `soar case`. `legacyBatchGetCases` bridges SOAR int id ↔ SIEM UUID — CLI: the still-visible `cases soar-id`, and `alerts get` prints it per alert.
+**Chronicle-host path (not surfaced):** the same case is reachable on the chronicle host by UUID (ADC), but that collection errors at v1/v1beta/v1alpha — so W85 removed the dead `cases list/get/search` verbs and the `cases (chronicle alt)` surface entry; case work runs entirely on the working siemplify path above. The one chronicle-host case read kept is the bridge: `legacyBatchGetCases` maps SOAR int id ↔ SIEM UUID — CLI `cases soar-id`, and `alerts get` prints it per alert. (`chronicle.ListCasesOpts`/`GetCase`/`SearchCases` remain importable for the day the collection stabilizes.)
 
 **Bulk close from a filter (W77):** `soar push bulk-close --where <filter>` selects cases by a modern cases-list filter (alternative to `--ids`), resolves them to integer ids (listed + counted before the guard), and closes with a typed reason.
 
@@ -104,6 +106,10 @@ Wave 16. Modern API: siemplify · v1alpha — SDK full CRUD (`soar/case_data_sur
 `counts [--filter]` (W59, live-validated) derives per-priority counts from the modern list's `totalSize` (one `pageSize=1` count per priority, composed with the base filter; `soar.CountCases`/`CountCasesByPriority`) — the `cases:countPriorities` RPC is not served (404/500; the web UI builds its queue from filtered lists) and the SDK method remains only for instances that may serve it.
 
 `alert recommend --id N --alert <ident|numeric>` triggers + polls the per-alert AI recommendation; the CREATE leg works against an alert-level-open alert (`caseAlerts:createRecommendationLongRunning` → 202 + recommendationId, numeric id accepted) but `:fetchRecommendation` is not served (400 on every documented form) — where the recommendation feature is absent, the per-alert AI flow is the chronicle-host investigation instead (`alerts investigate`); the verb stays wired and surfaces a clean error.
+
+### `soar case overview`
+
+`overview --id N` returns the data behind the console's case Overview tab (legacy `case-overview/GetCaseEntities`): the case's entities with their enrichment fields — the entity context an analyst sees — live-validated (40 entities returned for a real case). `--widgets` returns the overview widget template instead (`GetCaseOverviewData`, body `{caseId}`). Read-only, JSON; completes the case read trio with `summarize` (AI narrative) and `get` (record + alerts).
 
 ### `soar case run-action`
 
@@ -118,6 +124,8 @@ Playbook-dev test harness: `list` / `get` / `create` / `generate` / `alert` / `d
 The reliable operational case path. The original 9 mutate verbs are swagger-verified + unit-tested and live-validated end-to-end by `TestLiveSOARCaseVerbsWriteSmoke` (create two throwaway cases → run every verb → merge → close).
 
 **W52 adds** `priority` (`ChangeCasePriority`, typed `CasePriority` names — distinct from the `importance` flag), `reopen` (`ExecuteBulkReopenCase`; single `--id` or bulk `--ids`, the inverse of close), and `comment add`/`comment list` (`AddCaseComment` + `GET /cases/comments` — the case-wall triage-rationale record, distinct from `chat`); the write smoke is extended to cover them (comment round-trip read-verified) and awaits an approved run — dry-run + comment-list read validated live.
+
+**Bulk triage (W95):** `assign`, `tag`, and `stage` take `--ids 1,2,3` for a single bulk call alongside the single `--id` form — `ExecuteBulkAssign` (`{casesIds, userName}`), `ExecuteBulkAddCaseTag` (`{casesIds, tags}`), `ExecuteBulkChangeCaseStage` (`{casesIds, stage}`); request shapes confirmed against the live API (a bulk-tag round-trip applied + read-verified + reverted). `untag` stays single (no bulk-remove-tag endpoint).
 
 Built on a typed `CreateManualCase` (`ManualCaseRequest`, returns the new case id) that always sends `entities`/`playbooks`/`tags` as `[]` (the server does not null-guard them). `merge` needs the target id in `casesIds` (CLI adds it). `assignedUser` takes `@RoleName`. Hard delete (`RetentionDeleteCases`) is denied to the AppKey role (403) → smoke cleans up by closing.
 
@@ -259,7 +267,11 @@ Machine-readable registries (no API call, no credentials, except `capabilities`'
 
 **Rich flag schema (W73):** each `commands --json` flag now carries `{type, default, required, enum, usage}` plus the command's positional-arg spec and an example — so an agent builds a correct invocation first time instead of inferring a flag. Enum values are parsed from each flag's help text (angle-bracket placeholders stripped, ≥2-char tokens) so the catalog stays in lock-step with the help.
 
-**`capabilities [--json|--offline]` (W73):** one session-bootstrap call fusing version + per-plane auth health (reuses `doctor`'s checks) + read-only state + a surface-status rollup (validated vs blocked), so an agent self-configures and avoids dead paths up front. The `json` flag is set from a `markJSON` annotation; build-vs-docs invariants in `internal/cli/wave62_test.go` / `wave73_test.go`. Live-validated (`capabilities --json` probes both planes + the surface rollup; `commands --json` carries the per-flag schema with enums).
+**`capabilities [--json|--offline]` (W73):** one session-bootstrap call fusing version + per-plane auth health (reuses `doctor`'s checks) + read-only state + a surface-status rollup (validated vs blocked), so an agent self-configures and avoids dead paths up front. The `json` flag is set from a `markJSON` annotation; build-vs-docs invariants in `internal/cli/wave62_test.go` / `wave73_test.go`. Live-validated (`capabilities --json` probes both planes + the surface rollup; `commands --json` carries the per-flag schema with enums). `capabilities` also carries a `skill_command` pointer so an agent discovers the embedded guide.
+
+### `skill` / `skill install`
+
+W84. The agent operating guide (`SKILL.md`) embedded in the binary via `//go:embed`, served by `skill` — `go install danny.vn/secops/cmd/secopsctl@latest` ships only the binary, not the repo's `skills/` tree, so an install-only agent has no other way to obtain the guide. `secopsctl skill` prints it (`--json` wraps `{name, description, body}`, frontmatter parsed); `secopsctl skill install [--dir <skills-dir>]` writes it to `<skills-dir>/secopsctl/SKILL.md` (default `$CLAUDE_CONFIG_DIR/skills` or `~/.claude/skills`) so an agent harness detects it as a first-class skill. Install is idempotent (a no-op when the file already matches) and refuses to overwrite a differing existing file without `--force`, so a hand-tuned copy is never clobbered silently. The embed package (`skills/secopsctl/skill.go`, `package skill`) lives beside the canonical `SKILL.md` so there is a single source. Offline, no credentials.
 
 ### structured `--json` errors + dry-run plan
 

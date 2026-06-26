@@ -72,7 +72,7 @@ flowchart LR
 
 ## Waves 1–72 — milestone digest (done; full history in git)
 
-**83 waves shipped to date.** Waves 1–72 are summarized per milestone below; the
+**84 waves shipped to date.** Waves 1–72 are summarized per milestone below; the
 detailed per-wave build log lived in `docs/design/roadmap.md` until 2026-06-25 and
 remains in git history. Per-surface live status is in
 [docs/design/catalog.md](docs/design/catalog.md).
@@ -91,93 +91,37 @@ remains in git history. Per-surface live status is in
 
 ## v0.5.0 — operator-experience & agent-enablement milestone (Waves 73–83)
 
-A refinement milestone surfaced by dogfooding the daily operator loops (query,
-alert triage, case work, curated/custom rule tuning, dashboards, SOAR playbooks)
-and by driving the CLI from an autonomous agent. These are mostly polish on top of
-a tool that already does the job: discoverability and machine-readability for
-agents, triage-at-scale ergonomics, deploy-preview honesty, and closing the last
-config-as-code fidelity edges. Each wave names its plane and stays dry-run-first
-and tenant-neutral; every live mutation remains gated.
+A refinement milestone surfaced by dogfooding the daily operator loops and driving
+the CLI from an autonomous agent — polish on a tool that already does the job:
+agent discoverability/machine-readability, triage-at-scale ergonomics,
+deploy-preview honesty, and the last config-as-code fidelity edges. Each wave names
+its plane, stays dry-run-first and tenant-neutral; every live mutation is gated.
 
-**Dashboard authoring & verification extension (Waves 81–83, planned).** A second
-pass over the daily chart-authoring loop surfaced that the loop has no *verify*
-half and little authoring ergonomics: an aggregation (`match:`/`outcome:`) query
-can't be run from the CLI, a chart's rendered VALUES can't be read back, a typed
-chart needs hand-written echarts JSON, and a whole-dashboard build trips the
-per-minute quota. The underlying APIs already exist — `chronicle.GetStats` and
-`ExecuteQuery` (`dashboardQueries:execute`) are in the SDK — so these are largely
-CLI-surface waves. Waves 73–83 are built and offline-tested; the live paths stay gated.
+**Dashboard authoring & verification extension (Waves 81–83).** A second pass over
+the chart-authoring loop added its missing *verify* half and authoring ergonomics:
+run an aggregation query from the CLI, read a chart's rendered VALUES back, generate
+a typed chart's viz, and pace a whole-dashboard build under the quota — largely
+CLI-surface over SDK APIs that already existed. Waves 73–83 are built and
+offline-tested; the live paths stay gated.
 
-**As-built notes (where the live API constrained the design).** A few items
-landed in the most faithful form the API allows rather than the literal ask:
-`alerts list` has no server cursor (the alerts API is a polling snapshot), so
-Wave 76 surfaces a completeness signal — baseline count + a truncation warning —
-instead of a fake page token. A curated rule-set's rule roster is not exposed by
-the API, so Wave 78's `curated set` preview shows the deployment's current →
-requested state and the set×precision scope rather than a literal rule count.
-Wave 79's chart layout/reorder PATCH is guarded to run only when every chart
-already has a resolved id, so a just-added chart can never be dropped. Wave 80's
-grouping settings land as a guarded imperative `soar settings grouping get/set`
-over the modern moduleSettings bag (the singleton has no reconcile id/list/delete).
-
-Two items raised against earlier behavior are already closed and only need a
-regression guard, not new work — they are folded into Wave 80:
-
-- **Leaf-command `--help`** already resolves to each verb's own usage and flags
-  (group and leaf both correct). A tree-walking guard test pins it so a future
-  cobra-wiring change can't regress per-verb help.
-- **Round-trippable playbook export** already emits the camelCase / string-enum
-  pull shape and re-saves through `soar push playbook` (Wave 68, live-validated);
-  the single-playbook edit loop works as documented.
+**As-built notes (where the live API constrained the design).** A few items landed
+in the most faithful form the API allows: `alerts list` has no server cursor (it's a
+polling snapshot), so Wave 76 surfaces a completeness signal instead of a fake page
+token; a curated rule-set's rule roster isn't exposed, so Wave 78's `curated set`
+preview shows current→requested state + the set×precision scope; Wave 79's chart
+layout PATCH runs only when every chart has a resolved id; Wave 80's grouping
+settings land as a guarded imperative over the moduleSettings bag. Two earlier-raised
+items are already closed (Wave 80): leaf-command `--help` resolves per-verb (pinned
+by a guard test), and playbook export round-trips the pull shape through
+`soar push playbook` (Wave 68).
 
 ### Wave 73 — Agent enablement: machine-readable CLI schema, capability probe, structured errors & plan *(built — offline-tested)*
 
-- **Goal.** Make the tool's own surface machine-discoverable so a scripted or
-  LLM-driven operator reads ground truth instead of inferring flags — the
-  highest-accuracy-per-effort lift for unattended use.
-- **Scope.**
-  - **Full CLI schema** — extend `secopsctl commands --json` (and/or a dedicated
-    `secopsctl schema --json`) so every leaf carries, beyond today's path / kind /
-    flag-name list: per-flag **type, default, required, and enum values**,
-    positional args, and a one-line example. Built from the cobra tree at runtime
-    (no hand-maintained list), so it can never drift from the binary.
-  - **Capability probe** — one `secopsctl capabilities --json` that fuses
-    `surfaces` + `doctor` + `commands`: tool version, per-surface maturity
-    (`validated` / `built` / `designed` / `blocked`), auth health per plane (SIEM
-    ADC vs SOAR AppKey), and read-only state — a single session-bootstrap call so
-    an agent self-configures what it can do on the instance and avoids
-    known-blocked paths automatically.
-  - **Structured errors** — a stable error envelope (`{code, message, retryable,
-    request_id}`) on `--json` output across planes, so a caller branches on a
-    field instead of regexing a prose line; builds on the existing
-    `*APIError` / SOAR `Error` request-id surfacing.
-  - **Inspectable dry-run plan** — a `--json` dry-run that returns the structured
-    change plan (per object: create/update/delete, fields changing, and blast
-    radius such as "set contains N rules") so a mutation can be reasoned about
-    before `--yes`; extends the existing `push --json` `would_change` reporting to
-    the full per-object plan and pairs with the Wave 77 blast-radius preview.
-  - **Universal `--json`** — audit every read for `--json` coverage and converge
-    on one top-level envelope (`{data, nextPageToken, warnings}`).
-- **Exit.** `commands`/`schema --json` carry full per-flag detail; `capabilities
-  --json` answers in one call; errors and dry-run plans are structured on
-  `--json`; an invariant test pins the schema shape against the live tree.
-- **Docs.** ARCHITECTURE, SURFACES, usage guide, LLM & automation tips, CATALOG.
+Make the tool's own surface machine-discoverable so a scripted or LLM-driven operator reads ground truth instead of inferring flags. `commands`/`schema --json` carry full per-flag detail (type, default, required, enum, positional args, example) built from the cobra tree at runtime; one `capabilities --json` fuses `surfaces` + `doctor` + `commands` (version, per-surface maturity, auth health per plane, read-only state) for a single session-bootstrap call; a stable structured-error envelope (`{code, message, retryable, request_id}`) and a structured `--json` dry-run change plan let callers branch on fields; universal `--json` converges on one `{data, nextPageToken, warnings}` envelope. An invariant test pins the schema shape against the live tree. Docs: ARCHITECTURE, SURFACES, usage, LLM/automation tips, CATALOG.
 
 ### Wave 74 — Ship the `secopsctl` Claude Code skill in-repo *(built)*
 
-- **Goal.** Encode the operating model the per-command help can't, and version it
-  with the binary so an agent inherits accurate guidance instead of drifting from
-  the real command surface.
-- **Scope.** A repo-tracked skill (`SKILL.md` + any helper assets) that captures:
-  the two auth planes (ADC SIEM vs AppKey SOAR) and which commands need which; the
-  **dry-run → review → `--yes`** mutation ritual and read-only mode; the
-  pull → `git diff` → push source-of-truth loop; and the standing gotchas (ADC
-  reauth, curated set × precision, playbook UUID re-resolve after save). It points
-  at the Wave 73 `capabilities`/`schema --json` outputs as the live source of
-  truth so prose can't go stale. Tenant-neutral — no bundled identifiers.
-- **Exit.** The skill ships in the repo, references the machine-readable surface,
-  and is listed in the docs index / site nav.
-- **Docs.** README, docs index, site left-nav, ROADMAP.
+A repo-tracked skill (`SKILL.md` + assets) encodes the operating model the per-command help can't, versioned with the binary so an agent inherits accurate guidance: the two auth planes (ADC SIEM vs AppKey SOAR), the dry-run → review → `--yes` mutation ritual and read-only mode, the pull → `git diff` → push loop, and the standing gotchas (ADC reauth, curated set × precision, playbook UUID re-resolve after save). It points at the Wave 73 `capabilities`/`schema --json` outputs so prose can't go stale; tenant-neutral. Listed in the docs index / site nav. Docs: README, docs index, site left-nav.
 
 ### Wave 75 — Query library & saved queries *(built — SIEM)*
 
@@ -382,12 +326,119 @@ regression guard, not new work — they are folded into Wave 80:
 
 ---
 
+### Wave 84 — Self-served agent skill: embedded operating guide + install verb *(done — offline; build-tested)*
+
+`go install …@latest` ships only the binary, so the guide now travels inside it:
+`skills/secopsctl/skill.go` `//go:embed`s the canonical `SKILL.md`. `secopsctl skill`
+prints it (`--json`); `secopsctl skill install` writes it to `$CLAUDE_CONFIG_DIR/skills`
+so a harness detects it as a first-class skill (root help + `capabilities` point at
+it). Tests cover embed/parse/install; docs: CATALOG + this wave.
+
+---
+
+## v0.5.1 — command clarity release
+
+Waves 85–86 are v0.5.1: a clarity pass — one case command plus self-describing names, every rename aliased so nothing breaks. Plan: [cli-naming.md](docs/design/cli-naming.md).
+
+### Wave 85 — One record, one command: unify the case surface + fail-fast reads *(built — offline-tested)*
+
+A case is one record reachable on two hosts — surfacing both as separate trees
+(`cases …`, `soar case …`) presented it as two, with dead Chronicle `cases
+list/get/search` duplicates. Now `cases` is the single top-level command auto-routed
+to the working SOAR host; `soar case …` stays a hidden alias; the dead Chronicle
+verbs + `cases (chronicle alt)` registry entry are dropped; `cases soar-id` keeps the
+UUID→id bridge. It keeps the modern→legacy auto-fallback (mutating verbs on the
+legacy lane), so no case feature goes dark when one generation is down. A per-request
+`--timeout` (default 60s, `0` disables) bounds each API call (`http.Client.Timeout`)
+— fails a blocked endpoint fast without spanning a confirm prompt or capping a
+multi-call command; lists keep `--limit`. Docs: GLOSSARY, CATALOG, cli-naming.
+
+### Wave 86 — Command naming clarity: descriptive names, back-compat aliases *(built — offline-tested)*
+
+Some top-level names didn't say what they manage (`iocs`, `ti`) or were inconsistent
+(`entity` singular; underscores). Renamed with the old name kept as a hidden alias:
+`iocs`→`indicators`, `ti`→`threat-intel`, `entity`→`entities`,
+`reference_lists`→`reference-lists`, `rule_exclusions`→`rule-exclusions`. The
+`pull`/`push` target args stay snake_case (both spellings accepted); renamed-group
+aliases surface in `capabilities --json` (`command_aliases`), leaf aliases in
+`commands --json`. No invocation breaks; tests cover alias resolution, the help
+tree, and the `--json` shape. Docs: GLOSSARY, cli-naming, usage guide.
+
+### Wave 87 — Dashboard fleet health: parallel verify + list + verify-all
+
+`dashboards verify` ran each chart's two API calls serially; a bounded worker pool
+(`--concurrency`, default 8) cuts that to seconds, verdicts/order identical. Only a
+404 (a dangling chart ref) counts as broken — a transient 5xx/429 is retried and
+reported *inconclusive*, never broken, so a flaky run can't condemn a healthy board.
+`dashboards list` (id · type · title) ends the `_server.id` digging; `dashboards
+verify --all` checks every CUSTOM dashboard in one parallel rollup (curated skipped
+unless `--include-curated`).
+
+### Wave 88 — Case automation visibility: render the wall, surface attached playbooks *(built)*
+
+The automation an analyst needs to see was hidden. Now `cases wall` renders the
+timeline (time · kind · activity), `cases get` shows a *▸ playbook(s) attached* marker
+(from `hasWorkflows`) with the wall/summary pivot, and `soar playbook summary` dedupes
+grouped alerts and auto-resolves the single playbook-bearing alert (else lists real
+`--alert` ids, not names — so a wrong id can't 500 the call). Docs: usage.
+
+### Wave 89 — Playbook debug: full per-step execution trace *(built)*
+
+`soar playbook summary` showed only step *counts*. The payload carries `completedSteps`,
+so `--steps` now renders the full trace (step · status · integration/action · result ·
+logs link, oldest first), completing the author→attach→debug loop (AI `generate` is the
+lone AppKey-blocked path, surfaced cleanly). Docs: usage.
+
+### Wave 90 — Alert enrichment fix + dashboard deep-copy *(built — live-validated)*
+
+`alerts enrich` rode `enrichmentAgent:*`, a 500 the console never calls; it now reads `legacy:legacyBatchGetCollections` (the UI's path) for the full per-alert context — rule, UDM events, entities/indicators, MITRE tags, triage, case bridge — and the dead `actions`/`run-actions` verbs are withheld (SDK kept importable). Dashboards: `dashboards duplicate` was implemented as a client-side **deep-copy** (own charts + queries, id-diffed live), `repair` is removed, and `delete` diagnoses the corrupt-chart 500. Chart edits (`edit-chart --layout`/`--query`) are live-validated to update in place without dropping charts. A corrupt native dashboard whose charts are dangling/owned by another dashboard cannot be deleted/repaired by the API *or* the web console (server-side, all versions/hosts) — platform-removal-only. *(Superseded by Wave 92 for the duplicate path.)*
+
+### Wave 91 — Quota-aware 429 handling *(built — v0.5.1 hardening)*
+
+Bursty multi-call ops (deep-copy ~3N, `pull all`, fleet verify) tripped the per-minute API quota, and the shared transport retry gave up too fast: `maxRetries=4` × 300ms↑ ≈ 4.5s, with no `Retry-After`/`RetryInfo` parsing and no jitter. New shared `internal/httpretry` package (one tested place, used by both `chronicle/client.go` + `soar/internal/transport`): (1) honors the server retry hint — `Retry-After` header + `google.rpc.RetryInfo.retryDelay`, bounded by a budget + ctx-interruptible; (2) equal jitter (a floor so retries keep spacing) and a TOTAL backoff budget, with the server hint honored only for 429 (a transient 5xx still fails fast); (3) an opt-in client-side token-bucket limiter (`x/time/rate`, off by default — it can't reliably honor a per-minute quota and would slow bulk reads); (4) a friendly "quota exhausted — wait / lower --concurrency" hint at the CLI when retries exhaust. Unit-tested incl. an end-to-end "429+RetryInfo → honored wait → recovers" case. `dashboardCharts:batchGet` now backs the deep-copy read phase, `dashboards charts`, and `pull --with-charts` (one batch call, per-chart fallback).
+
+### Wave 92 — Native dashboard duplicate is the default *(built — live-validated)*
+
+The server `:duplicate` verb mints the copy its **own independent charts and queries** (no chart or query id shared with the source), in a **single call** — the same path the web console's Duplicate action takes. So `dashboards duplicate` uses `:duplicate` by **default** (`DuplicateDashboard`), with **`--deep-copy`** keeping the client-side rebuild (`DeepCopyDashboard`) as a fallback; both paths inherit the source description when `--description` is omitted. The broken dashboards are a legacy corrupt artifact, not the verb's output. They are unfixable: a corrupt dashboard's `delete` 500s, `:removeChart` 404s, `definition.charts` rewrite 400s, and deleting the chart owner does **not** unstick the 500 — platform-removal-only. The two Legacy dashboard surfaces (SIEM = Looker, SOAR = Siemplify `legacySoarDashboard:*`) are separate collections and cannot reach native dashboards. Docs: catalog-siem, tips/06-dashboards, usage.
+
+### Wave 93 — Dashboard export ↔ import round-trip in one call *(built — live-validated)*
+
+Surface the existing `nativeDashboards:export` / `nativeDashboards:import` SDK methods (`ExportDashboard` / `ImportDashboard`) as a CLI pair: **`dashboards export <id>`** writes the self-contained export-shaped JSON (dashboard + its charts + queries) to a file, and **`dashboards import <file>`** creates it on the instance in **one import call**. Together they make a dashboard portable — export, edit/version locally, re-import — and give a faster build path than `duplicate` + per-chart `add-chart`. `import` is guarded (dry-run → `--yes`); re-pull afterwards to mirror.
+
+### Wave 94 — Case overview surface *(built — live-validated)*
+
+Expose the data behind the console's case **Overview** tab — previously only reachable through the generic `soar legacy` escape hatch. New read-only **`cases overview --id N`** (`soar/legacy` `CaseOverviewGetCaseEntities` / `CaseOverviewGetData`): by default the case's entities with their enrichment (the entity context an analyst sees), or `--widgets` for the overview widget template (the configured layout). `--json` for automation. This completes the case-read trio alongside `cases summarize` (the AI narrative) and `cases get` (the record + alerts), giving an agent the same entity context the analyst sees. Manual response actions are already covered by `cases run-action` (`ExecuteManualAction`) and the pending-step inbox (`playbook pending`).
+
+### Wave 100 — Operator gap-fill, platform & data *(built — live-validated)*
+
+Platform/data-engineer reads: **`log-types list|get`** (`ListLogTypes`/`GetLogTypeDescription`) — the log-type catalog to onboard sources against, with a client-side `--search`; **`forwarders list|get` + `collectors list|get`** (`ListForwarders`/`ListCollectors`) — the on-prem ingestion endpoints; **`feeds service-account`** (`FetchFeedServiceAccount`) — the Chronicle-managed SA email for a push/PubSub/GCS feed's IAM grant (read off the resource name); **`ingestion health`** (`ListErrorNotificationConfigs`) — the watchdog thresholds for delayed/zero-ingesting/erroring sources. Log-types/feeds-SA live-validated; forwarders empty on a cloud tenant (no on-prem forwarders); `ingestion health` needs an error-notification read permission the test identity lacks (the command is correct). (`pipeline list|get|create|delete` already existed.)
+
+### Wave 99 — Operator gap-fill, SOAR connector ops *(built — live-validated)*
+
+New `soar connector` group beside the connectors reconcile loop: **`soar connector stat <identifier>`** — runtime statistics for a connector instance (`GetConnectorStatistics`: events/day, connectivity, last run), to confirm health after a config change (read, live-validated); **`soar connector run --integration/--connector/--instance`** — trigger an on-demand pull (`RunConnectorInstanceOnDemand`, guarded; dry-run validated). Deferred (with reasons): `connector sample-data` (`FetchConnectorSampleData` runs the connector against its live source and takes a freeform body needing discovery), `soar playbook stats --all` (a fleet-scan enhancement of the existing per-playbook `stats`), and `soar playbook permissions` — the `permissions/options` body needs more than the obvious `workflowOriginalIdentifier` (it 400s even with a real `originalWorkflowIdentifier`), and the exact request only fires from the editor's permissions dialog, which the playbook-editor SPA does not expose to automated capture; shipping it unvalidated on a playbook-ACL surface is unsafe, so it stays deferred.
+
+### Wave 98 — Operator gap-fill, rule lifecycle *(built — live-validated)*
+
+Detection-engineer lifecycle reads/ops: **`rules versions <rule>`** lists a rule's saved revisions (`ListRuleRevisions`), `--show N` prints a revision's YARA-L (fetched full when the list view omits it) for external diff/rollback; **`rule-exclusions list|get`** round out the exclusions surface (was deploy-only) with `ListRuleExclusions`/`GetRuleExclusion` — id, type, query, deployment state; **`rules retrohunt create --wait`** polls a retrohunt to completion then points at `rules detections`. (`rules trends` already covers windowed per-rule trend buckets via `--hours`/`--rule`.) Reads live-validated; `--wait` dry-run validated.
+
+### Wave 97 — Operator gap-fill, containment & IR *(built — live-validated)*
+
+Containment/IR commands wiring SDK methods the CLI hadn't exposed: **`watchlists create|delete|remove-entity`** (round out the existing list/get/add-entity — create a tracking/hunting list, delete it, take an entity off; round-trip validated). **`cases task list|add|done|delete`** — the case checklist loop (`CreateCaseTask`/`MarkCaseTaskDone`/`DeleteCaseTask`/`CaseXListTasksByRequest`), validated add→done→delete on a live case and cleaned up. Deferred (with reasons): **IOC disposition** — NOT a real gap (confirmed against the console): there is no standalone IOC-disposition API — IOCs come from the TI feeds, and dispositioning a finding malicious/benign is already covered by `alerts update --verdict|--reason`; **entity blocklist** — the console entity view has no one-click block; blocking is the SOAR model-block-records config store (complex, overlaps the existing `soar push blacklists` reconcile). **`cases evidence add|get` is now BUILT** — `AddEvidence`/`GetEvidenceData` (body `{caseIdentifier, base64Blob, name, type, description, isImportant}`), validated by creating a throwaway case, attaching evidence, and closing the case (the API has no evidence-delete, so the command warns it is one-way).
+
+### Wave 96 — Operator gap-fill, Tier 2 reads, triage sort & queue metrics *(built — live-validated)*
+
+The gap audit's Tier 2: **`entities risk-scores`** (`QueryEntityRiskScores`) — per-entity normalized behavioral risk; **`coverage`** (`ListCoverageDetails`) — MITRE ATT&CK detection coverage per threat-collection × rule; **`alerts list --sort priority|created`** and **`cases list --sort priority|created|updated`** + an SLA-status column — client-side queue sort for fast triage. Queue metrics computed from the case list (createTime/updateTime epoch-millis, assignee, sla): **`cases workload`** (open-case load per analyst), **`cases aging`** (open cases oldest-first by age + SLA status), **`cases stats`** (open/closed counts, open-age p50/p90, closed resolution-time p50/p90 — a create→close proxy, since the case payload carries no separate detection/close timestamp). All live-validated.
+
+### Wave 95 — Operator gap-fill, Tier 1 *(built — live-validated)*
+
+A SOC-engineer gap audit found several surfaces the SDK already implements but the CLI never exposed. Tier 1 wires the highest-value ones: **`rules test <file.yaral>`** dry-runs a YARA-L rule against historical data and reports the detections it would produce — preview coverage/FP load WITHOUT mutating prod (`RunTestRule`; beyond `rules validate`'s compile-check). **`entities graph <detection-id>`** seeds the findings-graph pivot from a detection and walks connected entities/edges (`InitializeFindingsGraph`; `graph explore` expands a node). **`data-access labels|scopes`** list/get/create/delete manage data-access RBAC, previously console-only (`chronicle/rbac.go`; create/delete guarded). **Bulk case triage** — `cases assign|tag|stage` gain `--ids` for one-call bulk ops (`ExecuteBulkAssign`/`ExecuteBulkAddCaseTag`/`ExecuteBulkChangeCaseStage`; request shapes confirmed live). Docs: catalog-siem, catalog-soar, usage.
+
+---
+
 ## Non-goals
 
-- No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral).
-  A pre-commit leak guard (`.githooks/pre-commit`) enforces this; when porting
-  logic from a private source, bring over only generic, sanitized code.
-- No third-party EDR (e.g. SentinelOne) or chat/notification (e.g. Teams)
-  integrations — out of this repo's scope.
+- No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral);
+  the pre-commit leak guard (`.githooks/pre-commit`) enforces it.
+- No third-party EDR or chat/notification integrations — out of scope.
 - No silent overwrite of concurrent edits — honor etag, surface conflicts.
 - `push` is never non-interactive-by-default — dry-run first, explicit `--yes`.

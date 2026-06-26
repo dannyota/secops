@@ -19,7 +19,101 @@ func newWatchlistsCmd() *cobra.Command {
 		Use:   "watchlists",
 		Short: "SIEM entity watchlists: list/get (read-only) + guarded add-entity",
 	}
-	cmd.AddCommand(newWatchlistsListCmd(), newWatchlistsGetCmd(), newWatchlistsAddEntityCmd())
+	cmd.AddCommand(newWatchlistsListCmd(), newWatchlistsGetCmd(), newWatchlistsAddEntityCmd(),
+		newWatchlistsCreateCmd(), newWatchlistsDeleteCmd(), newWatchlistsRemoveEntityCmd())
+	return cmd
+}
+
+func newWatchlistsCreateCmd() *cobra.Command {
+	var name, displayName, description string
+	var factor float64
+	var dryRun, yes bool
+	cmd := &cobra.Command{
+		Use:   "create --name <id> --display-name <s> [--description s] [--factor f]",
+		Short: "MUTATING (guarded): create a watchlist (tracking/hunting list)",
+		Long: "Create a watchlist for tracking or hunting — a named set of entities whose\n" +
+			"membership can feed the risk-score multiplier. --factor is the risk\n" +
+			"multiplier (default 1.0). Guarded: dry-run by default, --yes to apply.",
+		Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			action := fmt.Sprintf("watchlists create %q (factor %.2f)", name, factor)
+			return guardedSIEMMutation(action, dryRun, yes, func() error {
+				c, err := newChronicleClient()
+				if err != nil {
+					return err
+				}
+				w, err := c.CreateWatchlist(baseContext(), name, displayName, description, factor)
+				if err != nil {
+					return err
+				}
+				if jsonOut {
+					return json.NewEncoder(os.Stdout).Encode(w)
+				}
+				fmt.Fprintf(os.Stdout, "Created watchlist %s.\n", w.WatchlistID())
+				return nil
+			})
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&name, "name", "", "watchlist id/name (required)")
+	f.StringVar(&displayName, "display-name", "", "human-readable display name (required)")
+	f.StringVar(&description, "description", "", "optional description")
+	f.Float64Var(&factor, "factor", 1.0, "risk-score multiplying factor")
+	guardRunFlags(cmd, &dryRun, &yes)
+	_ = cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("display-name")
+	return markJSON(cmd)
+}
+
+func newWatchlistsDeleteCmd() *cobra.Command {
+	var force, dryRun, yes bool
+	cmd := &cobra.Command{
+		Use:   "delete <id> [--force]",
+		Short: "MUTATING (guarded): delete a watchlist",
+		Long: "Delete a watchlist by id. --force removes it even if it still has members.\n" +
+			"Guarded: dry-run by default, --yes to apply.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			action := fmt.Sprintf("watchlists delete %s (force=%v)", args[0], force)
+			return guardedSIEMMutation(action, dryRun, yes, func() error {
+				c, err := newChronicleClient()
+				if err != nil {
+					return err
+				}
+				if err := c.DeleteWatchlist(baseContext(), args[0], force); err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stdout, "Deleted watchlist %s.\n", args[0])
+				return nil
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&force, "force", false, "delete even if the watchlist has members")
+	guardRunFlags(cmd, &dryRun, &yes)
+	return cmd
+}
+
+func newWatchlistsRemoveEntityCmd() *cobra.Command {
+	var dryRun, yes bool
+	cmd := &cobra.Command{
+		Use:   "remove-entity <entity-resource-name>",
+		Short: "MUTATING (guarded): take one entity off a watchlist",
+		Long: "Remove an entity membership from a watchlist by its full entity resource\n" +
+			"name (the name a watchlist's membership listing returns) — the inverse of\n" +
+			"`add-entity`. Guarded: dry-run by default, --yes to apply.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			action := fmt.Sprintf("watchlists remove-entity %s", args[0])
+			return guardedSIEMMutation(action, dryRun, yes, func() error {
+				c, err := newChronicleClient()
+				if err != nil {
+					return err
+				}
+				return c.RemoveWatchlistEntity(baseContext(), args[0])
+			})
+		},
+	}
+	guardRunFlags(cmd, &dryRun, &yes)
 	return cmd
 }
 

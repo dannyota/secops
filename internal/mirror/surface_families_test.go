@@ -113,8 +113,6 @@ func TestChronicleAPIVersionsGolden(t *testing.T) {
 		"forwarders":          "v1beta",
 		"bigquery_export":     "v1",
 		"coverage":            "v1",
-		// alternate, unused chronicle-host cases path (500s at every version)
-		"cases_chronicle_alt": "v1beta",
 	}
 	if len(chronicle.APIVersions) != len(want) {
 		t.Errorf("chronicle.APIVersions has %d keys, docs §6 expects %d — update one to match the other",

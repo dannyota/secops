@@ -1,6 +1,10 @@
 package cli
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/spf13/cobra"
+)
 
 // TestSoarCaseIntID parses the integer case id from a resource name or bare id,
 // the form the legacy bulk-close endpoint takes.
@@ -30,19 +34,27 @@ func TestSoarCaseIntID(t *testing.T) {
 	}
 }
 
-// TestCasesBrokenVerbsHidden asserts the 500ing Chronicle-host case verbs are
-// hidden from help (still runnable) while the working uuid→id bridge stays
-// visible — so the surface stops reading as usable-but-broken.
-func TestCasesBrokenVerbsHidden(t *testing.T) {
+// TestCasesUnifiedCommand asserts the single top-level `cases` command exposes the
+// working SOAR case verbs plus the uuid→id bridge, all visible — a case is one
+// record, one command. The dead Chronicle-host list/get/search verbs are gone.
+func TestCasesUnifiedCommand(t *testing.T) {
 	cases := newCasesCmd()
-	want := map[string]bool{"list": true, "get": true, "search": true, "soar-id": false}
+	have := map[string]*cobra.Command{}
 	for _, sub := range cases.Commands() {
-		hideExpected, tracked := want[sub.Name()]
-		if !tracked {
+		have[sub.Name()] = sub
+	}
+	for _, name := range []string{"list", "get", "close", "assign", "soar-id"} {
+		sub, ok := have[name]
+		if !ok {
+			t.Errorf("cases is missing the %q verb", name)
 			continue
 		}
-		if sub.Hidden != hideExpected {
-			t.Errorf("cases %s: Hidden = %v, want %v", sub.Name(), sub.Hidden, hideExpected)
+		if sub.Hidden {
+			t.Errorf("cases %s: Hidden = true, want a visible working verb", name)
 		}
+	}
+	// `search` was a dead Chronicle-host verb; it must no longer exist.
+	if _, ok := have["search"]; ok {
+		t.Errorf("cases still exposes the removed `search` verb")
 	}
 }

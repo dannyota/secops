@@ -11,7 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"danny.vn/secops/auth"
+	"danny.vn/secops/internal/httpretry"
 )
 
 // DefaultAPIVersion is the Chronicle API version this SDK targets.
@@ -36,6 +39,9 @@ type Client struct {
 	settings Settings
 	baseURL  string
 	http     *http.Client
+	// limiter paces outgoing requests so a bursty multi-call operation can't fire
+	// everything at once and trip the API quota. nil means no client-side pacing.
+	limiter *rate.Limiter
 }
 
 // Option customizes a Client.
@@ -44,6 +50,10 @@ type Option func(*Client)
 // WithHTTPClient overrides the underlying *http.Client (e.g. for tests).
 // The provided client is responsible for authentication if set this way.
 func WithHTTPClient(h *http.Client) Option { return func(c *Client) { c.http = h } }
+
+// WithLimiter overrides the client-side request-pacing limiter. Pass nil to
+// disable pacing (e.g. in tests, or when an outer limiter already governs rate).
+func WithLimiter(l *rate.Limiter) Option { return func(c *Client) { c.limiter = l } }
 
 // NewClient builds a Chronicle client for the SIEM API.
 //
@@ -61,6 +71,9 @@ func NewClient(s Settings, creds auth.Credentials, opts ...Option) (*Client, err
 	if base == "" {
 		base = fmt.Sprintf("https://%s-chronicle.googleapis.com/%s", s.Region, DefaultAPIVersion)
 	}
+	// No client-side pacing by default — proactive throttling can't reliably honor
+	// a per-minute quota and would slow legitimate bulk reads; the bounded
+	// Retry-After-honoring retry recovers from a 429 instead. Opt in via WithLimiter.
 	c := &Client{settings: s, baseURL: strings.TrimRight(base, "/")}
 
 	c.http = &http.Client{
@@ -85,9 +98,20 @@ var retryStatuses = map[int]bool{429: true, 500: true, 502: true, 503: true, 504
 
 const maxRetries = 4
 
-// baseBackoff is the first retry delay; subsequent attempts back off ×2. A package
-// var so tests can zero it.
+// baseBackoff is the first retry delay; subsequent attempts back off ×2 (with
+// jitter, in httpretry). A package var so tests can zero it for instant retries.
 var baseBackoff = 300 * time.Millisecond
+
+// retryPolicy is the shared default policy with the package knobs overlaid, so a
+// test that zeros baseBackoff still gets instant retries. Budget bounds the TOTAL
+// backoff across the loop (so an honored 429 hint can't hang a command for
+// minutes), not just a single wait.
+func retryPolicy() httpretry.Policy {
+	p := httpretry.DefaultPolicy()
+	p.MaxAttempts = maxRetries + 1
+	p.Base = baseBackoff
+	return p
+}
 
 // idempotentMethod reports whether retrying method is side-effect-safe. Only these
 // may be retried on a 5xx or a transport error; POST/PATCH are NOT — a 5xx on a
@@ -181,14 +205,39 @@ func (c *Client) doRequest(ctx context.Context, method, full string, body, out a
 		bodyBytes = b
 	}
 
+	policy := retryPolicy()
 	var lastErr error
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	var wait, spent time.Duration
+	// nextWait computes the pre-retry delay and reports whether to retry at all:
+	// false once attempts are exhausted OR the accumulated backoff would exceed the
+	// total Budget — so an honored 429 hint can't hang a command for minutes.
+	nextWait := func(attempt int, hint time.Duration) (time.Duration, bool) {
+		if attempt >= policy.MaxAttempts-1 {
+			return 0, false
+		}
+		w := policy.Backoff(attempt+1, hint, httpretry.Jitter())
+		if policy.Budget > 0 && spent+w > policy.Budget {
+			return 0, false
+		}
+		spent += w
+		return w, true
+	}
+	for attempt := range policy.MaxAttempts {
 		if attempt > 0 {
-			backoff := time.Duration(1<<uint(attempt-1)) * baseBackoff
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(backoff):
+			case <-time.After(wait):
+			}
+		}
+		// Optional client-side pacing (opt-in via WithLimiter). A ctx-driven Wait
+		// failure must surface as ctx.Err() so the CLI's timeout/quota hints apply.
+		if c.limiter != nil {
+			if err := c.limiter.Wait(ctx); err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				return err
 			}
 		}
 
@@ -208,8 +257,11 @@ func (c *Client) doRequest(ctx context.Context, method, full string, body, out a
 		resp, err := c.http.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("chronicle: %s request failed: %w", method, err)
-			if retryable(method, 0, true) && attempt < maxRetries {
-				continue // transport error, idempotent method: retry
+			if retryable(method, 0, true) {
+				if w, ok := nextWait(attempt, 0); ok {
+					wait = w
+					continue // transport error, idempotent method: retry
+				}
 			}
 			return lastErr
 		}
@@ -230,9 +282,19 @@ func (c *Client) doRequest(ctx context.Context, method, full string, body, out a
 		}
 
 		apiErr := &APIError{Method: method, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: requestIDFromHeader(resp.Header)}
-		if retryable(method, resp.StatusCode, false) && attempt < maxRetries {
-			lastErr = apiErr
-			continue
+		if retryable(method, resp.StatusCode, false) {
+			// Honor the server's Retry-After / RetryInfo ONLY for a 429 (quota — it's
+			// authoritative there); a 5xx uses the short backoff so a transient error
+			// doesn't block for a proxy-set Retry-After.
+			var hint time.Duration
+			if resp.StatusCode == http.StatusTooManyRequests {
+				hint = httpretry.ParseHint(resp.Header, data)
+			}
+			if w, ok := nextWait(attempt, hint); ok {
+				wait = w
+				lastErr = apiErr
+				continue
+			}
 		}
 		return apiErr
 	}

@@ -99,6 +99,18 @@ func init() {
 // the mirror layer itself is non-interactive and refuses on assumeYes==false.
 func runPush(cmd *cobra.Command, args []string) error {
 	target := args[0]
+	// Accept the renamed-command hyphen spelling for the two snake_case reconcile
+	// targets (their mirror directories stay snake_case). NOTE: unlike `pull`, push
+	// can NOT blanket strings.ReplaceAll("-","_") here — push also has legitimately
+	// hyphenated imperative targets (rules-create, rules-update, rules-deploy,
+	// rules-disable) that a blanket replace would corrupt. So this is an explicit
+	// two-case map, by design.
+	switch target {
+	case "reference-lists":
+		target = "reference_lists"
+	case "rule-exclusions":
+		target = "rule_exclusions"
+	}
 
 	dryRun := pushDryRun || !pushYes
 	assumeYes := pushYes && !pushDryRun

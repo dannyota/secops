@@ -13,8 +13,9 @@ func init() { rootCmd.AddCommand(newReferenceListsCmd()) }
 
 func newReferenceListsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "reference_lists <verb>",
-		Short: "Extra: imperative reference-list ops (empty a list) — config-as-code is `pull/push reference_lists`",
+		Use:     "reference-lists <verb>",
+		Aliases: []string{"reference_lists"},
+		Short:   "Extra: imperative reference-list ops (empty a list) — config-as-code is `pull/push reference_lists`",
 		Long: "Operate on reference lists outside the reconcile loop. Config-as-code is\n" +
 			"`pull reference_lists` / `push reference_lists`; no-delete neutralization\n" +
 			"commands are guarded and dry-run by default.",

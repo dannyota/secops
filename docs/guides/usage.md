@@ -21,7 +21,8 @@ Set on any command:
 |---|---|
 | `--config <path>` | Use this instance config YAML. An explicit path that does not exist is an error (no silent fall-through). |
 | `--json` | Emit machine-readable JSON where supported (shape is per-command). |
-| `--legacy` | Force the legacy AppKey path on dual-generation surfaces (currently `soar case list`); ignored where a command has no modern/legacy split. Reach for it when a New-API call 500s. |
+| `--timeout <dur>` | Per-**request** HTTP timeout for API calls (default `60s`; `0` disables). A slow or blocked endpoint fails fast instead of hanging. It bounds each individual request, so it never spans a confirm prompt and never caps a multi-call command (`pull all`, paginated reads) in aggregate; raise it only for a single very large request, e.g. `--timeout 5m`. |
+| `--legacy` | Force the legacy AppKey path on dual-generation surfaces (currently `cases list`); ignored where a command has no modern/legacy split. Reach for it when a New-API call 500s — the tool already auto-falls back to legacy on error, so a feature is never lost when one generation is down. |
 | `--non-interactive` | Never prompt; a guarded mutation without `--yes` is refused rather than asking. For CI/agents. |
 | `--read-only` | Hard read-only session: every guarded mutation degrades to a dry-run preview even with `--yes`. Also enabled by `SECOPS_READONLY=1` — set it in the environment that launches an autonomous agent. Confirmed mutations and read-only refusals are appended to `$SECOPSCTL_HOME/audit.jsonl` (default `~/.secopsctl/audit.jsonl`, `0600`). |
 | `-v, --version` | Print version and exit. |
@@ -54,6 +55,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 |---|---|
 | `info` | Show the resolved instance config (no API call; AppKey redacted). |
 | `commands` | List every command with its kind — `read` vs `guarded-mutation` (the `--dry-run`/`--yes` gate) — offline, no credentials. The verb-level companion to `surfaces`; with `--json`, the input for agent tool lists and per-command allowlists. |
+| `skill` | Print the agent operating guide embedded in the binary (`--json` for `{name, description, body}`); `skill install [--dir <skills-dir>]` writes it into an agent skills directory (default `$CLAUDE_CONFIG_DIR/skills` or `~/.claude/skills`) so a harness detects it. Offline — how an install-only agent (`go install …/cmd/secopsctl@latest`) obtains the guide without the repo. |
 | `doctor` | Live smoke test: config + auth + SIEM/SOAR reachability. |
 | `pull <target>` | Snapshot live state to local files. Targets: `rules`, `reference_lists`, `data_tables`, `dashboards`, `curated`, `curated_rules`, `feeds`, `parsers`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`, `all`. `--filter` applies to `curated_rules` only. `--with-charts` (dashboards) derefs each chart into its inline YARA-L query — heavier, but the mirror then round-trips with its queries; default keeps charts as references. |
 | `drift [target...]` | Report how live state has drifted from local files (CI gate; exit 2 on drift). No target = every engine surface; `--siem`/`--soar` scope to one plane. |
@@ -64,11 +66,34 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `query stats <aggregation>` | Run an AGGREGATION query — one with a `match:`/`outcome:` projection (which `query udm` rejects with a 400) — and print the computed columns/rows (`--json` raw). The way to validate a dashboard chart's stats query before authoring it. Syntax: the `match:` section takes a field reference (`target.hostname`), the `outcome:` declares the value (`$c = count(metadata.id)`). Example below. |
 | `query run --file <path>` / `-` | Run a UDM predicate from a file (or stdin with `-`); blank/`#`-comment lines ignored — so a tracked `.udm` file is a runnable query. Same window/`--limit`/`--raw`/`--json` as `query udm`. |
 | `query saved [<name>]` | Run a saved query by name from the tracked `<dataRoot>/saved_queries/<name>.udm` pack, or list the pack with no name. |
-| `entity summarize <type> <value>` | Summarize an entity (alerts by rule, related entities, prevalence) over `--hours` (default 7d). |
+| `entities summarize <type> <value>` | Summarize an entity (alerts by rule, related entities, prevalence) over `--hours` (default 7d). (alias `entity`) |
 | `curated list` | List curated (Google-managed) rule-set deployments + enable/alerting state. |
 | `curated rules` | List the individual curated rules. |
 | `rules list` | List detection rules (rule id · display name · slug · type). The inspect verbs (`detections`/`errors`/`alerts`) accept any of these forms directly. |
 | `rules validate <file.yaral>` | Validate a YARA-L file against the API (no mutation); non-zero exit if invalid. |
+| `rules test <file.yaral> [--hours N] [--max-results N]` | Dry-run a YARA-L rule against the last `--hours` of historical data and report the detections it WOULD produce — preview coverage/FP load before deploying. Read-only (nothing stored); compile errors are surfaced. |
+| `rules versions <rule> [--show N]` | List a rule's saved revisions (history); `--show N` prints the Nth revision's YARA-L (diff externally / roll back). |
+| `rules retrohunt create <rule> --wait` | Start a retrohunt and poll until it finishes, then point at `rules detections` for the matches (guarded). |
+| `rule-exclusions list` / `get <id>` | List/inspect rule exclusions (findings refinements) — id, type, query, deployment state. |
+| `entities graph <detection-id> [--hours N]` | Seed the findings-graph pivot from a detection: root node + connected entities/edges (lateral movement). `entities graph explore --param k=v …` expands a node. Read-only, JSON. |
+| `data-access labels\|scopes list\|get <id>` | List/get data-access RBAC labels (tag data) and scopes (grant access). Create/delete are guarded (`create --id X --file def.json`, `delete <id>`). |
+| `entities risk-scores [--filter EXPR] [--order-by FIELD] [--limit N]` | Per-entity behavioral risk scores (normalized) — prioritize which hosts/users to look at first. JSON. |
+| `coverage [--limit N]` | MITRE ATT&CK detection coverage (threat-collection × rule) — the platform's coverage-posture view. JSON. |
+| `log-types list [--search] / get <type>` | List the instance's log types (id + display name; `--search` filters the scanned set) or print one's description. |
+| `forwarders list / get <id> / collectors list <fwd>` | List on-prem forwarders and their collectors (read-only). |
+| `feeds list` / `get <id>` | Live read of the instance's feeds with runtime state (SUCCEEDED/failed + failure note) — quick imperative view vs the `pull feeds` snapshot. |
+| `feeds service-account` | Print the Chronicle-managed service-account email a push/PubSub/GCS feed source must be IAM-granted. |
+| `ingestion health` | The error-notification configs that watch for delayed/zero-ingesting/erroring log sources. |
+| `alerts list … --sort priority\|created` | Client-side sort of the alert queue: `priority` (worst first) or `created` (newest first), for fast triage. |
+| `soar case list … --sort priority\|created\|updated` | Sort the case table (modern lane) and show an SLA-status column — surface the worst/oldest first. |
+| `soar case workload [--filter]` | Open-case count per analyst (queue load distribution). |
+| `soar case aging [--limit N]` | Open cases oldest-first by age (hours) with priority + SLA status — spot stale cases. |
+| `soar case stats [--filter]` | Queue stats: open/closed counts, open-age p50/p90, and closed resolution-time p50/p90 (create→close proxy). |
+| `soar case task list\|add\|done\|delete` | Case checklist tasks: `list --id N` (read); guarded `add --id N --title T`, `done --task-id N`, `delete --task-id N`. |
+| `soar case evidence add\|get` | Attach a file as case evidence (guarded `add --id N --file F --name X`; the API has no delete) or read one back (`get <evidence-id>`). |
+| `soar connector stat <identifier>` | Runtime statistics for one connector instance (events, errors, connectivity, last run) — confirm health after a config change. |
+| `soar connector run --integration X --connector Y --instance Z` | Trigger a connector instance to pull on demand (guarded) — verify it pulls without waiting for its schedule. |
+| `watchlists create\|delete\|remove-entity` | Manage tracking/hunting watchlists: `create --name X --display-name Y [--factor f]`, `delete <id> [--force]`, `remove-entity <entity-name>` (guarded). |
 | `parsers sample-logs <log-type>` | Fetch a sample of a log type's RAW logs directly (`logTypes/<type>/logs`) — full bytes, one per line, to develop a parser against (`--limit` / `--since`). Logs are ordered by resource name (not time), so this is a sample — pass `--since` to bound by time. |
 | `parsers validate <log-type>` | Show the parsing errors from the most recently submitted parser's validation report — the detail behind a `push parsers` / `parsers activate` `FAILED_PRECONDITION` (per-log error + a failing-log preview; `--show-logs` for the full sample). |
 | `parsers versions <log-type>` | List a log type's parser versions (id · state · created). |
@@ -87,13 +112,13 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `alerts list` | List Chronicle detection alerts over a time window (snapshot). |
 | `alerts get` | Get one alert by id; when the alert is cased, also prints the SIEM case uuid **and its SOAR integer case id** (the `soar case` pivot). |
 | `alerts investigate <id> --latest` | Read the alert's most recent AI (Gemini) investigation: verdict, confidence, summary, suggested next steps (`--json` adds the agent's per-step UDM queries). Without `--latest` it **starts** a new investigation (a generation; refused in read-only mode) and polls to completion. |
-| `cases soar-id <uuid>...` | Resolve SIEM case uuid(s) (an alert's `caseName`) to SOAR integer case id(s) — the bridge into every `soar case` verb. |
-| `ti collections` | List Mandiant threat collections (campaigns/reports/…). |
-| `ti collection <id>` | Show one threat collection by id. |
-| `ti related <collection-alt-name-or-id>` | Show IoC match counts for threat collection alt names such as `CAMP.00.001`; resource ids are resolved to alt names first. |
-| `iocs find <value>` | Resolve indicator value(s) to IoC records (`--type` to force md5/sha1/sha256/domain/ip; `--from-file <path>`/`-` for a list or stdin). |
-| `iocs get <id>` | Get one IoC by its resource id (from `iocs find --json`). |
-| `iocs related <ioc-id>` | List campaigns/reports related to an IoC resource id (`--collection-type campaign|report|all`). |
+| `cases soar-id <uuid>...` | Resolve SIEM case uuid(s) (an alert's `caseName`) to SOAR integer case id(s) — the bridge into every `cases` verb. |
+| `threat-intel collections` | List Mandiant threat collections (campaigns/reports/…). (alias `ti`) |
+| `threat-intel collection <id>` | Show one threat collection by id. |
+| `threat-intel related <collection-alt-name-or-id>` | Show IoC match counts for threat collection alt names such as `CAMP.00.001`; resource ids are resolved to alt names first. |
+| `indicators find <value>` | Resolve indicator value(s) to IoC records (`--type` to force md5/sha1/sha256/domain/ip; `--from-file <path>`/`-` for a list or stdin). (alias `iocs`) |
+| `indicators get <id>` | Get one IoC by its resource id (from `indicators find --json`). |
+| `indicators related <ioc-id>` | List campaigns/reports related to an IoC resource id (`--collection-type campaign|report|all`). |
 | `watchlists list` | List SIEM entity watchlists. |
 | `watchlists get` | Get one watchlist by id. |
 | `cases get` / `cases list` / `cases search` | Reach a case on the Chronicle host by UUID — alternate path that 500s today; prefer `soar case`. |
@@ -111,25 +136,28 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md).
 | `push rules-deploy` | Reconcile each tracked rule's deployment (enabled/alerting/frequency); `--rule` scopes one rule, and archived rules are reported as non-deployable. |
 | `push rules-disable` | Disable locally-tracked rules with `deployment.enabled=true`. |
 | `alerts update <id>...` | Set alert triage feedback: `--status new\|reviewed\|closed\|open`, `--verdict true-positive\|false-positive`, `--priority`, `--reason`, `--reputation`, scores, `--comment`, `--root-cause`. Several ids fan out the same update. |
-| `alerts run-actions <id> --file <json>` | Execute enrichment-agent actions against a SIEM alert's entities (build the file from `alerts actions`). |
 | `watchlists add-entity <id> (--ip\|--mac\|--hostname\|--user\|--email)` | Put one entity on a watchlist — containment/tracking (exactly one selector). |
 | `push curated` | Reconcile `curated/deployments.yaml` to live curated deployment state (enabled/alerting only). |
 | `push <reconcile-target>` | Reconcile local files to live (create/update; `--prune` deletes on prune-eligible surfaces only — `push <target> --help` says which). Targets: `reference_lists`, `data_tables`, `parsers`, `feeds`, `forwarders`, `dashboards`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`. |
 | `curated set` | Toggle a curated deployment's `enabled`/`alerting` per precision (`--category`, `--ruleset`, `--precision`). |
 | `feeds delete <id>` | Delete one feed by id (the feed UUID or full resource name). Stops that feed's ingestion — the explicit one-off, since feeds aren't `--prune`-eligible. Resolves and names the feed before acting. |
-| `reference_lists empty <name>` | Clear all entries from one no-delete reference list. Resolves the target and previews entry count only before acting. |
-| `rule_exclusions deploy <id>` | Enable, disable, or archive one findings refinement with `--enable`, `--disable`, or `--archive`. Resolves the target and previews current → desired deployment state before acting. |
+| `reference-lists empty <name>` | Clear all entries from one no-delete reference list. Resolves the target and previews entry count only before acting. (alias `reference_lists`) |
+| `rule-exclusions deploy <id>` | Enable, disable, or archive one findings refinement with `--enable`, `--disable`, or `--archive`. Resolves the target and previews current → desired deployment state before acting. (alias `rule_exclusions`) |
 | `cleanup smoke-artifacts` | Delete or neutralize only secopsctl-owned smoke-test artifacts. Dry-run prints the exact plan; apply requires `--yes`. |
 | `rules retrohunt` | Manage retrohunts (run a rule over historical data). |
 | `parsers activate <log-type> <id>` | Make a parser version ACTIVE (live ingestion switches; use `parsers versions` to find a prior id to roll back to). |
-| `dashboards duplicate <id>` | Copy a dashboard with a new `--name`/`--access` — the supported way to change the immutable `access`. |
+| `dashboards duplicate <id>` | Copy a dashboard to a new independent one (new `--name`/`--access`) via the server `:duplicate` verb — the copy gets its own charts and queries in one call (the same path the web console takes). `--deep-copy` rebuilds it client-side instead (fallback). Also the supported way to change the immutable `access`. Guarded. |
+| `dashboards delete <id>` | Delete a whole dashboard (guarded), e.g. a stale duplicate. A corrupt dashboard whose charts are dangling/non-owned references (owned by another dashboard or already gone) can't be deleted by the API or the web console — the error says so. |
+| `dashboards export <id>` | Export a dashboard with its charts + queries to one self-contained JSON document (`--out <file>` or stdout); read-only. Re-create it anywhere with `import`. |
+| `dashboards import <file>` | Create a dashboard from an export JSON document in ONE call (dashboard + charts + queries together; server mints fresh ids). Guarded (`--dry-run`/`--yes`). |
 | `dashboards add-chart <id>` | Add a chart with a YARA-L `--query` (or `--query-file`) via `:addChart` — the only way to author a chart query (the dashboard body is reference-only). `--chart-type bar\|line\|pie\|table --x <var> --y <var> [--series-by <var>]` GENERATES the visualization and validates the encode vars against the query's columns (vs hand-writing `--visualization`). `--if-absent` skips when a chart with the title exists. Guarded (`--dry-run`/`--yes`). The `<id>` is the server id in the pulled `<slug>.json` `_server` block (or from `dashboards charts`). |
 | `dashboards add-charts <id> --file <charts.json>` | Batch-author a whole dashboard's charts from a JSON array — validated up front, idempotent (existing titles skipped), `--pace`d under the chart quota. Guarded. |
 | `dashboards edit-chart <id> --chart-id <c>` | Edit a chart IN PLACE: `--query`/`--query-file` (the YARA-L), `--visualization`/`--chart-type` (the type), and/or `--layout` (grid position) — no remove+re-add churn. Guarded. |
 | `dashboards remove-chart <id> --chart-id <c>` | Remove a chart from a dashboard via `:removeChart`. Guarded. |
+| `dashboards list` | List every native dashboard (id · type · title) — so you get an id directly instead of digging it out of a pulled file's `_server.id`. `--json` for the full objects. |
 | `dashboards charts <id>` | List a dashboard's charts with their resolved YARA-L queries (read-only; derefs each chart → query). `--json` for the full list — also how to recover a `--chart-id`. |
 | `dashboards run-chart <id> --chart-id <c>` | (alias `values`) Execute a chart's query (`dashboardQueries:execute`) and print the VALUES it renders — rows/series (`--json`, `--clear-cache`, `--filter`). The verify half of authoring. |
-| `dashboards verify <id>` | Execute every chart and flag the ones returning 0 rows or an error — a headless/CI dashboard health check (exit 2 if any chart needs attention). |
+| `dashboards verify [<id>]` | Execute every chart and flag the ones returning 0 rows or an error — a headless/CI dashboard health check (exit 2 if any chart needs attention). Charts run in parallel (`--concurrency`, default 8); a transient 5xx/429 is retried and reported as inconclusive, never as broken (only a 404 dangling ref is "broken"). **`--all`** health-checks every CUSTOM dashboard in one fleet rollup (`--include-curated` to add the Google-managed ones). |
 
 ## 🔒 SOAR — read-only
 
@@ -153,7 +181,7 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar playbook simulation-enrichment` | Read simulation enrichment for one test case, step, and workflow identifier. |
 | `soar playbook pending count` / `list` / `get` | Read pending playbook steps assigned to the current user. `get --case-id N` can be scoped with `--alert-group` and `--workflow-identifier`. |
 | `soar playbook step get` | Fetch one workflow step instance by case, workflow, and step identifiers. Use `--json` to save the raw body for guarded `step execute`. |
-| `soar playbook summary --case-id N --playbook <name>` | Triage a playbook run: surfaces **FAULTED** steps (action · error · Cloud Logging deep-link; `--show-errors` for the full traceback). `--playbook` resolves to the definition id via `soar playbook list`, and the alert identifier is read from the case — so no opaque GUIDs (override with `--alert`/`--definition`). Prefers the v1alpha path, falls back to legacy. |
+| `soar playbook summary --case-id N --playbook <name>` | Triage a playbook run: surfaces **FAULTED** steps (action · error · Cloud Logging deep-link; `--show-errors` for the full traceback). `--playbook` resolves to the definition id via `soar playbook list`, and the alert identifier is read from the case — so no opaque GUIDs (override with `--alert`/`--definition`). A multi-alert case auto-resolves to the single playbook-bearing alert; if still ambiguous it lists the actual `--alert` ids (not names). **`--steps`** prints the full per-step execution trace (every completed step · status · action · result), for debugging a run that finished but did the wrong thing. Prefers the v1alpha path, falls back to legacy. |
 | `soar playbook results` / `result` | Read action results for a workflow instance or one case action-result id; human output summarizes status/presence only, `--json` emits the raw payload. |
 | `soar playbook versions` | List a playbook's saved version log (each save/deploy mints one); the identifiers feed `restore`. |
 | `soar playbook stats` | Aggregate run statistics for one playbook across all cases over `--hours` (default 7d); `summary` stays the single-run view. |
@@ -165,13 +193,15 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar job template list` | List SOAR job templates for component planning without printing job script bodies. |
 | `soar job instance list` | List configured SOAR job instances. |
 | `soar job logs` | Read Python execution logs for SOAR jobs/actions. Use documented filters such as `labels.job_name=~"^."` or `labels.action_name=~"^."`. **Same Cloud Logging caveat as `python-logs`:** can 500 on some instances; for failed playbook/job triage, prefer `soar playbook summary`. |
-| `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). Triage filters: `--assignee` (substring), `--priority`, `--tag` (modern lane), `--since` (duration/timestamp), and a verbatim modern server-side `--filter` expression (grammar below). |
+| `soar case list` | List SOAR cases (default open; `--status open\|closed\|all`, `--limit`). Triage filters: `--assignee` (substring), `--priority`, `--tag` (modern lane), `--since` (duration/timestamp), and a verbatim modern server-side `--filter` expression (grammar below). **A case is one record:** `cases …` is the canonical command and `soar case …` is a hidden back-compat alias — every `soar case <verb>` below also runs as `cases <verb>`. |
 | `soar case counts [--filter <expr>]` | Per-priority case counts for a filter set (default open cases) — one cheap exact count per priority via the list's `totalSize`. |
-| `soar case get <id>` | Get one case + its alerts (SOAR integer id). Each alert shows its `--alert` identifier and its **firing rule** (name + `ru_` id) with a `rules detections` pivot hint. |
+| `soar case get <id>` | Get one case + its alerts (SOAR integer id). Each alert shows its `--alert` identifier, its **firing rule** (name + `ru_` id) with a `rules detections` pivot hint, and — when a playbook is attached — a **▸ playbook(s) attached** marker with the exact `cases wall` / `soar playbook summary` pivot commands. |
+| `cases wall --case-id N` | Render the case's **timeline** (oldest first: time · kind · activity) — playbook attachments, action results, alert grouping, status/stage changes. The automation+analyst story of the case, headless. `--json` for the full records. |
 | `soar case comment list --id N` | List a case's comments (the case-wall record; `--alert` scopes to one alert). |
 | `soar case summarize --id N` | The structured AI summary of a case — narrative, reasons, next steps (polls until generation settles). |
+| `soar case overview --id N [--widgets]` | The data behind the console's case Overview tab: the case's entities with their enrichment by default, or the overview widget template with `--widgets`. Read-only, JSON. |
 | `soar case alert recommend --id N --alert <ident>` | Generate + fetch the AI recommendation for one alert in a case (the alert must be open at alert level; each run starts a generation server-side — refused in read-only mode). |
-| `alerts enrich <id>` / `alerts actions <id>` | A SIEM alert's enrichment context / the integration actions executable against its entities. Where the enrichment-agent surface is unavailable (chronicle 500 / SOAR 404), the command surfaces a clean combined error. |
+| `alerts enrich <id>` | A SIEM alert's full context — rule detection, mapped UDM events, entities/indicators (hosts, users, process+sha256, domains), MITRE tags, triage verdict, and the SOAR case bridge — via `legacy:legacyBatchGetCollections` (the surface the console uses). The AI agent's investigation is `alerts investigate <id> --latest`. |
 | `info soar-integrations` | Report installed SOAR integration packs, connector/job runtime counts, bound environments, and gaps such as `config_without_runtime` or `runtime_disabled`. |
 | `soar integration list` | List installed integration packs. |
 | `soar integration instances --integration <id>` | List an integration's configured instances (id · environment · name) — the fields `integration delete` needs, which `list` (packs only) does not expose. |

@@ -7,8 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -16,14 +18,24 @@ import (
 	"danny.vn/secops/auth"
 	"danny.vn/secops/chronicle"
 	"danny.vn/secops/config"
+	"danny.vn/secops/soar"
 )
+
+// defaultRequestTimeout bounds each individual API request (the whole HTTP
+// exchange) so a slow or blocked endpoint fails fast with an actionable error
+// instead of hanging. It is PER-REQUEST, not per-command: a command making many
+// calls (e.g. `pull all`, paginated reads) is not capped in aggregate, and the
+// timer never spans an interactive confirm prompt. Override with --timeout
+// (0 disables). Generous enough not to cut a normal single request.
+const defaultRequestTimeout = 60 * time.Second
 
 // Global persistent-flag values, shared across subcommands.
 var (
-	cfgFile        string // --config
-	jsonOut        bool   // --json
-	forceLegacy    bool   // --legacy: force the legacy AppKey path, skip modern v1alpha
-	nonInteractive bool   // --non-interactive: never prompt (no TTY confirmation)
+	cfgFile        string        // --config
+	jsonOut        bool          // --json
+	forceLegacy    bool          // --legacy: force the legacy AppKey path, skip modern v1alpha
+	nonInteractive bool          // --non-interactive: never prompt (no TTY confirmation)
+	requestTimeout time.Duration // --timeout: per-request HTTP timeout (0 = none)
 )
 
 var rootCmd = &cobra.Command{
@@ -39,7 +51,7 @@ var rootCmd = &cobra.Command{
 		"hard read-only mode for automation (--read-only / SECOPS_READONLY=1).\n\n" +
 		"Getting started: first run `secopsctl config` then `secopsctl doctor`.\n" +
 		"Discover every command with `secopsctl commands`; every API surface with\n" +
-		"`secopsctl surfaces`.",
+		"`secopsctl surfaces`; the agent operating guide with `secopsctl skill`.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
@@ -64,7 +76,20 @@ func Execute() int {
 	rootCmd.InitDefaultCompletionCmd()
 	assignCommandGroups(rootCmd)
 	requireSubcommand(rootCmd)
-	if err := rootCmd.Execute(); err != nil {
+	err := rootCmd.Execute()
+	if err != nil {
+		// A hit per-request timeout is far more actionable with the knob that
+		// controls it. http.Client.Timeout surfaces as a deadline/timeout error.
+		if requestTimeout > 0 && (errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err)) {
+			err = fmt.Errorf("%w (a request exceeded --timeout=%s; raise --timeout or set it to 0 to disable)", err, requestTimeout)
+		}
+		// A 429 that survived the transport's hint-honoring retries means the quota
+		// is genuinely exhausted — point at the actionable knobs rather than the raw
+		// RESOURCE_EXHAUSTED body.
+		if rateLimited(err) {
+			err = fmt.Errorf("%w\nhint: the API quota is exhausted (HTTP 429) and the request kept being rate-limited after automatic retries. "+
+				"Wait ~a minute and retry; for bulk/multi-call operations reduce the call volume (e.g. lower --concurrency)", err)
+		}
 		// Under --json a failure is emitted as a structured envelope on stdout so
 		// an agent/script branches on {code,message,retryable,request_id} instead
 		// of regexing the stderr prose. The exit code is unchanged.
@@ -84,6 +109,17 @@ func Execute() int {
 		return 1
 	}
 	return 0
+}
+
+// rateLimited reports whether err is (or wraps) a 429 from either plane — the
+// chronicle (APIError) or SOAR (soar.Error = transport.Error) transport.
+func rateLimited(err error) bool {
+	var ae *chronicle.APIError
+	if errors.As(err, &ae) && ae.Status == http.StatusTooManyRequests {
+		return true
+	}
+	var se *soar.Error
+	return errors.As(err, &se) && se.Status == http.StatusTooManyRequests
 }
 
 // helpOnlyParents marks the group parents whose RunE was injected by
@@ -197,6 +233,10 @@ func init() {
 	pf.BoolVar(&readOnlyFlag, "read-only", false,
 		"hard read-only session: every guarded mutation degrades to a dry-run preview even with --yes "+
 			"(also enabled by SECOPS_READONLY=1 — set it in the environment that launches an agent)")
+	pf.DurationVar(&requestTimeout, "timeout", defaultRequestTimeout,
+		"per-request HTTP timeout for API calls; a slow/blocked endpoint fails fast instead of hanging. "+
+			"Per request, not per command — it never spans a confirm prompt or caps a multi-call command in "+
+			"aggregate (0 disables; raise for a single very large request, e.g. --timeout 5m)")
 }
 
 func initViper() {
@@ -217,9 +257,27 @@ func newChronicleClient() (*chronicle.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return chronicle.NewClient(inst.Settings(), auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4)))
+	creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
+	return chronicle.NewClient(inst.Settings(), creds,
+		chronicle.WithHTTPClient(timedHTTPClient(creds, inst.ForceIPv4)))
 }
 
-// baseContext is the root context for API calls (placeholder for future
-// signal-aware cancellation).
+// timedHTTPClient builds the outbound *http.Client the CLI hands to every SDK
+// client, applying --timeout as a PER-REQUEST deadline (http.Client.Timeout bounds
+// one whole request/response exchange). 0 leaves it unbounded. Mirrors the SDK's
+// own default transport wiring (auth round-tripper + shared transport), so the only
+// difference from the SDK default is the configurable timeout. Per-request scope is
+// deliberate: it fails a hung call fast without spanning a confirm prompt or
+// capping a multi-call command (pull all, paginated reads) in aggregate.
+func timedHTTPClient(creds auth.Credentials, forceIPv4 bool) *http.Client {
+	return &http.Client{
+		Timeout:   requestTimeout,
+		Transport: auth.RoundTripper(creds, auth.HTTPTransport(forceIPv4)),
+	}
+}
+
+// baseContext is the root context for API calls. Cancellation/timeout is handled
+// per-request by timedHTTPClient (http.Client.Timeout), not by a context deadline,
+// so a multi-call command is never capped in aggregate and a confirm prompt is
+// never on the clock.
 func baseContext() context.Context { return context.Background() }

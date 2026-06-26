@@ -248,12 +248,25 @@ func buildDesiredDashboard(ctx context.Context, c *chronicle.Client, raw json.Ra
 	d.Access, d.Type = live.Access, live.Type
 	d.Definition.Filters = live.Definition.Filters
 
-	// Deref each chart → its query. A chart that won't resolve standalone (some
-	// charts 404 on the per-chart GET; a burst can also 429) degrades to a
-	// REFERENCE — layout + filters + the _server.chart id, no inline body — rather
-	// than losing the whole dashboard. A ref-only chart round-trips as a clean
-	// no-op on push (it matches live by id with nothing to edit). Re-pull to pick
-	// up a chart that was only transiently unavailable.
+	// With --with-charts, fetch all of this dashboard's chart bodies in ONE
+	// dashboardCharts:batchGet (falling back to per-chart for a dashboard with a
+	// dangling chart), rather than a GetChart per chart.
+	var charts map[string]json.RawMessage
+	if deref {
+		ids := make([]string, 0, len(live.Definition.Charts))
+		for _, cc := range live.Definition.Charts {
+			if cc.DashboardChart != "" {
+				ids = append(ids, cc.DashboardChart)
+			}
+		}
+		charts = c.ChartsByID(ctx, ids)
+	}
+
+	// Deref each chart → its query. A chart that won't resolve (some charts 404 on
+	// the GET; a burst can also 429) degrades to a REFERENCE — layout + filters +
+	// the _server.chart id, no inline body — rather than losing the whole dashboard.
+	// A ref-only chart round-trips as a clean no-op on push (it matches live by id
+	// with nothing to edit). Re-pull to pick up a transiently-unavailable chart.
 	for _, cc := range live.Definition.Charts {
 		dc := desiredChart{ChartLayout: cc.ChartLayout, FiltersIds: cc.FiltersIds}
 		if cc.DashboardChart == "" {
@@ -266,10 +279,10 @@ func buildDesiredDashboard(ctx context.Context, c *chronicle.Client, raw json.Ra
 			d.Definition.Charts = append(d.Definition.Charts, dc)
 			continue
 		}
-		chartRaw, err := c.GetChart(ctx, cc.DashboardChart)
-		if err != nil {
-			warnf("dashboards: %q chart %s not dereferenced (kept as a reference): %v",
-				live.DisplayName, lastSegment(cc.DashboardChart), err)
+		chartRaw, ok := charts[lastSegment(cc.DashboardChart)]
+		if !ok {
+			warnf("dashboards: %q chart %s not dereferenced (kept as a reference): unresolved (dangling or transiently unavailable)",
+				live.DisplayName, lastSegment(cc.DashboardChart))
 			degraded++
 			d.Definition.Charts = append(d.Definition.Charts, dc)
 			continue

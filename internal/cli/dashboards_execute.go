@@ -3,15 +3,25 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 
 	"danny.vn/secops/chronicle"
 )
+
+// defaultVerifyConcurrency bounds how many charts `verify` executes at once. A
+// chart costs two API calls (GetChart + dashboardQueries:execute); running them in
+// parallel turns a serial N-chart verify into roughly N/concurrency round-trips
+// (a many-chart dashboard drops from minutes to seconds). Capped so a big dashboard
+// can't burst past the per-minute quota (the transport still retries any 429).
+const defaultVerifyConcurrency = 8
 
 // Dashboard chart EXECUTION — the "verify" half of dashboard authoring. A chart's
 // config (`dashboards charts`) says nothing about what it renders; these verbs run
@@ -192,59 +202,173 @@ type chartVerdict struct {
 	Error   string `json:"error,omitempty"`
 }
 
+// verifyOneChart reads a chart's title + query ref (GetChart) and executes the
+// query (dashboardQueries:execute), returning a verdict. Errors are captured into
+// the verdict (never returned) so a single bad chart doesn't abort the whole
+// verify — the report lists every chart. Safe to call concurrently: it shares only
+// the (concurrency-safe) client and writes nothing shared.
+func verifyOneChart(ctx context.Context, c *chronicle.Client, ref string, clearCache *bool) chartVerdict {
+	v := chartVerdict{ChartID: lastSegment(ref), Status: "ok"}
+	chartRaw, gerr := retryTransient(ctx, func() (json.RawMessage, error) { return c.GetChart(ctx, ref) })
+	if gerr != nil {
+		v.Status, v.Error = classifyChartErr(gerr)
+		return v
+	}
+	v.Title = nestedString(chartRaw, "displayName")
+	queryRef := nestedString(chartRaw, "chartDatasource", "dashboardQuery")
+	res, eerr := execChartQuery(ctx, c, queryRef, clearCache)
+	if eerr != nil {
+		v.Status, v.Error = classifyChartErr(eerr)
+		return v
+	}
+	if n, known := execResultRowCount(res); known {
+		v.Rows = &n
+		if n == 0 {
+			v.Status = "empty"
+		}
+	}
+	return v
+}
+
+// classifyChartErr separates a genuinely broken chart from a transient failure.
+// A genuine break is a 404 (dangling chart/query) or any other 4xx — a 400
+// (uncompilable/invalid query) or 403 (access) means the chart really is broken,
+// not flaky. A transient failure (429, intermittent 5xx, timeout) must NOT be
+// reported as broken, or a flaky run (e.g. `verify --all` under load) wrongly
+// condemns a healthy dashboard. The 429 case is transient (retry/quota), not a
+// client error.
+func classifyChartErr(err error) (status, msg string) {
+	if chronicle.IsNotFound(err) {
+		return "error", err.Error()
+	}
+	var ae *chronicle.APIError
+	if errors.As(err, &ae) && ae.Status >= 400 && ae.Status < 500 && ae.Status != 429 {
+		return "error", err.Error()
+	}
+	return "transient", err.Error()
+}
+
+// retryTransient runs fn, retrying a transient (non-404) failure a few times with
+// backoff. The chronicle host returns intermittent 5xx under load — especially when
+// `verify --all` fans out hundreds of calls — and the chart execute is a POST the
+// transport won't auto-retry on 5xx, so a healthy chart/dashboard can momentarily
+// fail. A 404 (a genuinely missing resource) is returned immediately, never retried.
+func retryTransient[T any](ctx context.Context, fn func() (T, error)) (T, error) {
+	const attempts = 3
+	var res T
+	var err error
+	for attempt := range attempts {
+		if res, err = fn(); err == nil || chronicle.IsNotFound(err) {
+			return res, err
+		}
+		if attempt == attempts-1 {
+			break // don't back off after the final attempt — it's wasted wall-clock
+		}
+		select {
+		case <-ctx.Done():
+			return res, err
+		case <-time.After(time.Duration(attempt+1) * 400 * time.Millisecond):
+		}
+	}
+	return res, err
+}
+
+// execChartQuery executes a chart's query with transient-retry.
+func execChartQuery(ctx context.Context, c *chronicle.Client, queryRef string, clearCache *bool) (json.RawMessage, error) {
+	return retryTransient(ctx, func() (json.RawMessage, error) {
+		return execQueryRef(ctx, c, queryRef, nil, clearCache)
+	})
+}
+
+// countVerdicts splits a chart report into genuinely-bad (broken 404 or empty) and
+// transient (inconclusive) counts — transient is never counted as broken.
+func countVerdicts(vs []chartVerdict) (bad, transient int) {
+	for _, v := range vs {
+		switch v.Status {
+		case "error", "empty":
+			bad++
+		case "transient":
+			transient++
+		}
+	}
+	return bad, transient
+}
+
+// verifyDashboard resolves a dashboard's chart refs and executes them in parallel
+// (bounded by concurrency), returning the per-chart verdicts (in chart order) and
+// the count that are not "ok". A resolve error (e.g. the dashboard 404s) is
+// returned; per-chart errors are carried in the verdicts, not returned.
+func verifyDashboard(ctx context.Context, c *chronicle.Client, id string, concurrency int, clearCache *bool) (verdicts []chartVerdict, bad, transient int, err error) {
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	// Retry the dashboard-level fetch too — under `verify --all` load it can hit the
+	// same transient 5xx as the chart executes; a real "gone" dashboard 404s and
+	// returns immediately.
+	refs, err := retryTransient(ctx, func() ([]string, error) {
+		return dashboardChartRefs(ctx, c, id)
+	})
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	// Execute charts in parallel (bounded), writing each verdict to its own slot so
+	// the report stays in chart order and no lock is needed.
+	verdicts = make([]chartVerdict, len(refs))
+	var g errgroup.Group
+	g.SetLimit(concurrency)
+	for i, ref := range refs {
+		g.Go(func() error {
+			verdicts[i] = verifyOneChart(ctx, c, ref, clearCache)
+			return nil
+		})
+	}
+	_ = g.Wait() // verdicts carry their own errors; Wait never returns one
+	bad, transient = countVerdicts(verdicts)
+	return verdicts, bad, transient, nil
+}
+
 func newDashboardsVerifyCmd() *cobra.Command {
 	var clearCache bool
+	var concurrency int
+	var all, includeCurated bool
 	cmd := &cobra.Command{
-		Use:   "verify <dashboard-id>",
+		Use:   "verify [<dashboard-id>]",
 		Short: "Execute every chart and flag the ones returning no rows or an error (read-only)",
 		Long: "A dashboard health check: execute each chart's query (`dashboardQueries:execute`)\n" +
 			"and report which charts return an ERROR or 0 rows (EMPTY) vs OK — so a blank or\n" +
-			"broken chart is caught headless / in CI without opening the UI. Read-only;\n" +
-			"exits non-zero (2) when any chart is empty or errored. --json for the full report.",
-		Args: cobra.ExactArgs(1),
+			"broken chart is caught headless / in CI without opening the UI. Charts run in\n" +
+			"parallel (--concurrency, default 8) so a many-chart dashboard verifies in\n" +
+			"seconds. Pass --all to health-check every dashboard in the instance (a fleet\n" +
+			"rollup; one row per dashboard). Read-only; exits non-zero (2) when any chart is\n" +
+			"empty or errored. --json for the full report.",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id := args[0]
+			if concurrency < 1 {
+				concurrency = 1
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
 			}
 			ctx := baseContext()
-			refs, err := dashboardChartRefs(ctx, c, id)
-			if err != nil {
-				return err
-			}
 			var cc *bool
 			if clearCache {
 				cc = &clearCache
 			}
 
-			verdicts := make([]chartVerdict, 0, len(refs))
-			bad := 0
-			for _, ref := range refs {
-				v := chartVerdict{ChartID: lastSegment(ref), Status: "ok"}
-				// One GetChart per chart: read the title AND the query ref from it,
-				// then execute the query directly (no second GetChart).
-				chartRaw, gerr := c.GetChart(ctx, ref)
-				if gerr != nil {
-					v.Status, v.Error, bad = "error", gerr.Error(), bad+1
-					verdicts = append(verdicts, v)
-					continue
+			if all {
+				if len(args) > 0 {
+					return fmt.Errorf("pass either a dashboard id or --all, not both")
 				}
-				v.Title = nestedString(chartRaw, "displayName")
-				queryRef := nestedString(chartRaw, "chartDatasource", "dashboardQuery")
-				res, eerr := execQueryRef(ctx, c, queryRef, nil, cc)
-				switch {
-				case eerr != nil:
-					v.Status, v.Error, bad = "error", eerr.Error(), bad+1
-				default:
-					if n, known := execResultRowCount(res); known {
-						v.Rows = &n
-						if n == 0 {
-							v.Status, bad = "empty", bad+1
-						}
-					}
-				}
-				verdicts = append(verdicts, v)
+				return runVerifyAll(ctx, c, concurrency, cc, includeCurated)
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("provide a dashboard id, or pass --all to verify every dashboard")
+			}
+			id := args[0]
+			verdicts, bad, transient, err := verifyDashboard(ctx, c, id, concurrency, cc)
+			if err != nil {
+				return err
 			}
 
 			if jsonOut {
@@ -252,7 +376,8 @@ func newDashboardsVerifyCmd() *cobra.Command {
 					Dashboard string         `json:"dashboard"`
 					Charts    []chartVerdict `json:"charts"`
 					Bad       int            `json:"bad"`
-				}{id, verdicts, bad}); err != nil {
+					Transient int            `json:"transient"`
+				}{id, verdicts, bad, transient}); err != nil {
 					return err
 				}
 			} else {
@@ -272,7 +397,11 @@ func newDashboardsVerifyCmd() *cobra.Command {
 				if err := tw.Flush(); err != nil {
 					return err
 				}
-				fmt.Printf("\n%d chart(s), %d need attention (empty/error).\n", len(verdicts), bad)
+				note := ""
+				if transient > 0 {
+					note = fmt.Sprintf(" (%d transient — inconclusive, re-run)", transient)
+				}
+				fmt.Printf("\n%d chart(s), %d need attention (empty/error)%s.\n", len(verdicts), bad, note)
 			}
 			if bad > 0 {
 				return divergence("dashboard %s: %d chart(s) empty or errored", id, bad)
@@ -281,6 +410,9 @@ func newDashboardsVerifyCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&clearCache, "clear-cache", false, "bypass the query cache (read from the database)")
+	cmd.Flags().IntVar(&concurrency, "concurrency", defaultVerifyConcurrency, "max charts to execute in parallel (lower it if you hit rate limits)")
+	cmd.Flags().BoolVar(&all, "all", false, "health-check every dashboard in the instance (fleet rollup, one row per dashboard)")
+	cmd.Flags().BoolVar(&includeCurated, "include-curated", false, "with --all: also verify CURATED (Google-managed) dashboards, not just your CUSTOM ones")
 	return markJSON(cmd)
 }
 

@@ -4,213 +4,158 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"danny.vn/secops/chronicle"
 )
 
-// Enrichment-agent verbs (Wave 56): operate on a SIEM alert BEFORE (or
-// without) case grouping — fetch its investigation context, list the
-// integration actions executable against its entities, and run a batch of
-// them. The pre-case half of alert triage (`soar case run-action` is the
-// in-case half).
-
-// enrichmentAgentRead runs one enrichment-agent read on the chronicle host and
-// falls back to the SOAR host (the two-host rule: the docs file the resource
-// under chronicle, but integration-flavored surfaces often answer on
-// siemplify-soar instead).
-func enrichmentAgentRead(verb, siemAlertID string) (json.RawMessage, error) {
-	ctx := baseContext()
-	var chronicleErr error
-	if c, err := newChronicleClient(); err == nil {
-		fetch := c.FetchAlertData
-		if verb == "fetchActions" {
-			fetch = c.FetchAlertActions
-		}
-		raw, err := fetch(ctx, siemAlertID)
-		if err == nil {
-			return raw, nil
-		}
-		chronicleErr = err
-	}
-	sc, err := newSOARClient()
-	if err != nil {
-		if chronicleErr != nil {
-			return nil, chronicleErr
-		}
-		return nil, err
-	}
-	fetch := sc.FetchAlertData
-	if verb == "fetchActions" {
-		fetch = sc.FetchAlertActions
-	}
-	raw, err := fetch(ctx, siemAlertID)
-	if err != nil && chronicleErr != nil {
-		// Both hosts failed; the chronicle error is usually the meaningful one.
-		return nil, fmt.Errorf("chronicle host: %w (soar host also failed: %v)", chronicleErr, err) //nolint:errorlint // the soar error is annotation only
-	}
-	return raw, err
-}
+// Alert enrichment. `enrich` fetches the full per-alert detection collection the
+// console renders (rule + UDM events + entities + triage) via
+// legacy:legacyBatchGetCollections — the surface the web UI actually uses. The
+// AI agent's investigation is `alerts investigate <id> --latest`.
+//
+// The pre-case "run an integration action against an alert's entities" verbs are
+// intentionally absent: the only known endpoint for them (enrichmentAgent:*)
+// returns a server-side 500 for every variant and is not used by the console, so
+// shipping it would surface a command that always fails. The in-case equivalent —
+// `soar case run-action` — works today.
 
 func newAlertsEnrichCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "enrich <alert-id>",
-		Short: "Read-only: a SIEM alert's enrichment context (entities, events, indicator)",
-		Args:  cobra.ExactArgs(1),
+		Short: "Read-only: a SIEM alert's full context (rule detection, UDM events, entities, triage)",
+		Long: "Fetch the rich per-alert view the console renders when an analyst opens an\n" +
+			"alert — the rule detection(s), every mapped UDM event, the involved entities\n" +
+			"and indicators (hosts, users, process hashes, domains), the alert's MITRE\n" +
+			"tags, its SOAR case linkage, and the AI triage verdict when an agent has run.\n" +
+			"--json prints the complete collection. The AI agent's investigation detail is\n" +
+			"`alerts investigate <id> --latest`.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			raw, err := enrichmentAgentRead("fetchAlertData", args[0])
+			c, err := newChronicleClient()
 			if err != nil {
 				return err
 			}
-			if jsonOut {
-				return writeRawJSON(os.Stdout, raw)
+			resp, err := c.BatchGetCollections(baseContext(), []string{args[0]})
+			if err != nil {
+				return err
 			}
-			return emitAlertEnrichData(raw)
+			if len(resp.Collections) == 0 {
+				return fmt.Errorf("no detection-alert collection for id %q", args[0])
+			}
+			col := resp.Collections[0]
+			if jsonOut {
+				return writeRawJSON(os.Stdout, col.Raw)
+			}
+			return emitAlertEnrichData(c, &col)
 		},
 	}
 	return markJSON(cmd)
 }
 
-// emitAlertEnrichData renders the alert context compactly.
-func emitAlertEnrichData(raw json.RawMessage) error {
-	var resp struct {
-		CaseAlert struct {
-			RuleGenerator string `json:"ruleGenerator"`
-			Product       string `json:"product"`
-			DisplayName   string `json:"displayName"`
-		} `json:"caseAlert"`
-		Entities []struct {
-			EntityType   string `json:"entityType"`
-			EntityID     string `json:"entityId"`
-			IsSuspicious bool   `json:"isSuspicious"`
-			IsInternal   bool   `json:"isInternal"`
-		} `json:"entities"`
-		Events   []json.RawMessage `json:"events"`
-		Comments []string          `json:"comments"`
-	}
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		return fmt.Errorf("decode alert data: %w", err)
-	}
-	fmt.Fprintf(os.Stdout, "Alert: %s  —  rule %s · %s\n", orDash(resp.CaseAlert.DisplayName),
-		orDash(resp.CaseAlert.RuleGenerator), orDash(resp.CaseAlert.Product))
-	fmt.Fprintf(os.Stdout, "\nEntities (%d):\n", len(resp.Entities))
-	for _, e := range resp.Entities {
-		flags := ""
-		if e.IsSuspicious {
-			flags += " suspicious"
+// emitAlertEnrichData renders a detection-alert collection compactly: the rule
+// detection, the entities/indicators pulled from its UDM events, MITRE tags, the
+// SOAR case bridge, and the AI triage verdict (with a pivot to the full
+// investigation).
+func emitAlertEnrichData(c *chronicle.Client, col *chronicle.LegacyCollection) error {
+	fmt.Fprintf(os.Stdout, "Alert %s\n", col.ID)
+	if len(col.Detection) > 0 {
+		d := col.Detection[0]
+		fmt.Fprintf(os.Stdout, "Rule:     %s  (%s)\n", orDash(d.RuleName), orDash(d.Severity))
+		if d.RuleSetDisplayName != "" {
+			fmt.Fprintf(os.Stdout, "Ruleset:  %s · %s\n", orDash(d.RulesetCategoryName), d.RuleSetDisplayName)
 		}
-		if e.IsInternal {
-			flags += " internal"
-		}
-		fmt.Fprintf(os.Stdout, "  %-12s %s%s\n", e.EntityType, e.EntityID, flags)
 	}
-	fmt.Fprintf(os.Stdout, "\n%d event(s), %d comment(s). Full payload with --json.\n", len(resp.Events), len(resp.Comments))
+	if len(col.Tags) > 0 {
+		fmt.Fprintf(os.Stdout, "Tags:     %s\n", strings.Join(col.Tags, ", "))
+	}
+
+	ents := collectAlertEntities(col.CollectionElements)
+	fmt.Fprintf(os.Stdout, "\nEntities & indicators (%d) from %d event(s):\n", len(ents), len(col.CollectionElements))
+	for _, e := range ents {
+		fmt.Fprintf(os.Stdout, "  %-9s %s\n", e.kind, e.value)
+	}
+
+	if fs := col.FeedbackSummary; fs != nil {
+		fmt.Fprintf(os.Stdout, "\nTriage:   %s · %s", orDash(fs.Status), orDash(fs.PriorityDisplay))
+		if fs.Verdict != "" && fs.Verdict != "VERDICT_UNSPECIFIED" {
+			fmt.Fprintf(os.Stdout, " · verdict %s", fs.Verdict)
+		}
+		fmt.Fprintln(os.Stdout)
+		if fs.TriageAgentInvestigationID != "" {
+			fmt.Fprintf(os.Stdout, "AI agent: investigation ran — `alerts investigate %s --latest` for its verdict + steps.\n", col.ID)
+		}
+	}
+	printAlertCaseBridge(c, col.CaseName)
 	return nil
 }
 
-func newAlertsActionsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "actions <alert-id>",
-		Short: "Read-only: integration actions executable against a SIEM alert's entities",
-		Long: "List every integration action the enrichment agent can run against the\n" +
-			"alert's entities, grouped per integration instance — the catalog `alerts\n" +
-			"run-actions` executes from.",
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			raw, err := enrichmentAgentRead("fetchActions", args[0])
-			if err != nil {
-				return err
-			}
-			if jsonOut {
-				return writeRawJSON(os.Stdout, raw)
-			}
-			return emitAlertActions(raw)
-		},
-	}
-	return markJSON(cmd)
-}
+// alertEntity is one deduped entity/indicator surfaced from an alert's events.
+type alertEntity struct{ kind, value string }
 
-// emitAlertActions renders the per-integration action catalog compactly.
-func emitAlertActions(raw json.RawMessage) error {
-	var resp struct {
-		Integrations []struct {
-			Integration         string `json:"integration"`
-			IntegrationInstance string `json:"integrationInstance"`
-			DisplayName         string `json:"displayName"`
-			Actions             []struct {
-				DisplayName string            `json:"displayName"`
-				EntityTypes []string          `json:"entityTypes"`
-				Parameters  []json.RawMessage `json:"parameters"`
-			} `json:"actions"`
-		} `json:"integrations"`
-	}
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		return fmt.Errorf("decode actions: %w", err)
-	}
-	if len(resp.Integrations) == 0 {
-		fmt.Fprintln(os.Stdout, "no executable actions.")
-		return nil
-	}
-	total := 0
-	for _, in := range resp.Integrations {
-		fmt.Fprintf(os.Stdout, "%s  (instance %s)\n", orDash(in.DisplayName), orDash(in.IntegrationInstance))
-		for _, a := range in.Actions {
-			fmt.Fprintf(os.Stdout, "  - %-40s entities: %v  params: %d\n", a.DisplayName, a.EntityTypes, len(a.Parameters))
-			total++
+// collectAlertEntities walks a collection's mapped UDM events and pulls the
+// salient entities/indicators — hostnames, users, process files (path + sha256),
+// and the about[] urls — deduped, first-seen order preserved.
+func collectAlertEntities(elements []json.RawMessage) []alertEntity {
+	seen := map[string]bool{}
+	var out []alertEntity
+	add := func(kind, value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		key := kind + "\x00" + value
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, alertEntity{kind, value})
 		}
 	}
-	fmt.Fprintf(os.Stdout, "\n%d action(s) across %d integration(s). Parameter details with --json.\n", total, len(resp.Integrations))
-	return nil
+	addNoun := func(n udmNoun) {
+		add("host", n.Hostname)
+		add("user", n.User.UserID)
+		if p := n.Process.File; p.FullPath != "" || p.SHA256 != "" {
+			add("process", strings.TrimSpace(p.FullPath+"  "+p.SHA256))
+		}
+		add("url", n.URL)
+	}
+	var node struct {
+		References []struct {
+			Event struct {
+				Principal udmNoun   `json:"principal"`
+				Target    udmNoun   `json:"target"`
+				About     []udmNoun `json:"about"`
+			} `json:"event"`
+		} `json:"references"`
+	}
+	for _, el := range elements {
+		if json.Unmarshal(el, &node) != nil {
+			continue
+		}
+		for _, r := range node.References {
+			addNoun(r.Event.Principal)
+			addNoun(r.Event.Target)
+			for _, a := range r.Event.About {
+				addNoun(a)
+			}
+		}
+	}
+	return out
 }
 
-func newAlertsRunActionsCmd() *cobra.Command {
-	var (
-		file        string
-		dryRun, yes bool
-	)
-	cmd := &cobra.Command{
-		Use:   "run-actions <alert-id> --file <actions.json>",
-		Short: "MUTATING (guarded): execute integration actions against a SIEM alert",
-		Long: "Run a batch of enrichment-agent actions against the alert's entities. The\n" +
-			"file is a JSON array of actions — {displayName, integration,\n" +
-			"integrationInstance, targetEntities[], parameters{}} — built from the\n" +
-			"`alerts actions` catalog. Guarded: dry-run by default, --yes to apply.",
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			data, err := os.ReadFile(file)
-			if err != nil {
-				return err
-			}
-			var actions []chronicle.EnrichmentAction
-			if err := json.Unmarshal(data, &actions); err != nil {
-				return fmt.Errorf("%s: %w", file, err)
-			}
-			if len(actions) == 0 {
-				return fmt.Errorf("%s carries no actions", file)
-			}
-			action := fmt.Sprintf("alerts run-actions %s (%d action(s) from %s)", args[0], len(actions), file)
-			return guardedSIEMMutation(action, dryRun, yes, func() error {
-				c, err := newChronicleClient()
-				if err != nil {
-					return err
-				}
-				raw, err := c.ExecuteAlertActions(baseContext(), args[0], actions)
-				if err != nil {
-					return err
-				}
-				// Per-action results print on the human path; under --json the
-				// guard's envelope owns stdout (do() must stay silent there).
-				if !jsonOut {
-					return writeRawJSON(os.Stdout, raw)
-				}
-				return nil
-			})
-		},
-	}
-	f := cmd.Flags()
-	f.StringVar(&file, "file", "", "JSON array of actions to execute (required)")
-	guardRunFlags(cmd, &dryRun, &yes)
-	_ = cmd.MarkFlagRequired("file")
-	return markJSON(cmd)
+// udmNoun is the minimal slice of a UDM noun (principal/target/about) the alert
+// enrichment view reads.
+type udmNoun struct {
+	Hostname string `json:"hostname"`
+	URL      string `json:"url"`
+	User     struct {
+		UserID string `json:"userid"`
+	} `json:"user"`
+	Process struct {
+		File struct {
+			FullPath string `json:"fullPath"`
+			SHA256   string `json:"sha256"`
+		} `json:"file"`
+	} `json:"process"`
 }
