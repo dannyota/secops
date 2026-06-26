@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
@@ -22,17 +24,29 @@ type playbookComponentIntegrationRow struct {
 }
 
 type playbookActionRow struct {
-	Integration         string   `json:"integration,omitempty"`
-	ID                  string   `json:"id,omitempty"`
-	Name                string   `json:"name"`
-	Description         string   `json:"description,omitempty"`
-	Enabled             *bool    `json:"enabled,omitempty"`
-	ParameterCount      int      `json:"parameter_count"`
-	MandatoryParameters []string `json:"mandatory_parameters,omitempty"`
-	HasJSONResult       *bool    `json:"has_json_result,omitempty"`
-	ScriptResultName    string   `json:"script_result_name,omitempty"`
-	ActionType          string   `json:"action_type,omitempty"`
-	Async               *bool    `json:"async,omitempty"`
+	Integration         string                `json:"integration,omitempty"`
+	ID                  string                `json:"id,omitempty"`
+	Name                string                `json:"name"`
+	Description         string                `json:"description,omitempty"`
+	Enabled             *bool                 `json:"enabled,omitempty"`
+	ParameterCount      int                   `json:"parameter_count"`
+	MandatoryParameters []string              `json:"mandatory_parameters,omitempty"`
+	Parameters          []playbookActionParam `json:"parameters,omitempty"`
+	HasJSONResult       *bool                 `json:"has_json_result,omitempty"`
+	ScriptResultName    string                `json:"script_result_name,omitempty"`
+	ActionType          string                `json:"action_type,omitempty"`
+	Async               *bool                 `json:"async,omitempty"`
+}
+
+// playbookActionParam is one input parameter of an action — the schema an author
+// needs to fill a step in (surfaced in --json; the table shows only the count).
+type playbookActionParam struct {
+	Name           string   `json:"name"`
+	Type           string   `json:"type,omitempty"`
+	Mandatory      bool     `json:"mandatory"`
+	DefaultValue   string   `json:"default_value,omitempty"`
+	OptionalValues []string `json:"optional_values,omitempty"`
+	Description    string   `json:"description,omitempty"`
 }
 
 type playbookConnectorComponentRow struct {
@@ -116,8 +130,10 @@ func newSOARPlaybookComponentsActionsCmd() *cobra.Command {
 		Long: "Without --integration, list the WHOLE action palette in one call (the\n" +
 			"`integrations/-/actions` wildcard catalog): every action across every\n" +
 			"integration with its numeric id — the id `components usage` keys on. With\n" +
-			"--integration, list that integration's actions in detail (parameter counts,\n" +
-			"JSON/script-result flags, async status). Neither prints Python script bodies.",
+			"--integration, list that integration's actions in detail — `--json` carries\n" +
+			"each action's full PARAMETER SCHEMA (name/type/mandatory/default/options), the\n" +
+			"detail needed to author a step; the table shows counts, JSON/script-result\n" +
+			"flags, and async status. Neither prints Python script bodies.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newSOARClient()
@@ -136,19 +152,29 @@ func newSOARPlaybookComponentsActionsCmd() *cobra.Command {
 				printActionCatalogRows(cmd.OutOrStdout(), rows)
 				return nil
 			}
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
-			}
 			resolved, err := resolvePlaybookComponentIntegration(baseContext(), c, integration)
 			if err != nil {
 				return err
 			}
-			raw, err := lc.GetStoreIntegrationFullDetails(baseContext(), integrationFullDetailsBody(resolved))
+			// Each action's parameter schema is only returned by the per-action GET —
+			// the actions LIST omits parameters regardless of field mask (a server
+			// quirk). So list the actions, then GET each one to capture its parameters,
+			// and feed the full bodies to the summarizer.
+			key := componentIntegrationIdentifier(resolved)
+			defs, err := c.ListActions(baseContext(), key)
 			if err != nil {
 				return err
 			}
-			rows := filterActionRows(summarizeIntegrationActions(storeIntegrationIdentifier(resolved), raw), grep)
+			raws := make([]json.RawMessage, 0, len(defs))
+			for i := range defs {
+				full, gerr := c.GetActionDef(baseContext(), key, defs[i].PathID())
+				if gerr != nil {
+					fmt.Fprintf(os.Stderr, "warning: action %q: %v\n", defs[i].DisplayName, gerr)
+					continue
+				}
+				raws = append(raws, full)
+			}
+			rows := filterActionRows(summarizeIntegrationActions(key, wrapActionsEnvelope(raws)), grep)
 			if jsonOut {
 				return emitJSON(rows)
 			}
@@ -339,21 +365,6 @@ func resolvePlaybookComponentIntegration(ctx context.Context, c *soar.Client, ke
 
 func componentIntegrationIdentifier(in soar.Integration) string {
 	return strings.TrimSpace(in.Identifier)
-}
-
-func storeIntegrationIdentifier(in soar.Integration) string {
-	if strings.TrimSpace(in.ProdIdentifier) != "" {
-		return strings.TrimSpace(in.ProdIdentifier)
-	}
-	return componentIntegrationIdentifier(in)
-}
-
-func integrationFullDetailsBody(in soar.Integration) map[string]any {
-	return map[string]any{
-		"integrationIdentifier": storeIntegrationIdentifier(in),
-		"isCustom":              in.Custom,
-		"isCertified":           in.Certified,
-	}
 }
 
 func printPlaybookIntegrationRows(w io.Writer, rows []playbookComponentIntegrationRow) {

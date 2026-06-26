@@ -170,16 +170,29 @@ func PushRulesCreateWithOptions(ctx context.Context, c *chronicle.Client, rulesD
 
 	created := 0
 	failed := 0
+	disabled := 0
 	for _, cand := range valid {
-		if cerr := createAndDeployRule(ctx, c, cand.path, cand.text, opts, w); cerr != nil {
+		landed, cerr := createAndDeployRule(ctx, c, cand.path, cand.text, opts, w)
+		if cerr != nil {
 			failed++
 			fmt.Fprintf(w, "  FAIL     %s: %v\n", filepath.Base(cand.path), cerr)
 			continue
 		}
 		created++
+		if landed {
+			disabled++
+		}
 	}
 
-	fmt.Fprintf(w, "\nDone. %d created, %d failed.\n", created, failed)
+	// A high-volume/complex rule can be created yet left enabled=false by a platform
+	// guard even when enabled was requested — call it out so the summary is not
+	// mistaken for "live".
+	if disabled > 0 {
+		fmt.Fprintf(w, "\nDone. %d created (%d landed DISABLED — run `push rules-deploy` to enable), %d failed.\n",
+			created, disabled, failed)
+	} else {
+		fmt.Fprintf(w, "\nDone. %d created, %d failed.\n", created, failed)
+	}
 	return created, nil
 }
 
@@ -224,10 +237,15 @@ func PromoteRule(ctx context.Context, c *chronicle.Client, file string, opts Rul
 		fmt.Fprintln(w, "Refusing to promote without confirmation (pass --yes). Aborted.")
 		return 0, nil
 	}
-	if cerr := createAndDeployRule(ctx, c, file, text, opts, w); cerr != nil {
+	landed, cerr := createAndDeployRule(ctx, c, file, text, opts, w)
+	if cerr != nil {
 		return 0, cerr
 	}
-	fmt.Fprintln(w, "\nDone. 1 promoted.")
+	if landed {
+		fmt.Fprintln(w, "\nDone. 1 promoted (landed DISABLED — run `push rules-deploy` to enable).")
+	} else {
+		fmt.Fprintln(w, "\nDone. 1 promoted.")
+	}
 	return 1, nil
 }
 
@@ -237,11 +255,14 @@ func PromoteRule(ctx context.Context, c *chronicle.Client, file string, opts Rul
 // rule was not made); deploy/companion-write problems are reported as warnings
 // but do not fail the create, since the rule IS live. Shared by rules-create and
 // rules promote.
-func createAndDeployRule(ctx context.Context, c *chronicle.Client, path, text string, opts RulesCreateDeploymentOptions, w io.Writer) error {
+// createAndDeployRule returns (landedDisabled, error): landedDisabled is true when
+// enabled was requested but the live deployment came back disabled (a platform
+// complexity/volume guard) — the rule IS created, just not running.
+func createAndDeployRule(ctx context.Context, c *chronicle.Client, path, text string, opts RulesCreateDeploymentOptions, w io.Writer) (bool, error) {
 	stem := stemOf(path)
 	rule, cerr := c.CreateRule(ctx, text)
 	if cerr != nil {
-		return cerr
+		return false, cerr
 	}
 	ruleID := rule.RuleID()
 
@@ -311,8 +332,19 @@ func createAndDeployRule(ctx context.Context, c *chronicle.Client, path, text st
 		// don't lose the live state silently — report and keep going.
 		fmt.Fprintf(w, "  WARN %s: created live but companion write failed: %v\n", stem, werr)
 	}
-	fmt.Fprintf(w, "  created  %s  (%s)\n", display, ruleID)
-	return nil
+	disabled := landedDisabled(opts, dep)
+	note := ""
+	if disabled {
+		note = "  [DISABLED — platform guard; run `push rules-deploy` to enable]"
+	}
+	fmt.Fprintf(w, "  created  %s  (%s)%s\n", display, ruleID, note)
+	return disabled, nil
+}
+
+// landedDisabled reports whether enabled was requested but the live deployment came
+// back disabled — a platform complexity/volume guard, not a failure.
+func landedDisabled(opts RulesCreateDeploymentOptions, dep *chronicle.RuleDeployment) bool {
+	return opts.Enabled && dep != nil && !dep.Enabled
 }
 
 // PushRulesDisable disables locally-tracked rules whose companion

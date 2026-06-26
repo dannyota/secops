@@ -12,7 +12,7 @@ YARA-L source + deployment state machine (two resources, not a single canonical 
 
 CLI verbs:
 
-- `push rules-create` — initial `--enabled`, `--alerting`, `--run-frequency`
+- `push rules-create` — initial `--enabled`, `--alerting`, `--run-frequency`; the summary and per-rule line flag a rule that was created but landed `enabled=false` (a platform complexity/volume guard re-issues at HOURLY, but a very high-volume rule can still land disabled), so it is not mistaken for live (`rules promote` carries the same note)
 - `rules-update` — etag-guarded text update
 - `rules-deploy` — reconcile enabled/alerting/frequency; archived rules reported non-deployable; the apply PATCH is field-masked to only the changed fields (an alerting-only flip sends `alerting` alone, no longer 409s on unchanged `enabled`); summary reports `deployed` / `already in desired state` / `failed` truthfully — live-validated: an alerting-only flip reports `1 deployed, 0 failed` and a re-deploy is an in-sync no-op
 - `rules-disable`
@@ -130,6 +130,7 @@ Authoring ergonomics (Wave 83, live-validated):
 - `add-chart`/`edit-chart --chart-type bar|line|pie|table --x --y [--series-by]` — generate the echarts `visualization` and validate encode vars against the query's columns (both `outcome:` `$vars` AND bare `match:` field references such as `target.hostname`; a typo fails clean, a valid field is accepted)
 - `edit-chart` edits visualization/layout in place (visualization via `:editChart`; layout via the `definition.charts` PATCH, since `chart_layout` is not an `:editChart` field — preserving every other chart)
 - `add-chart --if-absent` + batch `add-charts --file <charts.json>` (validated up front, idempotent skip-by-title, `--pace`d under the chart quota) make a whole-dashboard build rerunnable
+- `add-chart`/`edit-chart` warn at author time when a `match:`/`outcome:` variable name collides with a reserved YARA-L keyword (e.g. `$rule`, `$events`) — these compile but 400 at execute time, rendering a blank chart; the warning names the offenders and suggests a rename. The reserved set is the YARA-L keyword reference (sections, modifiers, operators, size specifiers)
 
 Live-validated end to end by `TestLiveDashboardsAuthoringSmoke` (generated viz stored as a BAR series; run-chart/verify; in-place type/layout edit keeps the chart id; batch idempotent). Lossless deref-on-pull round-trip is a follow-up.
 

@@ -130,6 +130,27 @@ func TestNormalizeRulesCreateDeploymentOptions(t *testing.T) {
 	}
 }
 
+func TestLandedDisabled(t *testing.T) {
+	enabledReq := RulesCreateDeploymentOptions{Enabled: true}
+	disabledReq := RulesCreateDeploymentOptions{Enabled: false}
+	cases := []struct {
+		name string
+		opts RulesCreateDeploymentOptions
+		dep  *chronicle.RuleDeployment
+		want bool
+	}{
+		{"requested enabled, landed disabled", enabledReq, &chronicle.RuleDeployment{Enabled: false}, true},
+		{"requested enabled, landed enabled", enabledReq, &chronicle.RuleDeployment{Enabled: true}, false},
+		{"requested disabled, landed disabled", disabledReq, &chronicle.RuleDeployment{Enabled: false}, false},
+		{"no deployment read back", enabledReq, nil, false},
+	}
+	for _, tc := range cases {
+		if got := landedDisabled(tc.opts, tc.dep); got != tc.want {
+			t.Errorf("%s: landedDisabled = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestTrackedRules(t *testing.T) {
 	dir := t.TempDir()
 	// A tracked rule: companion + sibling .yaral.

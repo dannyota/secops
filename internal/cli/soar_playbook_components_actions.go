@@ -15,6 +15,23 @@ import (
 	"danny.vn/secops/soar"
 )
 
+// wrapActionsEnvelope wraps per-action full bodies into the {"actions":[…]}
+// envelope summarizeIntegrationActions walks, preserving each action's parameter
+// schema. Empty bodies are skipped.
+func wrapActionsEnvelope(raws []json.RawMessage) json.RawMessage {
+	items := make([]json.RawMessage, 0, len(raws))
+	for _, r := range raws {
+		if len(r) > 0 {
+			items = append(items, r)
+		}
+	}
+	b, err := json.Marshal(map[string]any{"actions": items})
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return b
+}
+
 func summarizeIntegrationActions(integration string, raw json.RawMessage) []playbookActionRow {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
@@ -62,9 +79,11 @@ func actionArrayKey(key string) bool {
 }
 
 func actionRowFromMap(integration string, m map[string]any, fromActionArray bool) (playbookActionRow, bool) {
-	name := stringAnyField(m, "name")
+	// Prefer the friendly displayName; the modern action object's `name` is the full
+	// resource path, while the legacy details shape carries only the friendly `name`.
+	name := stringAnyField(m, "displayName")
 	if name == "" {
-		name = stringAnyField(m, "displayName")
+		name = stringAnyField(m, "name")
 	}
 	if name == "" {
 		return playbookActionRow{}, false
@@ -79,19 +98,32 @@ func actionRowFromMap(integration string, m map[string]any, fromActionArray bool
 		Description:         stringAnyField(m, "description"),
 		ParameterCount:      arrayAnyLen(m["parameters"]),
 		MandatoryParameters: mandatoryActionParameters(m["parameters"]),
+		Parameters:          actionParameters(m["parameters"]),
 		ScriptResultName:    stringAnyField(m, "scriptResultName"),
 		ActionType:          scalarAnyString(m["actionType"]),
 	}
-	if b, ok := boolAnyField(m, "isEnabled"); ok {
+	// Enabled/async carry different keys across the two surfaces (modern action GET:
+	// `enabled`/`isAsync`; legacy details: `isEnabled`/`isAsync`).
+	if b, ok := boolAnyFieldFirst(m, "enabled", "isEnabled"); ok {
 		row.Enabled = &b
 	}
 	if b, ok := boolAnyField(m, "hasJsonResult"); ok {
 		row.HasJSONResult = &b
 	}
-	if b, ok := boolAnyField(m, "isAsync"); ok {
+	if b, ok := boolAnyFieldFirst(m, "isAsync", "async"); ok {
 		row.Async = &b
 	}
 	return row, true
+}
+
+// boolAnyFieldFirst returns the first present boolean among keys.
+func boolAnyFieldFirst(m map[string]any, keys ...string) (bool, bool) {
+	for _, k := range keys {
+		if b, ok := boolAnyField(m, k); ok {
+			return b, true
+		}
+	}
+	return false, false
 }
 
 func looksLikeActionDefinition(m map[string]any) bool {
@@ -134,6 +166,54 @@ func filterActionRows(rows []playbookActionRow, grep string) []playbookActionRow
 	return filtered
 }
 
+// actionParameters extracts each input parameter's full schema (name/type/
+// mandatory/default/optionalValues/description) — the detail an author needs to
+// fill a step in. Returns nil when there are no parameters.
+func actionParameters(v any) []playbookActionParam {
+	params, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	var out []playbookActionParam
+	for _, raw := range params {
+		p, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		// Param name and mandatory flag differ across surfaces: the modern action GET
+		// uses `displayName`/`mandatory`; the legacy details use `name`/`isMandatory`.
+		name := stringAnyField(p, "name")
+		if name == "" {
+			name = stringAnyField(p, "displayName")
+		}
+		if name == "" {
+			continue
+		}
+		param := playbookActionParam{
+			Name:         name,
+			Type:         scalarAnyString(p["type"]),
+			DefaultValue: scalarAnyString(p["defaultValue"]),
+			Description:  stringAnyField(p, "description"),
+		}
+		if mandatory, ok := boolAnyFieldFirst(p, "mandatory", "isMandatory"); ok {
+			param.Mandatory = mandatory
+		}
+		for _, ov := range anySlice(p["optionalValues"]) {
+			if s := scalarAnyString(ov); s != "" {
+				param.OptionalValues = append(param.OptionalValues, s)
+			}
+		}
+		out = append(out, param)
+	}
+	return out
+}
+
+// anySlice returns v as a []any, or nil when it is not an array.
+func anySlice(v any) []any {
+	arr, _ := v.([]any)
+	return arr
+}
+
 func mandatoryActionParameters(v any) []string {
 	params, ok := v.([]any)
 	if !ok {
@@ -145,11 +225,15 @@ func mandatoryActionParameters(v any) []string {
 		if !ok {
 			continue
 		}
-		mandatory, ok := boolAnyField(param, "isMandatory")
+		mandatory, ok := boolAnyFieldFirst(param, "mandatory", "isMandatory")
 		if !ok || !mandatory {
 			continue
 		}
-		if name := stringAnyField(param, "name"); name != "" {
+		name := stringAnyField(param, "name")
+		if name == "" {
+			name = stringAnyField(param, "displayName")
+		}
+		if name != "" {
 			out = append(out, name)
 		}
 	}

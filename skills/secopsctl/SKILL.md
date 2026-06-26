@@ -148,12 +148,16 @@ group-by, `outcome:` the measures, `order:` the sort:
 
 ```bash
 secopsctl query stats --hours 24 'metadata.log_type != ""
-match: $lt = metadata.log_type
+match: metadata.log_type
 outcome: $c = count(metadata.id)
 order: $c desc'
 ```
 
-Validate a chart query with `query stats` **before** `dashboards add-chart`.
+A free-standing `query stats` takes a **bare field** in `match:` (`metadata.log_type`),
+not an assignment (`$lt = …`); the `outcome:` declares the measures. Validate a chart
+query with `query stats` **before** `dashboards add-chart`. Don't name a `match:`/
+`outcome:` variable with a reserved YARA-L keyword (e.g. `$rule`, `$events`) — it
+compiles but fails at execute time; `add-chart`/`edit-chart` warn when you do.
 
 ### SOC triage — queue → case → AI verdict → close
 

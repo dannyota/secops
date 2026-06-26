@@ -32,6 +32,23 @@ func readChartQuery(query, queryFile string) (string, error) {
 	return query, nil
 }
 
+// warnReservedChartVars warns (on stderr) when a chart query declares a `$variable`
+// whose name collides with a reserved YARA-L keyword — these compile at author time
+// but 400 at execute time ("no viable alternative"), rendering a blank chart. Caught
+// here at author time so the chart isn't shipped silently broken; rename the variable
+// (e.g. `$rule` → `$rule_name`). A clean or empty query is a no-op.
+func warnReservedChartVars(query string) {
+	if strings.TrimSpace(query) == "" {
+		return
+	}
+	if bad := reservedQueryVars(query); len(bad) > 0 {
+		fmt.Fprintf(os.Stderr,
+			"warning: chart query uses reserved YARA-L keyword(s) as variable name(s): %s — "+
+				"these compile now but 400 at execute time (blank chart); rename them (e.g. $%s → $%s_v)\n",
+			strings.Join(bad, ", "), bad[0], bad[0])
+	}
+}
+
 // tileTypeToken maps the friendly --tile-type flag to the API enum token.
 func tileTypeToken(s string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
@@ -112,6 +129,7 @@ func newDashboardsAddChartCmd() *cobra.Command {
 			if q == "" && tile == chronicle.TileTypeVisualization {
 				return fmt.Errorf("a visualization chart needs a query (pass --query or --query-file)")
 			}
+			warnReservedChartVars(q)
 			ds, err := rawJSONOrNil("datasource", datasource)
 			if err != nil {
 				return err
@@ -351,6 +369,7 @@ func newDashboardsEditChartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			warnReservedChartVars(q)
 			iv, err := rawJSONOrNil("interval", interval)
 			if err != nil {
 				return err

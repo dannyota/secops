@@ -15,6 +15,23 @@ func TestQueryVars(t *testing.T) {
 	}
 }
 
+func TestReservedQueryVars(t *testing.T) {
+	// $rule and $events collide with reserved keywords; $rule_name and $c do not.
+	q := "security_result.rule_name != \"\"\nmatch: $rule = security_result.rule_name\noutcome: $events = count(metadata.id)\n$rule_name = security_result.rule_name\n$c = count(metadata.id)"
+	got := reservedQueryVars(q)
+	if want := []string{"events", "rule"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("reservedQueryVars = %v, want %v", got, want)
+	}
+	// Case-insensitive: $MATCH is reserved.
+	if got := reservedQueryVars("outcome: $MATCH = count(x)"); !reflect.DeepEqual(got, []string{"MATCH"}) {
+		t.Errorf("case-insensitive reserved check = %v, want [MATCH]", got)
+	}
+	// A clean aggregation has no reserved collisions.
+	if got := reservedQueryVars("match: metadata.log_type\noutcome: $count = count(metadata.id)"); len(got) != 0 {
+		t.Errorf("clean query flagged: %v", got)
+	}
+}
+
 func TestValidateEncodeVars(t *testing.T) {
 	q := "match: $endpoint = target.url\noutcome: $requests = count(metadata.id)"
 	if err := validateEncodeVars(q, "endpoint", "requests"); err != nil {

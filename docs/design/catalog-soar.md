@@ -169,12 +169,12 @@ Guarded execution: `run`, `debug`, `rerun`, `rerun-block`, and `step execute` al
 
 The designer's Step Selection palette as CLI catalogs (W58, all live-validated):
 
-- `components actions` with no flag lists every action across every integration in one call (`integrations/-/actions`, field-masked summary + the numeric definition id; `--integration` keeps the one-pack detail view)
+- `components actions` with no flag lists every action across every integration in one call (`integrations/-/actions`, field-masked summary + the numeric definition id); `--integration <k>` lists that pack's actions in detail, and `--json` carries each action's full **parameter schema** (name/type/mandatory/default/optionalValues/description) — the schema needed to author a step. The actions LIST omits parameters regardless of field mask, so the detail view lists then GETs each action (`GetActionDef`); the parameter extractor tolerates both the modern (`displayName`/`mandatory`) and legacy (`name`/`isMandatory`) shapes
 - `components flow` lists transformers (value functions) + logical operators (condition predicates) with usage examples (`integrations/-/{transformers,logicalOperators}`; the logical-operators envelope key is snake_case even under `format=camel`)
 - `components triggers` prints the trigger vocabulary offline (designer kinds → the saved `type` tokens `ALL`/`CASE_DATA`/`GET_INPUTS`; triggers have no list API)
 - `components blocks` lists the reusable nested playbooks
 
-SDK: `ListAllActions`/`ListActions`/`ListTransformers`/`ListLogicalOperators` (`soar/integrations.go`), typed `ActionDef`/`FlowFunction` with numeric-id addressing.
+SDK: `ListAllActions`/`ListActions`/`GetActionDef`/`ListTransformers`/`ListLogicalOperators` (`soar/integrations.go`), typed `ActionDef`/`FlowFunction` with numeric-id addressing.
 
 ### `soar job` operational helpers
 

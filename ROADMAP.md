@@ -110,10 +110,7 @@ polling snapshot), so Wave 76 surfaces a completeness signal instead of a fake p
 token; a curated rule-set's rule roster isn't exposed, so Wave 78's `curated set`
 preview shows current→requested state + the set×precision scope; Wave 79's chart
 layout PATCH runs only when every chart has a resolved id; Wave 80's grouping
-settings land as a guarded imperative over the moduleSettings bag. Two earlier-raised
-items are already closed (Wave 80): leaf-command `--help` resolves per-verb (pinned
-by a guard test), and playbook export round-trips the pull shape through
-`soar push playbook` (Wave 68).
+settings land as a guarded imperative over the moduleSettings bag.
 
 ### Wave 73 — Agent enablement: machine-readable CLI schema, capability probe, structured errors & plan *(built — offline-tested)*
 
@@ -437,12 +434,15 @@ A SOC-engineer gap audit found several surfaces the SDK already implements but t
 
 `query stats` routed the aggregation through `chronicle.GetStats`, a **GET `:udmSearch`** carrying the query as a URL parameter, which returns `400 INVALID_ARGUMENT` for `match:`/`outcome:` aggregations. The Wave 73 structured-error work improved how that failure was *presented* but left the request path unchanged. **Fix:** a new `chronicle.RunStatsQuery` runs the aggregation over **POST `dashboardQueries:execute`** via `ExecuteQuery` — the same execution `dashboards run-chart` (Wave 82) uses — building the input from the resolved `--hours`/`--from`/`--to` window as a microsecond-precision absolute `time_window`, treating a non-WARNING `queryRuntimeError` as a clean fatal error while surfacing WARNINGs (e.g. a server-side row-limit truncation) as notices so a partial result is never shown as complete, and transposing the column-major `results` into the existing columns/rows table (`--json`). The verb gains `--clear-cache`; `--limit` becomes a client-side row cap. `GetStats`/`:udmSearch` stays as the event-stats SDK method. The `--help` example was corrected to the dashboard-query `match:` grammar (a bare field reference, e.g. `match: metadata.log_type`, not `match: $v = field`). **Docs:** catalog-siem.
 
+### Wave 102 — Field-use operator-confidence fixes *(built — offline-tested; dashboard-reconcile + grouping-singleton items deferred)*
+
+Authoring-safety and reconcile-fidelity fixes from operating the tool day to day. **Built:** `rules-create` / `rules promote` now flag in the summary and the per-rule line when a rule is created but lands `enabled=false` (a platform complexity/volume guard) instead of a bare `created`, so a non-running rule isn't read as live. `dashboards add-chart` / `edit-chart` warn at author time when a `match:`/`outcome:` variable name collides with a reserved YARA-L keyword (e.g. `rule`, `events`) — which compiles but 400s at execute time, rendering a blank chart — using the YARA-L keyword reference. `soar playbook components actions --integration <k> --json` now returns each action's full **parameter schema** (name/type/mandatory/default/optionalValues/description): the actions LIST omits parameters regardless of field mask, so the command lists then GETs each action (new `soar.GetActionDef`) and surfaces the schema needed to author a step, tolerant of both the modern (`displayName`/`mandatory`) and legacy (`name`/`isMandatory`) parameter shapes. **Already shipped earlier:** the `--with-charts` pull already logs a loud degraded-to-reference count; `curated set` already previews the set × precision blast radius; `soar playbook export` already emits the save-compatible string-enum shape. **Deferred:** a schema-validating `push dashboards` dry-run and chart layout/reorder/removal reconcile via the `definition.charts` PATCH (higher blast radius); and capturing/reconciling the full alert-grouping settings singleton (the Timeframe/Overflow/co-grouping levers are absent from every spec surface — the writable property keys must be identified first).
+
 ---
 
 ## Non-goals
 
-- No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral);
-  the pre-commit leak guard (`.githooks/pre-commit`) enforces it.
+- No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral); pre-commit leak guard (`.githooks/pre-commit`) enforces it.
 - No third-party EDR or chat/notification integrations — out of scope.
 - No silent overwrite of concurrent edits — honor etag, surface conflicts.
 - `push` is never non-interactive-by-default — dry-run first, explicit `--yes`.

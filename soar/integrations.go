@@ -353,23 +353,38 @@ const actionCatalogFields = "actions.id,actions.name,actions.displayName,actions
 // ListAllActions returns every action definition across ALL integrations via
 // the `-` wildcard collection — the designer's action palette in one call.
 func (c *Client) ListAllActions(ctx context.Context) ([]ActionDef, error) {
-	return c.listActions(ctx, "-")
+	return c.listActions(ctx, "-", actionCatalogFields)
 }
 
 // ListActions returns the action definitions of one integration. integration
-// is the addressable key (Name/Identifier — see the Integration gotcha). Like
-// ListAllActions it requests the summary columns only (no parameters or
-// script bodies) — for full action detail use the legacy integration
-// full-details surface.
+// is the addressable key (Name/Identifier — see the Integration gotcha). It
+// requests the summary columns only (no parameters or script bodies); use
+// GetActionDef per action when the parameter schema is needed.
 func (c *Client) ListActions(ctx context.Context, integration string) ([]ActionDef, error) {
-	return c.listActions(ctx, integration)
+	return c.listActions(ctx, integration, actionCatalogFields)
 }
 
-func (c *Client) listActions(ctx context.Context, integration string) ([]ActionDef, error) {
+// GetActionDef returns ONE action definition's full object — including its
+// `parameters` schema (type/mandatory/defaultValue/displayName/description/
+// optionalValues), which the LIST collection never returns regardless of field
+// mask (a server quirk: a parameters subtree mask yields empty objects, an
+// explicit-leaf mask omits parameters, and the list omits them even unmasked).
+// integration is the addressable key; actionID is the numeric definition id. The
+// Python script body rides along but is not parsed. Read-only.
+func (c *Client) GetActionDef(ctx context.Context, integration, actionID string) (json.RawMessage, error) {
+	var out json.RawMessage
+	res := fmt.Sprintf("integrations/%s/actions/%s", integration, actionID)
+	if err := c.t.V1Alpha(ctx, "GET", res, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *Client) listActions(ctx context.Context, integration, fields string) ([]ActionDef, error) {
 	var all []ActionDef
 	res := fmt.Sprintf("integrations/%s/actions", integration)
 	err := transport.PaginateV1Alpha(listMaxPages, func(token string) (string, error) {
-		q := url.Values{"fields": {actionCatalogFields}, "pageSize": {"1000"}}
+		q := url.Values{"fields": {fields}, "pageSize": {"1000"}}
 		if token != "" {
 			q.Set("pageToken", token)
 		}

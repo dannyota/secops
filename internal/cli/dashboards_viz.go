@@ -37,6 +37,44 @@ func queryVars(query string) []string {
 	return out
 }
 
+// reservedYaralKeywords are YARA-L 2.0 reserved words that cannot be used as an
+// identifier (variable name) — case-insensitive. A `match:`/`outcome:` variable
+// named with one of these compiles at author time but 400s at execute time with an
+// opaque "no viable alternative" parser error, so the chart renders blank. Sourced
+// from the YARA-L keyword reference (query definition, sections, modifiers,
+// operators, and size specifiers).
+var reservedYaralKeywords = map[string]bool{
+	"rule": true, "private": true, "global": true,
+	"meta": true, "strings": true, "condition": true, "events": true,
+	"match": true, "outcome": true, "options": true, "dedup": true,
+	"order": true, "limit": true, "select": true, "unselect": true,
+	"and": true, "or": true, "not": true, "all": true, "any": true,
+	"at": true, "contains": true, "startswith": true, "endswith": true,
+	"icontains": true, "istartswith": true, "iendswith": true, "iequals": true,
+	"matches": true, "in": true, "over": true, "nocase": true, "ascii": true,
+	"wide": true, "fullword": true, "xor": true, "base64": true, "base64wide": true,
+	"filesize": true, "entrypoint": true,
+	"int8": true, "uint8": true, "int16": true, "uint16": true,
+	"int32": true, "uint32": true, "int8be": true, "uint8be": true,
+	"int16be": true, "uint16be": true, "int32be": true, "uint32be": true,
+}
+
+// reservedQueryVars returns the distinct `$variable` names declared in a query that
+// collide with a reserved YARA-L keyword (case-insensitive) — the names that will
+// fail at execute time. Empty when the query is clean.
+func reservedQueryVars(query string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, v := range queryVars(query) {
+		if reservedYaralKeywords[strings.ToLower(v)] && !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 // validateEncodeVars asserts every non-empty encode var maps to a column the query
 // produces, so a chart can't be authored with an encode pointing at a non-existent
 // column (the blank-chart failure mode). A stats query's columns are its `outcome`
