@@ -14,6 +14,7 @@ package httpretry
 
 import (
 	"encoding/json"
+	// nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- backoff jitter, not security-sensitive
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -26,7 +27,10 @@ import (
 // Jitter returns a uniform random value in [0,1) for backoff jitter. It uses a
 // non-cryptographic PRNG on purpose — de-syncing retries needs no cryptographic
 // strength — so callers pass it as the rnd argument to Policy.Backoff.
-func Jitter() float64 { return rand.Float64() } //nolint:gosec // jitter is not security-sensitive
+func Jitter() float64 {
+	// nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- backoff jitter, not security-sensitive
+	return rand.Float64() //nolint:gosec // jitter is not security-sensitive
+}
 
 // Policy parameterizes the retry backoff. The zero value is unusable; use
 // Default* or construct explicitly.
