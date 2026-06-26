@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -11,14 +12,15 @@ import (
 
 func newCaseRunActionCmd() *cobra.Command {
 	var (
-		caseID   int
-		action   string
-		instance string
-		alert    string
-		scope    string
-		params   []string
-		dryRun   bool
-		yes      bool
+		caseID      int
+		action      string
+		instance    string
+		alert       string
+		scope       string
+		integration string
+		params      []string
+		dryRun      bool
+		yes         bool
 	)
 	cmd := &cobra.Command{
 		Use:   "run-action --id N --action <name> --instance <uuid>",
@@ -32,6 +34,11 @@ func newCaseRunActionCmd() *cobra.Command {
 			"use env-var references (--param 'URL=env:WEBHOOK_URL'). The alert group\n" +
 			"identifier comes from `soar case get <id> --json`\n" +
 			"(alerts[].additionalProperties.alertGroupIdentifier).\n\n" +
+			"For a MARKETPLACE integration's action (e.g. GoogleChronicle's Ping / Get Data\n" +
+			"Tables), pass --integration <id> so the action is sent as <id>_<action>\n" +
+			"(GoogleChronicle_Ping) — the qualified name the API resolves a script by; a bare\n" +
+			"name fails. Built-in Scripts actions are already qualified (HTTP_Ping), so omit\n" +
+			"--integration for those.\n\n" +
 			"Returns the action result (resultCode, message, resultJsonObject).\n" +
 			"Guarded: dry-run by default, --yes to apply.",
 		Args: cobra.NoArgs,
@@ -72,22 +79,7 @@ func newCaseRunActionCmd() *cobra.Command {
 				return fmt.Errorf("encode script parameters: %w", err)
 			}
 
-			body := map[string]any{
-				"caseId":            caseID,
-				"actionProvider":    "Scripts",
-				"actionName":        action,
-				"scope":             scope,
-				"isPredefinedScope": true,
-				"targetEntities":    []any{},
-				"properties": map[string]string{
-					"ScriptName":                   action,
-					"IntegrationInstance":          instance,
-					"ScriptParametersEntityFields": string(paramsJSON),
-				},
-			}
-			if alert = strings.TrimSpace(alert); alert != "" {
-				body["alertGroupIdentifiers"] = []string{alert}
-			}
+			body := buildManualActionBody(caseID, integration, action, scope, instance, string(paramsJSON), alert)
 
 			label := fmt.Sprintf("case %d run-action %s", caseID, action)
 			dr, ay := soarGuard(label, dryRun, yes)
@@ -151,11 +143,57 @@ func newCaseRunActionCmd() *cobra.Command {
 	f.StringVar(&instance, "instance", "", "integration instance UUID (required; from 'soar integration instances')")
 	f.StringVar(&alert, "alert", "", "alert group identifier (from 'soar case get --json')")
 	f.StringVar(&scope, "scope", "All entities", "entity scope")
+	f.StringVar(&integration, "integration", "",
+		"integration identifier for a marketplace action (e.g. GoogleChronicle) — the action is "+
+			"sent as <integration>_<action> (GoogleChronicle_Ping); omit for built-in Scripts "+
+			"actions whose name is already qualified (HTTP_Ping)")
 	f.StringArrayVar(&params, "param", nil, "key=value script parameter (repeatable); use env:VAR for secrets")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return markJSON(cmd)
+}
+
+// buildManualActionBody assembles the ExecuteManualAction request body. The action
+// provider is always "Scripts" (the script-execution framework); what selects the
+// integration is the action NAME, which the server expects in <integration>_<action>
+// form (e.g. "GoogleChronicle_Ping"). qualifyActionName prefixes integration when it
+// is set and not already present, so a marketplace action resolves; a built-in
+// Scripts action (already "HTTP_Ping") is passed with integration empty. caseId is
+// sent as a string to match the server contract. alert, when non-empty, scopes the
+// run to one alert group.
+func buildManualActionBody(caseID int, integration, action, scope, instance, paramsJSON, alert string) map[string]any {
+	name := qualifyActionName(integration, action)
+	body := map[string]any{
+		"caseId":            strconv.Itoa(caseID),
+		"actionProvider":    "Scripts",
+		"actionName":        name,
+		"scope":             scope,
+		"isPredefinedScope": true,
+		"targetEntities":    []any{},
+		"properties": map[string]string{
+			"ScriptName":                   name,
+			"IntegrationInstance":          instance,
+			"ScriptParametersEntityFields": paramsJSON,
+		},
+	}
+	if alert = strings.TrimSpace(alert); alert != "" {
+		body["alertGroupIdentifiers"] = []string{alert}
+	}
+	return body
+}
+
+// qualifyActionName returns the <integration>_<action> name the ExecuteManualAction
+// API resolves a script by. integration empty (or already the action's prefix)
+// leaves action unchanged, so a pre-qualified name ("GoogleChronicle_Ping",
+// "HTTP_Ping") is never double-prefixed.
+func qualifyActionName(integration, action string) string {
+	integration = strings.TrimSpace(integration)
+	action = strings.TrimSpace(action)
+	if integration == "" || strings.HasPrefix(action, integration+"_") {
+		return action
+	}
+	return integration + "_" + action
 }
 
 // renderActionResult prints a human summary or JSON of an action execution result.

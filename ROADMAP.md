@@ -438,11 +438,13 @@ A SOC-engineer gap audit found several surfaces the SDK already implements but t
 
 Authoring-safety and reconcile-fidelity fixes from operating the tool day to day. **Built:** `rules-create` / `rules promote` now flag in the summary and the per-rule line when a rule is created but lands `enabled=false` (a platform complexity/volume guard) instead of a bare `created`, so a non-running rule isn't read as live. `dashboards add-chart` / `edit-chart` warn at author time when a `match:`/`outcome:` variable name collides with a reserved YARA-L keyword (e.g. `rule`, `events`) — which compiles but 400s at execute time, rendering a blank chart — using the YARA-L keyword reference. `soar playbook components actions --integration <k> --json` now returns each action's full **parameter schema** (name/type/mandatory/default/optionalValues/description): the actions LIST omits parameters regardless of field mask, so the command lists then GETs each action (new `soar.GetActionDef`) and surfaces the schema needed to author a step, tolerant of both the modern (`displayName`/`mandatory`) and legacy (`name`/`isMandatory`) parameter shapes. **Already shipped earlier:** the `--with-charts` pull already logs a loud degraded-to-reference count; `curated set` already previews the set × precision blast radius; `soar playbook export` already emits the save-compatible string-enum shape. **Deferred:** a schema-validating `push dashboards` dry-run and chart layout/reorder/removal reconcile via the `definition.charts` PATCH (higher blast radius); and capturing/reconciling the full alert-grouping settings singleton (the Timeframe/Overflow/co-grouping levers are absent from every spec surface — the writable property keys must be identified first).
 
+### Wave 103 — `soar case run-action` resolves marketplace integration actions *(built — offline-tested)*
+
+`run-action` built the `ExecuteManualAction` body with the bare action name, which the server cannot resolve for a marketplace integration's action — every such action (e.g. a GoogleChronicle action) returned a generic 500 regardless of parameters. Fix: the action is sent in the API's `<integration>_<action>` form — a new `--integration <id>` qualifies a bare action (`--integration GoogleChronicle --action Ping` → `GoogleChronicle_Ping`), while an already-qualified name (`HTTP_Ping`) or a built-in Scripts action is left unchanged (never double-prefixed). `actionProvider` stays `Scripts` (it selects the script-execution framework, not the integration), and `caseId` is sent as a string — matching the request the console issues.
+
 ---
 
 ## Non-goals
 
-- No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral); pre-commit leak guard (`.githooks/pre-commit`) enforces it.
-- No third-party EDR or chat/notification integrations — out of scope.
-- No silent overwrite of concurrent edits — honor etag, surface conflicts.
-- `push` is never non-interactive-by-default — dry-run first, explicit `--yes`.
+- No bundled tenant identifiers, rule names, or secrets — ever (tenant-neutral, pre-commit leak guard `.githooks/pre-commit` enforces it); no third-party EDR or chat/notification integrations.
+- No silent overwrite of concurrent edits (honor etag, surface conflicts); `push` is never non-interactive-by-default — dry-run first, explicit `--yes`.

@@ -115,6 +115,8 @@ verb tree). `cases list` defaults to the modern v1alpha cases API on the siempli
 
 `run-action --id N --action <name> --instance <uuid>` wraps `legacyCases:executeManualAction` — runs any installed integration action on a case with `--param key=value` script parameters (secrets via `env:VAR`). Returns the full action result (resultCode, message, resultJsonObject); `--json` emits the raw payload. Guarded; live dry-run validated.
 
+The provider is always `Scripts`; the integration is selected by the action NAME, which the API resolves in `<integration>_<action>` form (e.g. `GoogleChronicle_Ping`). For a marketplace integration's action pass `--integration <id>` and the bare action — `run-action` qualifies it (`--integration GoogleChronicle --action Ping` → `GoogleChronicle_Ping`); a bare unqualified name does not resolve. Built-in Scripts actions are already qualified (`HTTP_Ping`), so omit `--integration`. `caseId` is sent as a string to match the server contract.
+
 ### `soar case simulation`
 
 Playbook-dev test harness: `list` / `get` / `create` / `generate` / `alert` / `delete` wrapping the `legacyCases` simulation surface (`getCustomCases`, `getCustomCaseDetails`, `createSimulatedCustomCase`, `generateUseCases`, `simulateAlert`, `deleteUseCase`). Full write round-trip live-validated (create→list→generate→delete with a throwaway simulation). All guarded.

@@ -280,7 +280,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar case alert move` | Move one alert out of a case (`--id`, `--alert`; `--to M` for an existing case, omit for a new one) — the inverse of `merge`. |
 | `soar case alert reopen` | Reopen one closed alert in a case (`--id`, `--alert`). |
 | `soar case rename` / `describe` / `importance` / `merge` | Rename / re-describe / flag-important / merge cases. |
-| `soar case run-action --id N --action <name> --instance <uuid>` | Execute an integration action on a case (ad-hoc — any installed action). Script params via `--param key=value` (secrets via `env:VAR`). Returns the action result (resultCode, message); `--json` emits the full payload. (`--case-id` stays as a hidden alias of `--id`.) |
+| `soar case run-action --id N --action <name> --instance <uuid> [--integration <id>]` | Execute an integration action on a case (ad-hoc — any installed action). For a marketplace integration's action pass `--integration <id>` (e.g. GoogleChronicle) so the action is sent qualified as `<id>_<action>` — a bare name does not resolve; built-in Scripts actions (HTTP_Ping) need no `--integration`. Script params via `--param key=value` (secrets via `env:VAR`). Returns the action result (resultCode, message); `--json` emits the full payload. (`--case-id` stays as a hidden alias of `--id`.) |
 | `soar case simulation create` | Create a custom simulated test case from alert/event field specs — appears in the SOAR queue for playbook testing. |
 | `soar case simulation generate --name <sim>` | Generate a test case from a custom simulation name into the case queue. |
 | `soar case simulation alert --case-id N --alert <id>` | Simulate an alert inside a case for playbook testing. |
