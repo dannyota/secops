@@ -208,9 +208,12 @@ AppKey auth (`soar_url` + `$SECOPS_SOAR_APP_KEY`; no ADC). See
 | `soar integration list` | List installed integration packs. |
 | `soar integration instances --integration <id>` | List an integration's configured instances (id · environment · name) — the fields `integration delete` needs, which `list` (packs only) does not expose. |
 | `soar integration connector list` | List connector definitions inside an integration (`--integration <key>`; read-only). Sibling `soar integration connector delete` removes a custom definition. |
+| `soar marketplace browse` | Content Hub overview: integration + content-pack catalog totals and installed-integration count. |
 | `soar marketplace list` | List Content Hub marketplace integrations (`--installed` to filter). |
 | `soar marketplace get` | Show one marketplace integration (human summary; `--json` for the full record). |
 | `soar marketplace contentpacks` | List Content Hub content packs. |
+| `soar marketplace install --identifier <id>` | MUTATING (guarded): install a Content Hub marketplace integration (`marketplaceIntegrations:install`). |
+| `soar marketplace uninstall --identifier <id>` | MUTATING (guarded): uninstall a marketplace integration (`marketplaceIntegrations:uninstall`) — the reversible inverse of `install` (distinct from `integration uninstall`, which deletes only custom packs). |
 | `soar settings api-keys` | List SOAR API keys (metadata only; the secret is never shown after creation). Guarded siblings: `create --name <n> --permission-group N` (mints the key value locally — crypto/rand — and prints it ONCE) and `revoke (--name\|--id)`. |
 | `soar integration action template --integration <key>` | Fetch the new-action definition skeleton (Python scaffold included; `--async` for the asynchronous variant). Sibling `soar integration job-def template` for jobs. |
 | `soar settings case-assignment` | Read the case auto-assignment policy. |

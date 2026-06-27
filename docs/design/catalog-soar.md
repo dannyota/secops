@@ -242,11 +242,11 @@ Modern IoC lookup, read-validated. `iocs find <value>` resolves indicators via t
 
 ## Content Hub & integrations
 
-### `soar marketplace list` / `get` / `contentpacks`
+### `soar marketplace list` / `get` / `contentpacks` / `browse` / `install` / `uninstall`
 
-Content Hub reads (`soar/marketplace.go`) — `list [--installed]` (405 integrations) + `get <id>` + `contentpacks` (59). Read-validated.
+Content Hub reads (`soar/marketplace.go`) — `list [--installed]` + `get <id>` + `contentpacks` (+ `get`) + `featured` + `diff`. `browse` prints a one-shot overview (integration + content-pack catalog totals and the installed-integration count, cross-referenced from the installed-pack list since the marketplace list does not populate `IsInstalled`).
 
-Install/uninstall verified (Wave 11, `TestLiveMarketplaceInstallWriteSmoke` — install→verify→uninstall round-trip on an inert, not-installed utility pack, self-cleaning; reversible via the modern `:uninstall`). A single marketplace integration installs via `soar integration install --identifier <id>` (guarded; next row). Pack uninstall for a custom pack is CLI-reachable via `soar integration uninstall` (next row); the modern `marketplaceIntegrations:uninstall` itself stays SDK-only.
+**Install/uninstall (W110): the reversible marketplace pair is now CLI-reachable.** `soar marketplace install --identifier <id>` (`marketplaceIntegrations/{id}:install`) and `soar marketplace uninstall --identifier <id>` (`marketplaceIntegrations/{id}:uninstall`) — both guarded (dry-run by default). The round-trip is verified end-to-end (install → appears in `integration list` → uninstall → gone, self-cleaning on an inert not-installed pack). `soar integration install` remains as the integration-scoped alias of the marketplace install; `soar integration uninstall` is the *separate* custom-pack delete (`integrations.delete`, custom/clone only — not the marketplace `:uninstall`). Content-pack **deploy/install** (`contentHub/contentPacks/{id}:deployPlaybooks|deployConnectorInstances|deployTestCases`, `:delete`) stays SDK-only pending a captured deploy-body shape.
 
 ### `info soar-integrations`
 
