@@ -142,7 +142,7 @@ Portability (verified). `dashboards export <id>` writes a self-contained JSON do
 
 Google-managed (no CUD): `pull curated` writes `curated/deployments.yaml`; `push curated` diffs it against live and calls `BatchUpdateCuratedRuleSetDeployments` for changed enabled/alerting tuples.
 
-`curated list` reads; guarded `curated set` remains the one-off toggle. `curated rules` lists individual curated rules (`ListCuratedRules`/`GetCuratedRule`, read-validated, 187 rules).
+`curated list` reads deployment state; guarded `curated set` remains the one-off toggle. **Curated read suite (W109):** `curated rule-sets [--category]` lists the curated rule SETS (`ListCuratedRuleSets`, all categories via the `-` wildcard); `curated rules` lists/searches the individual rules with client-side `--search` (name/description), `--set`, `--category`, `--tactic` (MITRE), `--severity` filters; `curated rule <id>` shows one rule's full detail (`GetCuratedRule`). The `CuratedRule` model carries `type`, `precision`, MITRE `tactics`/`techniques`, `description`, and the parent **`curatedRuleSet`** (the rule→set membership — every listed rule has it, so `--set` enumerates a set's rules). Curated YARA-L source is **not** API-exposed (Google-managed); the detail is metadata + MITRE + description.
 
 Curated tuning reads (Wave 54, verified):
 
@@ -154,7 +154,7 @@ Batch update verified by `TestLiveCuratedBatchToggleWriteSmoke` (self-restoring 
 
 v1alpha is the only version that answers for curated rules — v1/v1beta 404.
 
-`curated set` blast-radius preview (Wave 78, verified): before the guard, a best-effort read shows the addressed deployment's current → requested enabled/alerting state and the reminder that a deployment is set × precision (the set's rule roster is not API-exposed, so the preview points at `curated trends` / `curated detections` for detection volume).
+`curated set` blast-radius preview (Wave 78): before the guard, a best-effort read shows the addressed deployment's current → requested enabled/alerting state and the reminder that a deployment is set × precision. A set's rules are now enumerable with `curated rules --set <id>`, and per-set detection counts are available via `countAllCuratedRuleSetDetections` (a future inline blast-radius count); `curated trends` / `curated detections` show detection volume today.
 
 ### `rule_exclusions`
 

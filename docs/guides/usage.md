@@ -68,7 +68,9 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 | `query saved [<name>]` | Run a saved query by name from the tracked `<dataRoot>/saved_queries/<name>.udm` pack, or list the pack with no name. |
 | `entities summarize <type> <value>` | Summarize an entity (alerts by rule, related entities, prevalence) over `--hours` (default 7d). (alias `entity`) |
 | `curated list` | List curated (Google-managed) rule-set deployments + enable/alerting state. |
-| `curated rules` | List the individual curated rules. |
+| `curated rule-sets [--category ID]` | List curated rule SETS (id · severity · precisions · name) — the groupings `curated set` toggles. |
+| `curated rules [--search Q] [--set ID] [--category ID] [--tactic T] [--severity S]` | List/search individual curated rules; filter by name/description, parent set (`--set` enumerates a set's rules), category, MITRE tactic, or severity. |
+| `curated rule <ur_id>` | View one curated rule's detail: severity, type, precision, MITRE tactics/techniques, parent set, description (Google-managed — no source code). |
 | `rules list` | List detection rules (rule id · display name · slug · type). The inspect verbs (`detections`/`errors`/`alerts`) accept any of these forms directly. |
 | `rules validate <file.yaral>` | Validate a YARA-L file against the API (no mutation); non-zero exit if invalid. |
 | `rules test <file.yaral> [--hours N] [--max-results N]` | Dry-run a YARA-L rule against the last `--hours` of historical data and report the detections it WOULD produce — preview coverage/FP load before deploying. Read-only (nothing stored); compile errors are surfaced. |
