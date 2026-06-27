@@ -121,7 +121,7 @@ both answer live (`chronicle/legacy.go`).
 ```text
 danny.vn/secops/
 │
-├── auth/                         OAuth(ADC) + APIKey/SOARAppKey + BearerToken (--soar-token)
+├── auth/                         OAuth(ADC)  +  APIKey/SOARAppKey      ← unchanged
 ├── config/                       + soar_url (tenant SOAR host)         ← small add
 │
 ├── chronicle/   (SIEM · v1alpha · MODERN, ADC)

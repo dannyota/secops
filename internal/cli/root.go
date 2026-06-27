@@ -34,7 +34,6 @@ var (
 	cfgFile        string        // --config
 	jsonOut        bool          // --json
 	forceLegacy    bool          // --legacy: force the legacy AppKey path, skip modern v1alpha
-	soarToken      string        // --soar-token: SOAR-host bearer token (e.g. a console session JWT) used instead of the AppKey
 	nonInteractive bool          // --non-interactive: never prompt (no TTY confirmation)
 	requestTimeout time.Duration // --timeout: per-request HTTP timeout (0 = none)
 )
@@ -229,11 +228,6 @@ func init() {
 	pf.BoolVar(&forceLegacy, "legacy", false,
 		"force the legacy AppKey path on dual-generation surfaces (currently the 'soar case list' "+
 			"surface); ignored where a command has no modern/legacy split")
-	pf.StringVar(&soarToken, "soar-token", "",
-		"SOAR-host bearer token (e.g. a Siemplify session JWT from the web console) sent as "+
-			"`Authorization: Bearer` for SOAR calls instead of the AppKey — reproduces the console's "+
-			"auth for surfaces the AppKey path can't run (see `soar case run-action --help`). Accepts a "+
-			"literal, env:VAR, or @file; also via $SECOPS_SOAR_TOKEN")
 	pf.BoolVar(&nonInteractive, "non-interactive", false,
 		"never prompt; a guarded mutation without --yes is refused rather than asking")
 	pf.BoolVar(&readOnlyFlag, "read-only", false,

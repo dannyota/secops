@@ -132,17 +132,13 @@ func healthChecks(ctx context.Context) (checks []doctorCheck, allOK bool, cfgErr
 		if inst.SOARURL == "" {
 			checks = append(checks, doctorCheck{Name: "soar", label: "SOAR reach", Skipped: true, Detail: "soar_url not set; skipped"})
 		} else {
-			soc := doctorCheck{Name: "soar", label: "SOAR reach", Hint: "check soar_url and the SOAR AppKey (soar_app_key in config or $SECOPS_SOAR_APP_KEY), or pass --soar-token / $SECOPS_SOAR_TOKEN a SOAR-host bearer token"}
-			// Name the credential the SOAR client will use so it's visible whether
-			// a bearer token override took effect (the default is the AppKey). Any
-			// resolution error also fails newSOARClient below, so kind is unused then.
-			_, kind, _ := resolveSOARCreds(inst)
+			soc := doctorCheck{Name: "soar", label: "SOAR reach", Hint: "check soar_url and the SOAR AppKey (soar_app_key in config or $SECOPS_SOAR_APP_KEY)"}
 			if scl, err := newSOARClient(); err != nil {
 				soc.Error = err.Error()
 			} else if integs, err := scl.ListIntegrations(ctx); err != nil {
 				soc.Error = err.Error()
 			} else {
-				soc.OK, soc.Detail = true, fmt.Sprintf("list integrations OK (%d) via %s", len(integs), kind)
+				soc.OK, soc.Detail = true, fmt.Sprintf("list integrations OK (%d)", len(integs))
 			}
 			checks = append(checks, soc)
 		}

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -57,96 +56,37 @@ func soarAppKey(inst *config.Instance) (string, error) {
 	return "", fmt.Errorf("SOAR AppKey not set; run `secopsctl config` or export SECOPS_SOAR_APP_KEY")
 }
 
-// resolveSOARToken returns the SOAR-host bearer token, or "" when none is set. A
-// token lets a SOAR call authenticate as the web console does (Authorization:
-// Bearer) instead of with the AppKey header — needed for surfaces the AppKey
-// identity can't run. The --soar-token flag wins over $SECOPS_SOAR_TOKEN, and the
-// value may be a literal, an "env:VAR" indirection, or "@/path/to/file" — the
-// indirections keep a sensitive, short-lived session token out of the shell history
-// and the process argument list.
-func resolveSOARToken() (string, error) {
-	raw := strings.TrimSpace(soarToken)
-	if raw == "" {
-		raw = strings.TrimSpace(os.Getenv("SECOPS_SOAR_TOKEN"))
-	}
-	if raw == "" {
-		return "", nil
-	}
-	switch {
-	case strings.HasPrefix(raw, "env:"):
-		name := strings.TrimSpace(strings.TrimPrefix(raw, "env:"))
-		v := strings.TrimSpace(os.Getenv(name))
-		if v == "" {
-			return "", fmt.Errorf("--soar-token references env var %q which is empty or unset", name)
-		}
-		return v, nil
-	case strings.HasPrefix(raw, "@"):
-		path := strings.TrimSpace(strings.TrimPrefix(raw, "@"))
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return "", fmt.Errorf("read --soar-token file %q: %w", path, err)
-		}
-		tok := strings.TrimSpace(string(b))
-		if tok == "" {
-			return "", fmt.Errorf("--soar-token file %q is empty", path)
-		}
-		return tok, nil
-	default:
-		return raw, nil
-	}
-}
-
-// resolveSOARCreds picks the SOAR-host credential and a human label for it. A SOAR
-// bearer token (resolveSOARToken) takes precedence and is sent as Authorization:
-// Bearer — exactly how the web console authenticates — otherwise the long-lived
-// AppKey is used. When a token is supplied the AppKey is not required, so a
-// token-only session works without one configured.
-func resolveSOARCreds(inst *config.Instance) (auth.Credentials, string, error) {
-	tok, err := resolveSOARToken()
-	if err != nil {
-		return nil, "", err
-	}
-	if tok != "" {
-		return auth.BearerToken(tok), "bearer token (JWT)", nil
-	}
-	key, err := soarAppKey(inst)
-	if err != nil {
-		return nil, "", err
-	}
-	return auth.SOARAppKey(key), "AppKey", nil
-}
-
-// newSOARSettings loads the instance, derives SOAR settings, and resolves the
-// active SOAR credential (bearer token when set, else AppKey).
-func newSOARSettings() (soar.Settings, auth.Credentials, error) {
+func newSOARSettings() (soar.Settings, string, error) {
 	inst, err := loadInstance()
 	if err != nil {
-		return soar.Settings{}, nil, err
+		return soar.Settings{}, "", err
 	}
 	s := soarSettings(inst)
 	if s.BaseURL == "" {
-		return soar.Settings{}, nil, fmt.Errorf("soar_url is not set in the instance config (the tenant SOAR host)")
+		return soar.Settings{}, "", fmt.Errorf("soar_url is not set in the instance config (the tenant SOAR host)")
 	}
-	creds, _, err := resolveSOARCreds(inst)
+	key, err := soarAppKey(inst)
 	if err != nil {
-		return soar.Settings{}, nil, err
+		return soar.Settings{}, "", err
 	}
-	return s, creds, nil
+	return s, key, nil
 }
 
 func newSOARClient() (*soar.Client, error) {
-	s, creds, err := newSOARSettings()
+	s, key, err := newSOARSettings()
 	if err != nil {
 		return nil, err
 	}
+	creds := auth.SOARAppKey(key)
 	return soar.NewClient(s, creds, soar.WithHTTPClient(timedHTTPClient(creds, s.ForceIPv4)))
 }
 
 func newSOARLegacyClient() (*legacy.Client, error) {
-	s, creds, err := newSOARSettings()
+	s, key, err := newSOARSettings()
 	if err != nil {
 		return nil, err
 	}
+	creds := auth.SOARAppKey(key)
 	return legacy.NewClient(s, creds, timedHTTPClient(creds, s.ForceIPv4)), nil
 }
 
@@ -158,11 +98,7 @@ func init() {
 			"surfaces (connectors, jobs, grouping rules, cases, playbooks, webhooks,\n" +
 			"environments, networks, SLA, and more — run `soar pull --help` for the\n" +
 			"full list) and guarded mutating `push`. SOAR uses a long-lived AppKey\n" +
-			"($SECOPS_SOAR_APP_KEY) and the soar_url config host (no ADC).\n\n" +
-			"Auth override: pass --soar-token (or $SECOPS_SOAR_TOKEN) a SOAR-host bearer\n" +
-			"token — e.g. a session JWT copied from the web console — to authenticate SOAR\n" +
-			"calls as the console does (Authorization: Bearer) instead of with the AppKey.\n" +
-			"Use it for surfaces the AppKey identity can't run (see `soar case run-action`).",
+			"($SECOPS_SOAR_APP_KEY) and the soar_url config host (no ADC).",
 	}
 	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARCaseCmd(), newSOARLegacyCmd(),
 		newSOARIntegrationCmd(), newSOARSettingsCmd(), newSOARMarketplaceCmd(), newSOARUsersCmd(),

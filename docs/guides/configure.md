@@ -107,27 +107,6 @@ export SECOPS_SOAR_APP_KEY=your-soar-app-key
 secopsctl soar case list
 ```
 
-### SOAR auth (session bearer token) — advanced override
-
-The AppKey is the standard SOAR credential and is all most commands need. As an
-advanced override, secopsctl can instead authenticate SOAR calls with a **bearer
-token** — the kind of session JWT the web console carries as `Authorization: Bearer`
-— supplied via the global `--soar-token` flag or `$SECOPS_SOAR_TOKEN`. It takes
-precedence over the AppKey for every SOAR command, so a call runs under the supplied
-identity rather than the AppKey's:
-
-```bash
-secopsctl soar case list --soar-token @token.jwt
-```
-
-The value may be a literal, an `env:VAR` indirection, or `@/path/to/file`. Prefer
-`env:` or `@file` over a literal — a literal lands in your shell history and the
-process argument list, and the token is sensitive. A console session token is
-**short-lived** (the console refreshes it), so pass it per-invocation rather than
-persisting it; there is deliberately no config-file field for it. `secopsctl doctor`
-reports which SOAR credential it used (`AppKey` or `bearer token (JWT)`) so you can
-confirm the override took effect.
-
 ## Find your SecOps identifiers
 
 The four required keys identify your Chronicle/SecOps instance. Where to find each:
