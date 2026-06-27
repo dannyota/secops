@@ -15,9 +15,9 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 	if soar == nil {
 		t.Fatal("soar command not registered")
 	}
-	playbook := commandChild(soar, "playbook")
+	playbook := commandChild(soar, "playbooks")
 	if playbook == nil {
-		t.Fatal("soar playbook command not registered")
+		t.Fatal("soar playbooks command not registered")
 	}
 	for _, name := range []string{
 		"list",

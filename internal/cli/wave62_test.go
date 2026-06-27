@@ -18,18 +18,18 @@ func TestCommandsCatalogJSONColumn(t *testing.T) {
 	}
 
 	wantJSON := []string{
-		"alerts list",    // emits a JSON snapshot under --json
-		"cases counts",   // structured counts under --json
-		"commands",       // the catalog itself
-		"info",           // resolved config as JSON
-		"doctor",         // {ok, version, checks[]}
-		"drift",          // per-surface drift report
-		"cases close",    // guarded verb: dry-run/apply metadata under --json
-		"rules alerts",   // always raw JSON regardless of the flag
-		"query udm",      // raw event array under --json
-		"cases get",      // raw case object under --json
-		"watchlists get", // always JSON
-		"parsers run",    // parsed UDM is always JSON
+		"alerts list",          // emits a JSON snapshot under --json
+		"cases counts",         // structured counts under --json
+		"commands",             // the catalog itself
+		"info",                 // resolved config as JSON
+		"doctor",               // {ok, version, checks[]}
+		"drift",                // per-surface drift report
+		"cases close",          // guarded verb: dry-run/apply metadata under --json
+		"rules alerts",         // always raw JSON regardless of the flag
+		"search udm",           // raw event array under --json
+		"cases get",            // raw case object under --json
+		"lists watchlists get", // always JSON
+		"ingest parsers run",   // parsed UDM is always JSON
 	}
 	for _, path := range wantJSON {
 		r, ok := byPath[path]

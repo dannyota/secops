@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() { rootCmd.AddCommand(newPipelineCmd()) }
-
 func newPipelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pipeline <verb>",

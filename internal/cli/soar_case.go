@@ -61,22 +61,6 @@ func caseVerbs() []*cobra.Command {
 	}
 }
 
-// newSOARCaseCmd is the hidden back-compat alias of the top-level `cases` command,
-// kept under `soar` so existing `soar case …` invocations keep working unchanged.
-// The canonical command is `cases` (see newCasesCmd).
-func newSOARCaseCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:    "case <verb>",
-		Hidden: true,
-		Short:  "Back-compat alias of the top-level `cases` command",
-		Long: "Deprecated spelling kept for back-compat — use `cases` instead. A case is\n" +
-			"one record; `cases …` is the canonical command (auto-routed to the SOAR\n" +
-			"host). Every `soar case <verb>` still resolves here unchanged.",
-	}
-	cmd.AddCommand(caseVerbs()...)
-	return cmd
-}
-
 // guardRunFlags wires the shared --dry-run/--yes apply gate onto a verb (the
 // piece of caseGuardFlags that every guarded verb shares regardless of its
 // id/alert flag shape).

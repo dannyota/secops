@@ -11,7 +11,8 @@ import (
 	"danny.vn/secops/internal/mirror"
 )
 
-func init() {
+// newSurfacesCmd is registered under `status` (status.go) → `status surfaces`.
+func newSurfacesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "surfaces",
 		Short: "List every API surface family and how it's operated (read-only, offline)",
@@ -22,7 +23,7 @@ func init() {
 		Args: cobra.NoArgs,
 		RunE: runSurfaces,
 	}
-	rootCmd.AddCommand(markJSON(cmd))
+	return markJSON(cmd)
 }
 
 // surfaceRow is one registry family's row. PruneEligible/NoDelete are pointers so

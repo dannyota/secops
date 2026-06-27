@@ -47,6 +47,8 @@ func newRulesCmd() *cobra.Command {
 		newRulesCountsCmd(),
 		newRulesEventsCmd(),
 		newRulesPromoteCmd(),
+		newCuratedCmd(),        // `rules curated …` — Google-managed rule sets
+		newRuleExclusionsCmd(), // `rules exclusions …` — findings refinements
 	)
 	return cmd
 }

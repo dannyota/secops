@@ -11,15 +11,12 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
-// The `rule_exclusions` command holds one-off findings-refinement operations
-// that sit beside the pull/push reconcile loop.
-func init() { rootCmd.AddCommand(newRuleExclusionsCmd()) }
-
+// newRuleExclusionsCmd holds one-off findings-refinement operations that sit
+// beside the pull/push reconcile loop. Registered under `rules` → `rules exclusions`.
 func newRuleExclusionsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "rule-exclusions <verb>",
-		Aliases: []string{"rule_exclusions"},
-		Short:   "Extra: imperative findings-refinement ops (enable/disable/archive) — config-as-code is `pull/push rule_exclusions`",
+		Use:   "exclusions <verb>",
+		Short: "Imperative findings-refinement ops (enable/disable/archive) — config-as-code is `pull/push rule_exclusions`",
 		Long: "Operate on findings refinements outside the reconcile loop. Config-as-code\n" +
 			"is `pull rule_exclusions` / `push rule_exclusions`; deployment changes are\n" +
 			"guarded and dry-run by default.",

@@ -8,14 +8,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newSOARMarketplaceCmd groups the Content-Hub (marketplace) read verbs. Content
-// Hub is served on the SOAR host via the modern v1alpha API (soar/marketplace.go);
-// these are the user-facing reads over it, plus guarded install/uninstall of a
-// marketplace integration (the reversible Content-Hub pair).
+// newSOARMarketplaceCmd is the top-level `content-hub` group (UI "Content Hub"):
+// browse + install/uninstall marketplace integrations and content packs. Content
+// Hub is served on the SOAR host via the modern v1alpha API (soar/marketplace.go).
+func init() { rootCmd.AddCommand(newSOARMarketplaceCmd()) }
+
 func newSOARMarketplaceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "marketplace",
-		Short: "Browse + install/uninstall Content Hub (marketplace integrations + content packs)",
+		Use:   "content-hub",
+		Short: "Content Hub: browse + install/uninstall marketplace integrations and content packs",
 	}
 	cmd.AddCommand(newSOARMarketplaceListCmd(), newSOARMarketplaceGetCmd(), newSOARContentPacksCmd(),
 		newSOARFeaturedCmd(), newSOARMarketplaceDiffCmd(),

@@ -13,7 +13,6 @@ import (
 // The `feeds` command exposes feed schema discovery — the reference for authoring
 // a feed file before `push feeds` — and a guarded one-off feed delete. Feed
 // config-as-code lives in `pull feeds` / `push feeds`.
-func init() { rootCmd.AddCommand(newFeedsCmd()) }
 
 func newFeedsCmd() *cobra.Command {
 	cmd := &cobra.Command{

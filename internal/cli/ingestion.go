@@ -2,20 +2,9 @@ package cli
 
 import "github.com/spf13/cobra"
 
-// The `ingestion` command surfaces ingestion-health signals — the error-
-// notification configs that watch for delayed/zero-ingesting/erroring log
-// sources. Read-only.
-func init() { rootCmd.AddCommand(newIngestionCmd()) }
-
-func newIngestionCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "ingestion <verb>",
-		Short: "Ingestion-health reads (error-notification configs)",
-	}
-	cmd.AddCommand(newIngestionHealthCmd())
-	return cmd
-}
-
+// newIngestionHealthCmd surfaces ingestion-health signals — the error-notification
+// configs that watch for delayed/zero-ingesting/erroring log sources. Registered
+// directly under `ingest` (ingest.go) as `ingest health`. Read-only.
 func newIngestionHealthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "health",

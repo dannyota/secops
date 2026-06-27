@@ -15,9 +15,8 @@ func init() { rootCmd.AddCommand(newEntityCmd()) }
 
 func newEntityCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "entities <verb>",
-		Aliases: []string{"entity"},
-		Short:   "Entity operational reads (summarize, findings-graph pivot)",
+		Use:   "entities <verb>",
+		Short: "Entity operational reads (summarize, findings-graph pivot)",
 		Long: "Read-only entity intelligence. `summarize` aggregates an entity's alerts,\n" +
 			"related entities, and prevalence over a time window; `graph` seeds the\n" +
 			"findings-graph pivot from a detection and walks connected entities.",

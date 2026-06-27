@@ -51,7 +51,7 @@ type soarJobTemplateRow struct {
 
 func newSOARJobCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "job",
+		Use:   "jobs",
 		Short: "Inspect and guarded-run SOAR jobs",
 		Long: "Inspect SOAR jobs and run one explicit job or job instance. Runs are\n" +
 			"live SecOps executions and are dry-run by default.",

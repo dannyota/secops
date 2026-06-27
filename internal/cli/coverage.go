@@ -5,8 +5,6 @@ import "github.com/spf13/cobra"
 // The `coverage` command reports MITRE ATT&CK detection coverage — the API-side
 // view of which threat-collection × rule combinations cover which techniques.
 // Read-only; a posture/scorecard input for detection engineers and SOC managers.
-func init() { rootCmd.AddCommand(newCoverageCmd()) }
-
 func newCoverageCmd() *cobra.Command {
 	var limit int
 	cmd := &cobra.Command{

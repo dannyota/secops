@@ -6,11 +6,11 @@ import (
 )
 
 // TestQueryFlagsInterspersed pins that a flag placed AFTER the positional query
-// is still parsed (FR-23) — `query udm '<q>' --hours 6` must not fail as an
-// unknown flag. cobra/pflag default to interspersed parsing; this guards against
-// a future regression that disables it.
+// is still parsed — `search udm '<q>' --hours 6` must not fail as an unknown
+// flag. cobra/pflag default to interspersed parsing; this guards against a
+// future regression that disables it.
 func TestQueryFlagsInterspersed(t *testing.T) {
-	for _, path := range [][]string{{"query", "udm"}, {"query", "stats"}, {"query", "raw"}} {
+	for _, path := range [][]string{{"search", "udm"}, {"search", "stats"}, {"search", "raw"}} {
 		cmd, _, err := rootCmd.Find(path)
 		if err != nil || cmd == nil {
 			t.Fatalf("find %v: %v", path, err)

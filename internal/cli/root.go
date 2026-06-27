@@ -158,17 +158,16 @@ func requireSubcommand(cmd *cobra.Command) {
 var commandGroupByName = map[string]string{
 	// Setup & health.
 	"config": groupSetup, "doctor": groupSetup, "info": groupSetup, "version": groupSetup,
-	"capabilities": groupSetup,
+	"status": groupSetup,
 	// Read & query.
-	"query": groupRead, "entity": groupRead, "rules": groupRead, "curated": groupRead,
-	"alerts": groupRead, "cases": groupRead, "watchlists": groupRead, "ti": groupRead,
-	"iocs": groupRead, "parsers": groupRead, "surfaces": groupRead, "commands": groupRead,
+	"search": groupRead, "gemini": groupRead, "rules": groupRead, "ti": groupRead,
+	"alerts": groupRead, "cases": groupRead, "lists": groupRead, "entities": groupRead,
+	"data-access": groupRead, "commands": groupRead,
 	// Config as code.
 	"pull": groupAsCode, "push": groupAsCode, "drift": groupAsCode,
-	"dashboards": groupAsCode, "reference_lists": groupAsCode,
-	"rule_exclusions": groupAsCode, "feeds": groupAsCode, "pipeline": groupAsCode,
+	"dashboards": groupAsCode, "ingest": groupAsCode,
 	// SOAR.
-	"soar": groupSOAR,
+	"soar": groupSOAR, "content-hub": groupSOAR,
 	// Utilities.
 	"cleanup": groupUtilities,
 }

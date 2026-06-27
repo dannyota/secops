@@ -11,7 +11,6 @@ import (
 // The `log-types` command lists the log types active/known on the instance and
 // describes one — the catalog a platform engineer onboards sources against.
 // Read-only.
-func init() { rootCmd.AddCommand(newLogTypesCmd()) }
 
 func newLogTypesCmd() *cobra.Command {
 	cmd := &cobra.Command{

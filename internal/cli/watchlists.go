@@ -239,5 +239,3 @@ func newWatchlistsGetCmd() *cobra.Command {
 	// Output is always JSON (the full watchlist object), like `rules alerts`.
 	return markJSON(cmd)
 }
-
-func init() { rootCmd.AddCommand(newWatchlistsCmd()) }

@@ -5,13 +5,7 @@ import "testing"
 // renamePairs is the v0.5.1 command-clarity rename map: each old name is kept as
 // a hidden back-compat alias of the new canonical command. Keep this in lock-step
 // with the Use/Aliases declarations and docs/design/cli-naming.md.
-var renamePairs = []struct{ canonical, alias string }{
-	{"indicators", "iocs"},
-	{"threat-intel", "ti"},
-	{"entities", "entity"},
-	{"reference-lists", "reference_lists"},
-	{"rule-exclusions", "rule_exclusions"},
-}
+var renamePairs = []struct{ canonical, alias string }{}
 
 // TestRenamedCommandsCanonicalAndAlias verifies every renamed top-level command is
 // registered under its canonical name and that the old name resolves to the SAME

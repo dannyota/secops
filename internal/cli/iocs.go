@@ -15,26 +15,14 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
-// iocsFindBatch is the per-request lookup cap for `iocs find`: the iocs:find
+// iocsFindBatch is the per-request lookup cap for `ti find`: the iocs:find
 // endpoint returns at most 1000 records (in request order), so larger inputs are
 // chunked to this size and aggregated rather than silently truncated.
 const iocsFindBatch = 1000
 
-// newIoCsCmd builds the modern IoC command group — a read-only lookup over the
-// SIEM-plane `iocs` surface (resolve an indicator value to its IoC record). It is
-// the operational twin of `ti` (threat collections); both are read-only because
-// Threat Intelligence is upstream-sourced.
-func newIoCsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "indicators",
-		Aliases: []string{"iocs"},
-		Short:   "Indicators of Compromise (read-only): resolve a value to its IoC record",
-		Long: "Look up an indicator (hash, domain, IP) against the tenant's IoC matches.\n" +
-			"Read-only — Threat Intelligence is Google/Mandiant-sourced.",
-	}
-	cmd.AddCommand(newIoCsFindCmd(), newIoCsGetCmd(), newIoCsRelatedCmd())
-	return cmd
-}
+// The IOC verbs (find/get/related) are read-only lookups over the SIEM-plane
+// `iocs` surface; they are registered under the unified `ti` group (ti.go) as
+// `ti find` / `ti get` / `ti related`.
 
 func newIoCsFindCmd() *cobra.Command {
 	var (
@@ -148,7 +136,7 @@ func readIndicatorList(cmd *cobra.Command, path string) ([]string, error) {
 func newIoCsGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <ioc-id>",
-		Short: "Get one IoC by its resource id (from `iocs find`, not the raw value)",
+		Short: "Get one IoC by its resource id (from `ti find`, not the raw value)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newChronicleClient()
@@ -175,7 +163,7 @@ func newIoCsRelatedCmd() *cobra.Command {
 		Use:   "related <ioc-id>",
 		Short: "List threat collections related to an IoC resource",
 		Long: "List campaigns and/or reports related to an IoC resource id. The id is the\n" +
-			"resource id from `iocs find --json`, not the raw indicator value.",
+			"resource id from `ti find --json`, not the raw indicator value.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 || limit > 40 {
@@ -311,5 +299,3 @@ func emitIoCs(w io.Writer, iocs []chronicle.Ioc) error {
 	fmt.Fprintf(w, "\n%d IoC record(s) — `--json` for full records + ids\n", len(iocs))
 	return nil
 }
-
-func init() { rootCmd.AddCommand(newIoCsCmd()) }

@@ -19,7 +19,6 @@ import (
 // versions, test a parser's CBN against sample logs (no server change), and
 // activate a specific version. Parser config-as-code lives in
 // `pull parsers` / `push parsers` (which creates a new version and activates it).
-func init() { rootCmd.AddCommand(newParsersCmd()) }
 
 func newParsersCmd() *cobra.Command {
 	cmd := &cobra.Command{

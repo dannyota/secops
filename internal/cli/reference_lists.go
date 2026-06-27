@@ -7,22 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// The `reference_lists` command holds one-off operations for no-delete lists
-// that sit beside the pull/push reconcile loop.
-func init() { rootCmd.AddCommand(newReferenceListsCmd()) }
-
-func newReferenceListsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "reference-lists <verb>",
-		Aliases: []string{"reference_lists"},
-		Short:   "Extra: imperative reference-list ops (empty a list) — config-as-code is `pull/push reference_lists`",
-		Long: "Operate on reference lists outside the reconcile loop. Config-as-code is\n" +
-			"`pull reference_lists` / `push reference_lists`; no-delete neutralization\n" +
-			"commands are guarded and dry-run by default.",
-	}
-	cmd.AddCommand(newReferenceListsEmptyCmd())
-	return cmd
-}
+// The reference-list imperative op (`empty`) is registered under the top-level
+// `lists` group (lists.go) as `lists empty`. Config-as-code for reference lists is
+// `pull`/`push reference_lists` (the snake_case target is unchanged).
 
 func newReferenceListsEmptyCmd() *cobra.Command {
 	var dryRun, yes bool

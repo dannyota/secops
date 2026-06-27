@@ -20,7 +20,7 @@ import (
 // read shape), so they are operated imperatively; reads stay on `soar legacy call`.
 func newSOARIntegrationCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "integration",
+		Use:   "integrations",
 		Short: "Manage SOAR integration instances (imperative create/delete)",
 	}
 	cmd.AddCommand(newSOARIntegrationCreateCmd(), newSOARIntegrationDeleteCmd(),

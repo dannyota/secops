@@ -14,8 +14,8 @@ func TestSOARBuildPlaybookCommandRegistered(t *testing.T) {
 	if soar == nil {
 		t.Fatal("soar command not registered")
 	}
-	if commandChild(soar, "build-playbook") == nil {
-		t.Fatal("soar build-playbook command not registered")
+	if ide := commandChild(soar, "ide"); ide == nil || commandChild(ide, "build-playbook") == nil {
+		t.Fatal("soar ide build-playbook command not registered")
 	}
 }
 

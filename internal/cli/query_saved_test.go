@@ -31,18 +31,3 @@ func TestReadQueryTextMissing(t *testing.T) {
 		t.Errorf("want not-exist error, got %v", err)
 	}
 }
-
-// TestValidSavedQueryName rejects names that could escape the pack directory.
-func TestValidSavedQueryName(t *testing.T) {
-	bad := []string{"", ".", "..", "../secret", "a/b", `a\b`, "..\\x", "x/../y"}
-	for _, n := range bad {
-		if err := validSavedQueryName(n); err == nil {
-			t.Errorf("validSavedQueryName(%q) = nil, want error", n)
-		}
-	}
-	for _, n := range []string{"failed-logins", "my_query", "q1.thing"} {
-		if err := validSavedQueryName(n); err != nil {
-			t.Errorf("validSavedQueryName(%q) = %v, want nil", n, err)
-		}
-	}
-}

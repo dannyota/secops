@@ -31,7 +31,7 @@ func newQueryStatsCmd() *cobra.Command {
 			"`dashboardQueries:execute` path dashboard charts use and prints the computed\n" +
 			"columns and rows (`--json` for the raw result), so a chart query can be\n" +
 			"validated end to end from the CLI before `dashboards add-chart`.",
-		Example: "  secopsctl query stats --hours 24 'metadata.log_type != \"\"\n" +
+		Example: "  secopsctl search stats --hours 24 'metadata.log_type != \"\"\n" +
 			"  match: metadata.log_type\n" +
 			"  outcome: $c = count(metadata.id)\n" +
 			"  order: $c desc'",

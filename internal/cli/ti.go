@@ -12,17 +12,22 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
-// newTICmd builds the Threat Intelligence command group — a read-only operational
-// surface over the SIEM-plane threatCollections (Mandiant campaigns/reports/etc.).
+// newTICmd builds the Threat Intelligence group — a read-only surface merging IOC
+// matches in the tenant's data (find/get/related, from the SIEM-plane iocs surface)
+// with the Google/Mandiant threatCollections (collections/collection/collection-matches).
 func newTICmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "threat-intel",
-		Aliases: []string{"ti"},
-		Short:   "Threat Intelligence (read-only): browse Mandiant threat collections",
-		Long: "Read the Google/Mandiant threat-intelligence the tenant is matched against\n" +
-			"(campaigns, reports, actors, malware, vulnerabilities). Read-only.",
+		Use:   "ti",
+		Short: "Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections",
+		Long: "Read-only threat intelligence:\n" +
+			"  find / get / related        IOC matches in your data (resolve a value, inspect an IOC)\n" +
+			"  collections / collection    Google/Mandiant threat collections the tenant matches\n" +
+			"  collection-matches          IoC match counts for given threat collections",
 	}
-	cmd.AddCommand(newTICollectionsCmd(), newTICollectionCmd(), newTIRelatedCmd())
+	cmd.AddCommand(
+		newIoCsFindCmd(), newIoCsGetCmd(), newIoCsRelatedCmd(),
+		newTICollectionsCmd(), newTICollectionCmd(), newTIRelatedCmd(),
+	)
 	return cmd
 }
 
@@ -95,7 +100,7 @@ func newTICollectionCmd() *cobra.Command {
 
 func newTIRelatedCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "related <collection-alt-name-or-id>...",
+		Use:   "collection-matches <collection-alt-name-or-id>...",
 		Short: "Show IoC match counts for threat collections",
 		Long: "Show IoC match counts for one or more threat collections. Pass GTI/Mandiant\n" +
 			"alt names such as CAMP.22.147, or a threat collection resource id from\n" +

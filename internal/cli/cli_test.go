@@ -38,7 +38,7 @@ func TestUDMSummarySnakeCase(t *testing.T) {
 // TestCommandsRegistered verifies each subcommand self-registered via its init()
 // so the CLI tree is wired without touching the network or credentials.
 func TestCommandsRegistered(t *testing.T) {
-	want := []string{"info", "pull", "push", "query", "soar", "doctor"}
+	want := []string{"info", "pull", "push", "search", "soar", "doctor"}
 	have := map[string]bool{}
 	for _, c := range rootCmd.Commands() {
 		have[c.Name()] = true
@@ -53,7 +53,7 @@ func TestCommandsRegistered(t *testing.T) {
 // TestQueryHasUDMSubcommand verifies the nested query udm command exists.
 func TestQueryHasUDMSubcommand(t *testing.T) {
 	for _, c := range rootCmd.Commands() {
-		if c.Name() != "query" {
+		if c.Name() != "search" {
 			continue
 		}
 		for _, sub := range c.Commands() {

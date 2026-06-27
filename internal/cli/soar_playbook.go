@@ -69,7 +69,7 @@ type playbookRelationDoc struct {
 
 func newSOARPlaybookCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "playbook",
+		Use:   "playbooks",
 		Short: "Discover and validate SOAR playbooks",
 		Long: "Discover live SOAR playbooks and validate exported playbook JSON before\n" +
 			"a guarded save. This is a SecOps interaction surface: local files are\n" +

@@ -19,10 +19,7 @@ import (
 // precision). `list` reads; `set` is a guarded production mutation (dry-run by
 // default, --yes to apply) — every toggle changes live detection/alerting.
 
-func init() {
-	rootCmd.AddCommand(newCuratedCmd())
-}
-
+// newCuratedCmd is registered as a subcommand of `rules` (rules.go) → `rules curated`.
 func newCuratedCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "curated <verb>",

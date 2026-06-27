@@ -15,7 +15,8 @@ import (
 // and which surfaces are validated vs blocked (so it avoids dead paths instead of
 // discovering them by a failed call).
 
-func init() {
+// newCapabilitiesCmd is registered under `status` (status.go) → `status capabilities`.
+func newCapabilitiesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "capabilities",
 		Short: "Session bootstrap: tool version + auth health + surface status + read-only state",
@@ -30,7 +31,7 @@ func init() {
 		RunE: runCapabilities,
 	}
 	cmd.Flags().Bool("offline", false, "skip the live auth/reachability probe (version + surfaces + read-only only)")
-	rootCmd.AddCommand(markJSON(cmd))
+	return markJSON(cmd)
 }
 
 // capSurfaces is the surface-status rollup an agent uses to steer.

@@ -11,9 +11,9 @@ func TestSOARJobCommandRegistered(t *testing.T) {
 	if soar == nil {
 		t.Fatal("soar command not registered")
 	}
-	job := commandChild(soar, "job")
+	job := commandChild(soar, "jobs")
 	if job == nil {
-		t.Fatal("soar job command not registered")
+		t.Fatal("soar jobs command not registered")
 	}
 	for _, name := range []string{"list", "run", "template", "instance", "logs"} {
 		if commandChild(job, name) == nil {

@@ -107,7 +107,7 @@ func TestHoursMustBePositive(t *testing.T) {
 		t.Errorf("checkHours(1) must pass, got %v", err)
 	}
 
-	// End-to-end on a windowed command: query udm --hours 0 fails fast, before
+	// End-to-end on a windowed command: search udm --hours 0 fails fast, before
 	// any client is constructed.
 	out, err := runCmd(t, newAlertsListCmd(), "--hours", "0")
 	if err == nil || !strings.Contains(err.Error(), "positive number of hours") {

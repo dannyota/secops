@@ -6,7 +6,7 @@ import (
 )
 
 // TestResolveWindow locks the shared --hours / --from / --to window resolution used
-// by `query udm` and `query raw`.
+// by `search udm` and `search raw`.
 func TestResolveWindow(t *testing.T) {
 	// --hours: a 2h window ending ~now.
 	start, end, err := resolveWindow(2, "", "")

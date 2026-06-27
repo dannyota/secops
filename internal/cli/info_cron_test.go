@@ -251,7 +251,7 @@ func TestParseSecopsctlCommands(t *testing.T) {
 			want: nil,
 		},
 		{
-			line: `run: secopsctl query udm 'metadata.event_type = "PUSH" AND target = "feeds"'`,
+			line: `run: secopsctl search udm 'metadata.event_type = "PUSH" AND target = "feeds"'`,
 			want: nil,
 		},
 	}

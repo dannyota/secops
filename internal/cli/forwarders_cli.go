@@ -10,7 +10,6 @@ import (
 
 // The `forwarders` command surfaces the on-prem forwarders and their collectors
 // — the ingestion endpoints a platform engineer manages. Read-only.
-func init() { rootCmd.AddCommand(newForwardersCmd()) }
 
 func newForwardersCmd() *cobra.Command {
 	cmd := &cobra.Command{

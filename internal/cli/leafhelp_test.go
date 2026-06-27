@@ -13,11 +13,11 @@ import (
 func TestLeafHelpResolvesToLeaf(t *testing.T) {
 	leaves := [][]string{
 		{"rules", "list"},
-		{"curated", "set"},
-		{"query", "udm"},
+		{"rules", "curated", "set"},
+		{"search", "udm"},
 		{"alerts", "get"},
 		{"alerts", "update"},
-		{"soar", "case", "close"},
+		{"cases", "close"},
 		{"soar", "settings", "grouping", "set"},
 	}
 	for _, path := range leaves {

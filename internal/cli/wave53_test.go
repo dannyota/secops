@@ -117,7 +117,7 @@ func TestCommandsCatalog(t *testing.T) {
 		}
 	}
 	// Group parents must not appear (they are navigation, not verbs).
-	for _, parent := range []string{"soar", "soar case", "cases", "rules"} {
+	for _, parent := range []string{"soar", "cases", "rules"} {
 		if _, ok := byPath[parent]; ok {
 			t.Errorf("group parent %q must not be a catalog row", parent)
 		}
