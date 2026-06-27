@@ -117,6 +117,8 @@ verb tree). `cases list` defaults to the modern v1alpha cases API on the siempli
 
 The provider is always `Scripts`; the integration is selected by the action NAME, which the API resolves in `<integration>_<action>` form (e.g. `GoogleChronicle_Ping`). For a marketplace integration's action pass `--integration <id>` and the bare action — `run-action` qualifies it (`--integration GoogleChronicle --action Ping` → `GoogleChronicle_Ping`); a bare unqualified name does not resolve. Built-in Scripts actions are already qualified (`HTTP_Ping`), so omit `--integration`. `caseId` is sent as a string to match the server contract.
 
+With `--integration`, a **pre-flight check** validates `--param` against the action's parameter schema (fetched via `GetActionDef`) before the live call: a missing MANDATORY parameter aborts with the list of what's missing; an unknown key is a soft warning (the schema may be incomplete); `LIST` `optionalValues` are not enforced (the server treats them as suggestions). `--skip-validate` bypasses it; a schema-fetch failure degrades to a warning, never a block.
+
 ### `soar case simulation`
 
 Playbook-dev test harness: `list` / `get` / `create` / `generate` / `alert` / `delete` wrapping the `legacyCases` simulation surface (`getCustomCases`, `getCustomCaseDetails`, `createSimulatedCustomCase`, `generateUseCases`, `simulateAlert`, `deleteUseCase`). Full write round-trip live-validated (create→list→generate→delete with a throwaway simulation). All guarded.

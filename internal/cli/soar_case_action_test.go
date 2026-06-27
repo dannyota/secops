@@ -1,6 +1,9 @@
 package cli
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestBuildManualActionBody locks the ExecuteManualAction request shape:
 // actionProvider is always "Scripts", caseId is a STRING, and the action name is
@@ -33,6 +36,40 @@ func TestBuildManualActionBody(t *testing.T) {
 	}
 	if _, present := body["alertGroupIdentifiers"]; present {
 		t.Errorf("alertGroupIdentifiers must be omitted when alert is empty")
+	}
+}
+
+// TestValidateRunActionParams: a missing mandatory param is a hard error; an unknown
+// key is a soft warning; LIST optionalValues are not enforced.
+func TestValidateRunActionParams(t *testing.T) {
+	schema := []playbookActionParam{
+		{Name: "Filter Key", Type: "LIST", OptionalValues: []string{"Name", "Description"}},
+		{Name: "Max Data Tables To Return", Mandatory: true},
+		{Name: "Max Data Table Rows To Return", Mandatory: true},
+	}
+
+	// Both mandatory missing -> one error listing them (sorted); no warnings.
+	errs, warns := validateRunActionParams(schema, map[string]string{"Filter Key": "Name"})
+	if len(errs) != 1 || !strings.Contains(errs[0], "Max Data Table Rows To Return") || !strings.Contains(errs[0], "Max Data Tables To Return") {
+		t.Fatalf("missing-mandatory errs = %#v", errs)
+	}
+	if len(warns) != 0 {
+		t.Errorf("unexpected warns = %#v", warns)
+	}
+
+	// All mandatory present + a LIST value outside optionalValues (server allows it) +
+	// an unknown key -> no error, one warning for the unknown key only.
+	errs, warns = validateRunActionParams(schema, map[string]string{
+		"Filter Key":                    "sam", // not in optionalValues — must NOT error
+		"Max Data Tables To Return":     "5",
+		"Max Data Table Rows To Return": "5",
+		"Bogus":                         "x",
+	})
+	if len(errs) != 0 {
+		t.Errorf("unexpected errs = %#v", errs)
+	}
+	if len(warns) != 1 || !strings.Contains(warns[0], "Bogus") {
+		t.Errorf("warns = %#v, want one for Bogus", warns)
 	}
 }
 

@@ -1,26 +1,31 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"danny.vn/secops/soar"
 )
 
 func newCaseRunActionCmd() *cobra.Command {
 	var (
-		caseID      int
-		action      string
-		instance    string
-		alert       string
-		scope       string
-		integration string
-		params      []string
-		dryRun      bool
-		yes         bool
+		caseID       int
+		action       string
+		instance     string
+		alert        string
+		scope        string
+		integration  string
+		params       []string
+		skipValidate bool
+		dryRun       bool
+		yes          bool
 	)
 	cmd := &cobra.Command{
 		Use:   "run-action --id N --action <name> --instance <uuid>",
@@ -77,6 +82,29 @@ func newCaseRunActionCmd() *cobra.Command {
 			paramsJSON, err := json.Marshal(scriptParams)
 			if err != nil {
 				return fmt.Errorf("encode script parameters: %w", err)
+			}
+
+			// Pre-flight: validate the provided params against the action's schema
+			// (best-effort) so a missing mandatory param fails clean here, not as an
+			// action-side error after a live call. Only for marketplace actions
+			// (--integration set), where the schema is discoverable.
+			if integration != "" && !skipValidate {
+				if vc, verr := newSOARClient(); verr == nil {
+					schema, ferr := fetchActionParamSchema(baseContext(), vc, integration, action)
+					switch {
+					case ferr != nil:
+						fmt.Fprintf(os.Stderr, "warning: could not pre-validate parameters (%v); proceeding\n", ferr)
+					case len(schema) > 0:
+						errs, warns := validateRunActionParams(schema, scriptParams)
+						for _, w := range warns {
+							fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+						}
+						if len(errs) > 0 {
+							return fmt.Errorf("parameter validation failed for %s / %s:\n  - %s\n(pass --skip-validate to bypass)",
+								integration, action, strings.Join(errs, "\n  - "))
+						}
+					}
+				}
 			}
 
 			body := buildManualActionBody(caseID, integration, action, scope, instance, string(paramsJSON), alert)
@@ -148,6 +176,8 @@ func newCaseRunActionCmd() *cobra.Command {
 			"sent as <integration>_<action> (GoogleChronicle_Ping); omit for built-in Scripts "+
 			"actions whose name is already qualified (HTTP_Ping)")
 	f.StringArrayVar(&params, "param", nil, "key=value script parameter (repeatable); use env:VAR for secrets")
+	f.BoolVar(&skipValidate, "skip-validate", false,
+		"skip the pre-flight check of --param against the action's schema (--integration actions only)")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
@@ -194,6 +224,72 @@ func qualifyActionName(integration, action string) string {
 		return action
 	}
 	return integration + "_" + action
+}
+
+// fetchActionParamSchema returns the parameter schema for one integration action,
+// resolving it by display name (or raw name). It lists the integration's actions,
+// finds the match, and GETs its full definition (the LIST omits parameters). A
+// missing action or read failure is returned as an error for the caller to treat as
+// non-fatal (validation is best-effort, never a hard gate on a flaky read).
+func fetchActionParamSchema(ctx context.Context, c *soar.Client, integration, action string) ([]playbookActionParam, error) {
+	defs, err := c.ListActions(ctx, integration)
+	if err != nil {
+		return nil, err
+	}
+	var match *soar.ActionDef
+	for i := range defs {
+		if strings.EqualFold(defs[i].DisplayName, action) || strings.EqualFold(defs[i].Name, action) {
+			match = &defs[i]
+			break
+		}
+	}
+	if match == nil {
+		return nil, fmt.Errorf("action %q not found in integration %q", action, integration)
+	}
+	raw, err := c.GetActionDef(ctx, integration, match.PathID())
+	if err != nil {
+		return nil, err
+	}
+	rows := summarizeIntegrationActions(integration, wrapActionsEnvelope([]json.RawMessage{raw}))
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return rows[0].Parameters, nil
+}
+
+// validateRunActionParams checks provided --param keys against an action's schema:
+// a missing MANDATORY parameter is a hard error (returned in errs, aborting before
+// the live call); a key absent from the schema is a soft warning (a likely typo, but
+// the schema may be incomplete, so it never blocks). LIST optionalValues are NOT
+// enforced — the server treats them as suggestions, not a closed set.
+func validateRunActionParams(schema []playbookActionParam, provided map[string]string) (errs, warns []string) {
+	known := make(map[string]bool, len(schema))
+	for _, p := range schema {
+		known[p.Name] = true
+	}
+	unknown := make([]string, 0)
+	for k := range provided {
+		if !known[k] {
+			unknown = append(unknown, k)
+		}
+	}
+	sort.Strings(unknown)
+	for _, k := range unknown {
+		warns = append(warns, fmt.Sprintf("parameter %q is not in the action's schema (typo? schema may be incomplete)", k))
+	}
+	var missing []string
+	for _, p := range schema {
+		if p.Mandatory {
+			if _, ok := provided[p.Name]; !ok {
+				missing = append(missing, p.Name)
+			}
+		}
+	}
+	sort.Strings(missing)
+	if len(missing) > 0 {
+		errs = append(errs, "missing mandatory parameter(s): "+strings.Join(missing, ", "))
+	}
+	return errs, warns
 }
 
 // renderActionResult prints a human summary or JSON of an action execution result.
