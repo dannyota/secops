@@ -39,6 +39,18 @@ func TestBuildManualActionBody(t *testing.T) {
 	}
 }
 
+// TestResolveCaseAlertGroupVerbatim: a non-empty --alert is taken verbatim as the
+// alertGroupIdentifier without a live read (so the nil client is never touched).
+func TestResolveCaseAlertGroupVerbatim(t *testing.T) {
+	group, total, err := resolveCaseAlertGroup(t.Context(), nil, "123", "  ag-xyz  ")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if group != "ag-xyz" || total != 1 {
+		t.Errorf("got (%q, %d), want (\"ag-xyz\", 1)", group, total)
+	}
+}
+
 // TestValidateRunActionParams: a missing mandatory param is a hard error; an unknown
 // key is a soft warning; LIST optionalValues are not enforced.
 func TestValidateRunActionParams(t *testing.T) {

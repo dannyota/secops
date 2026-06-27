@@ -8,7 +8,11 @@
 //   - API key / SOAR AppKey — for SecOps features that authenticate with a
 //     long-lived key header and do NOT need ADC (SOAR REST, webhooks, …).
 //
-// Both implement Credentials, so each product client takes only the credential
+// A third provider, BearerToken, sends a verbatim caller-supplied token as
+// `Authorization: Bearer` (minting nothing) — it lets a SOAR call authenticate as
+// the web console does (a session JWT) for surfaces the AppKey identity can't run.
+//
+// All implement Credentials, so each product client takes only the credential
 // type it needs. Credentials resolve lazily (on the first signed request), so
 // constructing a client never blocks on ADC, the network, or gcloud — `--help`,
 // config parsing, offline tests, and API-key-only flows stay credential-free.

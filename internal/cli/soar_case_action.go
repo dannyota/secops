@@ -45,7 +45,11 @@ func newCaseRunActionCmd() *cobra.Command {
 			"name fails. Built-in Scripts actions are already qualified (HTTP_Ping), so omit\n" +
 			"--integration for those.\n\n" +
 			"Returns the action result (resultCode, message, resultJsonObject).\n" +
-			"Guarded: dry-run by default, --yes to apply.",
+			"Guarded: dry-run by default, --yes to apply.\n\n" +
+			"The run is always scoped to an alert group — the server rejects a run that\n" +
+			"carries none (a missing scope returns HTTP 500, an empty one 400). Pass --alert\n" +
+			"with an alertGroupIdentifier from `soar case get --json`, or omit it and the\n" +
+			"action is scoped to the case's alert automatically.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if caseID <= 0 {
@@ -107,14 +111,18 @@ func newCaseRunActionCmd() *cobra.Command {
 				}
 			}
 
-			body := buildManualActionBody(caseID, integration, action, scope, instance, string(paramsJSON), alert)
-
 			label := fmt.Sprintf("case %d run-action %s", caseID, action)
 			dr, ay := soarGuard(label, dryRun, yes)
 
+			alert = strings.TrimSpace(alert)
 			fmt.Fprintf(os.Stdout, "Action:   %s\n", action)
 			fmt.Fprintf(os.Stdout, "Case:     %d\n", caseID)
 			fmt.Fprintf(os.Stdout, "Instance: %s\n", instance)
+			if alert != "" {
+				fmt.Fprintf(os.Stdout, "Alert:    %s\n", alert)
+			} else {
+				fmt.Fprintln(os.Stdout, "Alert:    (auto-resolved from the case at run time)")
+			}
 			if len(scriptParams) > 0 {
 				fmt.Fprintf(os.Stdout, "Params:   %d key(s)", len(scriptParams))
 				for k := range scriptParams {
@@ -126,7 +134,7 @@ func newCaseRunActionCmd() *cobra.Command {
 				if jsonOut {
 					return emitGuardedResult("soar case run-action", true, false)
 				}
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN -- no action executed. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {
@@ -137,30 +145,43 @@ func newCaseRunActionCmd() *cobra.Command {
 				return nil
 			}
 
-			return preferModern("soar case run-action",
-				func() error {
-					mc, merr := newSOARClient()
-					if merr != nil {
-						return merr
-					}
-					raw, merr := mc.ExecuteManualAction(baseContext(), body)
-					if merr != nil {
-						return merr
-					}
-					return renderActionResult(raw)
-				},
-				func() error {
-					lc, lerr := newSOARLegacyClient()
-					if lerr != nil {
-						return lerr
-					}
-					raw, lerr := lc.ExecuteManualAction(baseContext(), body)
-					if lerr != nil {
-						return lerr
-					}
-					return renderActionResult(raw)
-				},
-			)
+			ctx := baseContext()
+			c, cerr := newSOARClient()
+			if cerr != nil {
+				return cerr
+			}
+			// executeManualAction REQUIRES a valid alertGroupIdentifiers: the server
+			// NPEs (HTTP 500) when the field is omitted and 400s when it is empty, so a
+			// run must carry a real group. Take --alert verbatim, else resolve from the
+			// case's alerts.
+			group, total, gerr := resolveCaseAlertGroup(ctx, c, strconv.Itoa(caseID), alert)
+			if gerr != nil {
+				return gerr
+			}
+			if alert == "" && total > 1 {
+				fmt.Fprintf(os.Stderr, "note: case %d has %d alert groups; running against %q (pass --alert to choose another)\n", caseID, total, group)
+			}
+			body := buildManualActionBody(caseID, integration, action, scope, instance, string(paramsJSON), group)
+
+			// Execute on the working path directly — no modern→legacy auto-fallback
+			// (both hit the same surface; a 5xx is surfaced, not papered over). --legacy
+			// selects the legacy lane explicitly.
+			if forceLegacy {
+				lc, lerr := newSOARLegacyClient()
+				if lerr != nil {
+					return lerr
+				}
+				raw, lerr := lc.ExecuteManualAction(ctx, body)
+				if lerr != nil {
+					return lerr
+				}
+				return renderActionResult(raw)
+			}
+			raw, merr := c.ExecuteManualAction(ctx, body)
+			if merr != nil {
+				return merr
+			}
+			return renderActionResult(raw)
 		},
 	}
 	f := cmd.Flags()
@@ -169,7 +190,8 @@ func newCaseRunActionCmd() *cobra.Command {
 	_ = f.MarkHidden("case-id")
 	f.StringVar(&action, "action", "", "integration action name, e.g. HTTP_Ping or HTTP_Post Data (required)")
 	f.StringVar(&instance, "instance", "", "integration instance UUID (required; from 'soar integration instances')")
-	f.StringVar(&alert, "alert", "", "alert group identifier (from 'soar case get --json')")
+	f.StringVar(&alert, "alert", "", "alertGroupIdentifier to scope the action (from 'soar case get --json'); "+
+		"required by the server, so when omitted it is auto-resolved from the case's alert(s)")
 	f.StringVar(&scope, "scope", "All entities", "entity scope")
 	f.StringVar(&integration, "integration", "",
 		"integration identifier for a marketplace action (e.g. GoogleChronicle) — the action is "+
@@ -211,6 +233,35 @@ func buildManualActionBody(caseID int, integration, action, scope, instance, par
 		body["alertGroupIdentifiers"] = []string{alert}
 	}
 	return body
+}
+
+// resolveCaseAlertGroup returns the alertGroupIdentifier a run-action body must
+// carry. executeManualAction NPEs server-side (HTTP 500) when alertGroupIdentifiers
+// is omitted and 400s when it is empty, so a valid group is mandatory. A non-empty
+// ref is taken verbatim (the alertGroupIdentifier `soar case get` prints). When ref
+// is empty the case's alerts are read and the first distinct group is used; total is
+// the distinct-group count, so the caller can note when it picked among several.
+func resolveCaseAlertGroup(ctx context.Context, c *soar.Client, caseID, ref string) (group string, total int, err error) {
+	if ref = strings.TrimSpace(ref); ref != "" {
+		return ref, 1, nil
+	}
+	alerts, err := c.ListCaseAlerts(ctx, caseID)
+	if err != nil {
+		return "", 0, err
+	}
+	var groups []string
+	seen := map[string]bool{}
+	for i := range alerts {
+		g := strings.TrimSpace(alerts[i].AlertGroupIdentifier)
+		if g != "" && !seen[g] {
+			seen[g] = true
+			groups = append(groups, g)
+		}
+	}
+	if len(groups) == 0 {
+		return "", 0, fmt.Errorf("case %s has no alert group to scope the action; pass --alert with an alertGroupIdentifier from `soar case get %s --json`", caseID, caseID)
+	}
+	return groups[0], len(groups), nil
 }
 
 // qualifyActionName returns the <integration>_<action> name the ExecuteManualAction

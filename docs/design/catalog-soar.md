@@ -113,11 +113,13 @@ verb tree). `cases list` defaults to the modern v1alpha cases API on the siempli
 
 ### `soar case run-action`
 
-`run-action --id N --action <name> --instance <uuid>` wraps `legacyCases:executeManualAction` — runs any installed integration action on a case with `--param key=value` script parameters (secrets via `env:VAR`). Returns the full action result (resultCode, message, resultJsonObject); `--json` emits the raw payload. Guarded; live dry-run validated.
+`run-action --id N --action <name> --instance <uuid>` wraps `legacyCases:executeManualAction` — runs any installed integration action on a case with `--param key=value` script parameters (secrets via `env:VAR`). Returns the full action result (resultCode, message, resultJsonObject); `--json` emits the raw payload. Guarded (dry-run by default).
 
 The provider is always `Scripts`; the integration is selected by the action NAME, which the API resolves in `<integration>_<action>` form (e.g. `GoogleChronicle_Ping`). For a marketplace integration's action pass `--integration <id>` and the bare action — `run-action` qualifies it (`--integration GoogleChronicle --action Ping` → `GoogleChronicle_Ping`); a bare unqualified name does not resolve. Built-in Scripts actions are already qualified (`HTTP_Ping`), so omit `--integration`. `caseId` is sent as a string to match the server contract.
 
 With `--integration`, a **pre-flight check** validates `--param` against the action's parameter schema (fetched via `GetActionDef`) before the live call: a missing MANDATORY parameter aborts with the list of what's missing; an unknown key is a soft warning (the schema may be incomplete); `LIST` `optionalValues` are not enforced (the server treats them as suggestions). `--skip-validate` bypasses it; a schema-fetch failure degrades to a warning, never a block.
+
+**Required scope.** Every run must carry a valid `alertGroupIdentifiers` — the server NPEs (HTTP 500) when the field is omitted and returns 400 when it is empty, so a run with no alert group always fails. `--alert` takes an alertGroupIdentifier verbatim (the value `soar case get --json` prints); when omitted it is auto-resolved from the case's alert(s) — the first distinct group, with a note on stderr when the case has several. The action executes on the working SOAR-host v1alpha path directly (no modern→legacy auto-fallback — a 5xx is surfaced, not papered over); `--legacy` selects the legacy lane explicitly.
 
 ### `soar case simulation`
 
