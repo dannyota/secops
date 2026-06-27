@@ -32,31 +32,31 @@ reconcile):
 | Lane | Mechanism | SOAR surfaces |
 |---|---|---|
 | **reconcile** (per-object CUD) | engine + a `reconcile.Surface` | **17**: `webhooks` · `environments` · `networks` · `tracking-lists` · `soc-roles` · `idp` · `visual-families` · `sla-definitions` · `case-stages` · `case-tags` · `close-root-causes` · `blacklists` · `playbook-categories` · `playbooks` (bespoke, name-keyed) · `connectors` · `connector-allowlist` (derived allow-list view, write-validated) · `jobs`. (`form-dynamic-parameters` is deferred — its PUT update is unsafe; see CATALOG) |
-| **imperative/read** (per-entity verbs, no desired-state file) | `soar case <verb>` · `soar playbook <verb>` · `soar job <verb>` · `soar integration` · `soar settings` · `info soar-integrations` | cases: `list` (New API — siemplify v1alpha; the CLI auto-falls back to the Legacy queue on error; triage filters `--assignee`/`--priority`/`--tag`/`--since` plus a verbatim modern `--filter`) · `get <id>` (case + its alerts, each with its `--alert` id and firing rule); mutate verbs (assign · rename · stage · tag · untag · describe · importance · priority · close · reopen · merge · `comment add`) + per-alert verbs (`case alert close|priority|move|reopen`) + `soar push bulk-close`. playbooks: `list`/`validate`/`components`/`test-cases`/`summary`/`results`/`result`/`python-logs`/`debug-step-data`/`simulation-enrichment`/`pending`/`step get` read SecOps state; `run`/`debug`/`rerun`/`rerun-block`/`step execute` are guarded execution against explicit case/test-case/workflow/step selectors. jobs: `job list`, `job template list`, `job instance list`, and `job logs` are reads; `job run` and `job instance run` are dry-run-first guarded executions after fetching the live body. integration **instances** (no update endpoint → not reconcilable): `integration create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `integration install` (marketplace pack by identifier, guarded) / `list` / `uninstall` (custom packs only) and `integration connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). runtime health: `info soar-integrations` joins installed packs with connector/job runtime cards and flags `config_without_runtime`, `runtime_without_installed_pack`, `runtime_disabled`, and `unconfigured_runtime`. singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`); **API-key lifecycle**: `settings api-keys [list|create|revoke]` (`GET /settings/GetApiKeys` + `addOrUpdateApiKeyRecord`/`RemoveApiKeyRecord`; list is metadata only — the secret is masked by the server and dropped by the typed view; create mints the key value locally and prints it once; create/revoke guarded, lifecycle verified) |
-| **offline utility** (no API call by default) | `info cron` · `soar build-playbook` · `soar playbook mold` · `soar playbook trigger set` · `soar integration scaffold` · `soar package-integration` | `info cron` scans local scheduler-like files for `secopsctl drift`, SIEM `push`, and SOAR `soar push` references, then scans pulled `soar/jobs/` and `soar/playbooks/` JSON for non-empty `cronSchedule` values. `--host` adds current-user crontab and user systemd files; `--heartbeat-status` HEAD-checks explicitly supplied read-only heartbeat status endpoints. It reports file:line matches and labels only, not raw scheduler lines or URLs. `soar build-playbook` composes a scheduled playbook JSON from exported base/step molds; `soar playbook mold extract/apply` creates and applies those action-step molds from exported playbook JSON. `soar playbook trigger set` edits trigger fields in exported JSON before validation and guarded save. `soar integration scaffold` creates local Python action/job templates and definition placeholders. `soar package-integration` builds deterministic ZIPs for already-shaped SOAR custom integration directories, refusing symlinks and leaving tenant import validation to SOAR. |
+| **imperative/read** (per-entity verbs, no desired-state file) | `cases <verb>` · `soar playbooks <verb>` · `soar jobs <verb>` · `soar integrations` · `soar settings` · `info soar-integrations` | cases: `list` (New API — siemplify v1alpha; the CLI auto-falls back to the Legacy queue on error; triage filters `--assignee`/`--priority`/`--tag`/`--since` plus a verbatim modern `--filter`) · `get <id>` (case + its alerts, each with its `--alert` id and firing rule); mutate verbs (assign · rename · stage · tag · untag · describe · importance · priority · close · reopen · merge · `comment add`) + per-alert verbs (`cases alert close|priority|move|reopen`) + `soar push bulk-close`. playbooks: `list`/`validate`/`components`/`test-cases`/`summary`/`results`/`result`/`python-logs`/`debug-step-data`/`simulation-enrichment`/`pending`/`step get` read SecOps state; `run`/`debug`/`rerun`/`rerun-block`/`step execute` are guarded execution against explicit case/test-case/workflow/step selectors. jobs: `soar jobs list`, `soar jobs template list`, `soar jobs instance list`, and `soar jobs logs` are reads; `soar jobs run` and `soar jobs instance run` are dry-run-first guarded executions after fetching the live body. integration **instances** (no update endpoint → not reconcilable): `soar integrations create` / `delete`. integration **packs/definitions** (New API — siemplify v1alpha): `soar integrations install` (marketplace pack by identifier, guarded) / `list` / `uninstall` (custom packs only) and `soar integrations connector list` / `delete` (custom connector **definitions** — e.g. a "Copy of …" duplicate). runtime health: `info soar-integrations` joins installed packs with connector/job runtime cards and flags `config_without_runtime`, `runtime_without_installed_pack`, `runtime_disabled`, and `unconfigured_runtime`. singleton case-routing policies: `settings case-assignment` / `move-case-policy` (`get`/`set`); **API-key lifecycle**: `settings api-keys [list|create|revoke]` (`GET /settings/GetApiKeys` + `addOrUpdateApiKeyRecord`/`RemoveApiKeyRecord`; list is metadata only — the secret is masked by the server and dropped by the typed view; create mints the key value locally and prints it once; create/revoke guarded, lifecycle verified) |
+| **offline utility** (no API call by default) | `info cron` · `soar ide build-playbook` · `soar playbooks mold` · `soar playbooks trigger set` · `soar integrations scaffold` · `soar ide package-integration` | `info cron` scans local scheduler-like files for `secopsctl drift`, SIEM `push`, and SOAR `soar push` references, then scans pulled `soar/jobs/` and `soar/playbooks/` JSON for non-empty `cronSchedule` values. `--host` adds current-user crontab and user systemd files; `--heartbeat-status` HEAD-checks explicitly supplied read-only heartbeat status endpoints. It reports file:line matches and labels only, not raw scheduler lines or URLs. `soar ide build-playbook` composes a scheduled playbook JSON from exported base/step molds; `soar playbooks mold extract/apply` creates and applies those action-step molds from exported playbook JSON. `soar playbooks trigger set` edits trigger fields in exported JSON before validation and guarded save. `soar integrations scaffold` creates local Python action/job templates and definition placeholders. `soar ide package-integration` builds deterministic ZIPs for already-shaped SOAR custom integration directories, refusing symlinks and leaving tenant import validation to SOAR. |
 | **raw** (batch upserts / bundles / selector reads) | `soar legacy call <op>` | integrations (reads) · ontology-mapping (selector read + batch upsert + body delete) · environment-priorities · permissions · system/singleton settings · … |
 
 Commands:
 
 - `soar pull <surface>` — live → files
 - `soar push <surface> [--prune]` — files → live; additive by default, dry-run unless `--yes`
-- `soar case list`/`get` — read
-- `soar case <verb>` — guarded mutate
-- `soar playbook <verb>` — discover, validate, debug/run, pending steps, and inspect SecOps playbook executions
-- `soar playbook components <integrations|actions|jobs|connectors>` — read playbook component catalogs
-- `soar job list` / `soar job template list` / `soar job instance list` / `soar job logs` — read job runtime, template, and Python execution data
-- `soar job run` / `soar job instance run` — guarded job execution after live fetch
+- `cases list`/`get` — read
+- `cases <verb>` — guarded mutate
+- `soar playbooks <verb>` — discover, validate, debug/run, pending steps, and inspect SecOps playbook executions
+- `soar playbooks components <integrations|actions|jobs|connectors>` — read playbook component catalogs
+- `soar jobs list` / `soar jobs template list` / `soar jobs instance list` / `soar jobs logs` — read job runtime, template, and Python execution data
+- `soar jobs run` / `soar jobs instance run` — guarded job execution after live fetch
 - `info soar-integrations` — read-only integration runtime coverage
 - `info cron [--root <dir>] [--host] [--heartbeat-status <label>=<url>]` — scheduler-reference manifest and optional host/heartbeat check
-- `soar build-playbook --base <playbook.json> --cron <expr> --out <playbook.json>` — offline scheduled-playbook composer
-- `soar playbook mold extract --file <playbook.json> --step <name|id> --out <step.json>` — offline action-step mold extractor
-- `soar playbook mold apply --file <playbook.json> --replace-step <step=step.json> --out <playbook.json>` — offline mold-based step updater
-- `soar playbook trigger set --file <playbook.json> --out <playbook.json>` — offline trigger-field editor
-- `soar integration scaffold --name <integration> [--action <name>] [--job <name>]` — offline Python action/job scaffold
-- `soar package-integration <dir>` — offline custom-integration ZIP builder
+- `soar ide build-playbook --base <playbook.json> --cron <expr> --out <playbook.json>` — offline scheduled-playbook composer
+- `soar playbooks mold extract --file <playbook.json> --step <name|id> --out <step.json>` — offline action-step mold extractor
+- `soar playbooks mold apply --file <playbook.json> --replace-step <step=step.json> --out <playbook.json>` — offline mold-based step updater
+- `soar playbooks trigger set --file <playbook.json> --out <playbook.json>` — offline trigger-field editor
+- `soar integrations scaffold --name <integration> [--action <name>] [--job <name>]` — offline Python action/job scaffold
+- `soar ide package-integration <dir>` — offline custom-integration ZIP builder
 - `soar legacy call <op>` — raw passthrough
 
-The operational loop is **`soar case list` → review → `soar case get <id>` → act**
+The operational loop is **`cases list` → review → `cases get <id>` → act**
 (a mutate verb or `soar push bulk-close`). Per-surface identity, capabilities (NoDelete /
 WholeBodyWrite / PruneEligible) and read/write validation are in
 [catalog.md](catalog.md). `PruneEligible` (a clean, low-blast delete-by-id, so
@@ -186,7 +186,7 @@ bridge/playbooks    coercePlaybookTypes(): id/priority/version/*UnixTimeInMs int
   reconcile load validate this offline before any live save.
 - **One case, two ids** — a case is a single record reachable by two APIs: the
   SOAR API (integer id, the working path secopsctl uses — `soar.ListCases` on
-  siemplify v1alpha plus the `soar/legacy` verbs; the CLI's `soar case list`
+  siemplify v1alpha plus the `soar/legacy` verbs; the CLI's `cases list`
   falls back to the Legacy queue read on error) and the Chronicle cases
   collection (UUID, same case). The Chronicle UUID *collection* 500s at every
   version and is an unused alternate (`chronicle/case.go`), but the bridge read
@@ -214,19 +214,19 @@ bridge/playbooks    coercePlaybookTypes(): id/priority/version/*UnixTimeInMs int
   inspection, and `--heartbeat-status` checks explicit read-only heartbeat status
   endpoints. It reports file:line references and labels, and intentionally does
   not print raw scheduler lines or endpoint URLs.
-- **Playbook builders use exported molds** — `soar playbook mold extract` creates
-  a reusable action-step mold from an exported playbook, `soar playbook mold apply`
+- **Playbook builders use exported molds** — `soar playbooks mold extract` creates
+  a reusable action-step mold from an exported playbook, `soar playbooks mold apply`
   replaces placeholder steps with those already-wired integration-action steps
-  while preserving the base step graph identity, and `soar build-playbook` does the
-  same while also setting `trigger.cronSchedule`. It does not invent integration
+  while preserving the base step graph identity, and `soar ide build-playbook` does
+  the same while also setting `trigger.cronSchedule`. It does not invent integration
   action bodies or validate tenant importability.
-- **Trigger edits are reviewable JSON edits first** — `soar playbook trigger set`
+- **Trigger edits are reviewable JSON edits first** — `soar playbooks trigger set`
   edits exported playbook JSON (`isEnabled`, trigger type/execution mode,
   `cronSchedule`, conditions, reaction conditions). SOAR validation and live save
-  still happen through `soar playbook validate` and the guarded playbook save path.
-- **Python components enter through custom integrations** — `soar integration
+  still happen through `soar playbooks validate` and the guarded playbook save path.
+- **Python components enter through custom integrations** — `soar integrations
   scaffold` creates local Python action/job templates plus JSON definition
-  placeholders. Package a directory with `soar package-integration <dir>` only
+  placeholders. Package a directory with `soar ide package-integration <dir>` only
   after it already matches the IDE export/import structure. secopsctl makes the
   archive deterministic; SOAR still validates the actual integration schema on
   import.

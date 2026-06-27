@@ -23,7 +23,7 @@ flowchart TB
   subgraph OPER["🔭 operational plane — live data · no files"]
     direction LR
     q["query"] --> r["review"] --> a["act · --yes"]
-    surf["events (read-only) · alerts (triage)<br/>cases (triage) · entities / iocs / ti (enrich)"]
+    surf["events (read-only) · alerts (triage)<br/>cases (triage) · entities · ti (enrich)"]
   end
   CONFIG -. "one CLI · two models" .- OPER
 ```
@@ -51,8 +51,8 @@ are registered in `internal/mirror/registry_siem.go`; each lives in its own
 | `feeds` | typed, secrets in `settings` | **done** (engine, `push feeds`): redact on pull + DeepMerge-overlay on update (real secret preserved, create refuses a masked body); new credentials can use `secret_ref: env:VAR` or Secret Manager and are resolved only at apply time. `details` replaced wholesale on PATCH (WholeBodyWrite). The `assetNamespace`(read) vs `namespace`(write) mismatch is **resolved** — a read confirmed the API uses `assetNamespace`; the write side now emits the same key. Server/migration keys stripped from canonical; feed state left as a runtime `:enable`/`:disable` toggle (out of desired state). Short `logType` is expanded to the full resource name on write (the API rejects a bare id). Read + write verified, incl. GCS **V2** feeds (`GOOGLE_CLOUD_STORAGE_V2` / `gcsV2Settings`, Storage-Transfer-Service-backed — grant the SA from `FetchFeedServiceAccount` read access to the bucket first). Templates: `examples/feed-templates/` |
 | `parsers` | versioned/immutable (create new, no update) | **done** (engine, `push parsers`): immutable → the Update closure is create-new-version + **activate** (the load-bearing step), old version left inactive for rollback; canonical = `{log_type, cbn}` (volatile parser id excluded, carried as ServerID + written back on refresh); live set derived from feeds; not prune-eligible. Read + write verified: gated write smoke `TestLiveReconcileParserWriteSmoke` runs `RunParser` (pure inert validation — no server state created or activated) then creates a new **INACTIVE** version from a real active parser's source (a unique trailing comment makes it a distinct version), asserts it never becomes ACTIVE (so live ingestion is untouched) and the borrowed log type's active parser is unchanged, then deletes the throwaway. The `RunParser` response struct was corrected — `parsedEvents` is an object `{events:[{event:…}]}`, not a bare array |
 | `dashboards` (native) | typed, charts as JSON | **done** (engine, `pull`/`push dashboards`): CUSTOM only (CURATED excluded as read-only); one `<slug>.json` (config + `_server`), charts inline under `definition.charts` replaced wholesale on update; `access` immutable after create. Canonical strips `createUserId`/`updateUserId`/`dashboardUserData` + the root resource `name` (identity in ServerID); nested chart/filter ids are stable across reads so they need no stripping. `pull` re-pointed from export-envelope → config. Read verified; gated write smoke. NB: the full-view List can rate-limit (429) on instances with many dashboards — the write smoke drives the surface closures directly rather than repeatedly listing |
-| `curated` / `curated_rules` | Google-managed (read-mostly) | **done**: `pull curated` writes `curated/deployments.yaml`, and `push curated` reconciles changed `enabled`/`alerting` tuples through the batch update API. `curated list`/`set` remain the imperative read and one-off toggle lane. There is still no create/delete for Google-managed rule sets. Live-validated via a guarded enable→disable toggle that restores prior state. Rule **exclusions** are their own `rule_exclusions` reconcile surface (findingsRefinements, full CUD) — separate from curated |
-| `rule_exclusions` (findings refinements) | typed: display_name + type + UDM query + deployment | **done** (engine, `pull`/`push rule_exclusions`): Create + Update (PATCH/updateMask); NoDelete (no delete API), NoEtag; deployment state (`enabled`, `archived`) round-trips in YAML and is patched through the deployment subresource. Guarded `rule_exclusions deploy <id> --enable|--disable|--archive` handles one-off toggles. Read + write verified (create→update→archive); no hard delete exists — **archive** (deployment `archived=true`) is the documented teardown. This is the "exclusions" the curated row points to |
+| `curated` / `curated_rules` | Google-managed (read-mostly) | **done**: `pull curated` writes `curated/deployments.yaml`, and `push curated` reconciles changed `enabled`/`alerting` tuples through the batch update API. `rules curated list`/`set` remain the imperative read and one-off toggle lane. There is still no create/delete for Google-managed rule sets. A guarded enable→disable toggle that restores prior state exercises the write path (the gated smoke). Rule **exclusions** are their own `rule_exclusions` reconcile surface (findingsRefinements, full CUD) — separate from curated |
+| `rule_exclusions` (findings refinements) | typed: display_name + type + UDM query + deployment | **done** (engine, `pull`/`push rule_exclusions`): Create + Update (PATCH/updateMask); NoDelete (no delete API), NoEtag; deployment state (`enabled`, `archived`) round-trips in YAML and is patched through the deployment subresource. Guarded `rules exclusions deploy <id> --enable|--disable|--archive` handles one-off toggles. Read + write verified (create→update→archive); no hard delete exists — **archive** (deployment `archived=true`) is the documented teardown. This is the "exclusions" the curated row points to |
 | `forwarders` | typed `.yaml` (config block) | **done** (engine, `pull`/`push`/`drift forwarders`): config replaced wholesale on PATCH; NoEtag, **prune-eligible**; pinned **v1beta** (v1 404s). Write smoke `TestLiveReconcileForwarderWriteSmoke` (create→update→delete, self-cleaning). Collectors are a separate nested resource. `internal/mirror/forwarders_surface.go` |
 | `watchlists`, `log_pipelines` | typed | future engine surfaces where per-object CUD fits |
 | `metric_definitions` (custom SOC metrics) | typed: id + state + YARA-L `text_definition` | **built** (engine, `pull`/`push metric_definitions`): additive — create + state-only patch (textDefinition **immutable**, a text edit is refused → change = new id), **no delete API** (NoDelete). Offline-tested; **feature-gated 403** (not enabled/GA), so not verified. `chronicle/metrics.go` |
@@ -97,7 +97,7 @@ stateDiagram-v2
 |---|---|---|---|
 | **events (UDM)** | `SearchUDM` / `NLSearch` / `GetStats` / `FindUDMFieldValues` | — | immutable telemetry — **read-only, never mutate** |
 | **alerts** | `GetAlerts` (`alerts list`) · `GetAlert` (`alerts get` — also prints the SOAR case id via `BatchGetCases`; bulk bridge: `cases soar-id`) — read-validated | `UpdateAlert` · `BulkUpdateAlerts` (status / verdict / priority / reason / comment) — CLI-wired as guarded `alerts update` (dry-run validated; live write gated) | per-item + subset |
-| **cases** (one case; operated via `soar case`, see below) | `soar.ListCases` (siemplify v1alpha; triage filters) · Legacy `GetCaseFullDetails` (case + its alerts, each with its firing rule for the `rules detections` pivot) | Legacy verbs: assign · rename · stage · tag/untag · describe · importance · priority · close · reopen · merge · comment add · per-alert close/priority/move/reopen | per-item + subset |
+| **cases** (one case; operated via `cases`, see below) | `soar.ListCases` (siemplify v1alpha; triage filters) · Legacy `GetCaseFullDetails` (case + its alerts, each with its firing rule for the `rules detections` pivot) | Legacy verbs: assign · rename · stage · tag/untag · describe · importance · priority · close · reopen · merge · comment add · per-alert close/priority/move/reopen | per-item + subset |
 | **entities / IoCs** | `SummarizeEntity` · `ListIoCs` · `FetchAssociatedInvestigations` | — | enrichment — read-only |
 | **threat intel** | `ListThreatCollections` · `GetThreatCollection` (`ti collections`/`collection`) | — | Mandiant-sourced — **read-only** (no write path) |
 
@@ -113,9 +113,9 @@ stateDiagram-v2
 > Google SecOps = Chronicle (SIEM) + Siemplify (SOAR) merged, so a case is a
 > **single record** reachable several ways. It carries two ids and
 > `legacyBatchGetCases` returns `soarPlatformInfo.caseId` linking them. The cases
-> function is **verified**: `soar case list` defaults to the modern **New API
+> function is **verified**: `cases list` defaults to the modern **New API
 > on the siemplify domain (v1alpha)** and auto-falls back to the broad, reliable
-> **Legacy** external API (`/api/external/v1`, AppKey) on error; `soar case <verb>`
+> **Legacy** external API (`/api/external/v1`, AppKey) on error; `cases <verb>`
 > and `get` run on Legacy. The **only** dead path is the chronicle-host UUID cases
 > collection (`chronicle.googleapis.com`, ADC), which 500s at every version — an
 > alternate, unused route to the same case, not the function's status.
@@ -125,10 +125,10 @@ stateDiagram-v2
 > | id | integer (e.g. `234`) | integer (e.g. `234`) | UUID (resource name) |
 > | api · auth · version | modern `cases` · AppKey · **v1alpha** | `/api/external/v1/cases` · AppKey | v1/v1beta/v1alpha `cases` · ADC |
 > | today | **verified** | mature, **reliable**, complete | 500s at every version |
-> | CLI | `soar case list` (default) | `soar case list`/`get` · `soar case <verb>` | `cases list`/`get`/`search` (alternate, 500s) |
+> | CLI | `cases list` (default) | `cases list`/`get` · `cases <verb>` | — (no command; alternate route) |
 >
 > Same case, two ids — `soarPlatformInfo.caseId` bridges them when you need to
-> correlate across paths. Use `soar case` for all case work; the chronicle-host
+> correlate across paths. Use `cases` for all case work; the chronicle-host
 > UUID route is the same case via a path that does not currently answer.
 
 ### The query model
@@ -137,26 +137,27 @@ Every list/search command shares: a **filter**, a **time window**, a **limit**,
 **pagination**, and an **output format**.
 
 ```bash
-secopsctl query udm '<udm filter>' [--hours N | --from TS --to TS] [--limit N] [--json]   # events (built)
+secopsctl search udm '<udm filter>' [--hours N | --from TS --to TS] [--limit N] [--format jsonl|json|csv|table] [--fields PATHS] [--out F] [--all]   # events (built)
+secopsctl search stats '<query>'   [--hours N] [--format …]                                # aggregations (match:/outcome:/order:) (built)
 secopsctl alerts list [--filter EXPR] [--hours N | --from TS --to TS] [--limit N] [--json]  # alerts snapshot (built, read)
 secopsctl alerts get  <alert-id> [--detections] [--json]                                   # one alert + its SOAR case id (built, read)
 secopsctl alerts update <alert-id>… --status closed --verdict false-positive [--yes]       # guarded alert disposition (built; dry-run default)
 secopsctl cases soar-id <case-uuid>…                                                       # SIEM uuid -> SOAR case id bridge (built, read)
-secopsctl soar case list [--status open|closed|all] [--assignee S] [--priority P] [--tag T] [--since 24h] [--limit N] [--json]  # cases (built, default open)
-secopsctl iocs find <value> [value…] [--type md5|sha1|sha256|domain|ip] [--json]           # IoC lookup (built, read)
-secopsctl iocs get  <ioc-id> [--json]                                                      # one IoC (built, read)
-secopsctl iocs related <ioc-id> [--collection-type campaign|report|all] [--json]           # IoC → campaigns/reports (built, read)
-secopsctl ti collections [--types campaign,report,…] [--limit N] [--json]                  # threat intel (built, read)
-secopsctl ti related <collection-alt-name-or-id> [--json]                                  # collection match counts (built, read)
-secopsctl query nl '<question>'    [--hours N] [--limit N] [--translate-only] [--json]     # NL → UDM → search (built, read)
-secopsctl stats     '<query>'      [--hours N]                                             # aggregations (planned)
-secopsctl entity summarize <type> <value> [--hours N] [--json]                             # built, read
+secopsctl cases list [--status open|closed|all] [--assignee S] [--priority P] [--tag T] [--since 24h] [--limit N] [--json]  # cases (built, default open)
+secopsctl ti find <value> [value…] [--type md5|sha1|sha256|domain|ip] [--json]             # IoC lookup (built, read)
+secopsctl ti get  <ioc-id> [--json]                                                        # one IoC by resource id (built, read)
+secopsctl ti related <ioc-id> [--collection-type campaign|report|all] [--json]             # IoC → campaigns/reports (built, read)
+secopsctl ti collections [--types campaign,report,…] [--limit N] [--json]                  # threat collections (built, read)
+secopsctl ti collection-matches <collection-alt-name-or-id> [--json]                       # collection match counts (built, read)
+secopsctl gemini search '<question>' [--hours N] [--limit N] [--json]                       # NL → UDM → run (built, read)
+secopsctl gemini generate '<question>'                                                     # NL → UDM, do not run (built, read)
+secopsctl entities summarize <type> <value> [--hours N] [--json]                           # built, read
 ```
 
 - **Default output is a compact table** (id, key fields, status/time) for humans;
   `--json` emits the raw objects for scripting and **piping into an act command**.
 - **`--limit` is mandatory-with-a-default** (e.g. 100 for alerts/cases; 10000 for
-  `query udm`) so a query never pulls the whole tenant by accident; large pulls
+  `search udm`) so a query never pulls the whole tenant by accident; large pulls
   require an explicit large `--limit`.
 
 ### The act model — single + subset, **safe by construction**
@@ -166,13 +167,13 @@ bulk action). Both are **guarded exactly like `push`**: LIVE banner, **dry-run b
 default**, real apply needs `--yes`.
 
 **1. Per-item** — unambiguous, low blast radius. Case verbs are **built today**
-under `soar case` (Legacy AppKey, verified); `alerts` is the planned model:
+under `cases` (Legacy AppKey, verified); `alerts` is the planned model:
 
 ```bash
 secopsctl alerts update <id> --verdict FALSE_POSITIVE --priority LOW [--comment "…"]   # planned
-secopsctl soar case describe --id N --description "triaged: benign"                    # built
-secopsctl soar case assign   --id N --user <analyst>                                   # built
-secopsctl soar case close    --id N --reason "<…>" --root-cause "…"                    # built
+secopsctl cases describe --id N --description "triaged: benign"                        # built
+secopsctl cases assign   --id N --user <analyst>                                       # built
+secopsctl cases close    --id N --reason "<…>" --root-cause "…"                        # built
 ```
 
 **2. Subset (bulk)** — the dangerous one; two selection paths, **safest first**:
@@ -207,21 +208,21 @@ as a config `push`.
 
 ### Command tree
 
-*Designed shape, mixing built and planned. **Built today:** `query udm`, `alerts
-list`/`get`, `iocs find`/`get`, `ti collections`/`collection`, the full `soar case`
+*Designed shape, mixing built and planned. **Built today:** `search udm`, `alerts
+list`/`get`, `ti find`/`get`, `ti collections`/`collection`, the full `cases`
 lifecycle (`list`/`get` + the mutate verbs), and `soar push bulk-close`. The `alerts`
 **act** verbs (`update`/`bulk`) and the generalized SIEM bulk model are planned. The
-bare `cases list/get/search` command reaches the chronicle-host UUID path, which 500s
-today — prefer `soar case`. Authoritative per-command status is in
-[catalog.md](catalog.md).*
+top-level `cases` command is the working case surface (SOAR-routed); the
+chronicle-host UUID route is a dead alternate that 500s today. Authoritative
+per-command status is in [catalog.md](catalog.md).*
 
 ```text
-secopsctl query udm | alerts list/get | iocs find/get/related | ti collections/related | entity summarize # read
-secopsctl query udm '<filter>' --raw [--limit N]                                             # raw log line per matched event (UDM-scoped) -> parsers run --logs -
-secopsctl query raw '<regex>' [--unparsed] [--limit N]                                        # content-based raw log search (reaches no-parser logs) -> parsers run --logs -
-secopsctl alerts    update | bulk <close|verdict|priority|comment>                           # act (planned)
-secopsctl soar case list | get | assign | rename | stage | tag | untag | describe | importance | close | merge
-secopsctl soar push bulk-close                                                   # queue bulk-close (fixed reason)
+secopsctl search udm | alerts list/get | ti find/get/related/collections/collection-matches | entities summarize # read
+secopsctl search udm '<filter>' --raw [--limit N]                                             # raw log line per matched event (UDM-scoped) -> ingest parsers run --logs -
+secopsctl search raw '<regex>' [--unparsed] [--limit N]                                        # content-based raw log search (reaches no-parser logs) -> ingest parsers run --logs -
+secopsctl alerts    update | bulk <close|verdict|priority|comment>                            # act (planned)
+secopsctl cases list | get | assign | rename | stage | tag | untag | describe | importance | close | merge
+secopsctl soar push bulk-close                                                    # queue bulk-close (fixed reason)
 ```
 
 ---
@@ -243,29 +244,29 @@ secopsctl soar push bulk-close                                                  
   for `git diff`; that would imply a desired state they don't have. (A read-only
   *export* of a query result to JSON is fine — it's a report, not a mirror.)
 
-## Case management — built and verified (`soar case`)
+## Case management — built and verified (`cases`)
 
 The full case triage lifecycle is **done**. It runs on the **siemplify** domain, not
-the chronicle host: `soar case list` defaults to the modern New API (v1alpha,
+the chronicle host: `cases list` defaults to the modern New API (v1alpha,
 `soar.ListCases`) and auto-falls back to the broad, reliable Legacy external API;
-`soar case get` and the mutate verbs run on Legacy. `get` uses `GetCaseFullDetails`,
+`cases get` and the mutate verbs run on Legacy. `get` uses `GetCaseFullDetails`,
 which returns the case **and its alerts** (each alert carries the `--alert` id the
 verbs take). Cases key on an **integer** id (`--id N`), not a UUID.
 
 ```text
 # query
-secopsctl soar case list  [--status open|closed|all] [--limit N] [--json] # New API, Legacy fallback (default open)
-secopsctl soar case get <id>                                              # case + its alerts (Legacy)
+secopsctl cases list  [--status open|closed|all] [--limit N] [--json]     # New API, Legacy fallback (default open)
+secopsctl cases get <id>                                                  # case + its alerts (Legacy)
 
 # per-item act (guarded: dry-run default, --yes to apply)
-secopsctl soar case assign     --id N --user <userId>
-secopsctl soar case rename     --id N --title "<…>"
-secopsctl soar case stage      --id N --stage "<…>"
-secopsctl soar case tag        --id N --tag "<…>"        # untag to remove
-secopsctl soar case describe   --id N --description "<…>"
-secopsctl soar case importance --id N [--important=false]
-secopsctl soar case close      --id N --reason "<…>" [--root-cause "<…>"] [--comment "<…>"]
-secopsctl soar case merge      --ids 1,2,3 --into N
+secopsctl cases assign     --id N --user <userId>
+secopsctl cases rename     --id N --title "<…>"
+secopsctl cases stage      --id N --stage "<…>"
+secopsctl cases tag        --id N --tag "<…>"        # untag to remove
+secopsctl cases describe   --id N --description "<…>"
+secopsctl cases importance --id N [--important=false]
+secopsctl cases close      --id N --reason "<…>" [--root-cause "<…>"] [--comment "<…>"]
+secopsctl cases merge      --ids 1,2,3 --into N
 
 # queue bulk-close (fixed reason enum: malicious|not-malicious|maintenance|inconclusive|unknown)
 secopsctl soar push bulk-close … --dry-run → review → --yes
@@ -281,7 +282,7 @@ cases → run every verb → merge → close). Status detail is in
 ### Still planned — alert act verbs and the generalized bulk model
 
 The `alerts` **read** namespace is wired (`alerts list`/`get`, read-validated;
-operators can also read alerts as a **field of the case** via `soar case get`). Two
+alerts are also readable as a **field of the case** via `cases get`). Two
 pieces of the operator model above are **not yet wired**: the alert **act** verbs
 (`alerts update`/`bulk` — `UpdateAlert`/`BulkUpdateAlerts` exist in the SDK, gated,
 not run), and the generalized subset-act model on a SIEM-native namespace

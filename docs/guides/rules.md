@@ -162,30 +162,30 @@ secopsctl pull curated_rules    # the individual curated rules (--filter EXPR)
 secopsctl push curated --dry-run  # reconcile curated/deployments.yaml
 secopsctl push curated --yes
 
-secopsctl curated list          # deployments with enable/alerting state (--filter)
-secopsctl curated rules         # the individual Google-managed rules
+secopsctl rules curated list    # deployments with enable/alerting state (--filter)
+secopsctl rules curated rules   # the individual Google-managed rules
 ```
 
 Toggle a deployment (guarded — dry-run by default):
 
 ```bash
-secopsctl curated set --category <category-id> --ruleset <ruleset-id> \
+secopsctl rules curated set --category <category-id> --ruleset <ruleset-id> \
   --precision precise --enabled --alerting --dry-run
 
-secopsctl curated set --category <category-id> --ruleset <ruleset-id> \
+secopsctl rules curated set --category <category-id> --ruleset <ruleset-id> \
   --precision precise --enabled --alerting --yes
 ```
 
 Use `push curated` when the desired state lives in `curated/deployments.yaml`.
-Use `curated set` for a one-off toggle. `--category`, `--ruleset`, and
+Use `rules curated set` for a one-off toggle. `--category`, `--ruleset`, and
 `--precision` are required; `--enabled` / `--alerting` apply only when present,
 so you can flip one without disturbing the other. Get the ids from
-`curated list --json`.
+`rules curated list --json`.
 
 ## See also
 
 - [the-loop.md](the-loop.md) — the pull → diff → push core loop
-- [query.md](query.md) — UDM search to develop and validate rule logic
+- [search.md](search.md) — UDM search to develop and validate rule logic
 - [../tips/03-yara-l-rules.md](../tips/03-yara-l-rules.md) — YARA-L authoring craft
 - [../design/catalog.md](../design/catalog.md) — surface status (source of truth)
 - [../design/siem.md](../design/siem.md) — SIEM plane design

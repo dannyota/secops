@@ -100,7 +100,7 @@ flowchart LR
   doc -->|config + auth + SIEM/SOAR reach| ok["✅ ready"]
 ```
 
-To get oriented before wiring auth, `secopsctl surfaces` (fully offline, no
+To get oriented before wiring auth, `secopsctl status surfaces` (fully offline, no
 config or credentials) lists every API family with its plane, host, auth, and
 whether it is reconcilable.
 

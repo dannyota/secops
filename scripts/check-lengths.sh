@@ -12,8 +12,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-MD_MAX=450   # published Markdown docs (guides/design/tips/SKILL/README/ROADMAP)
+MD_MAX=450   # published Markdown docs (guides/design/tips/README/ROADMAP)
 GO_MAX=700   # Go source files (non-test); a bigger file should be split by topic
+
+# skills/**/*.md (the SKILL agent guide) are intentionally EXEMPT from MD_MAX:
+# they are detailed, single-file references read by a local agent in one shot, not
+# published prose to navigate — completeness beats brevity there.
 
 # Known-oversize Go files — split-debt, not new bloat. SHRINK this list as the
 # files are broken up; a file that drops below GO_MAX is reported as removable.
@@ -36,7 +40,7 @@ while IFS= read -r f; do
     violations=$((violations + 1))
   fi
 done < <(
-  { find docs -name '*.md'; find skills -name '*.md' 2>/dev/null; echo ROADMAP.md; echo README.md; } | sort -u
+  { find docs -name '*.md'; echo ROADMAP.md; echo README.md; } | sort -u
 )
 
 # --- Go source (non-test) ---

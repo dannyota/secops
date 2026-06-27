@@ -40,7 +40,7 @@ secopsctl pull all
 
 SOAR has its own mirror under `secopsctl soar pull <target>` (connectors, jobs,
 playbooks, grouping, cases, and the engine surfaces). On dual-generation
-surfaces (currently `soar case list`) the CLI prefers the modern API and falls
+surfaces (currently `cases list`) the CLI prefers the modern API and falls
 back to the reliable legacy AppKey path on error — the global `--legacy` flag
 forces legacy outright. See
 [reconcile.md](reconcile.md) for the full target set on both planes, and
@@ -154,6 +154,6 @@ matches the instance. A committed-but-undeployed change is not done.
 - [configure.md](configure.md) — config + auth (do this first)
 - [rules.md](rules.md) — rule pull/create/update/deploy/disable paths
 - [reconcile.md](reconcile.md) — full reconcile model, every target, `--prune`
-- [query.md](query.md) — ad-hoc UDM search (read-only)
+- [search.md](search.md) — ad-hoc UDM search (read-only)
 - [../design/architecture.md](../design/architecture.md) — how the loop is built
 - [../design/catalog.md](../design/catalog.md) — per-surface status (source of truth)

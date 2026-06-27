@@ -60,12 +60,19 @@ Reference lists have no delete API. To neutralize a list without removing the
 object, use the guarded helper:
 
 ```bash
-secopsctl reference_lists empty <name> --dry-run
-secopsctl reference_lists empty <name> --yes
+secopsctl lists empty <name> --dry-run
+secopsctl lists empty <name> --yes
 ```
 
 The preview resolves the target and prints only the entry count. Re-pull
 `reference_lists` after applying so the local `.txt` is empty too.
+
+> **`lists` is the imperative home for both reference lists and watchlists.**
+> `lists empty` neutralizes a reference list; `lists watchlists …`
+> (`create`/`get`/`list`/`delete`/`add-entity`/`remove-entity`) manages entity
+> watchlists. The config-as-code mirror, however, keeps its directory name:
+> `pull reference_lists` / `push reference_lists` (the `reference_lists/` tree)
+> are unchanged — only the standalone command group is `lists`.
 
 ## Data tables
 

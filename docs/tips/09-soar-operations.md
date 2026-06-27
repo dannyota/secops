@@ -1,4 +1,4 @@
-# SOAR operations
+# 09 · SOAR operations
 
 Google SecOps pairs the Chronicle **SIEM** with **Chronicle SOAR** (formerly
 Siemplify — Google acquired and rebranded it; the API still carries the older URL
@@ -141,3 +141,20 @@ Export and version the SOAR state that matters for review and disaster recovery:
 
 As with every other entity, the file is the reviewable artifact; the live
 instance is the thing you actually deploy to.
+
+### The SOAR command groups
+
+The modern groups are plural and split by object:
+
+- **`soar playbooks …`** — playbook lifecycle (list/export/import/deploy/run/debug,
+  components, simulation).
+- **`soar integrations …`** and **`soar jobs …`** — integration install/configure and
+  connector/job instance config (schedules, parameters, filters).
+- **`soar connector …`** — connector run/stat operations.
+- **`soar ide …`** — authoring/scaffolding: `soar ide build-playbook` and
+  `soar ide package-integration` for hand-built playbook and integration content.
+
+Installable vendor content (integrations, content packs) comes from the **Content
+Hub**, exposed as the top-level **`content-hub`** group
+(`browse`/`list`/`get`/`install`/`uninstall`/`contentpacks`) — install the
+integration, then configure its instance with `soar integrations configure`.

@@ -38,6 +38,15 @@ optional `--json`, clear `--help`.
   flow function, trigger, block), author offline or through the API, then
   run, debug, roll back, and promote. See the
   [playbooks guide](docs/guides/playbooks.md).
+- **Hunt and search** — `search udm`/`raw`/`stats`/`event`/`export`/`validate`
+  over UDM events, with agent-first output (`--format jsonl|json|csv|table`,
+  `--fields` dotted-path projection, `--out`, and `--all` for the complete result
+  set plus a total match count) and server-side **saved & shared** searches
+  (`search saved …`). See the [search guide](docs/guides/search.md).
+- **Natural-language search with Gemini** — `gemini generate` (NL → UDM, no run),
+  `gemini search` (NL → UDM, then run), and `gemini ask` (the SecOps assistant);
+  the model's suggested time window is honored, generations respect read-only mode,
+  and the AI path is one-time opt-in. See the [Gemini guide](docs/guides/gemini.md).
 - **Built for agents** — a hard read-only mode (`SECOPS_READONLY=1` /
   `--read-only`), `--non-interactive`, a machine-readable command catalog
   (`secopsctl commands --json`), and a local mutation audit log
@@ -103,7 +112,7 @@ secopsctl doctor
 ```
 
 Then run the loop (`pull` → review the `git diff` → `push`); see the
-[command reference](docs/guides/usage.md) and
+command reference ([SIEM](docs/guides/reference-siem.md) · [SOAR](docs/guides/reference-soar.md)) and
 [configure guide](docs/guides/configure.md).
 
 ## Use as a Go SDK
@@ -133,7 +142,7 @@ The [docs site](https://secops.danny.vn) is organized in three folders:
 
 | Folder | For | Start here |
 |---|---|---|
-| [guides/](docs/guides/) | **using** secopsctl | [Install](docs/guides/install.md) → [Configure](docs/guides/configure.md) → [The loop](docs/guides/the-loop.md) · then [Triage](docs/guides/triage.md) · [Playbooks](docs/guides/playbooks.md) · [Rules](docs/guides/rules.md) · [Query](docs/guides/query.md) · [SOAR cases](docs/guides/soar-cases.md) · [Reconcile](docs/guides/reconcile.md) · [Go SDK](docs/guides/sdk.md) · [Command reference](docs/guides/usage.md) |
+| [guides/](docs/guides/) | **using** secopsctl | [Install](docs/guides/install.md) → [Configure](docs/guides/configure.md) → [The loop](docs/guides/the-loop.md) · then [Triage](docs/guides/triage.md) · [Playbooks](docs/guides/playbooks.md) · [Rules](docs/guides/rules.md) · [Search](docs/guides/search.md) · [Gemini](docs/guides/gemini.md) · [Content Hub](docs/guides/content-hub.md) · [SOAR cases](docs/guides/soar-cases.md) · [Reconcile](docs/guides/reconcile.md) · [Go SDK](docs/guides/sdk.md) · [Reference: SIEM](docs/guides/reference-siem.md) · [Reference: SOAR](docs/guides/reference-soar.md) |
 | [design/](docs/design/) | **building** secopsctl | [Architecture](docs/design/architecture.md) · [Surfaces](docs/design/surfaces.md) · [Catalog (status)](docs/design/catalog.md) · [Roadmap](ROADMAP.md) |
 | [tips/](docs/tips/) | the SecOps **craft** | [SecOps as code](docs/tips/01-secops-as-code.md) · [YARA-L](docs/tips/03-yara-l-rules.md) · [SOAR ops](docs/tips/09-soar-operations.md) |
 

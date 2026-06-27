@@ -11,7 +11,8 @@ The contract every doc in `docs/` follows. Keep it short; keep it true to the co
 | `tips/` | anyone operating **Google SecOps** | *what's the craft?* (YARA-L, UDM, feeds, SOAR — tenant-neutral practice) |
 
 Root holds only the map (`README.md`), this guide (`STYLE.md`), and the `GLOSSARY.md`.
-One concept per file. If a file passes ~300 lines, split it.
+One concept per file. If a file passes **450 lines**, split it (the enforced cap; see
+*Length + lint* below).
 
 ## ✍️ Voice
 
@@ -60,6 +61,16 @@ breaks (not `\n`) and escape literal angle brackets in labels as `&lt;`/`&gt;`.
 
 - Every command, flag, and path shown must exist in the code (verify against
   `--help` / the source, not memory).
+- **Names must match the current renamed surface — no removed aliases.** Use the
+  canonical command name as it stands in the binary today (`search`, `gemini`,
+  `rules curated`, `rules exclusions`, `ti`, `lists`, `ingest`, `content-hub`,
+  `status`, `cases`, `entities`, `soar playbooks`/`integrations`/`jobs`/`ide`).
+  Earlier names that were hard-renamed (`query`, `curated`, `iocs`,
+  `reference-lists`, `watchlists`, `soar marketplace`, `capabilities`/`coverage`/
+  `surfaces`, `feeds`/`parsers`/`forwarders` as top-level commands) are **gone, no
+  back-compat aliases** — never write them. (Mirror-tree `pull`/`push` *target* args
+  stay snake_case — `pull reference_lists`, `pull data_tables`, `pull curated` — they
+  name on-disk directories, not the renamed command groups.)
 - **`design/catalog.md` is the source of truth for surface status** (designed /
   built / validated); other docs link to it rather than re-stating status.
 - Design changes land **with the code** in the same change — docs and code never

@@ -18,6 +18,13 @@ flowchart LR
   feed -. "state: FAILED → starved" .-> det
 ```
 
+> **The `ingest` command group owns ingestion read/inspect verbs.** Feeds,
+> forwarders, parsers, log-types, the pipeline, and the rollup health check all live
+> under `ingest …` (`ingest feeds …`, `ingest forwarders …`, `ingest parsers …`,
+> `ingest log-types …`, `ingest pipeline …`, `ingest health`). The config-as-code
+> mirror keeps its directory names: `pull feeds` / `push feeds` (the `feeds/` tree)
+> and `pull parsers` / `push parsers` (the `parsers/` tree) are unchanged.
+
 ## Feeds
 
 A feed is one ingestion source: an API poller, a cloud-storage bucket, a webhook,
@@ -53,7 +60,8 @@ feed config**, not by editing the repo YAML: the YAML mirrors live state; it is
 not where credentials live (see next section).
 
 > Make "`pull feeds` and grep for `FAILED`" a routine health check, not just a
-> break-glass step.
+> break-glass step. `secopsctl ingest health` is the one-shot rollup — it surfaces
+> failing/starved feeds across the instance without pulling the YAML.
 
 ### Secrets never live in the repo
 
@@ -156,13 +164,13 @@ secopsctl push parsers --yes         # creates + activates a NEW version; live i
 Because the push activates immediately, test first and keep a rollback handy:
 
 ```bash
-secopsctl parsers run <LOG_TYPE> --cbn parsers/<LOG_TYPE>.conf --logs samples.txt  # parse sample logs, no server change
-secopsctl parsers versions <LOG_TYPE>          # list versions (id · state · created)
-secopsctl parsers activate <LOG_TYPE> <id>     # roll back to a prior version (guarded)
+secopsctl ingest parsers run <LOG_TYPE> --cbn parsers/<LOG_TYPE>.conf --logs samples.txt  # parse sample logs, no server change
+secopsctl ingest parsers versions <LOG_TYPE>          # list versions (id · state · created)
+secopsctl ingest parsers activate <LOG_TYPE> <id>     # roll back to a prior version (guarded)
 ```
 
-For authoring a new feed, `secopsctl feeds schemas [--source-type <type>]` lists
-the source types and their log types (the field reference for the YAML).
+For authoring a new feed, `secopsctl ingest feeds schemas [--source-type <type>]`
+lists the source types and their log types (the field reference for the YAML).
 
 Like feeds, parsers are **not prune-eligible**: a missing local file never
 deletes a live parser. (The active set is derived from your feeds' log types, so

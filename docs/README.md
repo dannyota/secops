@@ -56,8 +56,18 @@ including where to find your four identifiers and your SOAR host:
 - **Playbooks end to end** — discover the authoring palette (every action, flow
   function, trigger, block), author offline or through the API, then run, debug,
   roll back, and promote. See [Playbooks](guides/playbooks.md).
-- **Hunt and search** — ad-hoc UDM search over events from the command line,
-  with `--json` for piping. See [Query](guides/query.md).
+- **Hunt and search** — `search udm`/`raw`/`stats`/`event`/`export`/`validate`
+  over UDM events, with agent-first output (`--format jsonl|json|csv|table`,
+  `--fields` dotted-path projection, `--out`, `--all` for the complete result set
+  plus a total match count) and server-side **saved & shared** searches
+  (`search saved …`). See [Search](guides/search.md).
+- **Natural-language search with Gemini** — `gemini generate` (NL → UDM, no run),
+  `gemini search` (NL → UDM, then run), `gemini ask` (the SecOps assistant). The
+  model's suggested time window is honored; the AI path is one-time opt-in and
+  read-only-aware. See [Gemini](guides/gemini.md).
+- **Install from the Content Hub** — `content-hub browse`/`list`/`get` plus the
+  reversible, guarded `install`/`uninstall` for marketplace integrations and
+  content packs. See [Content Hub](guides/content-hub.md).
 - **Use it as a Go SDK** — three importable clients (pure API, no file I/O),
   split by surface and credential; constructing one never touches the network.
   See [Go SDK](guides/sdk.md).
@@ -85,7 +95,7 @@ flowchart LR
 
   subgraph OPS["OPERATIONAL plane — live data"]
     direction LR
-    query["query<br/>list · search · udm"] --> review{"review<br/>subset"} --> act["act<br/>dry-run → --yes"]
+    search["search · list<br/>udm · stats · gemini"] --> review{"review<br/>subset"} --> act["act<br/>dry-run → --yes"]
   end
 
   SIEM --> CONTROL
@@ -106,16 +116,16 @@ flowchart LR
 
 | | **SIEM** · Chronicle | **SOAR** · Siemplify |
 |---|---|---|
-| **Control**<br/>`pull → push` | rules · reference_lists · data_tables · feeds · parsers · dashboards · curated\* | webhooks · environments · networks · idp · soc-roles · case-stages · playbooks · … |
-| **Operational**<br/>`query → act` | events (read-only) · alerts · cases† | `soar case list`/`get` (read) · `soar case` (per-case verbs) · bulk-close |
+| **Control**<br/>`pull → push` | rules · lists · data_tables · ingest · dashboards · rules curated\* | webhooks · environments · networks · idp · soc-roles · case-stages · playbooks · content-hub · … |
+| **Operational**<br/>`search → act` | events · alerts · cases† — read via `search` · `gemini` · `ti` | `cases list`/`get` (read) · `cases` (per-case verbs) · `soar push bulk-close` |
 
-<sub>† One case, two APIs on the SOAR domain: `soar case list` defaults to the New API (v1alpha) and auto-falls back to the reliable Legacy AppKey queue. \* curated = Google-managed: read + enable/disable, not full CUD. Authoritative set + live status in [design/catalog.md](design/catalog.md).</sub>
+<sub>† One case, two APIs on the SOAR domain: `cases list` defaults to the New API (v1alpha) and auto-falls back to the reliable Legacy AppKey queue. \* `rules curated` = Google-managed: read + enable/disable, not full CUD. The `lists`/`ingest` command groups cover reference lists/watchlists and feeds/parsers/forwarders; their config-as-code `pull`/`push` *targets* keep snake_case mirror-dir names (`reference_lists`, `feeds`, `parsers`, `curated`). Authoritative set + live status in [design/catalog.md](design/catalog.md).</sub>
 
 ## 🧭 Find your way
 
 | Folder | For | Start here |
 |---|---|---|
-| 🧭 **[guides/](guides/)** | using `secopsctl` | [Install](guides/install.md) → [Configure & auth](guides/configure.md) → [The loop](guides/the-loop.md) · then [Triage](guides/triage.md) · [Playbooks](guides/playbooks.md) · [Rules](guides/rules.md) · [Query](guides/query.md) · [SOAR cases](guides/soar-cases.md) · [Reconcile](guides/reconcile.md) · [Go SDK](guides/sdk.md) · [Command reference](guides/usage.md) |
+| 🧭 **[guides/](guides/)** | using `secopsctl` | [Install](guides/install.md) → [Configure & auth](guides/configure.md) → [The loop](guides/the-loop.md) · then [Triage](guides/triage.md) · [Playbooks](guides/playbooks.md) · [Rules](guides/rules.md) · [Search](guides/search.md) · [Gemini](guides/gemini.md) · [Content Hub](guides/content-hub.md) · [SOAR cases](guides/soar-cases.md) · [Reconcile](guides/reconcile.md) · [Go SDK](guides/sdk.md) · [Reference: SIEM](guides/reference-siem.md) · [Reference: SOAR](guides/reference-soar.md) |
 | 📐 **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Surfaces](design/surfaces.md) · [Catalog (status)](design/catalog.md) |
 | 💡 **[tips/](tips/)** | the SecOps craft | [All tips](tips/README.md) — [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [dashboards](tips/06-dashboards.md) · [feeds & parsers](tips/08-feeds-parsers.md) · [SOAR ops](tips/09-soar-operations.md) |
 

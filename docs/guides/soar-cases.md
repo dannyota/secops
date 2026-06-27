@@ -5,9 +5,9 @@ mutations (assign, tag, close, merge, …). Every mutating verb is **dry-run by
 default** — pass `--yes` to apply. This page is the per-verb reference; the
 end-to-end alert → case → rule walkthrough is [Triage](triage.md).
 
-`caseId` is the **SOAR integer id**, not the SIEM UUID. Get it from `soar case
-list`; the Chronicle-host UUID path (`secopsctl cases`) is a separate, read-only
-surface — see [the loop](the-loop.md).
+`caseId` is the **SOAR integer id**, not the SIEM UUID. Get it from `cases list`.
+A SIEM case UUID resolves to its SOAR id via `cases soar-id <uuid>` — see
+[the loop](the-loop.md).
 
 SOAR auth is the **AppKey** (no ADC) and needs `soar_url` set. See
 [configure](configure.md).
@@ -15,12 +15,12 @@ SOAR auth is the **AppKey** (no ADC) and needs `soar_url` set. See
 ## 🔒 Read
 
 ```bash
-secopsctl soar case list                       # default: open cases
-secopsctl soar case list --status all --limit 50
-secopsctl soar case list --priority high --assignee tier1 --since 24h   # triage filters
-secopsctl soar case get 12345                   # case header + its alerts
-secopsctl soar case get 12345 --json            # raw GetCaseFullDetails
-secopsctl soar case comment list --id 12345     # the case-wall comments
+secopsctl cases list                       # default: open cases
+secopsctl cases list --status all --limit 50
+secopsctl cases list --priority high --assignee tier1 --since 24h   # triage filters
+secopsctl cases get 12345                   # case header + its alerts
+secopsctl cases get 12345 --json            # raw GetCaseFullDetails
+secopsctl cases comment list --id 12345     # the case-wall comments
 ```
 
 - `list` shows a compact table (or `--json` for the raw queue); `--status` is
@@ -39,7 +39,7 @@ secopsctl soar case comment list --id 12345     # the case-wall comments
 
 ## 🧭 Mutating verbs
 
-Each verb is `secopsctl soar case <verb> --id N <verb-flags>`. Most verbs share
+Each verb is `secopsctl cases <verb> --id N <verb-flags>`. Most verbs share
 `--id` (required) and the `--dry-run` (default) / `--yes` apply gate; many also
 take an optional `--alert` (scope the action to one alert) — see the table's
 `--alert` column. The exception is `merge`, which takes
@@ -62,9 +62,9 @@ take an optional `--alert` (scope the action to one alert) — see the table's
 
 ### Per-alert verbs
 
-A case groups several alerts; `soar case alert <verb>` acts on **one alert**
+A case groups several alerts; `cases alert <verb>` acts on **one alert**
 inside it. Every verb takes `--id N` (the case) plus `--alert <identifier>`
-(printed per alert by `soar case get`):
+(printed per alert by `cases get`):
 
 | Verb | Extra flag(s) | Does |
 |---|---|---|
@@ -74,16 +74,16 @@ inside it. Every verb takes `--id N` (the case) plus `--alert <identifier>`
 | `alert reopen` | — | Reopen one closed alert |
 
 ```bash
-secopsctl soar case tag --id 12345 --tag triaged          # dry run (preview)
-secopsctl soar case tag --id 12345 --tag triaged --yes    # apply
+secopsctl cases tag --id 12345 --tag triaged          # dry run (preview)
+secopsctl cases tag --id 12345 --tag triaged --yes    # apply
 
-secopsctl soar case close --id 12345 --reason not-malicious \
+secopsctl cases close --id 12345 --reason not-malicious \
   --root-cause "Normal behavior" --comment "verified benign" --yes
 
-secopsctl soar case alert close --id 12345 --reason not-malicious \
+secopsctl cases alert close --id 12345 --reason not-malicious \
   --alert "SUSPICIOUS LOGIN_00000000-0000-0000-0000-000000000000__RULE_DETECTION" --yes
 
-secopsctl soar case merge --ids 12346,12347 --into 12345 --yes
+secopsctl cases merge --ids 12346,12347 --into 12345 --yes
 ```
 
 Run any verb without `--yes` first, read the preview, then re-run with `--yes`.
@@ -94,9 +94,9 @@ Run any verb without `--yes` first, read the preview, then re-run with `--yes`.
 List them first so you pass an existing one:
 
 ```bash
-secopsctl soar case values tags         # valid --tag values
-secopsctl soar case values stages       # valid --stage values
-secopsctl soar case values root-causes  # valid --root-cause values
+secopsctl cases values tags         # valid --tag values
+secopsctl cases values stages       # valid --stage values
+secopsctl cases values root-causes  # valid --root-cause values
 ```
 
 (The same values are also mirrored to files by `soar pull case-tags` /
@@ -107,7 +107,7 @@ with `soar users list` to find the id (a role is passed as `@RoleName`).
 
 ## 🧹 Bulk-close a queue
 
-`soar case close` closes one case. To close **many** cases at once, use the
+`cases close` closes one case. To close **many** cases at once, use the
 queue verb:
 
 ```bash
@@ -119,7 +119,7 @@ The reason is one of `malicious | not-malicious | maintenance | inconclusive |
 unknown` (typed enum, not free text). This is a guarded `soar push` surface — see
 [reconcile](reconcile.md) for the dry-run → review → `--yes` model.
 
-Both verbs take the **same fixed enum**: single-case `soar case close --reason`
+Both verbs take the **same fixed enum**: single-case `cases close --reason`
 and `soar push bulk-close --reason` each accept `malicious | not-malicious |
 maintenance | inconclusive | unknown`, so single and bulk closes aggregate
 consistently in metrics. Put a custom root-cause in `--root-cause` and a free-text
@@ -137,10 +137,10 @@ no-op for it.
 
 ```mermaid
 flowchart LR
-  list["soar case list"] --> modern["v1alpha cases (SOAR host)"]
+  list["cases list"] --> modern["v1alpha cases (SOAR host)"]
   modern -- "error" --> legacy["legacy AppKey queue"]
   list -. "--legacy" .-> legacy
-  get["soar case get"] --> legacy
+  get["cases get"] --> legacy
 ```
 
 Both lanes are the **SOAR host** (`<tenant>.siemplify-soar.com`, AppKey) — never

@@ -81,6 +81,12 @@ The endpoint paginates; **slug collisions** within a rule set (two rules sharing
 display name) are disambiguated by appending a short slice of the rule ID to the
 filename.
 
+> The curated-rule *source* rides this featured-content endpoint, but the broader
+> **Content Hub** — installable integrations and content packs — is its own
+> top-level command group, `content-hub` (`browse`/`list`/`get`/`install`/
+> `uninstall`/`contentpacks`). That governs SOAR-plane content, not these
+> SIEM-side curated rules.
+
 ### Filtering the pull
 
 The full catalog is large. `pull curated_rules --filter EXPR` passes a filter
@@ -123,10 +129,14 @@ at the rule set. Read and toggle from the CLI:
 
 | Command | Effect |
 |---|---|
-| `curated list [--filter SUBSTR] [--json]` | 🔒 read — list deployments with `enabled`/`alerting` (filter is a case-insensitive substring on the rule-set display name) |
-| `curated rules [--json]` | 🔒 read — list the individual Google-managed rules |
+| `rules curated list [--filter SUBSTR] [--json]` | 🔒 read — list deployments with `enabled`/`alerting` (filter is a case-insensitive substring on the rule-set display name) |
+| `rules curated rules [--json]` | 🔒 read — list the individual Google-managed rules |
 | `push curated [--dry-run\|--yes]` | ⚠️ guarded mutation — reconcile `curated/deployments.yaml` to live deployment flags |
-| `curated set --category C --ruleset R --precision precise\|broad [--enabled[=bool]] [--alerting[=bool]]` | ⚠️ guarded mutation — flip one deployment's flags (`--dry-run` → review → `--yes`) |
+| `rules curated set --category C --ruleset R --precision precise\|broad [--enabled[=bool]] [--alerting[=bool]]` | ⚠️ guarded mutation — flip one deployment's flags (`--dry-run` → review → `--yes`) |
+
+The read/toggle verbs live under `rules curated …`; the config-as-code mirror keeps
+its directory name — `pull curated` / `pull curated_rules` / `push curated` (the
+`curated/` tree) are unchanged.
 
 Under the hood `set` calls `UpdateCuratedRuleSetDeployment`; `push curated` uses
 `BatchUpdateCuratedRuleSetDeployments`, the atomic multi-deployment write primitive.

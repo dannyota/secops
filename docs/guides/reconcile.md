@@ -64,7 +64,7 @@ what push deploys.
 > **Not every pull target is a create/update/delete surface.** `curated` reconciles
 > only deployment flags from `curated/deployments.yaml`; Google-managed rule sets
 > cannot be created or deleted. `curated_rules` is read-only reference material. For
-> a one-off curated toggle, use `secopsctl curated set`. See
+> a one-off curated toggle, use `secopsctl rules curated set`. See
 > [curated rule sets](../tips/05-curated-rules.md).
 
 ## Prune: deleting server-only objects
@@ -83,7 +83,7 @@ secopsctl soar push webhooks --prune --yes       # apply deletions (LIVE)
   so a half-finished pull can't be read as "delete the rest."
 
 Only **prune-eligible** surfaces honor `--prune`; everywhere else it is a no-op.
-Run `secopsctl surfaces` for the live list (the `PRUNE` column). The split:
+Run `secopsctl status surfaces` for the live list (the `PRUNE` column). The split:
 
 | Honors `--prune` (prune-eligible) | Ignores `--prune` (NoDelete) |
 |---|---|
@@ -132,7 +132,7 @@ file templates.
 
 ## When an op isn't reconcilable: the raw lane
 
-Reconcile and the per-entity imperative verbs (`soar case`, `soar integration`,
+Reconcile and the per-entity imperative verbs (`cases`, `soar integrations`,
 `soar settings`) cover the modeled surfaces. For anything else — a batch upsert, an
 export/import bundle, a selector-bodied read, or any external-API op without a typed
 command — the **raw lane** keeps the same config-as-code loop: `secopsctl soar legacy

@@ -104,7 +104,7 @@ prompt) or override at run time:
 
 ```bash
 export SECOPS_SOAR_APP_KEY=your-soar-app-key
-secopsctl soar case list
+secopsctl cases list
 ```
 
 ## Find your SecOps identifiers

@@ -29,7 +29,7 @@ Rule-tuning reads (Wave 54, verified):
 
 Batch update: `rules:modifyRules` SDK (`ModifyRules`, per-index failure map) — built, exercised by the gated lifecycle smoke; the reconcile sweep stays per-rule PATCH until the batch path passes an approved smoke.
 
-Also: `ArchiveRule`. **`rules test <file.yaral>` (W95)** wires `RunTestRule` — dry-run a YARA-L rule against the last `--hours` of data and report the detections it would produce, WITHOUT creating the rule (beyond `validate`'s compile-check); compile errors surface, nothing is stored. Live-validated (5 detections over a real window).
+Also: `ArchiveRule`. **`rules test <file.yaral>` (W95)** wires `RunTestRule` — dry-run a YARA-L rule against the last `--hours` of data and report the detections it would produce, WITHOUT creating the rule (beyond `validate`'s compile-check); compile errors surface, nothing is stored. Verified.
 
 #### entities graph / data-access (W95)
 
@@ -37,7 +37,7 @@ Also: `ArchiveRule`. **`rules test <file.yaral>` (W95)** wires `RunTestRule` —
 
 Read verified; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create→update→deploy→archive→modifyRules→delete, self-cleaning).
 
-`rules promote <file.yaral>` (Wave 78): validate + create + deploy a brand-new rule in one guarded step (replaces `rules-create` then `rules-deploy`); writes the companion `.yaml`, refuses a file that already has one, shares the LIVE→HOURLY multi-event fallback. Live-validated (promote an inert disabled rule → deploy → delete, self-cleaning).
+`rules promote <file.yaral>` (Wave 78): validate + create + deploy a brand-new rule in one guarded step (replaces `rules-create` then `rules-deploy`); writes the companion `.yaml`, refuses a file that already has one, shares the LIVE→HOURLY multi-event fallback. Verified by the gated lifecycle smoke (promote an inert disabled rule → deploy → delete, self-cleaning).
 
 ### `reference_lists`
 
@@ -45,7 +45,7 @@ Typed `.txt`+`.yaml`; NoDelete; product-neutral engine.
 
 Resource-name normalization: create echoes the project NUMBER while list echoes the project ID — both rewritten to the id form so reconcile identity (keyed on the name) stays stable.
 
-Guarded `reference_lists empty <name>` clears entries for no-delete neutralization without printing values.
+Guarded `lists empty <name>` clears entries for no-delete neutralization without printing values (the reconcile target stays `pull`/`push reference_lists`).
 
 Write smoke `TestLiveReconcileReferenceListWriteSmoke` reuses one fixed inert list (no delete API) — fresh create-or-reuse + one update each run (rerunnable, no accumulation).
 
@@ -69,7 +69,7 @@ Secrets redacted on pull, overlaid on update (real secret preserved; create refu
 
 `details` replaced wholesale on PATCH. `assetNamespace` (read) vs `namespace` (write) reconciled — the API uses `assetNamespace`; short `logType` expanded to the full resource name on write.
 
-Feed state is a runtime toggle, out of canonical. Not prune-eligible (delete stops ingestion) — deletion is the explicit, guarded `feeds delete <id>` imperative.
+Feed state is a runtime toggle, out of canonical. Not prune-eligible (delete stops ingestion) — deletion is the explicit, guarded `ingest feeds delete <id>` imperative (the reconcile target stays `pull`/`push feeds`).
 
 Write smoke `TestLiveReconcileFeedWriteSmoke`; GCS V2 (`gcsV2Settings`, STS-backed) validated; `FetchFeedServiceAccount` for the STS SA grant; templates live in `examples/feed-templates/`.
 
@@ -87,12 +87,12 @@ Write smoke `TestLiveReconcileParserWriteSmoke` runs `RunParser` (pure inert val
 
 Parser-dev loop (read):
 
-- `parsers sample-logs <type>` — lists recent raw logs directly (`logTypes/<type>/logs`, `data` base64-decoded — the simplest raw-log path, no search)
-- `parsers run` — submit CBN for test
+- `ingest parsers sample-logs <type>` — lists recent raw logs directly (`logTypes/<type>/logs`, `data` base64-decoded — the simplest raw-log path, no search)
+- `ingest parsers run` — submit CBN for test
 - `push parsers` — submit for activation
-- `parsers validate <type>` — surfaces the submitted parser's validation-report parsing errors (`{parser}.validationReport` + `.../parsingErrors`: the per-log `error` message + failing log) — the detail behind a `push`/`activate` `FAILED_PRECONDITION` that otherwise gives no reason
+- `ingest parsers validate <type>` — surfaces the submitted parser's validation-report parsing errors (`{parser}.validationReport` + `.../parsingErrors`: the per-log `error` message + failing log) — the detail behind a `push`/`activate` `FAILED_PRECONDITION` that otherwise gives no reason
 
-Live read-validated against KONG_GATEWAY. SDK files: `chronicle/logs.go`, `chronicle/parsers.go`.
+Read-verified. SDK files: `chronicle/logs.go`, `chronicle/parsers.go`.
 
 ### `dashboards`
 
@@ -132,7 +132,7 @@ Authoring ergonomics (Wave 83, verified):
 - `add-chart --if-absent` + batch `add-charts --file <charts.json>` (validated up front, idempotent skip-by-title, `--pace`d under the chart quota) make a whole-dashboard build rerunnable
 - `add-chart`/`edit-chart` warn at author time when a `match:`/`outcome:` variable name collides with a reserved YARA-L keyword (e.g. `$rule`, `$events`) — these compile but 400 at execute time, rendering a blank chart; the warning names the offenders and suggests a rename. The reserved set is the YARA-L keyword reference (sections, modifiers, operators, size specifiers)
 
-Live-validated end to end by `TestLiveDashboardsAuthoringSmoke` (generated viz stored as a BAR series; run-chart/verify; in-place type/layout edit keeps the chart id; batch idempotent). Lossless deref-on-pull round-trip is a follow-up.
+Verified end to end by `TestLiveDashboardsAuthoringSmoke` (generated viz stored as a BAR series; run-chart/verify; in-place type/layout edit keeps the chart id; batch idempotent). Lossless deref-on-pull round-trip is a follow-up.
 
 Copy and delete (verified). `dashboards duplicate` defaults to the server **`:duplicate`** verb (`DuplicateDashboard`) — the same path the web console's Duplicate action takes — which mints the copy its **own independent charts and queries** in a single call (the copy shares no chart or query id with the source). `--deep-copy` selects the client-side fallback (`DeepCopyDashboard`): create a new dashboard with the source's filters, then recreate every chart fresh (source charts read in ONE `dashboardCharts:batchGet`; each query read via `GetQuery` and replayed inline through `AddChart`) — also fully independent, for when a server-side copy is unavailable. `dashboards delete` removes a whole dashboard (clean deletes succeed); when the backend returns a 500 it is diagnosed: a **corrupt** dashboard whose `definition.charts` hold dangling/non-owned references (charts owned by another dashboard or already gone) cannot be deleted by the API **or the web console**, the corrupt state can't be repaired first (`:removeChart` 404s; rewriting `definition.charts` 400s), and deleting the chart owner does not unstick the 500 — so it can only be removed by the platform (raise with Google support). Such corrupt dashboards are a legacy artifact, **not** something the current `:duplicate` verb produces.
 
@@ -142,19 +142,19 @@ Portability (verified). `dashboards export <id>` writes a self-contained JSON do
 
 Google-managed (no CUD): `pull curated` writes `curated/deployments.yaml`; `push curated` diffs it against live and calls `BatchUpdateCuratedRuleSetDeployments` for changed enabled/alerting tuples.
 
-`curated list` reads deployment state; guarded `curated set` remains the one-off toggle. **Curated read suite (W109):** `curated rule-sets [--category]` lists the curated rule SETS (`ListCuratedRuleSets`, all categories via the `-` wildcard); `curated rules` lists/searches the individual rules with client-side `--search` (name/description), `--set`, `--category`, `--tactic` (MITRE), `--severity` filters; `curated rule <id>` shows one rule's full detail (`GetCuratedRule`). The `CuratedRule` model carries `type`, `precision`, MITRE `tactics`/`techniques`, `description`, and the parent **`curatedRuleSet`** (the rule→set membership — every listed rule has it, so `--set` enumerates a set's rules). Curated YARA-L source is **not** API-exposed (Google-managed); the detail is metadata + MITRE + description.
+`rules curated list` reads deployment state; guarded `rules curated set` remains the one-off toggle. **Curated read suite (W109):** `rules curated rule-sets [--category]` lists the curated rule SETS (`ListCuratedRuleSets`, all categories via the `-` wildcard); `rules curated rules` lists/searches the individual rules with client-side `--search` (name/description), `--set`, `--category`, `--tactic` (MITRE), `--severity` filters; `rules curated rule <id>` shows one rule's full detail (`GetCuratedRule`). The `CuratedRule` model carries `type`, `precision`, MITRE `tactics`/`techniques`, `description`, and the parent **`curatedRuleSet`** (the rule→set membership — every listed rule has it, so `--set` enumerates a set's rules). Curated YARA-L source is **not** API-exposed (Google-managed); the detail is metadata + MITRE + description.
 
 Curated tuning reads (Wave 54, verified):
 
-- `curated detections <ur_id>` — `legacySearchCuratedDetections` (the curated twin of `rules detections`, which serves user rules only)
-- `curated trends --rule ur_a,… | --all` — `legacyGetCuratedRulesTrends`, day-bucketed counts + last detection; `--all` sweeps every curated rule in chunked requests
-- `curated events <detection-id>` — `legacyGetEventForDetection` (event + rationale behind one curated detection; answers 200 but can be empty for some detection types, e.g. GCTI_FINDING)
+- `rules curated detections <ur_id>` — `legacySearchCuratedDetections` (the curated twin of `rules detections`, which serves user rules only)
+- `rules curated trends --rule ur_a,… | --all` — `legacyGetCuratedRulesTrends`, day-bucketed counts + last detection; `--all` sweeps every curated rule in chunked requests
+- `rules curated events <detection-id>` — `legacyGetEventForDetection` (event + rationale behind one curated detection; answers 200 but can be empty for some detection types, e.g. GCTI_FINDING)
 
 Batch update verified by `TestLiveCuratedBatchToggleWriteSmoke` (self-restoring enable→verify→restore, alerting off).
 
 v1alpha is the only version that answers for curated rules — v1/v1beta 404.
 
-`curated set` blast-radius preview (Wave 78): before the guard, a best-effort read shows the addressed deployment's current → requested enabled/alerting state and the reminder that a deployment is set × precision. A set's rules are now enumerable with `curated rules --set <id>`, and per-set detection counts are available via `countAllCuratedRuleSetDetections` (a future inline blast-radius count); `curated trends` / `curated detections` show detection volume today.
+`rules curated set` blast-radius preview (Wave 78): before the guard, a best-effort read shows the addressed deployment's current → requested enabled/alerting state and the reminder that a deployment is set × precision. A set's rules are now enumerable with `rules curated rules --set <id>`, and per-set detection counts are available via `countAllCuratedRuleSetDetections` (a future inline blast-radius count); `rules curated trends` / `rules curated detections` show detection volume today.
 
 ### `rule_exclusions`
 
@@ -162,7 +162,7 @@ Findings refinements (display_name + type + UDM query + deployment enabled/archi
 
 Create + Update (PATCH/updateMask); deployment updates use the separate deployment PATCH. NoDelete (drift reported, never pruned); NoEtag.
 
-Guarded `rule_exclusions deploy <id> --enable|--disable|--archive` handles one-off toggles.
+Guarded `rules exclusions deploy <id> --enable|--disable|--archive` handles one-off toggles (the reconcile target stays `pull`/`push rule_exclusions`).
 
 Read + write verified (create→update→archive). The API has no hard delete — archive is the teardown.
 
@@ -270,29 +270,53 @@ The surface is quirky: create can return an error yet still persist; create→li
 
 ## Operational plane — query → act (live data)
 
-### events (UDM)
+### events (UDM) — `search`
 
-Immutable telemetry — **read-only, never mutated**. `query udm` and `query nl` (NL→UDM→search) are built; `stats` was designed then built.
+Immutable telemetry — **read-only, never mutated**. The deterministic `search` suite runs UDM predicates and aggregations against the events store; NL→UDM translation lives in the `gemini` group (below).
 
-**Query library (W75):** `query run --file <path>|-` runs a UDM predicate from a file or stdin (blank and `#`-comment lines are ignored — `examples/queries/*.udm` run directly). `query saved [<name>]` runs a query by name from a tracked `saved_queries/` pack, or lists it; names are path-sanitized. All reuse the shared `runUDMQuery` core, so window/`--limit`/`--raw`/`--json` semantics match `query udm`.
+Verbs:
 
-**`query stats` (W81; aggregation path re-routed in W101):** a plain event search (`query udm`) 400s on a `match:`/`outcome:` aggregation; `query stats '<aggregation YARA-L>'` runs the aggregation and prints the computed columns and rows (`--json` for raw output) — the CLI way to validate the exact YARA-L a dashboard chart uses before authoring. The `match:` section takes a field reference (`target.hostname`), not `$var = field`. Flags parse in any position (interspersed). The aggregation is executed over the **POST `dashboardQueries:execute`** path (`chronicle.ExecuteQuery`) — the same execution `dashboards run-chart` uses; the GET `:udmSearch` stats path (`chronicle.GetStats`) returns `400 INVALID_ARGUMENT` for `match:`/`outcome:` aggregations and is not used for this verb.
+- `search udm '<filter>'` — event search over a window (`--hours`/`--from`/`--to`, `--limit`)
+- `search stats '<aggregation YARA-L>'` — run a `match:`/`outcome:` aggregation and print the computed columns/rows (W81)
+- `search raw '<regex>'` / `search udm --raw` — raw-log retrieval (see *raw logs* below)
+- `search event <id>` — fetch a single UDM event by id
+- `search validate '<filter>'` — compile-check a UDM predicate without running it
+- `search run --file <path>|-` — run a UDM predicate from a file or stdin (blank and `#`-comment lines ignored — `examples/queries/*.udm` run directly; W75)
+- `search saved [<name>]` — run a tracked local `saved_queries/` pack query by name, or list (path-sanitized; W75) — distinct from the server-side `search saved` suite below
+- `search export` — stream a full result set to a file
+
+All reuse the shared `runUDMQuery` core, so window/`--limit` semantics match across verbs.
+
+**Agent-first output contract (v0.6.0):** every search verb takes `--format jsonl|json|csv|table` (default human table), `--fields <dotted.udm.path,…>` to project specific UDM fields, `--out <file>` to stream results to disk, and `--all` to fetch the complete result set and report the total match count (rather than just the first page). `--json` remains the back-compat alias for `--format json`. SDK: `chronicle/search.go`, `search_types.go`, `udm_search_view.go`, `udm_search_csv.go`, `stream_search.go`.
+
+**`search stats` (W81; aggregation path re-routed in W101):** a plain event search (`search udm`) 400s on a `match:`/`outcome:` aggregation; `search stats` runs the aggregation and prints the computed columns and rows — the CLI way to validate the exact YARA-L a dashboard chart uses before authoring. The `match:` section takes a field reference (`target.hostname`), not `$var = field`. Flags parse in any position (interspersed). The aggregation is executed over the **POST `dashboardQueries:execute`** path (`chronicle.ExecuteQuery`) — the same execution `dashboards run-chart` uses; the GET `:udmSearch` stats path (`chronicle.GetStats`) returns `400 INVALID_ARGUMENT` for `match:`/`outcome:` aggregations and is not used for this verb.
+
+### Saved & shared searches — `search saved` (v0.6.0)
+
+Server-side saved searches (the SecOps "saved searches" the console persists), distinct from the local `saved_queries/` pack that `search run`/`search saved <name>` read. SDK: `chronicle/saved_searches.go`.
+
+- `search saved list` / `get <id|name>` / `run <id|name>` — read + execute (read)
+- `search saved save <name> '<filter>'` — persist a search server-side; the `searchQueryId` is client-generated (guarded)
+- `search saved share <id>` / `unshare <id>` — flip `SharingMode` between `MODE_PRIVATE` and `MODE_SHARED_WITH_CUSTOMER` (visible author-only vs whole instance) via a `metadata.sharingMode` PATCH (guarded)
+- `search saved delete <id>` — remove a saved search (guarded)
+
+`save`/`share`/`unshare`/`delete` are guarded (dry-run by default).
 
 ### raw logs
 
-Recent **full** raw (ingested) log lines for parser development — two complementary paths, both fetching the complete bytes by raw-log id via `legacyFindRawLogs?ids=` (GET, batches of 25; `logBytes` base64-decoded), one line per log → pipe into `parsers run --logs -`.
+Recent **full** raw (ingested) log lines for parser development — two complementary paths, both fetching the complete bytes by raw-log id via `legacyFindRawLogs?ids=` (GET, batches of 25; `logBytes` base64-decoded), one line per log → pipe into `ingest parsers run --logs -`.
 
-**(1) `query udm '<filter>' --raw`** — scopes by UDM metadata (`metadata.log_type`), lifting each event's `udm.metadata.id`; precise, but requires a UDM event. A log type whose parser is missing or broken normalises to **GENERIC_EVENT** (still `parsed = true`), so `metadata.log_type = "<TYPE>" AND metadata.event_type = "GENERIC_EVENT"` returns exactly the logs a parser fix targets; `--limit` defaults to 100.
+**(1) `search udm '<filter>' --raw`** — scopes by UDM metadata (`metadata.log_type`), lifting each event's `udm.metadata.id`; precise, but requires a UDM event. A log type whose parser is missing or broken normalises to **GENERIC_EVENT** (still `parsed = true`), so `metadata.log_type = "<TYPE>" AND metadata.event_type = "GENERIC_EVENT"` returns exactly the logs a parser fix targets; `--limit` defaults to 100.
 
-**(2) `query raw '<regex>'`** — content-based `:searchRawLogs` (`raw = /<regex>/`), matching the raw bytes; reaches even logs with **no parser at all** (no UDM event). `--unparsed` adds `parsed = false`.
+**(2) `search raw '<regex>'`** — content-based `:searchRawLogs` (`raw = /<regex>/`), matching the raw bytes; reaches even logs with **no parser at all** (no UDM event). `--unparsed` adds `parsed = false`.
 
-Note: the `:searchRawLogs` `logTypes` body filter is **ignored server-side** (confirmed across code/displayName/resource-name forms) — log-type scoping comes from the UDM path; content scoping from the regex. Live read-validated against KONG_GATEWAY (`TestLiveFetchRawLogLines`). SDK: `chronicle/log_search.go`.
+Note: the `:searchRawLogs` `logTypes` body filter is **ignored server-side** (confirmed across code/displayName/resource-name forms) — log-type scoping comes from the UDM path; content scoping from the regex. Read-verified (`TestLiveFetchRawLogLines`). SDK: `chronicle/log_search.go`.
 
 ### alerts
 
 `alerts list` takes a snapshot over a time window (`legacyFetchAlertsView`, streams a JSON-array of progressive fragments). `alerts get <id>` uses `legacyGetAlert` (response wrapped under `alert`). **Read-verified** (`chronicle/alert.go`; fixed the array-stream decode, the `createdTime`/`detectionTime` keys, and `severityDisplay` being a string).
 
-**Act is CLI-wired (W52):** guarded `alerts update <id>…` sets feedback (status/verdict/priority/reason/reputation/scores/comment/root-cause) over `UpdateAlert`/`BulkUpdateAlerts`; multiple ids fan out. Enum flags accept short forms (`closed`, `false-positive`, `high`) normalised to wire tokens and validated client-side (`AlertUpdate.Validate`) before the guard — dry-run validated; live write gated.
+**Act is CLI-wired (W52):** guarded `alerts update <id>…` sets feedback (status/verdict/priority/reason/reputation/scores/comment/root-cause) over `UpdateAlert`/`BulkUpdateAlerts`; multiple ids fan out. Enum flags accept short forms (`closed`, `false-positive`, `high`) normalised to wire tokens and validated client-side (`AlertUpdate.Validate`) before the guard — dry-run validated; write smoke gated.
 
 **Alert→case bridge (W52):** `alerts get` resolves the alert's SIEM case UUID to the SOAR integer id (fail-soft). `cases soar-id <uuid…>` is the bulk bridge (`legacyBatchGetCases`) — both read-verified. Operators also read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts`).
 
@@ -300,11 +324,11 @@ Note: the `:searchRawLogs` `logTypes` body filter is **ignored server-side** (co
 
 ### entities
 
-`entity summarize` returns alerts/related/prevalence — enrichment, read-only. Counter fields (`alertCounts.count`, timeline buckets, widget totals, prevalence counts) decode via a tolerant `flexInt` — the API renders int64 counters as JSON strings (proto3 JSON).
+`entities summarize` returns alerts/related/prevalence — enrichment, read-only. Counter fields (`alertCounts.count`, timeline buckets, widget totals, prevalence counts) decode via a tolerant `flexInt` — the API renders int64 counters as JSON strings (proto3 JSON). `entities risk-scores` reads behavioural risk; `entities graph <detection-id>` / `entities graph explore` seed and expand the findings-graph pivot (see *entities graph / data-access* above).
 
-### watchlists
+### watchlists — `lists watchlists`
 
-SIEM entity watchlists. `watchlists list`/`get <id>` — read-validated. Pinned **v1** (`watchlistsAPIVersion`; all three API versions answer, so v1 is selected).
+SIEM entity watchlists, surfaced under the `lists` group. `lists watchlists list`/`get <id>` — read-validated. Pinned **v1** (`watchlistsAPIVersion`; all three API versions answer, so v1 is selected).
 
 ### analytics & AI reads — investigations, entityRiskScores, bigQueryExport, coverageDetails
 
@@ -316,11 +340,17 @@ Gemini **TIN** investigations (250) and steps are read-validated (list/get/trigg
 
 The per-alert Gemini TIN triage flow (W57). `alerts investigate <alert-id>` triggers an investigation, polls to `STATUS_COMPLETED_*`, and prints verdict/confidence/summary/next steps. `--json` adds the embedded investigation steps with the agent's actual UDM queries. `--latest` is the read-only variant (the UI's `alert_id='…' AND latest_in_alert=true` filter, no generation).
 
-The typed `Investigation` carries status/verdict/confidence/summary/nextSteps/notebook/triggerType. `GetNotebook` reads the agent's working document (`notebooks/<id>` — a resource absent from the public REST index). **Live-validated end-to-end** (trigger + filtered list + notebook in `TestLiveInvestigationTriggerRead`; `--latest` render against a completed investigation).
+The typed `Investigation` carries status/verdict/confidence/summary/nextSteps/notebook/triggerType. `GetNotebook` reads the agent's working document (`notebooks/<id>` — a resource absent from the public REST index). **Verified end-to-end** (trigger + filtered list + notebook in `TestLiveInvestigationTriggerRead`; `--latest` render against a completed investigation).
 
-### Gemini chat — query gemini
+### Gemini — `gemini ask` / `generate` / `search`
 
-`query gemini '<question>'` asks SecOps Gemini (YARA-L authoring help, UDM field questions, environment-grounded answers) over the existing `chronicle/gemini.go` conversation flow. **Live-validated (W56).** Live replies carry HTML blocks, rendered as plain prose on the human path (`--json` for the full block structure). `--opt-in` runs the one-time account opt-in.
+The AI search group. SDK: `chronicle/gemini.go` (assistant) + `chronicle/nl_search.go` (NL→UDM).
+
+- `gemini ask '<question>'` asks SecOps Gemini (YARA-L authoring help, UDM field questions, environment-grounded answers) over the `chronicle/gemini.go` conversation flow. Verified (W56). Replies carry HTML blocks, rendered as plain prose on the human path (`--json` for the full block structure).
+- `gemini generate '<natural language>'` translates NL→UDM and prints the query **without running it** (`TranslateNLToUDM`); the model also returns an inferred time range (`TranslateNLToUDMWithTimeRange`).
+- `gemini search '<natural language>'` translates NL→UDM **and runs it** — honoring the model's suggested time window — then renders results through the same `--format`/`--fields`/`--out`/`--all` output contract as `search udm`.
+
+`--opt-in` runs the one-time account opt-in (required before any Gemini call). Under hard read-only mode the artifact-creating generations refuse cleanly.
 
 ### findings graph — findingsGraph
 
@@ -330,10 +360,10 @@ Graph-pivot investigation (W56). `InitializeFindingsGraph` seeds a graph from a 
 
 `alerts enrich <id>` (read-only, verified) fetches the full per-alert detection collection the console renders when an analyst opens an alert: the rule detection(s), every mapped UDM event, the involved entities/indicators (hosts, users, process path+sha256, domains), the alert's MITRE tags, its SOAR case linkage, and the AI triage verdict when an agent has run. It reads `legacy:legacyBatchGetCollections?collectionIds=<id>` (`chronicle/legacy.go` `BatchGetCollections`, chronicle host / ADC) — the surface the web UI uses. The AI agent's investigation detail is `alerts investigate <id> --latest`.
 
-The earlier `enrichmentAgent:*` path (W56) is a dead end: `fetchAlertData`/`fetchActions`/`executeActions` return **500 INTERNAL** for every variant (across versions and auth forms — AppKey-in-query is a SOAR-host concern, never chronicle) and are **not used by the console**. The pre-case "run an integration action against an alert's entities" verbs that rode it (`actions`/`run-actions`) are therefore withheld rather than shipped always-failing; the SDK methods stay importable (`chronicle/enrichment_agent.go`) for if/when the real surface is captured. The in-case equivalent — `soar case run-action` — works today.
+The earlier `enrichmentAgent:*` path (W56) is a dead end: `fetchAlertData`/`fetchActions`/`executeActions` return **500 INTERNAL** for every variant (across versions and auth forms — AppKey-in-query is a SOAR-host concern, never chronicle) and are **not used by the console**. The pre-case "run an integration action against an alert's entities" verbs that rode it (`actions`/`run-actions`) are therefore withheld rather than shipped always-failing; the SDK methods stay importable (`chronicle/enrichment_agent.go`) for if/when the real surface is captured. The in-case equivalent — `cases run-action` — works today.
 
-### watchlist membership — watchlists add-entity
+### watchlist membership — `lists watchlists add-entity`
 
-`watchlists add-entity <id> (--ip|--mac|--hostname|--user|--email)` puts an entity on a watchlist (`entities:add`, exactly-one-selector contract) — a containment/tracking response action; membership feeds the risk-score multiplier. The request's `entity` is the UDM Entity **envelope** (`{entity: <Noun>}` — the selector sits on the inner Noun, one level below; a flat noun is rejected 400). `RemoveWatchlistEntity` removes by the entity resource name the add response returns (`entities.remove`); `BatchRemoveWatchlistEntities` is SDK-raw. Watchlist CRUD itself (create/delete) is **write-verified**. The membership ops can answer 501 UNIMPLEMENTED per instance — the gated smoke (`TestLiveWatchlistEntityWriteSmoke`, self-contained on a throwaway watchlist) skips cleanly there.
+`lists watchlists add-entity <id> (--ip|--mac|--hostname|--user|--email)` puts an entity on a watchlist (`entities:add`, exactly-one-selector contract) — a containment/tracking response action; membership feeds the risk-score multiplier. The request's `entity` is the UDM Entity **envelope** (`{entity: <Noun>}` — the selector sits on the inner Noun, one level below; a flat noun is rejected 400). `RemoveWatchlistEntity` removes by the entity resource name the add response returns (`entities.remove`; CLI `lists watchlists remove-entity`); `BatchRemoveWatchlistEntities` is SDK-raw. Watchlist CRUD itself (`lists watchlists create`/`delete`) is **write-verified**. The membership ops can answer 501 UNIMPLEMENTED per instance — the gated smoke (`TestLiveWatchlistEntityWriteSmoke`, self-contained on a throwaway watchlist) skips cleanly there.
 
 ---

@@ -5,7 +5,7 @@ up a case, let the AI read it first, act, and feed what you learned back into
 the rules. Reads are free; every act is guarded (`--dry-run` default, `--yes`
 to apply). This page is the end-to-end walkthrough — the per-verb reference is
 [SOAR cases](soar-cases.md), and every flag lives in the
-[command reference](usage.md).
+[command reference](reference-soar.md).
 
 ```mermaid
 flowchart LR
@@ -22,21 +22,21 @@ verbs use ADC; `soar …` verbs use the AppKey — see [configure](configure.md)
 ## 1 · See the queue
 
 ```bash
-secopsctl soar case counts                                  # open cases by priority
-secopsctl soar case counts --filter "assignee = '@Tier1'"   # ...for one queue
-secopsctl soar case list --priority high --since 24h        # the work itself
+secopsctl cases counts                                  # open cases by priority
+secopsctl cases counts --filter "assignee = '@Tier1'"   # ...for one queue
+secopsctl cases list --priority high --since 24h        # the work itself
 ```
 
 `counts` is one cheap exact count per priority; `--filter` composes with the
-per-priority term and takes the same server-side grammar as `soar case list
+per-priority term and takes the same server-side grammar as `cases list
 --filter` (scalars, `any()` collections, epoch-ms time ranges — the grammar
-table is in the [command reference](usage.md#case---filter-grammar-modern-cases-list)).
+table is in the [command reference](reference-soar.md#case---filter-grammar-modern-cases-list)).
 
 ## 2 · Pick up a case
 
 ```bash
-secopsctl soar case get 12345            # the case + its alerts
-secopsctl soar case summarize --id 12345 # the structured AI case summary
+secopsctl cases get 12345            # the case + its alerts
+secopsctl cases summarize --id 12345 # the structured AI case summary
 ```
 
 `get` prints each alert with its `--alert` identifier (for the per-alert
@@ -49,8 +49,7 @@ regenerates it.
 
 Coming from the SIEM side instead? `alerts list` / `alerts get <id>` show the
 Chronicle alert snapshot, and `alerts get` prints the alert's **SOAR case id**
-(`cases soar-id <uuid>` bulk-resolves them) — the bridge into every `soar
-case` verb.
+(`cases soar-id <uuid>` bulk-resolves them) — the bridge into every `cases` verb.
 
 ## 3 · Ask the AI for a verdict
 
@@ -68,7 +67,7 @@ two; refused in read-only mode).
 
 The `de_…` id here is the **SIEM detection-alert id** from `alerts list` /
 `alerts get` — a different identifier from the SOAR `--alert` string the
-`soar case` verbs use (step 2's `soar case get` shows the SOAR form;
+`cases` verbs use (step 2's `cases get` shows the SOAR form;
 `alerts get` bridges between the two).
 
 ## 4 · Act
@@ -76,11 +75,11 @@ The `de_…` id here is the **SIEM detection-alert id** from `alerts list` /
 Case-level and alert-level verbs are all guarded — dry-run first, then `--yes`:
 
 ```bash
-secopsctl soar case assign --id 12345 --user '@Tier1' --yes
-secopsctl soar case priority --id 12345 --priority high --yes
-secopsctl soar case comment add --id 12345 --text "triage: benign automation" --yes
-secopsctl soar case alert close --id 12345 --alert <identifier> --reason not-malicious --yes
-secopsctl soar case close --id 12345 --reason not-malicious --root-cause "Normal behavior" --yes
+secopsctl cases assign --id 12345 --user '@Tier1' --yes
+secopsctl cases priority --id 12345 --priority high --yes
+secopsctl cases comment add --id 12345 --text "triage: benign automation" --yes
+secopsctl cases alert close --id 12345 --alert <identifier> --reason not-malicious --yes
+secopsctl cases close --id 12345 --reason not-malicious --root-cause "Normal behavior" --yes
 ```
 
 The full verb table (stage, tag, merge, reopen, move, bulk-close, …) is in
@@ -100,13 +99,14 @@ secopsctl rules events <ru_id> <detection>  # the UDM evidence behind one detect
 
 Then change the rule through the [control-plane loop](the-loop.md): `pull
 rules` → edit → `git diff` → `push`. Curated (Google-managed) rules have the
-same reads under `curated trends` / `curated detections` / `curated events`.
+same reads under `rules curated trends` / `rules curated detections` /
+`rules curated events`.
 
 ## When something goes wrong
 
 An empty queue returns no rows, not an error. A wrong `--alert` identifier or
 case id fails **before** anything mutates (guards validate first). When a
-modern SOAR call 500s, `soar case list` auto-falls back to the legacy AppKey
+modern SOAR call 500s, `cases list` auto-falls back to the legacy AppKey
 lane (`--legacy` forces it) — see
 [SOAR cases](soar-cases.md) for the two-API story. Exit codes are git-style:
 `0` success, `2` divergence (`drift`), `1` any error.
@@ -127,8 +127,8 @@ Three guardrails make the triage loop safe to hand to automation:
   `~/.secopsctl/audit.jsonl`).
 
 Read-only mode refuses any verb that would *start* an AI generation —
-`alerts investigate` without `--latest`, `soar case summarize` when no summary
-exists yet (or with `--refresh`), `soar case alert recommend` — while polling
+`alerts investigate` without `--latest`, `cases summarize` when no summary
+exists yet (or with `--refresh`), `cases alert recommend` — while polling
 existing results stays free. The complete agent recipe (allowlists, prompts,
 review patterns) is
 [LLM-driven automation](../tips/10-llm-and-automation.md).

@@ -11,7 +11,7 @@ How `secopsctl` works, independent of any one surface. Product specifics live in
 |---|---|---|
 | **Subject** | desired-state *config* | live *data* |
 | **Examples** | rules, lists, tables, feeds, parsers, dashboards, SOAR automation | events, alerts, cases |
-| **Loop** | `pull` → review in `git diff` → `push` (reconcile) | `query` → review → `act` |
+| **Loop** | `pull` → review in `git diff` → `push` (reconcile) | `search` → review → `act` |
 | **Source of truth** | the git repo | the live instance |
 | **Files?** | yes — one per object, diffable | no — live data isn't snapshotted as desired state |
 | **A mutation is…** | a production *deploy* | a production *action* (triage) |
@@ -88,7 +88,7 @@ selector-only response is not.
 |---|---|---|
 | **reconcile** | clean per-object CUD: stable id, read-shape ≈ write-shape, delete-by-id | the engine + a Surface |
 | **raw** | batch upserts, export/import bundles, selector-only reads, read≠write | `soar legacy call` (pull JSON → edit → guarded post) |
-| **imperative** | per-entity verbs, no desired-state file | a command tree (`soar case`, `curated`) |
+| **imperative** | per-entity verbs, no desired-state file | a command tree (`cases`, `rules curated`) |
 | **operational** | live data: query a subset, act on it | query + act commands (§4) |
 | **skip** | runtime/UI/telemetry, singletons, auth topology | not modeled |
 
@@ -111,10 +111,22 @@ the write body is an array, it's `raw`, not `reconcile`.
 Live data (events/alerts/cases). The SDK is largely built; the design is the
 operator model and its **safety**.
 
-- **Query.** Every `list`/`search` shares a **filter**, a **time window**, a
-  **`--limit`** (with a default, so a query never pulls the whole tenant), and an
-  output: a compact **table** for humans, **`--json`** as the contract that pipes
-  into an act command.
+- **Query.** Every `list` / `search` shares a **filter**, a **time window**, a
+  **`--limit`** (with a default, so a query never pulls the whole tenant), and the
+  output contract below. The deterministic surface is `search`
+  (`udm`/`raw`/`stats`/`event`/`export`/`validate`/`run`/`saved`); `gemini` turns
+  natural language into the same UDM query and runs it through the same path.
+- **Output (agent-first contract).** Reads and searches emit a stable machine shape
+  selected by **`--format jsonl|json|csv|table`** — `table` for humans; `jsonl`
+  streams one object per line (line-oriented, restartable); `json` is a single
+  array/object; `csv` carries a header row. **`--fields`** narrows to dotted UDM
+  paths (e.g. `principal.hostname,metadata.eventType`), **`--out`** redirects to a
+  file, and **`--all`** fetches the complete result set and reports the total match
+  count instead of a capped page. `search` and `gemini search` share these flags, so
+  an agent shapes output without post-processing and **pipes the JSON straight into
+  an act command**. Errors go to stderr as a typed
+  `{code,message,retryable,status,request_id}` envelope; the **exit code** is the
+  branch signal.
 - **Act — per item.** Unambiguous, low blast radius: `<domain> <verb> <id> …`.
 - **Act — subset (the dangerous one), two paths, safest first:**
   1. **Reviewed-ids** (preferred): `list --json | … > ids` → `bulk <verb> --ids @ids`
@@ -175,12 +187,12 @@ responding, change the const to the version that works and update this table.
 | SIEM reporting — `metricDefinitions` · `dashboardScheduledReports` | `v1alpha` | 🔨 | `DefaultAPIVersion`. metricDefinitions is **feature-gated 403** (not enabled/GA by default); scheduledReports **reads OK**, create-report backend **500s** server-side. Both on the engine, offline-tested |
 | SIEM governance — `dataTaps` · `errorNotificationConfigs` · `enrichmentControls` | `v1alpha` | 🔨 (dataTaps ✅) | `DefaultAPIVersion`. **dataTaps write-validated** (PATCH 501 → update = delete+recreate); the other two **feature-gated 403**. dataTaps supersedes the Backstory endpoint — same chronicle host |
 | MSSP — `federationGroups` · `tenants` · `multitenantDirectory` (chronicle) · `legacySoarIdpMappingGroups` (**SOAR host**) | `v1alpha` | 🔨 (directory ✅, idp-mappings ✅) | federationGroups/tenants 403 on a single tenant; multitenantDirectory read-validated. **legacySoarIdpMappingGroups 500s on chronicle, answers on the SOAR host** (AppKey) — a two-host surface, lives in `soar/` |
-| Chronicle **cases** (UUID) API on the **chronicle host** — get/list/patch/merge/bulk | `v1beta` segment (collection 500s at every version) | ⛔ | **alternate, unused path** for the cases function. The chronicle.googleapis.com cases collection **500s at every version** (server-side); the `v1beta` segment (`caseAPIVersion`, mapped `cases_chronicle_alt`→v1beta in `versions.go`) is a **non-working pin** kept only so the alternate path can be exercised, not a validated version. The **modern cases that DO work are on the SOAR host** (`soar.ListCases`, v1alpha — `soar case list` uses it by default); operational case work uses the SOAR AppKey lane. The cases function is **not** blocked — this `⛔` is only this dead chronicle path. One case, multiple APIs |
+| Chronicle **cases** (UUID) API on the **chronicle host** — get/list/patch/merge/bulk | `v1beta` segment (collection 500s at every version) | ⛔ | **alternate, unused path** for the cases function. The chronicle.googleapis.com cases collection **500s at every version** (server-side); the `v1beta` segment (`caseAPIVersion`, mapped `cases_chronicle_alt`→v1beta in `versions.go`) is a **non-working pin** kept only so the alternate path can be exercised, not a validated version. The **modern cases that DO work are on the SOAR host** (`soar.ListCases`, v1alpha — `cases list` uses it by default); operational case work uses the SOAR AppKey lane. The cases function is **not** blocked — this `⛔` is only this dead chronicle path. One case, multiple APIs |
 | SIEM legacy case reads — `legacy:legacyListCases` · `legacyBatchGetCases` | `v1alpha` | ⛔ list · ✅ bridge | `legacyListCases` 404 (⛔, that one path only); `legacyBatchGetCases` is the working SOAR-int ⇄ SIEM-uuid bridge |
 | SOAR legacy — `/api/external/v1/…` (**cases** · connectors · jobs · settings · playbooks bridge) | external `v1` · AppKey | ✅ | the reliable path — **incl. the working operational case lane** (`GetCaseCardsByRequest`, `GetCaseFullDetails` → alerts, `ExecuteBulkCloseCase`, `ChangeCasePriority`) |
-| SOAR modern — integrations · connectors · jobs · grouping · cases · Content Hub · environments · socRoles · customLists · case*Definitions | `v1alpha` only | 🔨 (cases ✅) | **SOAR host serves v1alpha ONLY** — v1/v1beta 404 for every surface. **cases is verified** here (`soar.ListCases`, the default for `soar case list`); the rest are built. The v1>v1beta>v1alpha preference is a **chronicle-host** concern; the SOAR host stays v1alpha |
-| SIEM Threat Intel — `threatCollections` · `iocs` | **`v1`** | ✅ | prefer v1>v1beta>v1alpha; all three answer → pinned v1 (`tiAPIVersion`). threatCollections uses project **number**; related pivots (`iocs related`, `ti related`) are built + offline-tested |
-| SIEM operational — `watchlists` (read) | **`v1`** | ✅ | all three answer → pinned v1 (`watchlistsAPIVersion`); `watchlists list/get` CLI |
+| SOAR modern — integrations · connectors · jobs · grouping · cases · Content Hub · environments · socRoles · customLists · case*Definitions | `v1alpha` only | 🔨 (cases ✅) | **SOAR host serves v1alpha ONLY** — v1/v1beta 404 for every surface. **cases is verified** here (`soar.ListCases`, the default for `cases list`); the rest are built. The v1>v1beta>v1alpha preference is a **chronicle-host** concern; the SOAR host stays v1alpha |
+| SIEM Threat Intel — `threatCollections` · `iocs` | **`v1`** | ✅ | prefer v1>v1beta>v1alpha; all three answer → pinned v1 (`tiAPIVersion`). threatCollections uses project **number**; related pivots (`ti related`, `ti collection-matches`) are built + offline-tested |
+| SIEM operational — `watchlists` (read) | **`v1`** | ✅ | all three answer → pinned v1 (`watchlistsAPIVersion`); `lists watchlists list/get` CLI |
 | SIEM governance — `riskConfig` · `dataAccessLabels` · `dataAccessScopes` | **`v1`** | ✅ | all three versions answer → pinned v1 (`rbacAPIVersion`); riskConfig is `{instance}/riskConfig` |
 | SIEM ingestion — `forwarders` · `forwarders.collectors` | **`v1beta`** | ✅ | v1 **404s** → pinned v1beta (`forwardersAPIVersion`) |
 | SIEM detection — `curatedRuleSetDeployments` · `curatedRules` | `v1alpha` | ✅ | v1/v1beta **404** for curatedRules → only v1alpha works |

@@ -148,6 +148,74 @@ notebook (the verbatim record stays in `.Raw`);
 `ListInvestigationsFiltered(ctx, 100, "alert_id='de_…' AND latest_in_alert=true", "start_time desc")`
 finds an alert's latest investigation without starting one.
 
+**Searching — beyond `SearchUDM`.** `SearchUDM` returns a flat event slice; the
+richer entry points return the structured search view, a CSV projection, or a
+window of a running stream, and resolve single events by id:
+
+- `FetchUDMSearchView(ctx, query, start, end, UDMSearchViewOptions{…})` →
+  `*UDMSearchView`: events, field aggregations, detections, an optional AI
+  overview, prevalence, and the headline `BaselineEventsCount` /
+  `FilteredEventsCount` / `AvailableResultCount`. The options gate each block
+  (`MaxEvents`, `MaxValuesPerField`, `GenerateAIOverview`, `Prevalence`,
+  `SnapshotQuery`, `CaseInsensitive`, …); set `ReturnOperationIDOnly` to get back
+  just the operation id in `OperationID` and page it yourself.
+- `StreamSearch(ctx, operationID, startIdx, endIdx)` → `*StreamSearchPage`: pull a
+  row window `[startIdx, endIdx)` from a running search operation. The page carries
+  `Progress`, `Done`/`Complete`, the same baseline/filtered/available counts,
+  `TooManyEvents`, and the raw `Events`.
+- `ExportUDMSearchCSV(ctx, query, start, end, fields, caseInsensitive)` → a CSV
+  string (header + data rows) projected to the dotted UDM `fields` you name;
+  `ExportUDMSearchCSVResult(…)` returns the same as a typed `*CSVExportResult`
+  (`Rows`, `Timestamps`, `Complete`, `TooManyEvents`, and `InvalidFields` — the
+  field paths the server rejected).
+- `FetchEnrichedEvent(ctx, eventID, detectionID)` → `*EnrichedEvent` resolves one
+  event with its enrichment sources; `FindUDMEvents(ctx, ids, tokens, returnUnenriched)`
+  → `*FindUDMEventsResult` batch-resolves events (and entity groups) by id or token.
+
+```go
+view, err := c.FetchUDMSearchView(ctx,
+	`metadata.event_type = "USER_LOGIN"`, start, end,
+	chronicle.UDMSearchViewOptions{MaxEvents: 100, GenerateAIOverview: true})
+// view.BaselineEventsCount · view.Aggregations · view.AIOverview · view.Events
+
+csv, err := c.ExportUDMSearchCSV(ctx,
+	`metadata.event_type = "NETWORK_CONNECTION"`, start, end,
+	[]string{"metadata.event_timestamp", "principal.ip", "target.ip"}, false)
+```
+
+**Saved & shared searches.** A full CRUD set over server-side saved searches, with
+a typed `SharingMode` (`SharingModePrivate` / `SharingModeSharedWithCustomer`):
+
+```go
+saved, err := c.ListSavedSearches(ctx)        // []SavedSearch
+s, err := c.GetSavedSearch(ctx, idOrName)     // *SavedSearch; s.Shared() == org-shared
+created, err := c.CreateSavedSearch(ctx, chronicle.SavedSearch{
+	DisplayName: "Failed logins (24h)",
+	Query:       `metadata.event_type = "USER_LOGIN" AND security_result.action = "BLOCK"`,
+}) // Query required; the client-supplied query id is generated for you
+_, err = c.UpdateSavedSearch(ctx, created.QueryID, *created, "query") // field-mask args
+_, err = c.ShareSavedSearch(ctx, created.QueryID, chronicle.SharingModeSharedWithCustomer)
+err = c.DeleteSavedSearch(ctx, created.QueryID)
+```
+
+Set `in.Metadata.SharingMode` to share at create time, or flip it later with
+`ShareSavedSearch`; `s.Shared()` reports whether a saved search is org-shared.
+
+**Natural-language → UDM (Gemini).** Translate plain-language intent into a UDM
+query *without running it* — the SDK side of the `gemini generate` / `search`
+commands:
+
+```go
+udm, err := c.TranslateNLToUDM(ctx, "failed logins from outside the corp network")
+// or, to also recover the model's inferred time window:
+res, err := c.TranslateNLToUDMWithTimeRange(ctx, "failed logins in the last hour")
+// res.Query · res.Message (optional model note) · res.TimeRange (nil if none named)
+```
+
+A non-generatable request comes back as an error (the model's `message`), not an
+empty string. Feed `res.Query` straight into `SearchUDM` / `FetchUDMSearchView`,
+honoring `res.TimeRange` when present.
+
 > The retrying HTTP transport is built in, with capped exponential backoff. Both
 > the Chronicle and SOAR transports are **method-aware** and behave identically:
 > they retry 429 for any method but a 5xx (500/502/503/504) **only** for idempotent

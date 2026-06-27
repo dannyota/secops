@@ -142,12 +142,13 @@ it, pass `--chart-type`:
   visualization.
 
 A chart query is an AGGREGATION (stats) query: the `match:` section groups by a
-field, the `outcome:` computes the value. Validate it first with `query stats`
-(`query udm` rejects an aggregation), then map `--x`/`--y` to those columns:
+field, the `outcome:` computes the value. Check the syntax with `search validate`,
+confirm it returns data with `search stats` (`search udm` rejects an aggregation),
+then map `--x`/`--y` to those columns:
 
 ```bash
 # 1. validate the aggregation returns data
-secopsctl query stats --hours 24 'metadata.event_type = "USER_LOGIN"
+secopsctl search stats --hours 24 'metadata.event_type = "USER_LOGIN"
 match:
   principal.hostname
 outcome:
@@ -191,9 +192,9 @@ instead of the UI:
 - `dashboards verify <id>` executes **every** chart and flags the ones returning an
   error or 0 rows — a headless dashboard health check that exits non-zero when any
   chart needs attention.
-- `query stats '<aggregation YARA-L>'` runs a `match:`/`outcome:` aggregation
-  (which `query udm` rejects) and prints the result table — validate a chart's
-  stats query before authoring it.
+- `search stats '<aggregation YARA-L>'` runs a `match:`/`outcome:` aggregation
+  (which `search udm` rejects) and prints the result table — validate a chart's
+  stats query before authoring it ([07-udm-queries.md](07-udm-queries.md)).
 
 ## Don't hand-edit the JSON
 

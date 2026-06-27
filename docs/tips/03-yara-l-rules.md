@@ -66,7 +66,7 @@ instead of trying to patch them.
 - **Filter on the field that actually carries the signal**, verified against live
   data. A rule that filters on a vendor tag, log type, or field your events don't
   populate compiles cleanly and then *silently never fires*. Validate the field
-  shape with a UDM query first — see [07-udm-queries.md](07-udm-queries.md). A
+  shape with a `search udm` query first — see [07-udm-queries.md](07-udm-queries.md). A
   vendor-emitted severity level is usually a poor sole filter; the event-type /
   category field generally gives far better signal-to-noise.
 
@@ -155,6 +155,11 @@ rule-set level. When the curated catalog has a gap, or a curated rule won't fire
 on your data shape, write a custom rule here to cover it.
 
 That relationship — and why tracking the full curated catalog is worth it — is in
-[05-curated-rules.md](05-curated-rules.md). Custom rules also lean on reference
-lists and data tables for their lookups; see
+[05-curated-rules.md](05-curated-rules.md); the curated content toggles from the CLI
+under `rules curated …`, never per-rule. Custom rules also lean on reference lists
+and data tables for their lookups; see
 [04-reference-lists-data-tables.md](04-reference-lists-data-tables.md).
+
+To stop a rule from firing on a known-benign slice without rewriting its logic, use
+**rule exclusions** (`rules exclusions list`/`get`/`deploy`) — a scoped suppression
+managed as code, separate from the rule text itself.

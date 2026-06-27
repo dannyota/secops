@@ -3,30 +3,32 @@ name: secopsctl
 description: >
   Operating guide for AI agents driving the secopsctl CLI against a Google
   SecOps instance (Chronicle SIEM + Siemplify SOAR). Encodes the two-auth-plane
-  model, the mutation ritual, the config-as-code loop, self-discovery commands,
-  end-to-end recipes, the enum values, and the gotchas the per-command --help
-  can't express. Self-served: `secopsctl skill` prints it from the binary. Read
-  this before issuing any secopsctl command.
+  model, the full command map, the mutation ritual, the config-as-code loop,
+  self-discovery commands, the agent-first search/gemini surfaces and their JSON
+  output contracts, end-to-end recipes, enum values, and the gotchas the
+  per-command --help can't express. Self-served: `secopsctl skill` prints it from
+  the binary. Read this before issuing any secopsctl command.
 ---
 
 # secopsctl agent operating guide
 
 secopsctl operates a Google SecOps instance — **Chronicle SIEM** and **Siemplify
 SOAR** — as code. This guide makes you productive without the repo docs; the live
-commands (`commands --json`, `surfaces`, `<cmd> --help`) are the source of truth
-when something here looks out of date.
+commands (`commands --json`, `status surfaces`, `<cmd> --help`) are the source of
+truth when something here looks out of date.
 
 ## Session bootstrap — do these first
 
 ```bash
-secopsctl doctor                # config + auth + SIEM/SOAR reachability (read-only)
-secopsctl capabilities --json   # version, per-surface status, auth health per plane, read-only state
-secopsctl commands --json       # every verb: path, kind (read/guarded-mutation), flags, --json support
+secopsctl doctor                      # config + auth + SIEM/SOAR reachability (read-only)
+secopsctl status capabilities --json  # version, per-surface status, auth health per plane, read-only state
+secopsctl commands --json             # every verb: path, kind (read/guarded-mutation), flags, --json support
 ```
 
 `doctor` is the gate: if either plane reports unhealthy, fix auth before proceeding.
-`capabilities --json` and `commands --json` are the **live source of truth** for what
-this binary supports — prefer them over any static list; surfaces and flags evolve.
+`status capabilities --json` and `commands --json` are the **live source of truth**
+for what this binary supports — prefer them over any static list; surfaces, names,
+and flags evolve.
 
 ## The two auth planes
 
@@ -35,8 +37,8 @@ AppKey call works even when SIEM ADC is expired, and vice-versa.
 
 | Plane | Host | Auth | Commands |
 |---|---|---|---|
-| **SIEM** (Chronicle) | `{region}-chronicle.googleapis.com` | Google ADC / OAuth (minted in-process, never on disk) | `pull`, `push`, `drift`, `rules`, `alerts`, `curated`, `query`, `entity`, `iocs`, `ti`, `feeds`, `parsers`, `dashboards`, `watchlists`, `cases`, `pipeline` |
-| **SOAR** (Siemplify) | `{tenant}.siemplify-soar.com` | AppKey (`soar_app_key` in config or `$SECOPS_SOAR_APP_KEY`; no ADC) | `soar pull/push`, `soar case`, `soar playbook`, `soar job`, `soar integration`, `soar marketplace`, `soar settings`, `soar legacy` |
+| **SIEM** (Chronicle) | `{region}-chronicle.googleapis.com` | Google ADC / OAuth (minted in-process, never on disk) | `pull`, `push`, `drift`, `search`, `gemini`, `rules` (+ `rules curated`, `rules exclusions`), `ti`, `lists`, `dashboards`, `entities`, `alerts`, `cases`, `ingest`, `data-access`, `status` |
+| **SOAR** (Siemplify) | `{tenant}.siemplify-soar.com` | AppKey (`soar_app_key` in config or `$SECOPS_SOAR_APP_KEY`; no ADC) | `soar pull/push`, `soar playbooks/integrations/jobs/ide/settings/connector/audit/legacy/users`, `cases` (SOAR-host triage), `content-hub` |
 
 ### SIEM auth recovery
 
@@ -55,9 +57,41 @@ SOAR (AppKey) is **unaffected** by an ADC lapse — keep doing SOAR work meanwhi
 → `./config/instance.yaml` → `~/.config/secopsctl/instance.yaml`. Inspect the active
 config with `secopsctl info` (AppKey redacted).
 
+## Command map (the full surface, by group)
+
+One row per top-level group; run `<group> --help` or `commands --json` for the exact
+verbs and flags. Kind: **read** is always safe; **guarded** needs the dry-run → `--yes`
+ritual.
+
+| Group | What | Plane | Kind |
+|---|---|---|---|
+| `search` | deterministic SIEM search: `udm` · `raw` · `stats` · `event <id>` · `export` · `validate` · `run` · `saved` | SIEM | read (`saved save/share/delete` guarded) |
+| `gemini` | AI: `generate` (NL→UDM) · `search` (NL→UDM + run) · `ask` (assistant) | SIEM | read |
+| `rules` | inspect (`list` · `detections` · `test` · `validate` · `trends` · `errors` · `alerts` · `versions`) + lifecycle (`promote`, `retrohunt`); `rules curated` (Google-managed sets), `rules exclusions` | SIEM | read + guarded (`promote`, `retrohunt create`, `curated set`, `exclusions deploy`) |
+| `ti` | threat intel & IOCs: `find` · `get` · `related` · `collections` · `collection` · `collection-matches` | SIEM | read |
+| `lists` | `empty` (reference list) · `watchlists …` | SIEM | read + guarded |
+| `dashboards` | charts / run-chart / verify / export / import / add-chart / edit-chart / duplicate / delete | SIEM | read + guarded |
+| `entities` | `summarize` · `graph` · `risk-scores` | SIEM | read |
+| `alerts` | `list` · `get` · `investigate` (AI) · `update` (feedback) | SIEM | read + guarded (`update`) |
+| `cases` | SOAR case triage: list/get/close/assign/tag/stage/comment/run-action/summarize/alert… | SOAR | read + guarded |
+| `content-hub` | `browse` · `list` · `get` · `contentpacks` · `featured` · `diff` · `install` · `uninstall` | SOAR | read + guarded (`install`/`uninstall`) |
+| `ingest` | `feeds` · `forwarders` · `parsers` · `log-types` · `pipeline` · `health` | SIEM | read + guarded |
+| `data-access` | RBAC: `labels …` · `scopes …` | SIEM | read + guarded |
+| `status` | `capabilities` · `coverage` · `surfaces` (read-only diagnostics) | both/offline | read |
+| `soar` | `pull` · `push` · `playbooks` · `integrations` · `jobs` · `ide` · `settings` · `connector` · `audit` · `legacy` · `users` | SOAR | read + guarded |
+| `pull` / `drift` | snapshot live state / report drift (the as-code loop) | SIEM | read |
+| `push` | deploy config-as-code (rules-create/update/deploy/disable, reconcile surfaces) | SIEM | guarded |
+
+> **Names renamed in v0.6.0 (no aliases).** `query`→`search`; NL/Gemini→`gemini`;
+> `curated`→`rules curated`; `rule-exclusions`→`rules exclusions`; `indicators`/`threat-intel`→`ti`;
+> `reference-lists`/`watchlists`→`lists`; `soar marketplace`→`content-hub`;
+> `feeds`/`parsers`/… →`ingest …`; `capabilities`/`coverage`/`surfaces`→`status …`;
+> `soar case`→`cases`. **pull/push TARGET args are unchanged** (they mirror the on-disk
+> dirs): `pull reference_lists`, `push curated`, `pull feeds`, etc. stay snake_case.
+
 ## The mutation ritual — every guarded verb
 
-`pull`/`drift`/`list`/`get`/`query` are read-only. Every verb that changes live state
+`pull`/`drift`/`list`/`get`/`search` are read-only. Every verb that changes live state
 is **guarded**: it defaults to a dry-run preview with a `LIVE DEPLOY` banner; pass
 `--yes` to apply.
 
@@ -81,7 +115,7 @@ JSONL record to `~/.secopsctl/audit.jsonl`.
 
 `push <target> --prune` deletes live objects with no local file. Off by default;
 requires a fresh pull this session. Not every surface is prune-eligible — check with
-`secopsctl surfaces` (PRUNE column) or `push <target> --help`.
+`secopsctl status surfaces` (PRUNE column) or `push <target> --help`.
 
 ## The config-as-code loop
 
@@ -101,82 +135,135 @@ secopsctl pull rules                   # re-pull so local matches live
 silently clobbers them on push. The same loop applies to every reconcile surface:
 `reference_lists`, `data_tables`, `feeds`, `parsers`, `dashboards`, `forwarders`,
 `rule_exclusions`, `soar/webhooks`, `soar/playbooks`, `soar/connectors`, `soar/jobs`.
-`secopsctl surfaces` lists each surface's lane and `--prune` eligibility.
+**These pull/push target names are snake_case and unchanged** — only the imperative
+command *groups* (`ingest`, `rules curated`, …) were renamed. `secopsctl status surfaces`
+lists each surface's lane and `--prune` eligibility.
 
 ## Command self-discovery
 
 Do not guess command names, flags, or enums — read the live catalog:
 
 - `secopsctl commands --json` — every verb: `path`, `kind`, per-flag `{type, default, required, enum, usage}`, `json` support, an example.
-- `secopsctl capabilities --json` — version, auth health per plane, per-surface status (validated vs blocked), read-only state.
-- `secopsctl surfaces [--json]` — every API surface family: plane, version, lane, status, `--prune` eligibility.
+- `secopsctl status capabilities --json` — version, auth health per plane, per-surface status (validated vs blocked), read-only state.
+- `secopsctl status surfaces [--json]` — every API surface family: plane, version, lane, status, `--prune` eligibility.
 - `<cmd> --help` — per-command flags plus plane/version/write gotchas.
 
 Build an allowlist by filtering `commands --json`: `kind == "read"` is always safe;
 `kind == "guarded-mutation"` needs the dry-run → `--yes` ritual.
 
-## Output discipline
+## Searching (deterministic) — `search`
 
-Pass `--json` on any read command for parseable output (the human table is for people).
-Under `--json`, a failure prints a structured `{code, message, retryable, status,
-request_id}` envelope on **stderr** while stdout stays clean for the payload — so
-branch on exit code, parse stdout, surface stderr.
+`search` is the SIEM hunt surface. All reads; output is agent-tunable.
+
+```bash
+secopsctl search udm 'metadata.event_type = "NETWORK_CONNECTION"' --hours 6
+secopsctl search udm 'principal.hostname = "host-01"' --from 2024-01-02T00:00:00Z --to 2024-01-03T00:00:00Z
+```
+
+- **`udm <filter>`** — point-in-time event search over a window (`--hours`, or `--from`/`--to`).
+  `--limit` caps results (the simple path silently truncates past it — a stderr warning fires).
+  **`--all`** switches to the complete-results engine: it returns the full set up to the
+  limit AND reports the **total match count** (so you know how much you didn't get).
+- **`raw <pattern>`** — content regex over the raw ingested bytes (reaches logs with no parser).
+- **`stats <agg>`** — aggregation query (`match:`/`outcome:`/`order:`); see the recipe below.
+- **`event <id>`** — drill into ONE event by id: enriched UDM (default), `--udm` (unenriched), `--raw` (original log line).
+- **`export <filter>`** — server-side CSV of **all** matches (not capped at `--limit`) over the window (`--hours` default 24, or `--from`/`--to`); `--fields` (column labels), `--out <file>`.
+- **`validate <query>`** — syntax-check a UDM query without running it; exits non-zero on an invalid query (gate on it).
+- **`run --file <f>`** — run a UDM predicate from a tracked `.udm` file (or stdin).
+- **`saved`** — server-side saved & shared searches (the console's Search Manager):
+  `saved list/get/run <id>`, and the guarded `saved save --name … (--query|--file) [--share]`,
+  `saved share/unshare <id>`, `saved delete <id>`. `--share` makes a search org-wide. The
+  guarded `saved` verbs follow the dry-run → `--yes` ritual (preview by default), like every mutation.
+
+### Agent-first output (every `search` read, and `gemini search`)
+
+- `--format jsonl|json|csv|table` — default **table** on a terminal, **jsonl** when piped
+  (one event per line → stream/grep/`jq` per record). `json` is the full indented array.
+- `--fields a,b,c` — project dotted UDM paths (e.g. `metadata.event_type,principal.hostname`);
+  tolerant of camelCase/snake_case and the `{udm}` vs `{event}` result shapes.
+- `--out <file>` — write results to a file instead of stdout.
+- The global `--json` still works (= `--format json`).
+
+## AI search — `gemini`
+
+Gemini-powered (the console's "Get the help of AI" / "Gemini Investigations"). One-time
+account opt-in is needed (`gemini ask --opt-in`); read-only.
+
+```bash
+secopsctl gemini generate 'failed admin logins in the last hour'   # NL → UDM query (don't run)
+secopsctl gemini search   'network connections to a public IP in the last hour'  # NL → UDM + run
+secopsctl gemini ask      'how do I write a YARA-L rule for process injection?'  # assistant Q&A
+```
+
+`gemini generate`/`search` honor the **time window the model infers** from the text
+("…in the last hour") unless you set `--hours`/`--from` explicitly. `gemini search`
+takes the same `--format`/`--fields`/`--out` flags as `search udm`.
+
+## Output & JSON contracts
+
+Pass `--json` (or `--format json`) on any read command for parseable output (the human
+table is for people). Under `--json`, a failure prints a structured `{code, message,
+retryable, status, request_id}` envelope on **stderr** while stdout stays clean for the
+payload — so branch on exit code, parse stdout, surface stderr. For bulk event work
+prefer `--format jsonl` (per-line) or `search export` (server-side CSV, uncapped).
 
 ## Common recipes
 
 End-to-end, copy-pasteable. Replace placeholders; preview before `--yes`.
 
-### Search UDM events
+### Hunt UDM events
 
 ```bash
-secopsctl query udm 'metadata.event_type = "NETWORK_CONNECTION"' --hours 6 --json
-secopsctl query udm 'principal.hostname = "host-01"' --from 2024-01-02T00:00:00Z --to 2024-01-03T00:00:00Z
+secopsctl search udm 'metadata.event_type = "NETWORK_DNS"' --hours 6 --format jsonl
+secopsctl search udm 'metadata.event_type = "NETWORK_DNS"' --all --fields metadata.event_timestamp,principal.hostname
+secopsctl search export 'metadata.event_type = "NETWORK_DNS"' --hours 24 --fields timestamp,user,hostname --out dns.csv
+secopsctl search event 'AAAA…=' --raw      # the original raw log behind one event
 ```
 
 Pull raw logs for a broken/missing parser (events normalize to `GENERIC_EVENT`), pipe
 straight into a parser test:
 
 ```bash
-secopsctl query udm 'metadata.log_type = "KONG_GATEWAY" AND metadata.event_type = "GENERIC_EVENT"' \
-    --raw --limit 50 | secopsctl parsers run KONG_GATEWAY --cbn parser.conf --logs -
+secopsctl search udm 'metadata.log_type = "KONG_GATEWAY" AND metadata.event_type = "GENERIC_EVENT"' \
+    --raw --limit 50 | secopsctl ingest parsers run KONG_GATEWAY --cbn parser.conf --logs -
 ```
 
 ### Aggregate (stats) — the YARA-L a dashboard chart uses
 
-`query udm` rejects an aggregation; `query stats` runs it. `match:` declares the
+`search udm` rejects an aggregation; `search stats` runs it. `match:` declares the
 group-by, `outcome:` the measures, `order:` the sort:
 
 ```bash
-secopsctl query stats --hours 24 'metadata.log_type != ""
+secopsctl search stats --hours 24 'metadata.log_type != ""
 match: metadata.log_type
 outcome: $c = count(metadata.id)
 order: $c desc'
 ```
 
-A free-standing `query stats` takes a **bare field** in `match:` (`metadata.log_type`),
-not an assignment (`$lt = …`); the `outcome:` declares the measures. Validate a chart
-query with `query stats` **before** `dashboards add-chart`. Don't name a `match:`/
-`outcome:` variable with a reserved YARA-L keyword (e.g. `$rule`, `$events`) — it
-compiles but fails at execute time; `add-chart`/`edit-chart` warn when you do.
+A free-standing `search stats` takes a **bare field** in `match:` (`metadata.log_type`),
+not an assignment; the `outcome:` declares the measures. Validate a chart query with
+`search stats` **before** `dashboards add-chart`. Don't name a `match:`/`outcome:`
+variable with a reserved YARA-L keyword (e.g. `$rule`, `$events`) — it compiles but
+fails at execute time; `add-chart`/`edit-chart` warn when you do.
 
 ### SOC triage — queue → case → AI verdict → close
 
 ```bash
-secopsctl soar case list --status open --sort priority --json     # the queue, worst first (table adds an SLA column)
-secopsctl soar case aging --limit 20                              # oldest open cases + SLA status
-secopsctl soar case workload                                      # open-case load per analyst
-secopsctl soar case get <id> --json                               # case + alerts (+ firing rule per alert)
-secopsctl soar case overview --id <id>                            # entities + enrichment behind the Overview tab
-secopsctl soar case summarize --id <id>                           # Google AI summary: summary/reasons/next steps
-secopsctl soar case run-action --id <id> --action <name> --instance <uuid> --dry-run  # run an integration action
-secopsctl soar case close --id <id> --reason not-malicious \
+secopsctl cases list --status open --sort priority --json   # the queue, worst first
+secopsctl cases aging --limit 20                            # oldest open cases + SLA status
+secopsctl cases workload                                    # open-case load per analyst
+secopsctl cases get <id> --json                             # case + alerts (+ firing rule per alert)
+secopsctl cases overview --id <id>                          # entities + enrichment behind the Overview tab
+secopsctl cases summarize --id <id>                         # Google AI summary: summary/reasons/next steps
+secopsctl cases run-action --id <id> --action <name> --instance <uuid> --dry-run  # run an integration action
+secopsctl cases close --id <id> --reason not-malicious \
     --root-cause '<your-root-cause>' --comment 'false positive' --yes
 ```
 
-Bulk: `soar case assign|tag|stage --ids 1,2,3` acts on a set in one call; `soar case stats`
-gives open/closed counts + age/resolution percentiles. Per-**alert** triage (close one alert
-without closing the case): add `--alert <alert-id>` to `close`, or `soar case alert <verb>`.
-Sort the alert queue too: `secopsctl alerts list --sort priority`.
+Bulk: `cases assign|tag|stage --ids 1,2,3` acts on a set in one call; `cases stats`
+gives open/closed counts + age/resolution percentiles. Per-**alert** triage (close one
+alert without closing the case): add `--alert <alert-id>` to `close`, or `cases alert
+<verb>`. Sort the alert queue too: `secopsctl alerts list --sort priority`.
 
 ### Ship and tune a detection rule
 
@@ -184,34 +271,29 @@ Sort the alert queue too: `secopsctl alerts list --sort priority`.
 secopsctl rules test detections/new-rule.yaral --hours 24          # PREVIEW detections vs history (no deploy)
 secopsctl rules promote detections/new-rule.yaral --dry-run        # validate + create + deploy in one step
 secopsctl rules promote detections/new-rule.yaral --alerting=false --yes
-# tune existing tracked rules (enabled/alerting/frequency reconcile):
-secopsctl pull rules && git diff && secopsctl push rules-deploy --dry-run
+secopsctl pull rules && git diff && secopsctl push rules-deploy --dry-run   # tune tracked rules
 secopsctl rules trends --hours 168                                 # noisiest rules, to drive tuning
-secopsctl coverage                                                 # MITRE ATT&CK coverage posture
+secopsctl status coverage                                          # MITRE ATT&CK coverage posture
+secopsctl rules curated set --category <cat> --precision broad --alerting=false --dry-run  # toggle Google-managed sets
 ```
 
 Investigate: `secopsctl entities graph <detection-id>` walks the findings-graph pivot;
 `secopsctl entities risk-scores --order-by 'riskScore desc'` ranks hosts/users.
 
-### Author a dashboard chart
+### Install Content Hub content
 
 ```bash
-secopsctl pull dashboards --with-charts                            # inline charts + queries
-secopsctl dashboards add-chart <dash-id> --title 'Top log types' \
-    --query-file q.yaral --chart-type bar --x '$lt' --y '$c' --dry-run
-secopsctl dashboards run-chart <dash-id> --chart-id <c>            # execute, read the rendered rows
-secopsctl dashboards verify <dash-id>                              # flag empty/errored charts (exit 2 on any)
+secopsctl content-hub browse                                       # integration + content-pack totals
+secopsctl content-hub list                                         # the catalog + identifiers (--installed for installed only)
+secopsctl content-hub install --identifier <id> --dry-run          # → --yes to apply
 ```
-
-`--x/--y/--series-by` are validated against the query's `match:`/`outcome:` variables,
-so a typo fails clean instead of producing a blank chart.
 
 ### Reconcile any surface (generic)
 
 ```bash
 secopsctl soar pull connectors
 git diff
-secopsctl soar push connectors --prune --dry-run                  # --prune deletes live objects with no local file
+secopsctl soar push connectors --prune --dry-run                   # --prune deletes live objects with no local file
 secopsctl soar push connectors --yes
 secopsctl soar pull connectors
 ```
@@ -222,14 +304,15 @@ The CLI takes **names**, not the server's magic ints. Common sets:
 
 | Where | Valid values |
 |---|---|
-| `soar case close --reason` / `push bulk-close` | `malicious` · `not-malicious` · `maintenance` · `inconclusive` · `unknown` |
-| `soar case list --priority` | `informative` · `low` · `medium` · `high` · `critical` |
-| `soar case list --status` | `open` · `closed` · `all` |
+| `cases close --reason` / `soar push bulk-close` | `malicious` · `not-malicious` · `maintenance` · `inconclusive` · `unknown` (a false positive → `not-malicious`) |
+| `cases list --priority` | `informative` · `low` · `medium` · `high` · `critical` |
+| `cases list --status` | `open` · `closed` · `all` |
 | `rules promote --run-frequency` | `LIVE` · `HOURLY` · `DAILY` |
 | `dashboards add-chart --chart-type` | `bar` · `line` · `pie` · `table` |
+| `search export --fields` (column labels) | `timestamp` · `user` · `hostname` · `process name` · `raw log` · `udm.additional.*` |
 
-List a case's valid root-causes with `soar case values root-causes`. For any other
-enum, read the flag's `enum` array in `commands --json` (or its `--help`).
+List a case's valid root-causes with `cases values root-causes`. For any other enum,
+read the flag's `enum` array in `commands --json` (or its `--help`).
 
 ## Gotchas
 
@@ -242,6 +325,12 @@ before declaring a surface broken, try `--legacy` (forces the legacy AppKey path
 dual-generation surfaces) or `soar legacy call` as an escape hatch. Never retry a
 mutating POST that 500s — it may have already applied.
 
+### A search event id needs URL-safe base64
+
+`search event <id>` takes the base64 `metadata.id` from a search result. The enriched
+path needs URL-safe, unpadded base64 — the CLI converts it for you; just pass the id
+verbatim from `search udm --json` / `--format jsonl`.
+
 ### Playbook UUIDs rotate on save
 
 Every save of a SOAR playbook mints a new `identifier`. **Resolve playbooks by name**
@@ -249,7 +338,7 @@ Every save of a SOAR playbook mints a new `identifier`. **Resolve playbooks by n
 
 ### Curated rules: toggle is set×precision only
 
-`curated set` toggles `enabled`/`alerting` scoped to a `--category`/`--ruleset`/
+`rules curated set` toggles `enabled`/`alerting` scoped to a `--category`/`--ruleset`/
 `--precision`. There is no per-rule override for Google-managed curated rules — a
 platform limit, not a CLI gap.
 
@@ -284,15 +373,21 @@ names (e.g. `secopsctl-smoke-<nanos>`) and **delete by exact id**, never a list 
 | I want to… | Command |
 |---|---|
 | Verify setup / config | `secopsctl doctor` · `secopsctl info` |
-| Discover commands / surfaces | `secopsctl commands --json` · `secopsctl surfaces` |
+| Discover commands / surfaces | `secopsctl commands --json` · `secopsctl status surfaces` |
+| Hunt events | `secopsctl search udm '<filter>' --format jsonl` |
+| Inspect one event / its raw log | `secopsctl search event <id>` · `… --raw` |
+| Export all matches to CSV | `secopsctl search export '<filter>' --out hits.csv` |
+| Aggregate (stats) | `secopsctl search stats '<agg>'` |
+| NL → query (Gemini) | `secopsctl gemini generate '<question>'` · `gemini search '<question>'` |
+| Validate a query first | `secopsctl search validate '<filter>'` |
+| Save / share a search | `secopsctl search saved save --name <n> --query '<q>' [--share] --yes` |
 | Snapshot a surface | `secopsctl pull <target>` · `secopsctl soar pull <target>` |
 | Deploy changes | `secopsctl push <target> --dry-run` → `--yes` (SOAR: `soar push`) |
-| Triage cases | `soar case list` → `soar case get <id>` → `soar case close --id <n> --reason <r> --yes` |
-| Ad-hoc UDM search / aggregate | `secopsctl query udm '<filter>'` · `secopsctl query stats '<agg>'` |
-| Preview a rule before deploy | `secopsctl rules test <file.yaral> --hours 24` (detections, no deploy) |
+| Triage cases | `cases list` → `cases get <id>` → `cases close --id <n> --reason <r> --yes` |
 | Ship a rule | `secopsctl rules promote <file.yaral> --dry-run` → `--yes` |
+| Toggle curated rules | `secopsctl rules curated set --category <c> --precision broad --dry-run` |
+| Install Content Hub content | `secopsctl content-hub install --identifier <id> --dry-run` |
 | Pivot an investigation | `secopsctl entities graph <detection-id>` · `secopsctl entities risk-scores` |
-| Queue metrics | `soar case aging` · `soar case workload` · `soar case stats` |
 | Recover from ADC lapse | `gcloud auth login` then `secopsctl doctor` |
 | Force legacy SOAR path | add `--legacy` |
 | Hard read-only for an agent | `SECOPS_READONLY=1 secopsctl ...` |
@@ -309,9 +404,10 @@ Deeper references live in the repo and at **secops.danny.vn** (an install-only a
 without the repo should lean on the self-discovery commands above):
 
 - `docs/guides/the-loop.md` — the pull → diff → push walkthrough
+- `docs/guides/search.md` — the full search surface (udm/raw/stats/event/export/validate/saved)
+- `docs/guides/gemini.md` — NL→query generation and the Gemini assistant
 - `docs/guides/triage.md` — the SOC triage loop (queue → case → verdict → act → tune)
-- `docs/guides/playbooks.md` — discover, author, operate SOAR playbooks
-- `docs/guides/usage.md` — the complete command reference, every flag
-- `docs/guides/soar-cases.md` — per-case and per-alert verb reference
+- `docs/guides/content-hub.md` — browse, install, and uninstall Content Hub content
+- `docs/guides/reference-siem.md` / `reference-soar.md` — the complete command reference
 - `docs/design/catalog.md` — live status of every surface (designed / built / validated)
-- `docs/tips/10-llm-and-automation.md` — agent allowlists, the audit log, automation recipe
+- `docs/tips/11-gemini-and-ai.md` — agent allowlists, the audit log, AI-driven recipes
