@@ -31,7 +31,7 @@ source of truth for Chronicle-host version pins), and a drift-guard test
 |:-:|---|---|
 | 📐 | **designed** | spec'd, code not landed |
 | 🔨 | **built** | code lands |
-| ✅ | **live-validated** | reads round-trip clean / a write smoke ran |
+| ✅ | **verified** | reads round-trip clean / a write smoke ran |
 | 🔒 | **read-only by choice** | write deliberately not run — RBAC/SSO/high-blast/routing |
 | ⛔ | **blocked** | that API path is down server-side (500/404) |
 | — | **not used here** | secopsctl doesn't use that API generation for this function |
@@ -101,9 +101,9 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
 | `forwarders` | reconcile | ✅ chronicle · v1beta | `.yaml`; prune-eligible; collectors separate nested resource; SDK pinned v1beta (v1 404s). |
 | `metric_definitions` | reconcile | 🔨 chronicle · v1alpha | Custom SOC metrics; textDefinition immutable; NoDelete; feature-gated 403 (Pre-GA). |
-| `scheduled_reports` | reconcile | 🔨 chronicle · v1alpha | Scheduled dashboard reports; reads live-validated; create 500s server-side (write-smoke skips). |
+| `scheduled_reports` | reconcile | 🔨 chronicle · v1alpha | Scheduled dashboard reports; reads verified; create 500s server-side (write-smoke skips). |
 | `datataps` | reconcile | ✅ chronicle · v1alpha | Stream UDM events to Pub/Sub; prune-eligible; PATCH 501 so update = delete+create. |
-| `error_notifications` | reconcile | 🔨 chronicle · v1alpha | Ingestion-health alerts to Cloud Monitoring channels; feature-gated 403, not live-validated. |
+| `error_notifications` | reconcile | 🔨 chronicle · v1alpha | Ingestion-health alerts to Cloud Monitoring channels; feature-gated 403, not verified. |
 | `enrichment_controls` | imperative | 🔨 chronicle · v1alpha | Turn off UDM enrichment per log type; no patch, imperative only; feature-gated 403. |
 | `federation_groups` · `tenants` (MSSP) | reconcile · read | 🔨 chronicle · v1alpha | Multi-tenant federation; MSSP-only (403 on single tenant); `multitenantDirectory` read-validated. |
 | schema discovery | imperative (read) | ✅ chronicle · v1alpha | `feedSourceTypeSchemas`, `logTypeSchemas`, `logTypeSetting`, `logTypes.get`; read-validated. |
@@ -131,7 +131,7 @@ Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.
 | **watchlists** | operational (read) | ✅ chronicle · v1 | `watchlists list`/`get`; pinned v1 (`watchlistsAPIVersion`) |
 | **analytics & AI reads** | operational (read) | ✅ chronicle (W17, `chronicle/analytics.go`) | Investigations + steps + risk scores + MITRE coverage + BigQuery export; writes gated |
 | **alert AI investigation** (`alerts investigate`) | operational | ✅ chronicle · v1alpha | Per-alert Gemini TIN triage (W57); trigger + poll + notebook; `--latest` read-only variant |
-| **Gemini chat** (`query gemini`) | operational (read) | ✅ chronicle · v1alpha | YARA-L / UDM Q&A; live-validated (W56); HTML blocks rendered as prose; `--opt-in` |
+| **Gemini chat** (`query gemini`) | operational (read) | ✅ chronicle · v1alpha | YARA-L / UDM Q&A; verified (W56); HTML blocks rendered as prose; `--opt-in` |
 | **findings graph** (`findingsGraph`) | operational (read) | ✅ chronicle · v1alpha | Graph-pivot from detection id (W56); SDK-only (`chronicle/findings_graph.go`) |
 | **alert enrichment** (`alerts enrich`) | operational (read) | ✅ chronicle · v1alpha | Full per-alert detection collection (rule + UDM events + entities + triage) via `legacy:legacyBatchGetCollections` — the surface the console uses. The `enrichmentAgent:*` path (W56) is a dead 500 and unused by the console; the pre-case action verbs that rode it are withheld (the in-case equivalent is `soar case run-action`). |
 | **watchlist membership** | imperative | 🔨 chronicle (shape validated; op gated per instance) | `watchlists add-entity`; UDM Entity envelope required; membership can 501 per instance |
@@ -170,7 +170,7 @@ reflection; refused on an incomplete listing to prevent false deletions.
 | `visual-families` | reconcile | — | ✅ | Write smoke; validates `wrapKey` envelope. PruneEligible. |
 | `sla-definitions` | reconcile | ✅ siemplify · v1alpha | ✅ | Affects alert routing. Engine-NoDelete. |
 | `case-stages` | reconcile | ✅ siemplify · v1alpha | ✅ | Wrapped list. Engine-NoDelete (UI-pollution). |
-| `case-tags` | reconcile | ✅ siemplify · v1alpha | 🔨 | Modern create→get→delete live-validated. |
+| `case-tags` | reconcile | ✅ siemplify · v1alpha | 🔨 | Modern create→get→delete verified. |
 | `close-root-causes` | reconcile | ✅ siemplify · v1alpha | ✅ | Modern create/delete wired; non-unique names test slug-collision fix. |
 | `blacklists` | reconcile | 🔨 siemplify · v1alpha | ✅ | Read + create/get/delete wired; writes reach endpoint (HTTP 400, not 500) but enums undocumented — not write-validated. |
 | `playbook-categories` | reconcile | — | ✅ | Write smoke. |
@@ -193,16 +193,16 @@ Per-surface detail (one entry per function): see [catalog-soar.md](catalog-soar.
 | `soar case summarize` / `counts` / `alert recommend` (AI) | operational read | ✅ summarize · ✅ counts · 🔨 recommend create leg — siemplify · v1alpha | — | W56 AI-assist reads; W59 counts; recommend CREATE works, fetch leg not served (400). |
 | `soar case run-action` | imperative | ✅ siemplify · v1alpha | ✅ | Runs any installed integration action on a case; guarded; dry-run validated. |
 | `soar case simulation` | imperative | ✅ siemplify · v1alpha | ✅ | Full simulation CRUD; live write round-trip validated. |
-| `soar case <verb>` (assign/rename/stage/tag/untag/describe/importance/priority/close/reopen/merge + `comment add`) | imperative | — | ✅ 9 verbs · 🔨 W52 (smoke extended, gated) | 9 verbs live-validated by `TestLiveSOARCaseVerbsWriteSmoke`; W52 adds priority/reopen/comment. |
+| `soar case <verb>` (assign/rename/stage/tag/untag/describe/importance/priority/close/reopen/merge + `comment add`) | imperative | — | ✅ 9 verbs · 🔨 W52 (smoke extended, gated) | 9 verbs verified by `TestLiveSOARCaseVerbsWriteSmoke`; W52 adds priority/reopen/comment. |
 | `soar case alert <verb>` (close/priority/move/reopen) | imperative | — | 🔨 smoke extended, gated | Per-alert triage (W52); dry-run + error paths validated; writes ride extended write smoke. |
 | `soar playbook generate` (AI drafting) | imperative | 🔨 siemplify · v1alpha (guarded; dry-run validated) | — | W56 Gemini drafting; creates draft on tenant; guarded. Live write gated. |
 | `soar playbook` operational helpers | operational read + guarded execution | — | ✅ | Waves 39 + 51 + 55; lifecycle ops, export, import, deploy toggle, batch delete, step insert, run/debug/rerun. |
-| **playbook authoring palette** (`soar playbook components`) | operational read | ✅ siemplify · v1alpha wildcard catalogs | — | W58 designer palette as CLI catalogs; all live-validated. |
+| **playbook authoring palette** (`soar playbook components`) | operational read | ✅ siemplify · v1alpha wildcard catalogs | — | W58 designer palette as CLI catalogs; all verified. |
 | `soar job` operational helpers | operational read + guarded execution | — | 🔨 | Waves 39 + 55; instance set/create/delete, job run, logs. |
 | `soar push bulk-close` | imperative | — | 🔨 | Queue bulk-close with typed reason enum. |
 | `soar settings case-assignment` / `move-case-policy` (`get`/`set`) | imperative | — | 🔨 | Singleton routing policies; guarded `set`. |
-| `soar settings grouping` (`get`/`set`) | imperative (modern + legacy) | ✅ read · 🔒 write — siemplify · v1alpha + legacy | — | W80; General/Overflow singleton; modern bag empty on many instances; no API SET for max-alerts. |
-| `soar settings api-keys` (list/create/revoke) | operational | — | ✅ | W60; key lifecycle live-validated; key value shown once, never logged. |
+| `soar settings grouping` (`get`/`set`) | imperative (modern + legacy) | ✅ read · ✅ write — siemplify · v1alpha + legacy | — | W80/W107; full General/Overflow property bag (Timeframe/overflow/co-grouping) read+write via moduleSettings; legacy max-alerts-per-case singleton is read-only. |
+| `soar settings api-keys` (list/create/revoke) | operational | — | ✅ | W60; key lifecycle verified; key value shown once, never logged. |
 | `idp-mappings` | imperative | ✅ siemplify · v1alpha | — | SDK-only (no CLI). 500s on chronicle; answers on SOAR host. Read-validated. |
 | `form-dynamic-parameters` | deferred | 🔒 siemplify · v1alpha (unsafe PUT) | 🔒 read | Not wired; PUT silently resets `formType` to Invalid. |
 | `soar legacy call <op>` | raw | — | ✅ | Passthrough for integrations, ontology, settings, environment-priorities, permissions. |
@@ -232,18 +232,18 @@ Installing content (integration packages and the connector/job/action definition
 
 | Function (CLI) | Lane | New API (status · domain · version) | Legacy (siemplify · external) | Notes |
 |---|---|---|---|---|
-| `soar marketplace list` / `get` / `contentpacks` | imperative read | ✅ siemplify · v1alpha | — | Content Hub reads; 405 integrations + 59 packs; read-validated; install round-trip live-validated (W11). |
+| `soar marketplace list` / `get` / `contentpacks` | imperative read | ✅ siemplify · v1alpha | — | Content Hub reads; 405 integrations + 59 packs; read-validated; install round-trip verified (W11). |
 | `info soar-integrations` | operational read | 🔨 siemplify · v1alpha | 🔨 | Coverage report joining packs with runtime cards; flags config/runtime gaps; built + offline-tested. |
 | `info cron` | offline utility | — | — | Scans local scheduler files + pulled SOAR JSON for scheduled automation; no API call. |
 | `soar build-playbook` / `soar playbook mold` / `soar playbook trigger set` | offline utility | — | — | Composes save-ready playbook JSON from an exported base; offline-only; built + offline-tested. |
 | `soar integration scaffold` / `soar package-integration` | offline utility | — | — | Scaffolds Python custom integration dirs; packages to ZIP for IDE import; no API call. |
-| `commands` / `surfaces` / `capabilities` | offline utility | — | — | Machine-readable registries; W73 rich flag schema + capabilities live probe; live-validated. |
+| `commands` / `surfaces` / `capabilities` | offline utility | — | — | Machine-readable registries; W73 rich flag schema + capabilities live probe; verified. |
 | `skill` / `skill install` | offline utility | — | — | W84; the agent operating guide embedded in the binary (`go install` ships no docs); `--json` for metadata; `install` registers it in an agent skills dir. |
-| structured `--json` errors + dry-run plan | output contract | — | — | W73 live-validated; stderr structured error envelope + stdout dry-run change plan. |
-| `soar integration list` / `uninstall` | imperative | ✅ siemplify · v1alpha | — | Lists installed packs; uninstalls custom-only (`custom:true`); read live-validated. |
-| `soar integration connector list` / `delete` | imperative | ✅ siemplify · v1alpha | — | Connector definitions inside a pack; delete custom-only; read + delete live-validated. |
+| structured `--json` errors + dry-run plan | output contract | — | — | W73 verified; stderr structured error envelope + stdout dry-run change plan. |
+| `soar integration list` / `uninstall` | imperative | ✅ siemplify · v1alpha | — | Lists installed packs; uninstalls custom-only (`custom:true`); read verified. |
+| `soar integration connector list` / `delete` | imperative | ✅ siemplify · v1alpha | — | Connector definitions inside a pack; delete custom-only; read + delete verified. |
 | `soar integration create` / `instances` / `configure` / `delete` (instances) | imperative | — | 🔨 | Integration instances; not reconcilable; CRUD with auto-resolve + configure overlay; `TestLiveIntegrationInstanceCRUD` validated. |
-| `soar integration install` (+ pack `:install`/`:uninstall`) | imperative/raw | ✅ siemplify · v1alpha (`:install`/`:uninstall`) | 🔨 (`/store`) | Installs marketplace pack via v1alpha; live-validated install→uninstall round-trip (W11). |
+| `soar integration install` (+ pack `:install`/`:uninstall`) | imperative/raw | ✅ siemplify · v1alpha (`:install`/`:uninstall`) | 🔨 (`/store`) | Installs marketplace pack via v1alpha; verified install→uninstall round-trip (W11). |
 | `soar integration action` / `job-def` (template/create/update/delete) | imperative | ✅ siemplify · v1alpha | 🔨 | Python definition authoring loop (W60+W65); `TestLiveAuthoringWriteSmoke` validated for actions. |
 
 #### Surface details
@@ -253,7 +253,7 @@ Per-surface detail (one entry per function): see [catalog-soar.md](catalog-soar.
 ## How to keep this current
 
 When a surface advances: edit its row here **and** the relevant design doc in the
-**same commit**. A surface reaches `✅` only after a live read round-trips clean and
+**same commit**. A surface reaches `✅` only after a read round-trips clean and
 (for writes) a gated smoke passed on an inert throwaway — see the build discipline
 in [architecture.md](architecture.md) §5.
 

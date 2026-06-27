@@ -343,28 +343,52 @@ func validateRunActionParams(schema []playbookActionParam, provided map[string]s
 	return errs, warns
 }
 
-// renderActionResult prints a human summary or JSON of an action execution result.
+// renderActionResult prints a human summary or JSON of an action execution result
+// and returns a non-nil error when the action FAULTED, so a faulted run exits
+// non-zero. The server reports a successful API call even when the action itself
+// failed: the run-action call returns 200 with the action's own outcome in the body,
+// so the outcome is read from resultName/status/resultValue (not the HTTP status).
 func renderActionResult(raw json.RawMessage) error {
-	if jsonOut {
-		return writeRawJSON(os.Stdout, raw)
-	}
 	var result struct {
-		ResultCode  int    `json:"resultCode"`
-		Message     string `json:"message"`
-		ResultName  string `json:"resultName"`
-		Integration string `json:"integration"`
+		ResultCode  int             `json:"resultCode"`
+		Message     string          `json:"message"`
+		ResultName  string          `json:"resultName"`
+		ResultValue json.RawMessage `json:"resultValue"`
+		Status      string          `json:"status"`
 	}
-	if err := json.Unmarshal(raw, &result); err == nil {
-		status := "success"
-		if result.ResultCode != 0 {
-			status = "failed"
+	parsed := json.Unmarshal(raw, &result) == nil
+	// A faulted action is signalled by any of status=FAULTED, resultName=is_failed,
+	// resultValue=false, or a non-zero resultCode.
+	resultValue := strings.Trim(strings.TrimSpace(string(result.ResultValue)), `"`)
+	faulted := parsed && (strings.EqualFold(result.Status, "FAULTED") ||
+		strings.EqualFold(result.ResultName, "is_failed") ||
+		strings.EqualFold(resultValue, "false") ||
+		result.ResultCode != 0)
+
+	switch {
+	case jsonOut:
+		if err := writeRawJSON(os.Stdout, raw); err != nil {
+			return err
 		}
-		fmt.Fprintf(os.Stdout, "result: %s (code %d)\n", status, result.ResultCode)
-		if result.Message != "" {
-			fmt.Fprintf(os.Stdout, "message: %s\n", strings.TrimSpace(result.Message))
+	case parsed:
+		label := "success"
+		if faulted {
+			label = "FAULTED"
 		}
-	} else {
+		fmt.Fprintf(os.Stdout, "result: %s (code %d)\n", label, result.ResultCode)
+		if msg := strings.TrimSpace(result.Message); msg != "" {
+			fmt.Fprintf(os.Stdout, "message: %s\n", msg)
+		}
+	default:
 		fmt.Fprintf(os.Stdout, "raw result: %s\n", string(raw))
+	}
+
+	if faulted {
+		msg := strings.TrimSpace(result.Message)
+		if msg == "" {
+			msg = fmt.Sprintf("action reported failure (resultName=%q status=%q)", result.ResultName, result.Status)
+		}
+		return fmt.Errorf("action faulted: %s", msg)
 	}
 	return nil
 }

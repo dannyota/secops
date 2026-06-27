@@ -25,7 +25,7 @@ First write-loop proof (clone throwaway).
 
 ### `soc-roles`
 
-RBAC. Modern API: siemplify · v1alpha (CRUD wired; create→get→delete live-validated, `TestLiveConfigSurfaceWriteSmoke`). Modern write does not 500. Legacy write **path** validated via an inert throwaway role — create→rename→delete (no users assigned); `DeleteSocRole` takes `{socRoleId}`. **Engine-NoDelete** (delete via raw SDK only; `--prune` never deletes these) — reconcile RBAC with care.
+RBAC. Modern API: siemplify · v1alpha (CRUD wired; create→get→delete verified, `TestLiveConfigSurfaceWriteSmoke`). Modern write does not 500. Legacy write **path** validated via an inert throwaway role — create→rename→delete (no users assigned); `DeleteSocRole` takes `{socRoleId}`. **Engine-NoDelete** (delete via raw SDK only; `--prune` never deletes these) — reconcile RBAC with care.
 
 ### `idp`
 
@@ -45,7 +45,7 @@ Wrapped list. Modern API: siemplify · v1alpha (caseStageDefinitions create/dele
 
 ### `case-tags`
 
-Modern API: siemplify · v1alpha (caseTagDefinitions create/get/delete **live-validated**, `TestLiveConfigSurfaceWriteSmoke`). Modern create→get→delete works (does not 500; `priority` must be > 0). Legacy write smoke skips (no tag to clone).
+Modern API: siemplify · v1alpha (caseTagDefinitions create/get/delete **verified**, `TestLiveConfigSurfaceWriteSmoke`). Modern create→get→delete works (does not 500; `priority` must be > 0). Legacy write smoke skips (no tag to clone).
 
 ### `close-root-causes`
 
@@ -89,11 +89,11 @@ Wave 16. Modern API: siemplify · v1alpha — SDK full CRUD (`soar/case_data_sur
 
 A case is one record, surfaced as one command: the top-level `cases` command is the
 canonical spelling and `soar case …` remains as a hidden back-compat alias (the same
-verb tree). `cases list` defaults to the modern v1alpha cases API on the siemplify domain (`soar.ListCases`, live-validated) and auto-falls back to the legacy queue (`ListCaseCards`) on error; `--legacy` forces legacy. `list` sends the web-UI query params — server-side `filter` (`--status` → `status = 'OPENED'`/`'CLOSED'`), `orderBy=updateTime desc`, and `expand` (products/tasks/tags/closureDetails/sla/alertsSla) via `ListCasesOpts` (client-side status re-check kept as a safety net); live-validated (open vs closed return different counts).
+verb tree). `cases list` defaults to the modern v1alpha cases API on the siemplify domain (`soar.ListCases`, verified) and auto-falls back to the legacy queue (`ListCaseCards`) on error; `--legacy` forces legacy. `list` sends the web-UI query params — server-side `filter` (`--status` → `status = 'OPENED'`/`'CLOSED'`), `orderBy=updateTime desc`, and `expand` (products/tasks/tags/closureDetails/sla/alertsSla) via `ListCasesOpts` (client-side status re-check kept as a safety net); verified (open vs closed return different counts).
 
-**Triage filters (W52, live-validated):** `--assignee` (substring) / `--priority` / `--tag` / `--since` narrow the fetched page client-side on both lanes (`--tag`/`--filter` are modern-lane and fail loud on the legacy queue); `--filter` passes a verbatim server-side expression to the modern API (`priority = 'PRIORITY_HIGH'` confirmed honored server-side).
+**Triage filters (W52, verified):** `--assignee` (substring) / `--priority` / `--tag` / `--since` narrow the fetched page client-side on both lanes (`--tag`/`--filter` are modern-lane and fail loud on the legacy queue); `--filter` passes a verbatim server-side expression to the modern API (`priority = 'PRIORITY_HIGH'` confirmed honored server-side).
 
-`get <id>` uses legacy `GetCaseFullDetails` → case and its alerts (each with its `--alert` id for the verbs) — and per alert the firing rule (`additionalProperties.ruleGenerator` + `rule_id`) with a `rules detections` pivot hint (W52, live-validated): the case→rule-tuning bridge. Shared `preferModern` helper.
+`get <id>` uses legacy `GetCaseFullDetails` → case and its alerts (each with its `--alert` id for the verbs) — and per alert the firing rule (`additionalProperties.ruleGenerator` + `rule_id`) with a `rules detections` pivot hint (W52, verified): the case→rule-tuning bridge. Shared `preferModern` helper.
 
 **Chronicle-host path (not surfaced):** the same case is reachable on the chronicle host by UUID (ADC), but that collection errors at v1/v1beta/v1alpha — so W85 removed the dead `cases list/get/search` verbs and the `cases (chronicle alt)` surface entry; case work runs entirely on the working siemplify path above. The one chronicle-host case read kept is the bridge: `legacyBatchGetCases` maps SOAR int id ↔ SIEM UUID — CLI `cases soar-id`, and `alerts get` prints it per alert. (`chronicle.ListCasesOpts`/`GetCase`/`SearchCases` remain importable for the day the collection stabilizes.)
 
@@ -101,15 +101,15 @@ verb tree). `cases list` defaults to the modern v1alpha cases API on the siempli
 
 ### `soar case summarize` / `counts` / `alert recommend` (AI)
 
-`summarize --id N` polls `cases:getOrCreateCaseSummary` to a settled state and prints the structured Gemini case summary (summary · reasons · next steps) — live-validated (a full real summary round-tripped).
+`summarize --id N` polls `cases:getOrCreateCaseSummary` to a settled state and prints the structured Gemini case summary (summary · reasons · next steps) — verified (a full real summary round-tripped).
 
-`counts [--filter]` (W59, live-validated) derives per-priority counts from the modern list's `totalSize` (one `pageSize=1` count per priority, composed with the base filter; `soar.CountCases`/`CountCasesByPriority`) — the `cases:countPriorities` RPC is not served (404/500; the web UI builds its queue from filtered lists) and the SDK method remains only for instances that may serve it.
+`counts [--filter]` (W59, verified) derives per-priority counts from the modern list's `totalSize` (one `pageSize=1` count per priority, composed with the base filter; `soar.CountCases`/`CountCasesByPriority`) — the `cases:countPriorities` RPC is not served (404/500; the web UI builds its queue from filtered lists) and the SDK method remains only for instances that may serve it.
 
 `alert recommend --id N --alert <ident|numeric>` triggers + polls the per-alert AI recommendation; the CREATE leg works against an alert-level-open alert (`caseAlerts:createRecommendationLongRunning` → 202 + recommendationId, numeric id accepted) but `:fetchRecommendation` is not served (400 on every documented form) — where the recommendation feature is absent, the per-alert AI flow is the chronicle-host investigation instead (`alerts investigate`); the verb stays wired and surfaces a clean error.
 
 ### `soar case overview`
 
-`overview --id N` returns the data behind the console's case Overview tab (legacy `case-overview/GetCaseEntities`): the case's entities with their enrichment fields — the entity context an analyst sees — live-validated (40 entities returned for a real case). `--widgets` returns the overview widget template instead (`GetCaseOverviewData`, body `{caseId}`). Read-only, JSON; completes the case read trio with `summarize` (AI narrative) and `get` (record + alerts).
+`overview --id N` returns the data behind the console's case Overview tab (legacy `case-overview/GetCaseEntities`): the case's entities with their enrichment fields — the entity context an analyst sees — verified (40 entities returned for a real case). `--widgets` returns the overview widget template instead (`GetCaseOverviewData`, body `{caseId}`). Read-only, JSON; completes the case read trio with `summarize` (AI narrative) and `get` (record + alerts).
 
 ### `soar case run-action`
 
@@ -123,13 +123,13 @@ With `--integration`, a **pre-flight check** validates `--param` against the act
 
 ### `soar case simulation`
 
-Playbook-dev test harness: `list` / `get` / `create` / `generate` / `alert` / `delete` wrapping the `legacyCases` simulation surface (`getCustomCases`, `getCustomCaseDetails`, `createSimulatedCustomCase`, `generateUseCases`, `simulateAlert`, `deleteUseCase`). Full write round-trip live-validated (create→list→generate→delete with a throwaway simulation). All guarded.
+Playbook-dev test harness: `list` / `get` / `create` / `generate` / `alert` / `delete` wrapping the `legacyCases` simulation surface (`getCustomCases`, `getCustomCaseDetails`, `createSimulatedCustomCase`, `generateUseCases`, `simulateAlert`, `deleteUseCase`). Full write round-trip verified (create→list→generate→delete with a throwaway simulation). All guarded.
 
 ### `soar case <verb>` (assign/rename/stage/tag/untag/describe/importance/priority/close/reopen/merge + `comment add`)
 
-The reliable operational case path. The original 9 mutate verbs are swagger-verified + unit-tested and live-validated end-to-end by `TestLiveSOARCaseVerbsWriteSmoke` (create two throwaway cases → run every verb → merge → close).
+The reliable operational case path. The original 9 mutate verbs are swagger-verified + unit-tested and verified end-to-end by `TestLiveSOARCaseVerbsWriteSmoke` (create two throwaway cases → run every verb → merge → close).
 
-**W52 adds** `priority` (`ChangeCasePriority`, typed `CasePriority` names — distinct from the `importance` flag), `reopen` (`ExecuteBulkReopenCase`; single `--id` or bulk `--ids`, the inverse of close), and `comment add`/`comment list` (`AddCaseComment` + `GET /cases/comments` — the case-wall triage-rationale record, distinct from `chat`); the write smoke is extended to cover them (comment round-trip read-verified) and awaits an approved run — dry-run + comment-list read validated live.
+**W52 adds** `priority` (`ChangeCasePriority`, typed `CasePriority` names — distinct from the `importance` flag), `reopen` (`ExecuteBulkReopenCase`; single `--id` or bulk `--ids`, the inverse of close), and `comment add`/`comment list` (`AddCaseComment` + `GET /cases/comments` — the case-wall triage-rationale record, distinct from `chat`); the write smoke is extended to cover them (comment round-trip read-verified) and awaits an approved run — dry-run + comment-list read verified.
 
 **Bulk triage (W95):** `assign`, `tag`, and `stage` take `--ids 1,2,3` for a single bulk call alongside the single `--id` form — `ExecuteBulkAssign` (`{casesIds, userName}`), `ExecuteBulkAddCaseTag` (`{casesIds, tags}`), `ExecuteBulkChangeCaseStage` (`{casesIds, stage}`); request shapes confirmed against the live API (a bulk-tag round-trip applied + read-verified + reverted). `untag` stays single (no bulk-remove-tag endpoint).
 
@@ -144,7 +144,7 @@ Per-ALERT triage inside a case (W52):
 - split a mis-grouped alert out (`MoveAlertToNewCase` — `--to` an existing case, or omit for a new one; the inverse of `merge`)
 - reopen a closed alert (`ReopenAlert`)
 
-All on the standard guard; dry-run + error paths validated live; writes ride the extended `TestLiveSOARCaseVerbsWriteSmoke`, gated.
+All on the standard guard; dry-run + error paths verified; writes ride the extended `TestLiveSOARCaseVerbsWriteSmoke`, gated.
 
 ### `soar playbook generate` (AI drafting)
 
@@ -154,7 +154,7 @@ W56. Gemini playbook drafting: `generate --description <text>` or `generate --ca
 
 Waves 39 + 51 + 55. Read helpers: list/validate/components integrations/actions/jobs/connectors/test-cases/debug-step-data/simulation-enrichment/pending/step get/summary/results/result/python-logs.
 
-**W55 lifecycle ops (read-validated live):**
+**W55 lifecycle ops (read-verified):**
 
 - `versions` (the per-save version log — empty until a save mints one) + guarded `restore --version` (rollback; the restore itself mints a new version)
 - `stats` (cross-case run statistics, modern bridge `legacyGetPlaybookStatsMap` with legacy fallback)
@@ -167,13 +167,13 @@ Waves 39 + 51 + 55. Read helpers: list/validate/components integrations/actions/
 
 Guarded execution: `run`, `debug`, `rerun`, `rerun-block`, and `step execute` all dry-run by default and require explicit case/test-case/workflow/step selectors before SecOps executes anything. Human output summarizes counts/status/presence only; `--json` returns raw SecOps payloads for scripts. Live write not run by default because playbooks can create cases, tasks, alerts, and external side effects.
 
-`summary` surfaces a run's faulted steps (action · error/traceback · per-step Logs Explorer link) and resolves `--playbook` name → definition id + the case's alert id (`alerts[].additionalProperties.alertGroupIdentifier`), so no opaque GUIDs are needed; it prefers the v1alpha `legacyPlaybooks:legacyGetWorkflowInstanceSummary` path with legacy fallback (live-validated).
+`summary` surfaces a run's faulted steps (action · error/traceback · per-step Logs Explorer link) and resolves `--playbook` name → definition id + the case's alert id (`alerts[].additionalProperties.alertGroupIdentifier`), so no opaque GUIDs are needed; it prefers the v1alpha `legacyPlaybooks:legacyGetWorkflowInstanceSummary` path with legacy fallback (verified).
 
 **W64:** offline `step insert` splices a brand-new action step into the graph (fresh identity, rewired relations; `legacy.InsertActionStep`), and every playbook save path decodes int64-safely (`UseNumber`).
 
 ### playbook authoring palette (`soar playbook components`)
 
-The designer's Step Selection palette as CLI catalogs (W58, all live-validated):
+The designer's Step Selection palette as CLI catalogs (W58, all verified):
 
 - `components actions` with no flag lists every action across every integration in one call (`integrations/-/actions`, field-masked summary + the numeric definition id); `--integration <k>` lists that pack's actions in detail, and `--json` carries each action's full **parameter schema** (name/type/mandatory/default/optionalValues/description) — the schema needed to author a step. The actions LIST omits parameters regardless of field mask, so the detail view lists then GETs each action (`GetActionDef`); the parameter extractor tolerates both the modern (`displayName`/`mandatory`) and legacy (`name`/`isMandatory`) shapes
 - `components flow` lists transformers (value functions) + logical operators (condition predicates) with usage examples (`integrations/-/{transformers,logicalOperators}`; the logical-operators envelope key is snake_case even under `format=camel`)
@@ -206,11 +206,11 @@ Singleton case-routing policies (one record, no id/list/delete) → imperative g
 
 W80. The alert-grouping General/Overflow settings singleton the `push grouping` RULES reconcile can't reach.
 
-`get` (live-validated) reads the reliable legacy max-alerts-per-case value (`GetMaximumAlertsGroupingConfiguration`) AND any modern `moduleSettings/AlertGroupingSettings/properties` (the modern bag is empty on many instances, so the General/Overflow knobs are then read-mostly, edited in SOAR Settings). Guarded `set --property name=value` applies via `BatchUpdateModuleSettingProperties` where the instance exposes writable properties; the max-alerts singleton has no API SET (swagger has only the GET).
+`get` reads the full `moduleSettings/AlertGroupingSettings/properties` bag — Timeframe, max-alerts, overflow timeframe/max, grouping algorithm, source-grouping fallback (the same properties the SOAR Settings → Alerts Grouping page edits) — plus the legacy max-alerts-per-case value. Guarded `set --property <ShortName>=<value>` writes via `BatchUpdateModuleSettingProperties` (W107: the list decodes under the canonical `items` key — a prior tag typo read the bag as empty; `set` matches the friendly ShortName and maps it to the full resource name the `:batchUpdate` write expects). The legacy max-alerts-per-case singleton is read-only (swagger has only the GET).
 
 ### `soar settings api-keys` (list/create/revoke)
 
-SOAR external-API key administration on `/settings/` (all three ops absent from the swagger; W60, lifecycle live-validated — create → list → revoke → verified gone).
+SOAR external-API key administration on `/settings/` (all three ops absent from the swagger; W60, lifecycle verified — create → list → revoke → verified gone).
 
 `list` (`GET /settings/GetApiKeys`) is metadata only: the server masks the key and the typed view drops it (House Rule 4). Guarded `create --name --permission-group` (`POST /settings/addOrUpdateApiKeyRecord`, no id = create): the key value is client-generated — a crypto/rand UUID minted locally, stored verbatim server-side, shown exactly once on success, never logged or persisted (the audit log records action+decision only); a null `socRoleId` is server-defaulted. Guarded `revoke (--name|--id)` (`POST /settings/RemoveApiKeyRecord`) posts the full record as listed (the typed `APIKey` retains its verbatim Raw form for exactly this). `soar/legacy/settings_api_keys.go`.
 
@@ -218,7 +218,7 @@ SOAR external-API key administration on `/settings/` (all three ops absent from 
 
 SDK-only (no CLI yet). IdP group → SOC-role / permission-group / environment mappings (`legacySoarIdpMappingGroups`). SDK `List`/`Get`/`Create`/`Update`/`Delete` + `GetExternalProviders` (`soar/idp_mappings.go`).
 
-Two-host surface: the v1alpha docs file it under the chronicle instance path, but it 500s on chronicle and answers on the SOAR host (AppKey) — so it lives on the SOAR plane (the registry codes it `AreaSOAR` / SOAR-modern). Read-validated live (mapping groups + external providers). Writes touch live access — gate carefully.
+Two-host surface: the v1alpha docs file it under the chronicle instance path, but it 500s on chronicle and answers on the SOAR host (AppKey) — so it lives on the SOAR plane (the registry codes it `AreaSOAR` / SOAR-modern). Read-verified (mapping groups + external providers). Writes touch live access — gate carefully.
 
 ### `form-dynamic-parameters`
 
@@ -246,7 +246,7 @@ Modern IoC lookup, read-validated. `iocs find <value>` resolves indicators via t
 
 Content Hub reads (`soar/marketplace.go`) — `list [--installed]` (405 integrations) + `get <id>` + `contentpacks` (59). Read-validated.
 
-Install/uninstall live-validated (Wave 11, `TestLiveMarketplaceInstallWriteSmoke` — install→verify→uninstall round-trip on an inert, not-installed utility pack, self-cleaning; reversible via the modern `:uninstall`). A single marketplace integration installs via `soar integration install --identifier <id>` (guarded; next row). Pack uninstall for a custom pack is CLI-reachable via `soar integration uninstall` (next row); the modern `marketplaceIntegrations:uninstall` itself stays SDK-only.
+Install/uninstall verified (Wave 11, `TestLiveMarketplaceInstallWriteSmoke` — install→verify→uninstall round-trip on an inert, not-installed utility pack, self-cleaning; reversible via the modern `:uninstall`). A single marketplace integration installs via `soar integration install --identifier <id>` (guarded; next row). Pack uninstall for a custom pack is CLI-reachable via `soar integration uninstall` (next row); the modern `marketplaceIntegrations:uninstall` itself stays SDK-only.
 
 ### `info soar-integrations`
 
@@ -281,15 +281,15 @@ W84. The agent operating guide (`SKILL.md`) embedded in the binary via `//go:emb
 
 ### structured `--json` errors + dry-run plan
 
-W73, live-validated. A failed command under `--json` emits a structured `{code, message, retryable, status, request_id}` envelope on stderr (canonical google.rpc codes; `retryable` follows the transport retry policy; `*APIError`/`soar.Error` gain `Retryable()`), so stdout stays clean for the success/preview payload (a server 500 renders as `{code:"INTERNAL", status:500, retryable:false}`). `push --json` dry-run includes a per-object change plan (`items[]: {action, slug, server_id}`) via `reconcile.Summary.Changes`.
+W73, verified. A failed command under `--json` emits a structured `{code, message, retryable, status, request_id}` envelope on stderr (canonical google.rpc codes; `retryable` follows the transport retry policy; `*APIError`/`soar.Error` gain `Retryable()`), so stdout stays clean for the success/preview payload (a server 500 renders as `{code:"INTERNAL", status:500, retryable:false}`). `push --json` dry-run includes a per-object change plan (`items[]: {action, slug, server_id}`) via `reconcile.Summary.Changes`.
 
 ### `soar integration list` / `uninstall`
 
-`list [--custom] [--json]` enumerates installed packs (`soar.ListIntegrations`); `uninstall --key <key>` deletes a custom pack (`soar.DeleteIntegration`, guarded). `soar.IsDeletableIntegration` = `custom:true` only — refuses commercial/installed packs. Read live-validated.
+`list [--custom] [--json]` enumerates installed packs (`soar.ListIntegrations`); `uninstall --key <key>` deletes a custom pack (`soar.DeleteIntegration`, guarded). `soar.IsDeletableIntegration` = `custom:true` only — refuses commercial/installed packs. Read verified.
 
 ### `soar integration connector list` / `delete`
 
-Connector definitions (templates inside a pack; distinct from the configured connector instances in the SOAR reconcile table). `list --integration <key>` (`soar.ListConnectors`); `delete --integration <key> --id <connId>` (`soar.DeleteConnectorDef`, guarded). Only `custom:true` definitions are deletable — removes a duplicated "Copy of …" connector without touching the stock one. Read + delete live-validated.
+Connector definitions (templates inside a pack; distinct from the configured connector instances in the SOAR reconcile table). `list --integration <key>` (`soar.ListConnectors`); `delete --integration <key> --id <connId>` (`soar.DeleteConnectorDef`, guarded). Only `custom:true` definitions are deletable — removes a duplicated "Copy of …" connector without touching the stock one. Read + delete verified.
 
 ### `soar integration create` / `instances` / `configure` / `delete` (instances)
 
@@ -300,11 +300,11 @@ Integration instances are not reconcilable (no update endpoint; create body does
 - `configure --integration <id> --param key=value` reads current settings, overlays `--param` values (matched case-insensitively on `propertyName` or `propertyDisplayName`), and saves via `SaveStoreIntegrationConfigurationProperties` — secrets use `--param 'k=env:VAR'` (resolved at apply time, never on disk)
 - `delete --integration <id>` resolves the full object (delete takes a body), auto-resolving `--id`/`--environment` from the integration's instances (single → auto; several → listed with copy-paste flags), and warns if playbooks use it
 
-`TestLiveIntegrationInstanceCRUD` + instances/auto-resolve/configure live-validated (read + dry-run); guarded.
+`TestLiveIntegrationInstanceCRUD` + instances/auto-resolve/configure verified (read + dry-run); guarded.
 
 ### `soar integration install` (+ pack `:install`/`:uninstall`)
 
-Install a pack and its connector/job/action definitions. `soar integration install --identifier <id>` (guarded) installs a marketplace integration via the v1alpha `marketplaceIntegrations:install`. Legacy `legacy.GetPackageDetails` + `legacy.DownloadAndInstallIntegration` (`/api/external/v1/store/…` — not in the swagger snapshot, shape from the live Content-Hub request) install from the local store; the v1alpha `marketplaceIntegrations:install`/`:uninstall` is the documented twin — live-validated and cleanly reversible (install→uninstall round-trip leaves no residue).
+Install a pack and its connector/job/action definitions. `soar integration install --identifier <id>` (guarded) installs a marketplace integration via the v1alpha `marketplaceIntegrations:install`. Legacy `legacy.GetPackageDetails` + `legacy.DownloadAndInstallIntegration` (`/api/external/v1/store/…` — not in the swagger snapshot, shape from the live Content-Hub request) install from the local store; the v1alpha `marketplaceIntegrations:install`/`:uninstall` is the documented twin — verified and cleanly reversible (install→uninstall round-trip leaves no residue).
 
 Whole-integration delete is v1alpha-only (`integrations.delete`) and limited to genuinely custom packs (`custom:true`) — CLI-reachable via `soar integration uninstall`; per-tenant installed copies carry a `__<uuid>` suffix but are `custom:false`, so they are not whole-deletable. The legacy `/store` install path is the one with no clean reverse — prefer the modern `marketplaceIntegrations` pair.
 

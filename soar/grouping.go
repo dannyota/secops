@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"strings"
 
 	"danny.vn/secops/soar/internal/transport"
 )
@@ -51,10 +52,25 @@ func (r *AlertGroupingRule) UnmarshalJSON(data []byte) error {
 // server object.
 type ModuleSettingProperty struct {
 	Name string `json:"name,omitempty"`
+	// DisplayName is the short, human property name (the resource name's last
+	// segment, e.g. "TimeframeForGroupingInHours") that callers key on.
+	DisplayName string `json:"displayName,omitempty"`
 	// No omitempty: every property value is a string, so "" is a legitimate
 	// value the batchUpdate write path must transmit, not drop.
 	Value string          `json:"value"`
 	Raw   json.RawMessage `json:"-"`
+}
+
+// ShortName returns the friendly property name: DisplayName when present, else
+// the resource name's last path segment.
+func (p ModuleSettingProperty) ShortName() string {
+	if p.DisplayName != "" {
+		return p.DisplayName
+	}
+	if i := strings.LastIndex(p.Name, "/"); i >= 0 {
+		return p.Name[i+1:]
+	}
+	return p.Name
 }
 
 // UnmarshalJSON keeps the typed fields and the complete payload in sync.
@@ -75,9 +91,11 @@ type alertGroupingRulesPage struct {
 	NextPageToken string              `json:"nextPageToken"`
 }
 
-// moduleSettingPropertiesPage is one page of ListModuleSettingProperties.
+// moduleSettingPropertiesPage is one page of ListModuleSettingProperties. The
+// v1alpha response returns the list under the canonical `items` field (it also
+// echoes `properties`/`moduleSettingsProperties` with the same data).
 type moduleSettingPropertiesPage struct {
-	Items         []ModuleSettingProperty `json:"moduleSettingProperties"`
+	Items         []ModuleSettingProperty `json:"items"`
 	NextPageToken string                  `json:"nextPageToken"`
 }
 

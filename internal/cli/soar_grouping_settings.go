@@ -33,10 +33,10 @@ func newGroupingSettingsGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Read the alert-grouping settings (max-alerts-per-case + any module properties)",
-		Long: "Read the alert-grouping General/Overflow settings. The reliable source is the\n" +
-			"legacy config endpoint's max-alerts-per-case value; the modern moduleSettings\n" +
-			"property bag is shown too where the instance exposes it (it is empty on many\n" +
-			"instances — those settings are then read-mostly, edited in SOAR Settings).",
+		Long: "Read the alert-grouping General/Overflow settings from the modern moduleSettings\n" +
+			"property bag — Timeframe, max-alerts, overflow timeframe/max, grouping algorithm,\n" +
+			"and source-grouping-identifier fallback (the same properties the SOAR Settings >\n" +
+			"Alerts Grouping page shows) — plus the legacy max-alerts-per-case value.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := baseContext()
@@ -65,9 +65,9 @@ func newGroupingSettingsGetCmd() *cobra.Command {
 			if maxAlerts != "" {
 				fmt.Printf("  %-44s = %s\n", "maximumAlertsGroupingConfiguration", maxAlerts)
 			}
-			sort.Slice(props, func(i, j int) bool { return props[i].Name < props[j].Name })
+			sort.Slice(props, func(i, j int) bool { return props[i].ShortName() < props[j].ShortName() })
 			for _, p := range props {
-				fmt.Printf("  %-44s = %s\n", p.Name, p.Value)
+				fmt.Printf("  %-44s = %s\n", p.ShortName(), p.Value)
 			}
 			if maxAlerts == "" && len(props) == 0 {
 				fmt.Println("no alert-grouping settings returned by this instance.")
@@ -88,14 +88,14 @@ func newGroupingSettingsSetCmd() *cobra.Command {
 		Use:   "set --property <name>=<value> [--property ...]",
 		Short: "MUTATING (guarded): set alert-grouping settings properties",
 		Long: "Set one or more alert-grouping settings properties by name=value, via the\n" +
-			"modern moduleSettings bag. Property names come from `soar settings grouping\n" +
-			"get`. NOTE: many instances expose NO writable grouping properties (the bag is\n" +
-			"empty) — the max-alerts-per-case singleton in particular is read-only via the\n" +
-			"API (no SET endpoint), edited in SOAR Settings. The dry-run preview shows each\n" +
-			"current -> requested transition; unchanged properties are skipped. Guarded:\n" +
-			"dry-run by default, --yes to apply (modern v1alpha on the SOAR host).",
+			"modern moduleSettings bag — the same properties the SOAR Settings > Alerts\n" +
+			"Grouping page edits. Property names come from `soar settings grouping get`\n" +
+			"(e.g. TimeframeForGroupingInHours, MaxAGroupingForAlerts, OverflowMaxAGroupingForAlerts,\n" +
+			"FallbackToSourceGroupingIdentifier). The dry-run preview shows each current ->\n" +
+			"requested transition; unchanged properties are skipped. Guarded: dry-run by\n" +
+			"default, --yes to apply (v1alpha on the SOAR host).",
 		Example: "  secopsctl soar settings grouping get\n" +
-			"  secopsctl soar settings grouping set --property someProperty=4 --dry-run",
+			"  secopsctl soar settings grouping set --property TimeframeForGroupingInHours=4 --dry-run",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			want, err := parseKeyValues(propsArg)
@@ -115,10 +115,10 @@ func newGroupingSettingsSetCmd() *cobra.Command {
 				return err
 			}
 			current := map[string]string{}
-			known := map[string]bool{}
+			liveByShort := map[string]soar.ModuleSettingProperty{}
 			for _, p := range live {
-				current[p.Name] = p.Value
-				known[p.Name] = true
+				current[p.ShortName()] = p.Value
+				liveByShort[p.ShortName()] = p
 			}
 			// Validate names against the live set and compute the changed subset, so
 			// a typo'd property fails before the guard and a no-op is reported as such.
@@ -130,7 +130,8 @@ func newGroupingSettingsSetCmd() *cobra.Command {
 			sort.Strings(names)
 			// Preview to stderr so a --json stdout stays clean.
 			for _, name := range names {
-				if !known[name] {
+				lp, ok := liveByShort[name]
+				if !ok {
 					return fmt.Errorf("unknown grouping setting %q — see `soar settings grouping get` for valid names", name)
 				}
 				if cur, ok := current[name]; ok && cur == want[name] {
@@ -138,7 +139,8 @@ func newGroupingSettingsSetCmd() *cobra.Command {
 					continue
 				}
 				fmt.Fprintf(os.Stderr, "  %s: %q -> %q\n", name, current[name], want[name])
-				changed = append(changed, soar.ModuleSettingProperty{Name: name, Value: want[name]})
+				// Write keys on the full resource name the batchUpdate RPC expects.
+				changed = append(changed, soar.ModuleSettingProperty{Name: lp.Name, Value: want[name]})
 			}
 			action := "set grouping settings"
 			if len(changed) == 0 {

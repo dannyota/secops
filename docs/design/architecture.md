@@ -151,7 +151,7 @@ operator model and its **safety**.
   SOAR) share this one tested package.
 - **Build discipline (how a surface earns "validated").** Swagger-spec the shape →
   **verify SDK signatures by hand** (the spec agents are imprecise) → wire the
-  Surface/command → **live read-validate** (pull round-trips clean) → **gated write
+  Surface/command → **read-validate** (pull round-trips clean) → **gated write
   smoke** on a uniquely-labeled, inert, self-deleting throwaway. No `--yes` path is
   trusted until that smoke passes. If a smoke surface has no hard delete, use an
   explicit neutralizer (archive the refinement, empty the reference list). The
@@ -178,7 +178,7 @@ responding, change the const to the version that works and update this table.
 | Chronicle **cases** (UUID) API on the **chronicle host** — get/list/patch/merge/bulk | `v1beta` segment (collection 500s at every version) | ⛔ | **alternate, unused path** for the cases function. The chronicle.googleapis.com cases collection **500s at every version** (server-side); the `v1beta` segment (`caseAPIVersion`, mapped `cases_chronicle_alt`→v1beta in `versions.go`) is a **non-working pin** kept only so the alternate path can be exercised, not a validated version. The **modern cases that DO work are on the SOAR host** (`soar.ListCases`, v1alpha — `soar case list` uses it by default); operational case work uses the SOAR AppKey lane. The cases function is **not** blocked — this `⛔` is only this dead chronicle path. One case, multiple APIs |
 | SIEM legacy case reads — `legacy:legacyListCases` · `legacyBatchGetCases` | `v1alpha` | ⛔ list · ✅ bridge | `legacyListCases` 404 (⛔, that one path only); `legacyBatchGetCases` is the working SOAR-int ⇄ SIEM-uuid bridge |
 | SOAR legacy — `/api/external/v1/…` (**cases** · connectors · jobs · settings · playbooks bridge) | external `v1` · AppKey | ✅ | the reliable path — **incl. the working operational case lane** (`GetCaseCardsByRequest`, `GetCaseFullDetails` → alerts, `ExecuteBulkCloseCase`, `ChangeCasePriority`) |
-| SOAR modern — integrations · connectors · jobs · grouping · cases · Content Hub · environments · socRoles · customLists · case*Definitions | `v1alpha` only | 🔨 (cases ✅) | **SOAR host serves v1alpha ONLY** — v1/v1beta 404 for every surface. **cases is live-validated** here (`soar.ListCases`, the default for `soar case list`); the rest are built. The v1>v1beta>v1alpha preference is a **chronicle-host** concern; the SOAR host stays v1alpha |
+| SOAR modern — integrations · connectors · jobs · grouping · cases · Content Hub · environments · socRoles · customLists · case*Definitions | `v1alpha` only | 🔨 (cases ✅) | **SOAR host serves v1alpha ONLY** — v1/v1beta 404 for every surface. **cases is verified** here (`soar.ListCases`, the default for `soar case list`); the rest are built. The v1>v1beta>v1alpha preference is a **chronicle-host** concern; the SOAR host stays v1alpha |
 | SIEM Threat Intel — `threatCollections` · `iocs` | **`v1`** | ✅ | prefer v1>v1beta>v1alpha; all three answer → pinned v1 (`tiAPIVersion`). threatCollections uses project **number**; related pivots (`iocs related`, `ti related`) are built + offline-tested |
 | SIEM operational — `watchlists` (read) | **`v1`** | ✅ | all three answer → pinned v1 (`watchlistsAPIVersion`); `watchlists list/get` CLI |
 | SIEM governance — `riskConfig` · `dataAccessLabels` · `dataAccessScopes` | **`v1`** | ✅ | all three versions answer → pinned v1 (`rbacAPIVersion`); riskConfig is `{instance}/riskConfig` |

@@ -89,7 +89,7 @@ doors — not two separate objects. The goal is one command per concept, with
 |:-:|---|
 | 📐 | **designed** — spec'd, code not landed |
 | 🔨 | **built** — code exists, not yet fully validated against a live instance |
-| ✅ | **live-validated** — reads round-trip clean and (for writes) a safe write test passed |
+| ✅ | **verified** — reads round-trip clean and (for writes) a safe write test passed |
 | 🔒 | **read-only by choice** — the write path exists but is deliberately not exposed (too high-blast / sensitive) |
 | ⛔ | **blocked** — a *specific* API path (one column + domain + version) is down server-side. It applies to that one path, never to a whole function: if any other path serves the function, the function's status stays green and the dead path is just a note. |
 | ⬜ / — | planned gap / not applicable |

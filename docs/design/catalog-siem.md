@@ -14,13 +14,13 @@ CLI verbs:
 
 - `push rules-create` — initial `--enabled`, `--alerting`, `--run-frequency`; the summary and per-rule line flag a rule that was created but landed `enabled=false` (a platform complexity/volume guard re-issues at HOURLY, but a very high-volume rule can still land disabled), so it is not mistaken for live (`rules promote` carries the same note)
 - `rules-update` — etag-guarded text update
-- `rules-deploy` — reconcile enabled/alerting/frequency; archived rules reported non-deployable; the apply PATCH is field-masked to only the changed fields (an alerting-only flip sends `alerting` alone, no longer 409s on unchanged `enabled`); summary reports `deployed` / `already in desired state` / `failed` truthfully — live-validated: an alerting-only flip reports `1 deployed, 0 failed` and a re-deploy is an in-sync no-op
+- `rules-deploy` — reconcile enabled/alerting/frequency; archived rules reported non-deployable; the apply PATCH is field-masked to only the changed fields (an alerting-only flip sends `alerting` alone, no longer 409s on unchanged `enabled`); summary reports `deployed` / `already in desired state` / `failed` truthfully — verified: an alerting-only flip reports `1 deployed, 0 failed` and a re-deploy is an in-sync no-op
 - `rules-disable`
 - `rules detections/errors/alerts <rule>` — rule id, display name, or slug resolved against the live rule list; clean `no rule matches` error on a miss instead of the API's opaque 400
 - `rules retrohunt list/get/create`
 - `rules errors` — decodes both string and structured execution-error payloads
 
-Rule-tuning reads (Wave 54, live-validated):
+Rule-tuning reads (Wave 54, verified):
 
 - `rules trends` — per-rule day-bucketed detection counts + last detection, noisiest first; no `--rule` sweeps every rule; `legacyGetRulesTrends`; bucket window must be bucket-ALIGNED or the API 400s generically — the SDK floors/ceils
 - `rules counts` — rule + quota stats (`legacyGetRuleCounts`)
@@ -33,9 +33,9 @@ Also: `ArchiveRule`. **`rules test <file.yaral>` (W95)** wires `RunTestRule` —
 
 #### entities graph / data-access (W95)
 
-**`entities graph <detection-id>`** seeds the findings-graph pivot (`InitializeFindingsGraph`): root node + connected entities/edges over `--hours`; `entities graph explore --param k=v` expands a node (`ExploreFindingsGraphNode`). Read-only, JSON; live-validated (rootNode + adjacent nodes for a real detection). **`data-access labels|scopes`** list/get/create/delete wire the `chronicle/rbac.go` CRUD — the data-access RBAC that was console-only; create/delete guarded, reads live-validated.
+**`entities graph <detection-id>`** seeds the findings-graph pivot (`InitializeFindingsGraph`): root node + connected entities/edges over `--hours`; `entities graph explore --param k=v` expands a node (`ExploreFindingsGraphNode`). Read-only, JSON; verified (rootNode + adjacent nodes for a real detection). **`data-access labels|scopes`** list/get/create/delete wire the `chronicle/rbac.go` CRUD — the data-access RBAC that was console-only; create/delete guarded, reads verified.
 
-Read live-validated; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create→update→deploy→archive→modifyRules→delete, self-cleaning).
+Read verified; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create→update→deploy→archive→modifyRules→delete, self-cleaning).
 
 `rules promote <file.yaral>` (Wave 78): validate + create + deploy a brand-new rule in one guarded step (replaces `rules-create` then `rules-deploy`); writes the companion `.yaml`, refuses a file that already has one, shares the LIVE→HOURLY multi-event fallback. Live-validated (promote an inert disabled rule → deploy → delete, self-cleaning).
 
@@ -119,13 +119,13 @@ Per-chart `_server` stripped from the diff basis. `access` immutable after creat
 
 Write smoke: create→update→delete, closure-direct to dodge full-view rate-limiting.
 
-Chart-query authoring (Wave 70 SDK, Wave 71 CLI, live-validated): the SDK `AddChart`/`EditChart`/`RemoveChart`/`GetChart`/`GetQuery` author a chart's YARA-L via `:addChart`/`:editChart` (`dashboardQuery{query,input}`, etag-guarded); proven by `TestLiveDashboardChartAuthoringWriteSmoke` (query round-trips; dashboard definition stays reference-only). Surfaced as guarded CLI verbs `dashboards add-chart` / `edit-chart` / `remove-chart` + read-only `dashboards charts` (derefs each chart→query), live-validated by `TestLiveDashboardsChartCLISmoke`.
+Chart-query authoring (Wave 70 SDK, Wave 71 CLI, verified): the SDK `AddChart`/`EditChart`/`RemoveChart`/`GetChart`/`GetQuery` author a chart's YARA-L via `:addChart`/`:editChart` (`dashboardQuery{query,input}`, etag-guarded); proven by `TestLiveDashboardChartAuthoringWriteSmoke` (query round-trips; dashboard definition stays reference-only). Surfaced as guarded CLI verbs `dashboards add-chart` / `edit-chart` / `remove-chart` + read-only `dashboards charts` (derefs each chart→query), verified by `TestLiveDashboardsChartCLISmoke`.
 
-Execute and verify (Wave 82, live-validated): `dashboards run-chart <id> --chart-id <c>` (alias `values`) derefs the chart and executes its query (`ExecuteQuery` / `dashboardQueries:execute`), printing the computed rows/series (`--json`, `--clear-cache`, `--filter`). `dashboards verify <id>` executes every chart and flags 0-row/errored charts (a headless/CI health check; exits 2 on any bad chart).
+Execute and verify (Wave 82, verified): `dashboards run-chart <id> --chart-id <c>` (alias `values`) derefs the chart and executes its query (`ExecuteQuery` / `dashboardQueries:execute`), printing the computed rows/series (`--json`, `--clear-cache`, `--filter`). `dashboards verify <id>` executes every chart and flags 0-row/errored charts (a headless/CI health check; exits 2 on any bad chart).
 
 Execute response shape: `results[]` is column-major — a list of `{column, values[]}` — so the row count is the longest `values` column (NOT the number of columns), and an all-empty-values chart is flagged EMPTY; an unfamiliar shape is never mis-flagged.
 
-Authoring ergonomics (Wave 83, live-validated):
+Authoring ergonomics (Wave 83, verified):
 
 - `add-chart`/`edit-chart --chart-type bar|line|pie|table --x --y [--series-by]` — generate the echarts `visualization` and validate encode vars against the query's columns (both `outcome:` `$vars` AND bare `match:` field references such as `target.hostname`; a typo fails clean, a valid field is accepted)
 - `edit-chart` edits visualization/layout in place (visualization via `:editChart`; layout via the `definition.charts` PATCH, since `chart_layout` is not an `:editChart` field — preserving every other chart)
@@ -134,9 +134,9 @@ Authoring ergonomics (Wave 83, live-validated):
 
 Live-validated end to end by `TestLiveDashboardsAuthoringSmoke` (generated viz stored as a BAR series; run-chart/verify; in-place type/layout edit keeps the chart id; batch idempotent). Lossless deref-on-pull round-trip is a follow-up.
 
-Copy and delete (live-validated). `dashboards duplicate` defaults to the server **`:duplicate`** verb (`DuplicateDashboard`) — the same path the web console's Duplicate action takes — which mints the copy its **own independent charts and queries** in a single call (the copy shares no chart or query id with the source). `--deep-copy` selects the client-side fallback (`DeepCopyDashboard`): create a new dashboard with the source's filters, then recreate every chart fresh (source charts read in ONE `dashboardCharts:batchGet`; each query read via `GetQuery` and replayed inline through `AddChart`) — also fully independent, for when a server-side copy is unavailable. `dashboards delete` removes a whole dashboard (clean deletes succeed); when the backend returns a 500 it is diagnosed: a **corrupt** dashboard whose `definition.charts` hold dangling/non-owned references (charts owned by another dashboard or already gone) cannot be deleted by the API **or the web console**, the corrupt state can't be repaired first (`:removeChart` 404s; rewriting `definition.charts` 400s), and deleting the chart owner does not unstick the 500 — so it can only be removed by the platform (raise with Google support). Such corrupt dashboards are a legacy artifact, **not** something the current `:duplicate` verb produces.
+Copy and delete (verified). `dashboards duplicate` defaults to the server **`:duplicate`** verb (`DuplicateDashboard`) — the same path the web console's Duplicate action takes — which mints the copy its **own independent charts and queries** in a single call (the copy shares no chart or query id with the source). `--deep-copy` selects the client-side fallback (`DeepCopyDashboard`): create a new dashboard with the source's filters, then recreate every chart fresh (source charts read in ONE `dashboardCharts:batchGet`; each query read via `GetQuery` and replayed inline through `AddChart`) — also fully independent, for when a server-side copy is unavailable. `dashboards delete` removes a whole dashboard (clean deletes succeed); when the backend returns a 500 it is diagnosed: a **corrupt** dashboard whose `definition.charts` hold dangling/non-owned references (charts owned by another dashboard or already gone) cannot be deleted by the API **or the web console**, the corrupt state can't be repaired first (`:removeChart` 404s; rewriting `definition.charts` 400s), and deleting the chart owner does not unstick the 500 — so it can only be removed by the platform (raise with Google support). Such corrupt dashboards are a legacy artifact, **not** something the current `:duplicate` verb produces.
 
-Portability (live-validated). `dashboards export <id>` writes a self-contained JSON document — the dashboard plus its charts and queries (the `nativeDashboards:export` `inlineDestination.dashboards[0]` object) — and `dashboards import <file>` re-creates it in ONE `nativeDashboards:import` call (the server mints fresh ids, so an import shares no id with the source). A faster build path than `duplicate` + per-chart `add-chart`, and the way to move a dashboard between instances.
+Portability (verified). `dashboards export <id>` writes a self-contained JSON document — the dashboard plus its charts and queries (the `nativeDashboards:export` `inlineDestination.dashboards[0]` object) — and `dashboards import <file>` re-creates it in ONE `nativeDashboards:import` call (the server mints fresh ids, so an import shares no id with the source). A faster build path than `duplicate` + per-chart `add-chart`, and the way to move a dashboard between instances.
 
 ### `curated` / `curated_rules`
 
@@ -144,17 +144,17 @@ Google-managed (no CUD): `pull curated` writes `curated/deployments.yaml`; `push
 
 `curated list` reads; guarded `curated set` remains the one-off toggle. `curated rules` lists individual curated rules (`ListCuratedRules`/`GetCuratedRule`, read-validated, 187 rules).
 
-Curated tuning reads (Wave 54, live-validated):
+Curated tuning reads (Wave 54, verified):
 
 - `curated detections <ur_id>` — `legacySearchCuratedDetections` (the curated twin of `rules detections`, which serves user rules only)
 - `curated trends --rule ur_a,… | --all` — `legacyGetCuratedRulesTrends`, day-bucketed counts + last detection; `--all` sweeps every curated rule in chunked requests
 - `curated events <detection-id>` — `legacyGetEventForDetection` (event + rationale behind one curated detection; answers 200 but can be empty for some detection types, e.g. GCTI_FINDING)
 
-Batch update live-validated by `TestLiveCuratedBatchToggleWriteSmoke` (self-restoring enable→verify→restore, alerting off).
+Batch update verified by `TestLiveCuratedBatchToggleWriteSmoke` (self-restoring enable→verify→restore, alerting off).
 
 v1alpha is the only version that answers for curated rules — v1/v1beta 404.
 
-`curated set` blast-radius preview (Wave 78, live-validated): before the guard, a best-effort read shows the addressed deployment's current → requested enabled/alerting state and the reminder that a deployment is set × precision (the set's rule roster is not API-exposed, so the preview points at `curated trends` / `curated detections` for detection volume).
+`curated set` blast-radius preview (Wave 78, verified): before the guard, a best-effort read shows the addressed deployment's current → requested enabled/alerting state and the reminder that a deployment is set × precision (the set's rule roster is not API-exposed, so the preview points at `curated trends` / `curated detections` for detection volume).
 
 ### `rule_exclusions`
 
@@ -164,7 +164,7 @@ Create + Update (PATCH/updateMask); deployment updates use the separate deployme
 
 Guarded `rule_exclusions deploy <id> --enable|--disable|--archive` handles one-off toggles.
 
-Read + write live-validated (create→update→archive). The API has no hard delete — archive is the teardown.
+Read + write verified (create→update→archive). The API has no hard delete — archive is the teardown.
 
 ### `forwarders`
 
@@ -184,7 +184,7 @@ Custom SOC metrics (id = display name; `text_definition` is YARA-L 2.0); `pull`/
 
 Additive (create + state-only patch); `textDefinition` immutable — a text edit is refused; change requires a new id. No delete API → NoDelete.
 
-One `<slug>.yaml` (display_name, name, state, text_definition). Built + offline-tested; the live read returns 403 where the feature is not enabled (Pre-GA), so the surface is not yet live-validated.
+One `<slug>.yaml` (display_name, name, state, text_definition). Built + offline-tested; the read returns 403 where the feature is not enabled (Pre-GA), so the surface is not yet verified.
 
 SDK file: `chronicle/metrics.go`.
 
@@ -196,7 +196,7 @@ One `<slug>.json` (config + `_server` id/etag); the embedded `dashboard` is redu
 
 Imperative `trigger`/`duplicate`/`fetchHistory` in the SDK.
 
-Reads live-validated (list 200); the create-report backend currently 500s "failed to fetch native dashboard details" (a server-side issue — the `{name}` ref shape is accepted and parsed), so the write-smoke (`TestLiveReconcileScheduledReportWriteSmoke`) skips on that 500.
+Reads verified (list 200); the create-report backend currently 500s "failed to fetch native dashboard details" (a server-side issue — the `{name}` ref shape is accepted and parsed), so the write-smoke (`TestLiveReconcileScheduledReportWriteSmoke`) skips on that 500.
 
 SDK file: `chronicle/scheduled_reports.go`.
 
@@ -206,7 +206,7 @@ Stream UDM events to a Cloud Pub/Sub topic (`dataTaps`): `pull`/`push datataps`.
 
 One `<slug>.yaml` (display_name, name, filter ALL/ALERT/LABELED, serialization_format JSON_OBJECT/MARSHALLED_PROTO defaulted, topic). Prune-eligible; NoEtag.
 
-Write live-validated (`TestLiveReconcileDataTapWriteSmoke`, create→update→delete on an inert tap pointed at a nonexistent topic).
+Write verified (`TestLiveReconcileDataTapWriteSmoke`, create→update→delete on an inert tap pointed at a nonexistent topic).
 
 PATCH is 501 UNIMPLEMENTED on the backend, so an update is done as delete-old + create-new (the id is server-assigned and changes); `UpdateDataTap` is kept for when PATCH lands.
 
@@ -220,7 +220,7 @@ Ingestion-health alerts (`errorNotificationConfigs`): zero-ingest / size-thresho
 
 One `<slug>.json` (displayName, enabled, notificationChannels + one oneof notification_type block kept raw) + `_server` id. Full CRUD, prune-eligible, NoEtag; updateMask derived from present keys (the oneof masks as `notification_type`).
 
-Built + offline-tested; feature-gated 403 unless the feature is enabled, so not live-validated.
+Built + offline-tested; feature-gated 403 unless the feature is enabled, so not verified.
 
 SDK file: `chronicle/error_notifications.go`.
 
@@ -248,7 +248,7 @@ SDK file: `chronicle/schemas.go`.
 
 Methods: `ListFeedSourceTypeSchemas` (available feed source types), `ListLogTypeSchemas(sourceType)` (accepted log types + required detail fields per source type), `GetLogTypeSetting` (per-log-type ingestion config), `GetLogType` (single log type — a documented v1alpha method).
 
-The reference for validating feed YAML before a deploy. Read-only (upstream-defined). Rides the feeds family — project ID form, v1alpha default. Read-validated live (`TestLiveSchemaDiscoveryRead`).
+The reference for validating feed YAML before a deploy. Read-only (upstream-defined). Rides the feeds family — project ID form, v1alpha default. Read-verified (`TestLiveSchemaDiscoveryRead`).
 
 Per-log-type GET (`logTypes.get`) is wired but is a documented method some instances don't enable — it can 404 "Method not found" across all versions and both hosts; in that case enumerate with `ListLogTypes`. Follow-up: wire into feed validation.
 
@@ -290,13 +290,13 @@ Note: the `:searchRawLogs` `logTypes` body filter is **ignored server-side** (co
 
 ### alerts
 
-`alerts list` takes a snapshot over a time window (`legacyFetchAlertsView`, streams a JSON-array of progressive fragments). `alerts get <id>` uses `legacyGetAlert` (response wrapped under `alert`). **Read-validated live** (`chronicle/alert.go`; fixed the array-stream decode, the `createdTime`/`detectionTime` keys, and `severityDisplay` being a string).
+`alerts list` takes a snapshot over a time window (`legacyFetchAlertsView`, streams a JSON-array of progressive fragments). `alerts get <id>` uses `legacyGetAlert` (response wrapped under `alert`). **Read-verified** (`chronicle/alert.go`; fixed the array-stream decode, the `createdTime`/`detectionTime` keys, and `severityDisplay` being a string).
 
 **Act is CLI-wired (W52):** guarded `alerts update <id>…` sets feedback (status/verdict/priority/reason/reputation/scores/comment/root-cause) over `UpdateAlert`/`BulkUpdateAlerts`; multiple ids fan out. Enum flags accept short forms (`closed`, `false-positive`, `high`) normalised to wire tokens and validated client-side (`AlertUpdate.Validate`) before the guard — dry-run validated; live write gated.
 
-**Alert→case bridge (W52):** `alerts get` resolves the alert's SIEM case UUID to the SOAR integer id (fail-soft). `cases soar-id <uuid…>` is the bulk bridge (`legacyBatchGetCases`) — both read-validated live. Operators also read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts`).
+**Alert→case bridge (W52):** `alerts get` resolves the alert's SIEM case UUID to the SOAR integer id (fail-soft). `cases soar-id <uuid…>` is the bulk bridge (`legacyBatchGetCases`) — both read-verified. Operators also read alerts as a **field of the case** via the reliable SOAR lane (`GetCaseFullDetails.alerts`).
 
-**Bulk disposition (W76):** `alerts update --where <snapshot-filter>` resolves a known FP burst to ids (over `--hours`, capped by `--limit`). `--stdin-ids` reads ids on stdin; sources merge and de-duplicate, and the resolved set prints before the guard. A `--where` matching more than `--limit` is a hard error (refuses a silent partial update) — **live-validated** (dry-run resolves the id set; a too-low `--limit` refuses; the bulk write rides the W52-validated `BulkUpdateAlerts`). `alerts list` surfaces a completeness signal: the pre-filter baseline count and a stderr truncation warning (the alerts snapshot has no server cursor).
+**Bulk disposition (W76):** `alerts update --where <snapshot-filter>` resolves a known FP burst to ids (over `--hours`, capped by `--limit`). `--stdin-ids` reads ids on stdin; sources merge and de-duplicate, and the resolved set prints before the guard. A `--where` matching more than `--limit` is a hard error (refuses a silent partial update) — **verified** (dry-run resolves the id set; a too-low `--limit` refuses; the bulk write rides the W52-validated `BulkUpdateAlerts`). `alerts list` surfaces a completeness signal: the pre-filter baseline count and a stderr truncation warning (the alerts snapshot has no server cursor).
 
 ### entities
 
@@ -324,16 +324,16 @@ The typed `Investigation` carries status/verdict/confidence/summary/nextSteps/no
 
 ### findings graph — findingsGraph
 
-Graph-pivot investigation (W56). `InitializeFindingsGraph` seeds a graph from a **detection id** over a time range; `ExploreFindingsGraphNode` expands nodes (node ids are tied to the initialising range). **Read-validated live** (`TestLiveWave56Read` — a real detection seed returned root and graph). SDK-only (`chronicle/findings_graph.go`) — the structured "what is connected to this detection" primitive.
+Graph-pivot investigation (W56). `InitializeFindingsGraph` seeds a graph from a **detection id** over a time range; `ExploreFindingsGraphNode` expands nodes (node ids are tied to the initialising range). **Read-verified** (`TestLiveWave56Read` — a real detection seed returned root and graph). SDK-only (`chronicle/findings_graph.go`) — the structured "what is connected to this detection" primitive.
 
 ### alert enrichment — alerts enrich
 
-`alerts enrich <id>` (read-only, live-validated) fetches the full per-alert detection collection the console renders when an analyst opens an alert: the rule detection(s), every mapped UDM event, the involved entities/indicators (hosts, users, process path+sha256, domains), the alert's MITRE tags, its SOAR case linkage, and the AI triage verdict when an agent has run. It reads `legacy:legacyBatchGetCollections?collectionIds=<id>` (`chronicle/legacy.go` `BatchGetCollections`, chronicle host / ADC) — the surface the web UI uses. The AI agent's investigation detail is `alerts investigate <id> --latest`.
+`alerts enrich <id>` (read-only, verified) fetches the full per-alert detection collection the console renders when an analyst opens an alert: the rule detection(s), every mapped UDM event, the involved entities/indicators (hosts, users, process path+sha256, domains), the alert's MITRE tags, its SOAR case linkage, and the AI triage verdict when an agent has run. It reads `legacy:legacyBatchGetCollections?collectionIds=<id>` (`chronicle/legacy.go` `BatchGetCollections`, chronicle host / ADC) — the surface the web UI uses. The AI agent's investigation detail is `alerts investigate <id> --latest`.
 
 The earlier `enrichmentAgent:*` path (W56) is a dead end: `fetchAlertData`/`fetchActions`/`executeActions` return **500 INTERNAL** for every variant (across versions and auth forms — AppKey-in-query is a SOAR-host concern, never chronicle) and are **not used by the console**. The pre-case "run an integration action against an alert's entities" verbs that rode it (`actions`/`run-actions`) are therefore withheld rather than shipped always-failing; the SDK methods stay importable (`chronicle/enrichment_agent.go`) for if/when the real surface is captured. The in-case equivalent — `soar case run-action` — works today.
 
 ### watchlist membership — watchlists add-entity
 
-`watchlists add-entity <id> (--ip|--mac|--hostname|--user|--email)` puts an entity on a watchlist (`entities:add`, exactly-one-selector contract) — a containment/tracking response action; membership feeds the risk-score multiplier. The request's `entity` is the UDM Entity **envelope** (`{entity: <Noun>}` — the selector sits on the inner Noun, one level below; a flat noun is rejected 400). `RemoveWatchlistEntity` removes by the entity resource name the add response returns (`entities.remove`); `BatchRemoveWatchlistEntities` is SDK-raw. Watchlist CRUD itself (create/delete) is **write-validated live**. The membership ops can answer 501 UNIMPLEMENTED per instance — the gated smoke (`TestLiveWatchlistEntityWriteSmoke`, self-contained on a throwaway watchlist) skips cleanly there.
+`watchlists add-entity <id> (--ip|--mac|--hostname|--user|--email)` puts an entity on a watchlist (`entities:add`, exactly-one-selector contract) — a containment/tracking response action; membership feeds the risk-score multiplier. The request's `entity` is the UDM Entity **envelope** (`{entity: <Noun>}` — the selector sits on the inner Noun, one level below; a flat noun is rejected 400). `RemoveWatchlistEntity` removes by the entity resource name the add response returns (`entities.remove`); `BatchRemoveWatchlistEntities` is SDK-raw. Watchlist CRUD itself (create/delete) is **write-verified**. The membership ops can answer 501 UNIMPLEMENTED per instance — the gated smoke (`TestLiveWatchlistEntityWriteSmoke`, self-contained on a throwaway watchlist) skips cleanly there.
 
 ---

@@ -1,9 +1,35 @@
 package cli
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
+
+// TestRenderActionResultFaulted: a faulted action (status FAULTED / resultName
+// is_failed / resultValue false / non-zero resultCode) returns a non-nil error so
+// the command exits non-zero; a successful action returns nil.
+func TestRenderActionResultFaulted(t *testing.T) {
+	ok := []string{
+		`{"resultName":"is_success","resultCode":0}`,
+	}
+	faulted := []string{
+		`{"resultName":"is_failed","resultCode":0,"message":"boom"}`,
+		`{"status":"FAULTED","resultCode":0}`,
+		`{"resultValue":"false","resultCode":0}`,
+		`{"resultCode":1}`,
+	}
+	for _, s := range ok {
+		if err := renderActionResult(json.RawMessage(s)); err != nil {
+			t.Errorf("success %s: want nil, got %v", s, err)
+		}
+	}
+	for _, s := range faulted {
+		if err := renderActionResult(json.RawMessage(s)); err == nil {
+			t.Errorf("faulted %s: want non-nil error (non-zero exit), got nil", s)
+		}
+	}
+}
 
 // TestBuildManualActionBody locks the ExecuteManualAction request shape:
 // actionProvider is always "Scripts", caseId is a STRING, and the action name is
