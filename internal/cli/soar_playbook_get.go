@@ -297,7 +297,7 @@ func wrapPlaybookSaveError(err error) error {
 		bodyLower := strings.ToLower(apiErr.Body)
 		if strings.Contains(bodyLower, "refresh") || strings.Contains(bodyLower, "new version") {
 			return fmt.Errorf("playbook save rejected — local file based on a superseded version:\n"+
-				"  re-export the playbook (`soar playbooks export --name <name>`), re-apply\n"+
+				"  re-export the playbook (`playbooks export --name <name>`), re-apply\n"+
 				"  your edit, then push again\n"+
 				"  (original: %w)", err)
 		}

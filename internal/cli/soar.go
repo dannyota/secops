@@ -101,10 +101,10 @@ func init() {
 			"($SECOPS_SOAR_APP_KEY) and the soar_url config host (no ADC).",
 	}
 	soarCmd.AddCommand(newSOARPullCmd(), newSOARPushCmd(), newSOARLegacyCmd(),
-		newSOARIntegrationCmd(), newSOARSettingsCmd(), newSOARUsersCmd(),
-		newSOARPlaybookCmd(), newSOARJobCmd(), newSOARIDECmd(),
+		newSOARSettingsCmd(), newSOARUsersCmd(),
+		newSOARJobCmd(), newSOARIDECmd(),
 		newSOARAuditCmd(), newSOARConnectorCmd())
-	rootCmd.AddCommand(soarCmd)
+	rootCmd.AddCommand(soarCmd, newSOARPlaybookCmd(), newSOARIntegrationCmd())
 }
 
 // soarGuard derives the dry-run / confirmation state from the standard flags and

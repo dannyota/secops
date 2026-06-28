@@ -104,7 +104,7 @@ func newSOARPlaybookStepExecuteCmd() *cobra.Command {
 		Use:   "execute --file <step-instance.json>",
 		Short: "GUARDED: execute one fetched workflow step instance",
 		Long: "Execute one workflow step instance using a JSON body fetched from\n" +
-			"`soar playbook step get` or SecOps. Dry-run is the default and prints a\n" +
+			"`playbooks step get` or SecOps. Dry-run is the default and prints a\n" +
 			"sanitized summary, not the raw step body.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -155,7 +155,7 @@ func newSOARPlaybookStepSkipCmd() *cobra.Command {
 		Short: "GUARDED: skip one pending workflow step (the reject half of an approval)",
 		Long: "Skip a pending playbook step so the workflow continues past it — the other\n" +
 			"half of the approval decision (`step execute` continues it). Takes the same\n" +
-			"step-instance JSON `soar playbook step get` fetches; --comment records why.\n" +
+			"step-instance JSON `playbooks step get` fetches; --comment records why.\n" +
 			"Dry-run is the default and prints a sanitized summary, not the raw body.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -168,7 +168,7 @@ func newSOARPlaybookStepSkipCmd() *cobra.Command {
 			// that says false will most likely be rejected (warn, don't block: the
 			// file may be stale).
 			if summary.IsSkippable != nil && !*summary.IsSkippable {
-				fmt.Fprintln(os.Stderr, "warning: the fetched step instance says is_skippable=false — the skip will likely be rejected; re-fetch with `soar playbook step get`")
+				fmt.Fprintln(os.Stderr, "warning: the fetched step instance says is_skippable=false — the skip will likely be rejected; re-fetch with `playbooks step get`")
 			}
 			dr, ay := soarGuard("playbook step skip", dryRun, yes)
 			if err := emitWorkflowStepActionPreview("SKIP SOAR playbook step", summary, dr, ay); err != nil {

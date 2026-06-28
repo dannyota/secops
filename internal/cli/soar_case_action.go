@@ -189,7 +189,7 @@ func newCaseRunActionCmd() *cobra.Command {
 	f.IntVar(&caseID, "case-id", 0, "deprecated alias of --id")
 	_ = f.MarkHidden("case-id")
 	f.StringVar(&action, "action", "", "integration action name, e.g. HTTP_Ping or HTTP_Post Data (required)")
-	f.StringVar(&instance, "instance", "", "integration instance UUID (required; from 'soar integration instances')")
+	f.StringVar(&instance, "instance", "", "integration instance UUID (required; from 'integrations instances')")
 	f.StringVar(&alert, "alert", "", "alertGroupIdentifier to scope the action (from 'soar case get --json'); "+
 		"required by the server, so when omitted it is auto-resolved from the case's alert(s)")
 	f.StringVar(&scope, "scope", "All entities", "entity scope")

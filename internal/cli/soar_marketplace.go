@@ -78,7 +78,7 @@ func newSOARMarketplaceBrowseCmd() *cobra.Command {
 }
 
 // newSOARMarketplaceInstallCmd installs a marketplace integration by identifier
-// (`marketplaceIntegrations/{id}:install`). Same surface as `soar integration
+// (`marketplaceIntegrations/{id}:install`). Same surface as `integrations
 // install`; this is the canonical Content-Hub home and the inverse of `uninstall`.
 func newSOARMarketplaceInstallCmd() *cobra.Command {
 	var identifier string
@@ -102,7 +102,7 @@ func newSOARMarketplaceInstallCmd() *cobra.Command {
 
 // newSOARMarketplaceUninstallCmd uninstalls a marketplace integration by identifier
 // (`marketplaceIntegrations/{id}:uninstall`) — the inverse of `install`, and the
-// path `soar integration uninstall` lacks (that verb deletes only custom packs).
+// path `integrations uninstall` lacks (that verb deletes only custom packs).
 func newSOARMarketplaceUninstallCmd() *cobra.Command {
 	var identifier string
 	var dryRun, yes bool

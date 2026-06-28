@@ -33,7 +33,7 @@ func newSOARIntegrationCmd() *cobra.Command {
 }
 
 // integrationInstance is the subset of an integration's configured instance the
-// CLI surfaces: the instance id and the environment a `soar integration delete`
+// CLI surfaces: the instance id and the environment a `integrations delete`
 // needs, plus a human name.
 type integrationInstance struct {
 	Identifier            string `json:"identifier"`
@@ -114,7 +114,7 @@ func pickIntegrationInstance(insts []integrationInstance, integrationID, wantID,
 	case 1:
 		return matches[0].Identifier, matches[0].EnvironmentIdentifier, nil
 	case 0:
-		return "", "", fmt.Errorf("no matching instance of integration %q (see `soar integration instances --integration %s`)", integrationID, integrationID)
+		return "", "", fmt.Errorf("no matching instance of integration %q (see `integrations instances --integration %s`)", integrationID, integrationID)
 	default:
 		var b strings.Builder
 		for i := range matches {
@@ -131,7 +131,7 @@ func newSOARIntegrationInstancesCmd() *cobra.Command {
 		Use:   "instances --integration <id>",
 		Short: "List an integration's configured instances (id · environment · name)",
 		Long: "List the configured instances of an installed integration — the instance id\n" +
-			"and environment a `soar integration delete` needs (which `integration list`,\n" +
+			"and environment a `integrations delete` needs (which `integration list`,\n" +
 			"showing packs only, does not expose).",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -334,7 +334,7 @@ func newSOARIntegrationInstallCmd() *cobra.Command {
 		Short: "Install a Content Hub marketplace integration (guarded)",
 		Long: "Install a marketplace integration pack by its identifier (from\n" +
 			"`soar marketplace list`). Guarded: dry-run by default, --yes to apply.\n" +
-			"Configure an instance afterwards with `soar integration create`.",
+			"Configure an instance afterwards with `integrations create`.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := fmt.Sprintf("integration install %s", identifier)
@@ -584,7 +584,7 @@ func resolveCustomIntegration(ctx context.Context, c *soar.Client, key string) (
 	}
 	switch len(matches) {
 	case 0:
-		return soar.Integration{}, fmt.Errorf("no installed integration matches %q (try `soar integration list`)", key)
+		return soar.Integration{}, fmt.Errorf("no installed integration matches %q (try `integrations list`)", key)
 	case 1:
 		if !soar.IsDeletableIntegration(matches[0]) {
 			return soar.Integration{}, fmt.Errorf("integration %q is a stock base pack, not a custom pack or clone; only those are deletable", key)

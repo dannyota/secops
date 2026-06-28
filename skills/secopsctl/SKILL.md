@@ -38,7 +38,7 @@ AppKey call works even when SIEM ADC is expired, and vice-versa.
 | Plane | Host | Auth | Commands |
 |---|---|---|---|
 | **SIEM** (Chronicle) | `{region}-chronicle.googleapis.com` | Google ADC / OAuth (minted in-process, never on disk) | `pull`, `push`, `drift`, `search`, `gemini`, `rules` (+ `curated`, `exclusions`), `ti`, `lists`, `dashboards`, `entities`, `alerts`, `cases`, `ingest`, `data-access`, `status` |
-| **SOAR** (Siemplify) | `{tenant}.siemplify-soar.com` | AppKey (`soar_app_key` in config or `$SECOPS_SOAR_APP_KEY`; no ADC) | `soar pull/push`, `soar playbooks/integrations/jobs/ide/settings/connector/audit/legacy/users`, `cases` (SOAR-host triage), `content-hub` |
+| **SOAR** (Siemplify) | `{tenant}.siemplify-soar.com` | AppKey (`soar_app_key` in config or `$SECOPS_SOAR_APP_KEY`; no ADC) | `soar pull/push`, `playbooks`, `integrations`, `soar jobs/ide/settings/connector/audit/legacy/users`, `cases` (SOAR-host triage), `content-hub` |
 
 ### SIEM auth recovery
 
@@ -81,7 +81,9 @@ ritual.
 | `ingest` | `feeds` · `forwarders` · `parsers` · `log-types` · `pipeline` · `health` | SIEM | read + guarded |
 | `data-access` | RBAC: `labels …` · `scopes …` | SIEM | read + guarded |
 | `status` | `capabilities` · `coverage` · `surfaces` (read-only diagnostics) | both/offline | read |
-| `soar` | `pull` · `push` · `playbooks` · `integrations` · `jobs` · `ide` · `settings` · `connector` · `audit` · `legacy` · `users` | SOAR | read + guarded |
+| `playbooks` | `list` · `get` · `lint` · `health` · `diff` · `duplicate` · `deploy` · `delete` · `validate` · `run` · `debug` · `export` · `import` · `generate` · … | SOAR | read + guarded |
+| `integrations` | `list` · `get` · `test` · `create` · `delete` · `configure` · `install` · `uninstall` · `instances` · `connector` · `scaffold` · `action` · `job` | SOAR | read + guarded |
+| `soar` | `pull` · `push` · `jobs` · `ide` · `settings` · `connector` · `audit` · `legacy` · `users` | SOAR | read + guarded |
 | `pull` / `drift` | snapshot live state / report drift (the as-code loop) | SIEM | read |
 | `push` | deploy config-as-code (rules-create/update/deploy/disable, reconcile surfaces) | SIEM | guarded |
 
@@ -407,13 +409,13 @@ Every save of a SOAR playbook mints a new `identifier`. **Resolve playbooks by n
 
 ### Playbook & integration inspection
 
-`soar playbooks get <name|uuid>` — structure, trigger, step breakdown, integration
-deps, block refs. `soar playbooks lint (--name | --all)` — static analysis: broken
+`playbooks get <name|uuid>` — structure, trigger, step breakdown, integration
+deps, block refs. `playbooks lint (--name | --all)` — static analysis: broken
 block refs, missing integrations, placeholder-in-JSON, whitespace triggers.
-`soar playbooks health` — fleet-wide run stats sorted by failure rate. `soar playbooks
-diff <name> <local.json>` — unified diff of live vs export. `soar playbooks duplicate
-<name> --name <new>` — guarded clone. `soar integrations get <id>` — version,
-instances, playbook usage. `soar integrations test <id>` — connectivity test (PASS/FAIL
+`playbooks health` — fleet-wide run stats sorted by failure rate. `playbooks
+diff <name> <local.json>` — unified diff of live vs export. `playbooks duplicate
+<name> --name <new>` — guarded clone. `integrations get <id>` — version,
+instances, playbook usage. `integrations test <id>` — connectivity test (PASS/FAIL
 with error message; `--instance <id>` for a specific instance). `cases simulation
 create --event-field key=value --alert-field key=value` adds UDM fields to simulated
 cases. `cases simulation export <name>` — export as JSON; `cases simulation import

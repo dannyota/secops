@@ -267,7 +267,7 @@ func newSOARPlaybookDeleteCmd() *cobra.Command {
 			// For batch (>1), don't use preferModern — a partial success
 			// must not trigger a legacy fallback that re-deletes succeeded items.
 			if len(ids) == 1 {
-				return preferModern("soar playbook delete",
+				return preferModern("playbooks delete",
 					func() error {
 						mc, merr := newSOARClient()
 						if merr != nil {
@@ -299,7 +299,7 @@ func newSOARPlaybookDeleteCmd() *cobra.Command {
 				if merr == nil {
 					return reportBatchDelete(cmd.OutOrStdout(), ids, raw)
 				}
-				fmt.Fprintf(cmd.ErrOrStderr(), "soar playbook delete: modern path failed (%v) — falling back to legacy\n", merr)
+				fmt.Fprintf(cmd.ErrOrStderr(), "playbooks delete: modern path failed (%v) — falling back to legacy\n", merr)
 			}
 			body := map[string]any{"identifiers": ids}
 			raw, lerr := lc.DeleteWorkflows(ctx, body)
@@ -474,7 +474,7 @@ func newSOARPlaybookDeployCmd() *cobra.Command {
 			}
 
 			def["isEnabled"] = wantEnabled
-			return preferModern("soar playbook deploy",
+			return preferModern("playbooks deploy",
 				func() error {
 					mc, merr := newSOARClient()
 					if merr != nil {

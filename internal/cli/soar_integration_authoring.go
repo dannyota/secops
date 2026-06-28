@@ -12,11 +12,11 @@ import (
 	"danny.vn/secops/soar"
 )
 
-// `soar integration action`/`job` — Python definition authoring, the IDE's
+// `integrations action`/`job` — Python definition authoring, the IDE's
 // create flow as an API loop: `template` fetches the skeleton (read-only),
 // `create` posts a filled definition (guarded), `delete` removes one by its
 // numeric id (guarded). Definitions land DISABLED-by-default unless the body
-// says otherwise; ids appear in `soar playbook components actions`.
+// says otherwise; ids appear in `playbooks components actions`.
 
 func newSOARIntegrationActionCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -58,7 +58,7 @@ func newAuthoringUpdateCmd(kind string) *cobra.Command {
 		Use:   "update --integration <key> --id N (--script <f.py> | --description <s>)",
 		Short: "MUTATING (guarded): patch fields of an existing custom " + kind + " definition",
 		Long: "Update an existing custom Python " + kind + " definition by its numeric id\n" +
-			"(from `soar playbook components " + collectionFor(kind) + "` or a prior create).\n" +
+			"(from `playbooks components " + collectionFor(kind) + "` or a prior create).\n" +
 			"It is a sparse PATCH — pass only what changes (`--script` swaps the Python\n" +
 			"body, `--description` the text) and only those fields are touched. Create is\n" +
 			"a separate verb; a save here never creates a duplicate.",
@@ -234,7 +234,7 @@ func newAuthoringCreateCmd(kind string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stdout, "created. Definition id: %s (see `soar playbook components actions`)\n", definitionIDOf(out))
+			fmt.Fprintf(os.Stdout, "created. Definition id: %s (see `playbooks components actions`)\n", definitionIDOf(out))
 			if jsonOut {
 				return writeRawJSON(os.Stdout, out)
 			}

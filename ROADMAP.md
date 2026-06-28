@@ -33,7 +33,8 @@ maturity is in [docs/design/catalog.md](docs/design/catalog.md); this is the pla
 P1 (1–3) parity · P2 (4–7) triage + SIEM config · P3 (8–15) modern v1alpha · P4 (16–20) features ·
 P5 (21–24) finishing · 25–51 operability/UX · 52–72 triage-loop + AI + dashboards · 73–83 v0.5.0 ·
 84–110 v0.5.x · 111–114 v0.6.0 (search + gemini + Phase D rename + Content Hub) ·
-115–116 v0.6.x (rules dev-loop + dashboard quality).
+115–116 v0.6.x (rules dev-loop + dashboard quality) ·
+117–119 v0.7.0 (dashboard authoring + playbook/integration authoring + foundation).
 
 ```mermaid
 flowchart LR
@@ -66,7 +67,7 @@ flowchart LR
 
 ## Completed waves (1–112)
 
-**116 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
+**119 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
 Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 ---
@@ -149,6 +150,18 @@ Brings the SOAR playbook and integration surfaces to the same authoring-quality 
 - **FR-28c: reserved-word error reframe.** `dashboards verify` rewrites "no viable alternative" 400s into actionable "reserved-word variable $X — rename it" messages.
 
 **Docs:** catalog, SKILL command map, reference-siem/soar.
+
+### Wave 119 — v0.7.0 foundation: SDK splits, test gating, CLI tree, agent guide *(built — offline-tested)*
+
+Structural release making the SDK, CLI, and docs solid enough that future versions add features without reorganization drag.
+
+- **10 oversized SDK files split.** Every Go source file over 400 lines split into focused siblings (same package, no API changes). `chronicle/`: dashboards_write→+dashboards_charts, entity→+entity_ioc, datatables_write→+datatables_import, case→+case_actions, alert→+alert_feedback, ti→+ti_iocs, client→+client_paginate, log_search→+log_search_raw. `soar/`: integrations→+integrations_catalog. `soar/legacy/`: playbook_builder→+playbook_coerce. 0 grandfathered oversize files remain.
+- **Test gating standardized.** Shared `testclient_live_test.go` in `chronicle/` and `soar/` packages with `liveChronicle(t)` / `liveClient(t)` helpers; double-gated on `testing.Short()` + `SECOPS_*_SMOKE` env. `go test ./...` always passes offline.
+- **CLI tree: `playbooks` and `integrations` promoted to top-level.** `soar playbooks *` → `playbooks *` (~35 commands); `soar integrations *` → `integrations *` (~15 commands). Hard renames, no aliases — old paths error cleanly. `soar` drops to ~65 commands (operational: pull/push, jobs, connector, audit, settings, users, legacy, ide).
+- **SDK gap-fill (Phase 12).** New `soar/` methods: wildcard integration-instances listing, filtered integrations, users collection (list/get/filter/localization), playbook execution cards + instance detail, environment action definitions, playbook categories/menu/permissions, connector/job executeTest, `generateSoarAuthJwt` (SDK-only).
+- **Agent guide.** CLAUDE.md §6: SDK method template (decision tree, struct+Raw+UnmarshalJSON pattern), CLI command template (registration, preferModern, guard), gates checklist.
+
+**Docs:** catalog, SKILL command map, CLAUDE.md §6.
 
 ---
 

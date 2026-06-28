@@ -11,13 +11,9 @@ import (
 )
 
 func TestSOARPlaybookCommandRegistered(t *testing.T) {
-	soar := commandChild(rootCmd, "soar")
-	if soar == nil {
-		t.Fatal("soar command not registered")
-	}
-	playbook := commandChild(soar, "playbooks")
+	playbook := commandChild(rootCmd, "playbooks")
 	if playbook == nil {
-		t.Fatal("soar playbooks command not registered")
+		t.Fatal("playbooks command not registered")
 	}
 	for _, name := range []string{
 		"list",
@@ -42,19 +38,19 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 		"python-logs",
 	} {
 		if commandChild(playbook, name) == nil {
-			t.Fatalf("soar playbook %s command not registered", name)
+			t.Fatalf("playbooks %s command not registered", name)
 		}
 	}
 	pending := commandChild(playbook, "pending")
 	for _, name := range []string{"count", "list", "get"} {
 		if commandChild(pending, name) == nil {
-			t.Fatalf("soar playbook pending %s command not registered", name)
+			t.Fatalf("playbooks pending %s command not registered", name)
 		}
 	}
 	step := commandChild(playbook, "step")
 	for _, name := range []string{"get", "execute"} {
 		if commandChild(step, name) == nil {
-			t.Fatalf("soar playbook step %s command not registered", name)
+			t.Fatalf("playbooks step %s command not registered", name)
 		}
 	}
 }

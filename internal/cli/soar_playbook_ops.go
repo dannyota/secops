@@ -32,7 +32,7 @@ func resolvePlaybookSelector(ctx context.Context, lc *legacy.Client, name, ident
 		return identifier, nil
 	}
 	if strings.TrimSpace(name) == "" {
-		return "", fmt.Errorf("pass --name or --identifier (list playbooks with `soar playbook list`)")
+		return "", fmt.Errorf("pass --name or --identifier (list playbooks with `playbooks list`)")
 	}
 	return resolvePlaybookDefinition(ctx, lc, name)
 }
@@ -44,7 +44,7 @@ func newSOARPlaybookVersionsCmd() *cobra.Command {
 		Short: "Read-only: a playbook's saved version history (each save/deploy mints one)",
 		Long: "List a playbook's version log — every save (including `deploy` toggles and\n" +
 			"`push playbook`) mints a new version. The identifier shown per entry is what\n" +
-			"`soar playbook restore` rolls back to.",
+			"`playbooks restore` rolls back to.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lc, err := newSOARLegacyClient()
@@ -109,7 +109,7 @@ func emitPlaybookVersions(raw json.RawMessage) error {
 		fmt.Fprintf(os.Stdout, "%-38s %-8d %-17s %-20s %s\n",
 			orDash(e.Identifier), e.Version, msToUTC(e.CreationTimeMs), truncate(orDash(e.Creator), 19), truncate(e.Comment, 50))
 	}
-	fmt.Fprintf(os.Stdout, "\n%d version(s). Roll back with: soar playbook restore --version <identifier>\n", len(entries))
+	fmt.Fprintf(os.Stdout, "\n%d version(s). Roll back with: playbooks restore --version <identifier>\n", len(entries))
 	return nil
 }
 
@@ -122,7 +122,7 @@ func newSOARPlaybookRestoreCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "restore --version <identifier> [--comment <s>] [--override]",
 		Short: "GUARDED: restore a playbook to a prior saved version",
-		Long: "Roll a playbook back to a version from `soar playbook versions` — the undo\n" +
+		Long: "Roll a playbook back to a version from `playbooks versions` — the undo\n" +
 			"for a bad save or deploy. The restore itself mints a new version (nothing is\n" +
 			"lost); --override replaces the current definition outright.",
 		Args: cobra.NoArgs,
@@ -139,7 +139,7 @@ func newSOARPlaybookRestoreCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&version, "version", "", "version identifier from 'soar playbook versions' (required)")
+	f.StringVar(&version, "version", "", "version identifier from 'playbooks versions' (required)")
 	f.StringVar(&comment, "comment", "", "restore comment (why the rollback)")
 	f.BoolVar(&override, "override", false, "replace the current definition outright")
 	guardRunFlags(cmd, &dryRun, &yes)
@@ -181,7 +181,7 @@ func newSOARPlaybookStatsCmd() *cobra.Command {
 				}
 				return emitPlaybookStats(raw, hours)
 			}
-			return preferModern("soar playbook stats",
+			return preferModern("playbooks stats",
 				func() error {
 					raw, merr := lc.GetPlaybookStats(ctx, body)
 					if merr != nil {
@@ -236,9 +236,9 @@ func newSOARPlaybookExportCmd() *cobra.Command {
 		Short: "Read-only: export a playbook definition (save-compatible JSON, or a zip bundle)",
 		Long: "Export one playbook. Default: the full definition as save-compatible JSON —\n" +
 			"the same shape `pull playbooks` writes, so the export → edit → `push playbook`\n" +
-			"loop round-trips and the file is the input `soar playbook mold` /\n" +
+			"loop round-trips and the file is the input `playbooks mold` /\n" +
 			"`soar build-playbook` consume. --zip exports the platform bundle instead\n" +
-			"(the format `soar playbook import` takes — cross-tenant promotion / offline\n" +
+			"(the format `playbooks import` takes — cross-tenant promotion / offline\n" +
 			"backup). Writes to --out, or stdout for JSON.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

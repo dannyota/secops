@@ -636,7 +636,7 @@ func emitSOARCaseFull(w io.Writer, raw json.RawMessage) error {
 			fmt.Fprintf(w, "%s   — tune: rules detections %q\n", line, rule)
 		}
 		if a.HasWorkflows {
-			fmt.Fprintf(w, "       ▸ playbook(s) attached — timeline: cases wall --case-id %d ; faults: soar playbook summary --case-id %d --alert %s\n",
+			fmt.Fprintf(w, "       ▸ playbook(s) attached — timeline: cases wall --case-id %d ; faults: playbooks summary --case-id %d --alert %s\n",
 				cs.ID, cs.ID, a.Identifier)
 		}
 	}

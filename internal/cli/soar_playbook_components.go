@@ -572,7 +572,7 @@ func newSOARPlaybookComponentsBlocksCmd() *cobra.Command {
 		Short: "List playbook BLOCKS (reusable nested playbooks callable as steps)",
 		Long: "List the tenant's playbook blocks — reusable nested playbooks (playbookType\n" +
 			"NESTED) that other playbooks call as steps. The same data as\n" +
-			"`soar playbook list --type block`, surfaced here as part of the authoring\n" +
+			"`playbooks list --type block`, surfaced here as part of the authoring\n" +
 			"palette.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

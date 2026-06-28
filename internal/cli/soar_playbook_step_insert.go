@@ -11,10 +11,10 @@ import (
 	"danny.vn/secops/soar/legacy"
 )
 
-// `soar playbook step insert` — offline graph authoring: splice a brand-new
+// `playbooks step insert` — offline graph authoring: splice a brand-new
 // action step (from an exported mold) into a playbook definition after an
 // existing anchor step, with fresh graph identity and rewired relations. The
-// result still flows through `soar playbook validate` and the guarded save —
+// result still flows through `playbooks validate` and the guarded save —
 // SOAR remains the final validator.
 
 type soarStepInsertResult struct {
@@ -35,13 +35,13 @@ func newSOARPlaybookStepInsertCmd() *cobra.Command {
 		Use:   "insert --file <playbook.json> --mold <step.json> --after <step> --out <playbook.json>",
 		Short: "Offline: splice a NEW action step into a playbook definition after an anchor step",
 		Long: "Add a brand-new action step to a local playbook definition: the mold (an\n" +
-			"exported step — `soar playbook mold extract`) supplies the wired action\n" +
+			"exported step — `playbooks mold extract`) supplies the wired action\n" +
 			"body, the insert mints fresh graph identity (identifier, designer-style\n" +
 			"instance name) and rewires the anchor's outgoing relation through the new\n" +
 			"step. --after matches a step name or identifier; when the anchor is a\n" +
 			"condition with several branches, pick one with --branch (the relation's\n" +
 			"condition value, e.g. 1). No API call — review the result with\n" +
-			"`soar playbook validate` and save it through the guarded loop.",
+			"`playbooks validate` and save it through the guarded loop.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			base, err := os.ReadFile(file)
@@ -69,7 +69,7 @@ func newSOARPlaybookStepInsertCmd() *cobra.Command {
 			if jsonOut {
 				return emitJSON(res)
 			}
-			fmt.Fprintf(os.Stdout, "inserted %q (identifier %s) after %q%s -> %s\nreview: secopsctl soar playbook validate --file %s\n",
+			fmt.Fprintf(os.Stdout, "inserted %q (identifier %s) after %q%s -> %s\nreview: secopsctl playbooks validate --file %s\n",
 				res.InstanceName, res.Identifier, after, branchSuffix(branch), out, out)
 			return nil
 		},

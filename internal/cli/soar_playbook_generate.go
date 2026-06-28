@@ -12,9 +12,9 @@ import (
 	"danny.vn/secops/soar/legacy"
 )
 
-// `soar playbook generate` (Wave 56) — Gemini playbook drafting. Generation
+// `playbooks generate` (Wave 56) — Gemini playbook drafting. Generation
 // CREATES a playbook draft on the live tenant, so it rides the standard guard;
-// the result then flows through the existing review loop (`soar playbook
+// the result then flows through the existing review loop (`playbooks
 // validate` → `soar push playbook --dry-run` → guarded save).
 
 func newSOARPlaybookGenerateCmd() *cobra.Command {

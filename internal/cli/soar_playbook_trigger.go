@@ -22,7 +22,7 @@ func newSOARPlaybookTriggerCmd() *cobra.Command {
 		Use:   "trigger",
 		Short: "Edit playbook trigger fields in exported JSON; list live trigger tag values",
 		Long: "Edit playbook trigger fields in exported JSON without calling SOAR.\n" +
-			"The output is a reviewable artifact for `soar playbook validate` and\n" +
+			"The output is a reviewable artifact for `playbooks validate` and\n" +
 			"`soar push playbook --dry-run` before any live save. `trigger tags` reads\n" +
 			"the live tag vocabulary a Tag-Name condition can reference.",
 	}

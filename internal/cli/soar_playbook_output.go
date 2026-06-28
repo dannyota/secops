@@ -37,8 +37,8 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 			"each failed step's action, error message, and a Cloud Logging deep-link — so a\n" +
 			"failed run is triaged in-tool without digging through the raw payload.\n\n" +
 			"The easy form needs only the case id and a playbook NAME:\n" +
-			"  secopsctl soar playbook summary --case-id 123 --playbook \"My Playbook\"\n" +
-			"`--playbook` is resolved to its definition id via `soar playbook list`, and the\n" +
+			"  secopsctl playbooks summary --case-id 123 --playbook \"My Playbook\"\n" +
+			"`--playbook` is resolved to its definition id via `playbooks list`, and the\n" +
 			"alert identifier is read from the case automatically (use `--alert` when a case\n" +
 			"has more than one alert, or `--definition` to pass the id directly). Prefers the\n" +
 			"v1alpha SOAR-host path and falls back to the legacy API.",
@@ -79,7 +79,7 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 				printWorkflowSummary(cmd.OutOrStdout(), raw, showErrors, steps)
 				return nil
 			}
-			return preferModern("soar playbook summary",
+			return preferModern("playbooks summary",
 				func() error {
 					mc, merr := newSOARClient()
 					if merr != nil {
@@ -107,7 +107,7 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.IntVar(&caseID, "case-id", 0, "SOAR case id (required)")
-	f.StringVar(&playbook, "playbook", "", "playbook name — resolved to its definition id via 'soar playbook list'")
+	f.StringVar(&playbook, "playbook", "", "playbook name — resolved to its definition id via 'playbooks list'")
 	f.StringVar(&alert, "alert", "", "alert identifier (auto-resolved from the case when omitted)")
 	f.StringVar(&definition, "definition", "", "playbook definition id (overrides --playbook)")
 	f.BoolVar(&fetchSteps, "fetch-steps", true, "include step details")
@@ -204,7 +204,7 @@ func wrapCloudLogging500(err error) error {
 	}
 	hint := "python execution logs are served from Cloud Logging and can 500 " +
 		"on some instances (a backend/access condition, not a request-shape bug).\n" +
-		"  Triage alternative: secopsctl soar playbook summary --case-id N --playbook \"<name>\"\n" +
+		"  Triage alternative: secopsctl playbooks summary --case-id N --playbook \"<name>\"\n" +
 		"  (surfaces each faulted step's error + a per-step Logs Explorer deep-link)"
 	if cid != "" {
 		return fmt.Errorf("%s\n  correlation id (for SecOps support): %s", hint, cid)
@@ -266,7 +266,7 @@ func resolvePlaybookDefinition(ctx context.Context, lc *legacy.Client, name stri
 	}
 	switch len(ids) {
 	case 0:
-		return "", fmt.Errorf("no playbook named %q (see `soar playbook list`)", name)
+		return "", fmt.Errorf("no playbook named %q (see `playbooks list`)", name)
 	case 1:
 		return ids[0], nil
 	default:
