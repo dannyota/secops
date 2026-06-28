@@ -99,8 +99,8 @@ secopsctl rules events <ru_id> <detection>  # the UDM evidence behind one detect
 
 Then change the rule through the [control-plane loop](the-loop.md): `pull
 rules` → edit → `git diff` → `push`. Curated (Google-managed) rules have the
-same reads under `rules curated trends` / `rules curated detections` /
-`rules curated events`.
+same reads under `curated trends` / `curated detections` /
+`curated events`.
 
 ## When something goes wrong
 

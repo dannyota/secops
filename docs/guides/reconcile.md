@@ -64,7 +64,7 @@ what push deploys.
 > **Not every pull target is a create/update/delete surface.** `curated` reconciles
 > only deployment flags from `curated/deployments.yaml`; Google-managed rule sets
 > cannot be created or deleted. `curated_rules` is read-only reference material. For
-> a one-off curated toggle, use `secopsctl rules curated set`. See
+> a one-off curated toggle, use `secopsctl curated set`. See
 > [curated rule sets](../tips/05-curated-rules.md).
 
 ## Prune: deleting server-only objects

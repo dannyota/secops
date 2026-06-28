@@ -80,7 +80,7 @@ Filenames are slugified display names; the authoritative server ID lives in the
 companion YAML/JSON, not the filename. Why this matters for round-tripping and
 renames is covered in [02-architecture-client.md](02-architecture-client.md).
 
-> The standalone command groups carry product names (`search`, `rules curated`,
+> The standalone command groups carry product names (`search`, `curated`,
 > `ti`, `lists`, `ingest`, `content-hub`, …), but the **mirror directory names and
 > `pull`/`push` target args are unchanged** — `pull reference_lists`,
 > `pull data_tables`, `pull curated`, `push feeds`, `push parsers`, and the rest

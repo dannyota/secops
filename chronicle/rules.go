@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"sort"
 	"strings"
 )
 
@@ -56,6 +57,57 @@ type Rule struct {
 	Severity              *Severity `json:"severity,omitempty"`
 	AllowedRunFrequencies []string  `json:"allowedRunFrequencies,omitempty"`
 	TimeWindowDuration    string    `json:"timeWindowDuration,omitempty"`
+
+	// Populated by the FULL view (omitted by BASIC). These mirror the columns the
+	// console's rules workspace shows, so a single ListRules answers list/detail
+	// without a per-rule GetRule.
+	Author             string            `json:"author,omitempty"`
+	CompilationState   string            `json:"compilationState,omitempty"`   // e.g. SUCCEEDED / FAILED
+	CreateTime         string            `json:"createTime,omitempty"`         // first revision time
+	RevisionID         string            `json:"revisionId,omitempty"`         // current version id (@v_…)
+	RevisionCreateTime string            `json:"revisionCreateTime,omitempty"` // current version time
+	RuleOwner          string            `json:"ruleOwner,omitempty"`          // CUSTOMER / GOOGLE …
+	RunFrequency       string            `json:"runFrequency,omitempty"`       // LIVE / HOURLY / DAILY
+	LiveModeEnabled    bool              `json:"liveModeEnabled"`              // deployment enabled
+	AlertingEnabled    bool              `json:"alertingEnabled"`              // deployment alerting
+	InputsUsed         map[string]bool   `json:"inputsUsed,omitempty"`         // usesUdm / usesEntity / usesDetection
+	Metadata           map[string]string `json:"metadata,omitempty"`           // the YARA-L meta: block (mitre_tactic, …)
+}
+
+// MitreTactics returns the rule's MITRE ATT&CK tactic ids/names from its meta
+// block. It reads any metadata key containing "tactic" (e.g. mitre_tactic) and
+// splits the value on commas/semicolons/whitespace, so a multi-tactic rule and
+// the various meta-naming conventions are both covered.
+func (r *Rule) MitreTactics() []string { return r.mitreMeta("tactic") }
+
+// MitreTechniques returns the rule's MITRE ATT&CK technique ids/names from its
+// meta block (any metadata key containing "technique").
+func (r *Rule) MitreTechniques() []string { return r.mitreMeta("technique") }
+
+func (r *Rule) mitreMeta(kind string) []string {
+	if r == nil || len(r.Metadata) == 0 {
+		return nil
+	}
+	var out []string
+	seen := map[string]bool{}
+	for k, v := range r.Metadata {
+		if !strings.Contains(strings.ToLower(k), kind) {
+			continue
+		}
+		// Split on list separators ONLY (comma/semicolon/newline) — NOT whitespace:
+		// meta values are often human names like "Impair Defenses" / "Valid Accounts"
+		// that must stay intact, and a multi-value field separates them with commas.
+		for _, tok := range strings.FieldsFunc(v, func(c rune) bool {
+			return c == ',' || c == ';' || c == '\n'
+		}) {
+			if tok = strings.TrimSpace(tok); tok != "" && !seen[tok] {
+				seen[tok] = true
+				out = append(out, tok)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // RuleID returns the trailing ru_xxxxxxxx segment of the rule's resource Name,

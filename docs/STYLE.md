@@ -63,7 +63,7 @@ breaks (not `\n`) and escape literal angle brackets in labels as `&lt;`/`&gt;`.
   `--help` / the source, not memory).
 - **Names must match the current renamed surface — no removed aliases.** Use the
   canonical command name as it stands in the binary today (`search`, `gemini`,
-  `rules curated`, `rules exclusions`, `ti`, `lists`, `ingest`, `content-hub`,
+  `curated`, `exclusions`, `ti`, `lists`, `ingest`, `content-hub`,
   `status`, `cases`, `entities`, `soar playbooks`/`integrations`/`jobs`/`ide`).
   Earlier names that were hard-renamed (`query`, `curated`, `iocs`,
   `reference-lists`, `watchlists`, `soar marketplace`, `capabilities`/`coverage`/

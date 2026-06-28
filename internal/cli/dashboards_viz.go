@@ -141,7 +141,7 @@ func buildVisualization(chartType, x, y, seriesBy string) (json.RawMessage, erro
 				"encode":     map[string]any{"itemName": x, "value": y},
 			}},
 		})
-	case "bar", "line":
+	case "bar", "line", "area":
 		if x == "" || y == "" {
 			return nil, fmt.Errorf("a %s chart needs --x (category) and --y (value)", chartType)
 		}
@@ -158,8 +158,54 @@ func buildVisualization(chartType, x, y, seriesBy string) (json.RawMessage, erro
 			"yAxes":        []any{map[string]any{"axisType": "VALUE", "displayName": y}},
 			"groupingType": grouping,
 		})
+	case "scatter", "scatterplot":
+		if x == "" || y == "" {
+			return nil, fmt.Errorf("a scatter chart needs --x and --y")
+		}
+		return marshalViz(map[string]any{
+			"series": []any{map[string]any{
+				"seriesType": "SCATTER",
+				"encode":     map[string]any{"x": x, "y": y},
+			}},
+			"xAxes": []any{map[string]any{"axisType": "VALUE", "displayName": x}},
+			"yAxes": []any{map[string]any{"axisType": "VALUE", "displayName": y}},
+		})
+	case "gauge":
+		if y == "" {
+			return nil, fmt.Errorf("a gauge chart needs --y (the value field)")
+		}
+		return marshalViz(map[string]any{
+			"series": []any{map[string]any{
+				"seriesType": "GAUGE",
+				"encode":     map[string]any{"value": y},
+			}},
+		})
+	case "metrics", "metric":
+		if y == "" {
+			return nil, fmt.Errorf("a metrics chart needs --y (the data field)")
+		}
+		return marshalViz(map[string]any{
+			"series": []any{map[string]any{
+				"seriesType": "METRICS",
+				"encode":     map[string]any{"value": y},
+			}},
+		})
+	case "map":
+		if x == "" || y == "" {
+			return nil, fmt.Errorf("a map chart needs --x (latitude) and --y (longitude); use --series-by for the count field")
+		}
+		encode := map[string]any{"lat": x, "lng": y}
+		if seriesBy != "" {
+			encode["value"] = seriesBy
+		}
+		return marshalViz(map[string]any{
+			"series": []any{map[string]any{
+				"seriesType": "MAP",
+				"encode":     encode,
+			}},
+		})
 	default:
-		return nil, fmt.Errorf("invalid --chart-type %q (want bar | line | pie | table)", chartType)
+		return nil, fmt.Errorf("invalid --chart-type %q (want area | bar | gauge | line | map | metrics | pie | scatter | table)", chartType)
 	}
 }
 

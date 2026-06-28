@@ -6,15 +6,21 @@ import (
 	"net/url"
 )
 
-// NativeDashboard is one entry from the nativeDashboards listing (BASIC view).
-//
-// Only the fields needed to decide how to mirror a dashboard are typed; Raw
-// retains the full server JSON so the listing entry round-trips losslessly for
-// CURATED dashboards (which have no export form — see ExportDashboard).
+// NativeDashboard is one entry from the nativeDashboards listing. The BASIC
+// view (used by List) returns all typed fields below; the FULL view (used by
+// Get) additionally populates Definition.Charts with layout and chart refs.
+// Raw retains the complete server JSON for lossless round-trips.
 type NativeDashboard struct {
-	Name        string `json:"name"`        // projects/.../nativeDashboards/<id>
-	DisplayName string `json:"displayName"` // human-readable title
-	Type        string `json:"type"`        // "CUSTOM" or "CURATED"
+	Name        string `json:"name"`                  // projects/.../nativeDashboards/<id>
+	DisplayName string `json:"displayName"`           // human-readable title
+	Type        string `json:"type"`                  // "CUSTOM" or "CURATED"
+	Description string `json:"description,omitempty"` // optional description
+	Access      string `json:"access,omitempty"`      // DASHBOARD_PUBLIC or DASHBOARD_PRIVATE
+	CreateTime  string `json:"createTime,omitempty"`  // RFC 3339
+	UpdateTime  string `json:"updateTime,omitempty"`  // RFC 3339
+	CreateUser  string `json:"createUserId,omitempty"`
+	UpdateUser  string `json:"updateUserId,omitempty"`
+	Etag        string `json:"etag,omitempty"`
 
 	// Raw is the complete, unmodified JSON object for this dashboard.
 	Raw json.RawMessage `json:"-"`
@@ -33,7 +39,11 @@ func (d *NativeDashboard) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ListNativeDashboards returns all native dashboards in the BASIC view.
+// ListNativeDashboards returns all native dashboards. The API returns BASIC
+// view (no view= param) which includes name, displayName, type, description,
+// access, createTime, updateTime, createUserId, updateUserId, etag — everything
+// except definition.charts (those are in FULL view, which the list endpoint
+// rejects). The full fields are available in each entry's Raw.
 //
 // DEVIATION: native dashboards use the project ID (string) form, so this calls
 // resourcePath with numeric=false. The roadmap table that grouped

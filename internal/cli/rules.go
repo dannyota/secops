@@ -30,12 +30,16 @@ func init() {
 func newRulesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rules <verb>",
-		Short: "Inspect rule output (detections/errors/alerts) and manage retrohunts",
-		Long: "Operational reads over a deployed rule plus retrohunt management. Rule\n" +
-			"config-as-code is `pull rules` / `push rules-create|update|deploy|disable`.",
+		Short: "Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`)",
+		Long: "Operate on the rules you author. Inspect output (detections/errors/alerts),\n" +
+			"author/test/promote, manage versions and retrohunts, and roll up health.\n" +
+			"Config-as-code is `pull rules` / `push rules-create|update|deploy|disable`.\n" +
+			"Google-managed rules live under `curated`; cross-cutting `exclusions` and\n" +
+			"`mitre` coverage are top-level (they span both custom and curated).",
 	}
 	cmd.AddCommand(
 		newRulesListCmd(),
+		newRulesGetCmd(),
 		newRulesValidateCmd(),
 		newRulesTestCmd(),
 		newRulesVersionsCmd(),
@@ -47,8 +51,8 @@ func newRulesCmd() *cobra.Command {
 		newRulesCountsCmd(),
 		newRulesEventsCmd(),
 		newRulesPromoteCmd(),
-		newCuratedCmd(),        // `rules curated …` — Google-managed rule sets
-		newRuleExclusionsCmd(), // `rules exclusions …` — findings refinements
+		newRulesDuplicateCmd(), // clone a rule's YARA-L under a new name (guarded)
+		newRulesHealthCmd(),    // per-rule health roll-up
 	)
 	return cmd
 }

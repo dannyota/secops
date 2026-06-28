@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -31,7 +32,7 @@ func newDashboardsDeleteCmd() *cobra.Command {
 		Short: "Delete a whole dashboard by id (guarded) — e.g. a stale duplicate",
 		Long: "Delete a native dashboard by id. Resolves and prints the title before acting.\n" +
 			"Guarded: dry-run by default, --yes to apply. This removes the whole dashboard,\n" +
-			"not individual charts (see `remove-chart`). Note: a corrupt dashboard whose\n" +
+			"not individual charts (see `charts remove`). Note: a corrupt dashboard whose\n" +
 			"charts are dangling/non-owned references (charts owned by another dashboard or\n" +
 			"already gone) cannot be deleted by the API or the web console; the backend\n" +
 			"returns a 500. The error explains this when it happens.",
@@ -96,15 +97,18 @@ func hintDeleteDashboard(id string, err error) error {
 		"was a healthy dashboard, the 500 may be transient — retry", err, id)
 }
 
-// newDashboardsListCmd lists every native dashboard — id, type, and title — so an
-// id is obtainable directly instead of from a pulled file's `_server.id`.
+// newDashboardsListCmd lists every native dashboard with enriched columns,
+// sort, and search — matching the web console's dashboard table.
 func newDashboardsListCmd() *cobra.Command {
+	var sortBy, search string
+	var desc bool
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List native dashboards (id · type · title) — read-only",
-		Long: "List every native dashboard in the instance with its id and title, so you can\n" +
-			"feed an id to `dashboards charts`/`run-chart`/`verify` without pulling first.\n" +
-			"--json for the full objects.",
+		Short: "List native dashboards — read-only",
+		Long: "List every native dashboard in the instance. Shows id, type, access,\n" +
+			"created, updated, and title. Use --sort to order by column\n" +
+			"(name, type, access, created, updated); --desc for reverse.\n" +
+			"Use --search to filter by title substring. --json for the full objects.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()
@@ -115,15 +119,32 @@ func newDashboardsListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sort.Slice(dashes, func(i, j int) bool { return dashes[i].DisplayName < dashes[j].DisplayName })
+			if search != "" {
+				needle := strings.ToLower(search)
+				filtered := dashes[:0:0]
+				for _, d := range dashes {
+					if strings.Contains(strings.ToLower(d.DisplayName), needle) {
+						filtered = append(filtered, d)
+					}
+				}
+				dashes = filtered
+			}
+			sortDashboards(dashes, sortBy, desc)
 			if jsonOut {
 				return emitJSON(dashes)
 			}
 			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-			fmt.Fprintln(tw, "ID\tTYPE\tTITLE")
+			fmt.Fprintln(tw, "ID\tTYPE\tACCESS\tCREATED\tUPDATED\tTITLE")
 			for i := range dashes {
 				d := &dashes[i]
-				fmt.Fprintf(tw, "%s\t%s\t%s\n", lastSegment(d.Name), orDash(d.Type), truncate(d.DisplayName, 60))
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+					lastSegment(d.Name),
+					orDash(d.Type),
+					shortAccess(d.Access),
+					dateOnly(d.CreateTime),
+					dateOnly(d.UpdateTime),
+					truncate(d.DisplayName, 50),
+				)
 			}
 			if err := tw.Flush(); err != nil {
 				return err
@@ -132,7 +153,60 @@ func newDashboardsListCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&sortBy, "sort", "name", "sort by: name, type, access, created, updated")
+	cmd.Flags().BoolVar(&desc, "desc", false, "sort in descending order")
+	cmd.Flags().StringVar(&search, "search", "", "filter by title (case-insensitive substring)")
 	return markJSON(cmd)
+}
+
+func shortAccess(a string) string {
+	switch a {
+	case "DASHBOARD_PUBLIC":
+		return "public"
+	case "DASHBOARD_PRIVATE":
+		return "private"
+	case "":
+		return "-"
+	default:
+		return a
+	}
+}
+
+func dateOnly(ts string) string {
+	if len(ts) >= 10 {
+		return ts[:10]
+	}
+	return orDash(ts)
+}
+
+func sortDashboards(dashes []chronicle.NativeDashboard, by string, desc bool) {
+	less := func(i, j int) bool {
+		a, b := &dashes[i], &dashes[j]
+		switch strings.ToLower(by) {
+		case "type":
+			if a.Type != b.Type {
+				return a.Type < b.Type
+			}
+			return strings.ToLower(a.DisplayName) < strings.ToLower(b.DisplayName)
+		case "access":
+			aa, ab := shortAccess(a.Access), shortAccess(b.Access)
+			if aa != ab {
+				return aa < ab
+			}
+			return strings.ToLower(a.DisplayName) < strings.ToLower(b.DisplayName)
+		case "created":
+			return a.CreateTime < b.CreateTime
+		case "updated":
+			return a.UpdateTime < b.UpdateTime
+		default:
+			return strings.ToLower(a.DisplayName) < strings.ToLower(b.DisplayName)
+		}
+	}
+	if desc {
+		sort.Slice(dashes, func(i, j int) bool { return less(j, i) })
+	} else {
+		sort.Slice(dashes, less)
+	}
 }
 
 // fleetVerdict is one dashboard's rollup in `verify --all`.

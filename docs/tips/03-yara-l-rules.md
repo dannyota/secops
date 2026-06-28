@@ -156,10 +156,10 @@ on your data shape, write a custom rule here to cover it.
 
 That relationship — and why tracking the full curated catalog is worth it — is in
 [05-curated-rules.md](05-curated-rules.md); the curated content toggles from the CLI
-under `rules curated …`, never per-rule. Custom rules also lean on reference lists
+under `curated …`, never per-rule. Custom rules also lean on reference lists
 and data tables for their lookups; see
 [04-reference-lists-data-tables.md](04-reference-lists-data-tables.md).
 
 To stop a rule from firing on a known-benign slice without rewriting its logic, use
-**rule exclusions** (`rules exclusions list`/`get`/`deploy`) — a scoped suppression
+**rule exclusions** (`exclusions list`/`get`/`deploy`) — a scoped suppression
 managed as code, separate from the rule text itself.

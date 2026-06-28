@@ -119,8 +119,8 @@ func init() {
 	f.StringVar(&fProjectNumber, "project-number", "", "GCP project number")
 	f.StringVar(&fRegion, "region", "", "SecOps region (e.g. us, asia-southeast1)")
 	f.StringVar(&fCustomerID, "customer-id", "", "SecOps customer ID (GUID)")
-	f.StringVar(&fSOARURL, "soar-url", "", "SOAR host URL (optional)")
-	f.StringVar(&fSOARAppKey, "soar-app-key", "", "SOAR AppKey (optional; avoid on shared shells — prefer the prompt)")
+	f.StringVar(&fSOARURL, "soar-url", "", "SOAR host URL (e.g. https://<tenant>.siemplify-soar.com)")
+	f.StringVar(&fSOARAppKey, "soar-app-key", "", "SOAR AppKey (avoid on shared shells — prefer the prompt)")
 	f.BoolVar(&fForceIPv4, "force-ipv4", false, "pin the network dialer to IPv4 (corporate-VPN / broken-IPv6 fix)")
 	f.BoolVar(&fShowPath, "show-path", false, "print the resolved config file path and exit (no changes)")
 
@@ -146,10 +146,11 @@ func runConfigForm(cur *config.Instance) (bool, error) {
 				Value(&cur.Region).Validate(validRegion),
 			huh.NewInput().Title("Customer ID").Description("Chronicle instance GUID").
 				Value(&cur.CustomerID).Validate(requiredField("customer ID")),
-			huh.NewInput().Title("SOAR URL").Description("optional; for `soar` commands").
-				Value(&cur.SOARURL),
-			huh.NewInput().Title("SOAR AppKey").Description("optional; hidden").
-				EchoMode(huh.EchoModePassword).Value(&cur.SOARAppKey),
+			huh.NewInput().Title("SOAR URL").Description("e.g. https://<tenant>.siemplify-soar.com").
+				Value(&cur.SOARURL).Validate(requiredField("SOAR URL")),
+			huh.NewInput().Title("SOAR AppKey").Description("hidden; needed for SOAR commands").
+				EchoMode(huh.EchoModePassword).Value(&cur.SOARAppKey).
+				Validate(requiredField("SOAR AppKey")),
 			huh.NewConfirm().Title("Force IPv4?").
 				Description("pin the dialer to IPv4 (corporate-VPN / broken-IPv6 fix)").
 				Value(&cur.ForceIPv4),
@@ -206,6 +207,12 @@ func requiredMissing(i *config.Instance) []string {
 	}
 	if i.CustomerID == "" {
 		missing = append(missing, "customer_id")
+	}
+	if i.SOARURL == "" {
+		missing = append(missing, "soar_url")
+	}
+	if i.SOARAppKey == "" {
+		missing = append(missing, "soar_app_key")
 	}
 	return missing
 }

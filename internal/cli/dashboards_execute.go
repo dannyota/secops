@@ -52,7 +52,7 @@ func execQueryRef(ctx context.Context, c *chronicle.Client, queryRef string, fil
 }
 
 // execChartByID dereferences a chart to its stored query (GetChart → GetQuery) and
-// executes it — the by-chart-id convenience for `run-chart`.
+// executes it — the by-chart-id convenience for `charts run`.
 func execChartByID(ctx context.Context, c *chronicle.Client, chartRef string, filters []json.RawMessage, clearCache *bool) (json.RawMessage, error) {
 	chart, err := c.GetChart(ctx, chartRef)
 	if err != nil {
@@ -145,7 +145,7 @@ func newDashboardsRunChartCmd() *cobra.Command {
 	var chartID, filter string
 	var clearCache bool
 	cmd := &cobra.Command{
-		Use:     "run-chart <dashboard-id> --chart-id <id>",
+		Use:     "run <dashboard-id> --chart-id <id>",
 		Aliases: []string{"values"},
 		Short:   "Execute a chart's query and print the computed values (read-only)",
 		Long: "Execute a chart's stored query via `dashboardQueries:execute` and print the\n" +

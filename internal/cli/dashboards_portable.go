@@ -14,7 +14,7 @@ import (
 // Dashboard portability: export a dashboard to a self-contained JSON document
 // (the dashboard plus its charts and queries) and import one back in a single
 // call. Together they make a dashboard portable — export, edit/version locally,
-// re-import — and a faster build path than `duplicate` + per-chart `add-chart`.
+// re-import — and a faster build path than `duplicate` + per-chart `charts add`.
 
 // extractExportPayload reduces a `nativeDashboards:export` response
 // ({"inlineDestination":{"dashboards":[obj,...]}}) to the single import-shaped

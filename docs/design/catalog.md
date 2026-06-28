@@ -96,7 +96,7 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `data_tables` | reconcile | ✅ chronicle · v1alpha | `.csv`+`.yaml`; columns immutable after create; rows wholesale destroy-and-replace. |
 | `feeds` | reconcile | ✅ chronicle · v1alpha | `.yaml`; secrets redacted on pull, overlaid on update; `secret_ref` env/Secret Manager; not prune-eligible. |
 | `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate; parser-dev loop + `validate` verb. |
-| `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards only; chart-ref and inline pull modes; chart authoring, run/verify verbs; `duplicate` is a client-side deep-copy (own charts — charts aren't shareable), `delete` diagnoses the undeletable shared-chart shell. |
+| `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards; `create`/`get`/`edit` (metadata + access); `charts` (list/get/add/batch/edit/remove/run — 9 chart types); `markdown` (add/edit/remove); `button` (add/edit/remove); `layout` (show/move); `filters` (show/set global time range); `lint`/`fix`/`inspect` quality; `verify` (single + fleet); `duplicate` + deep-copy; export↔import. |
 | `curated` / `curated_rules` | reconcile + imperative | ✅ chronicle · v1alpha | Google-managed; batch enable/alerting reconcile; curated tuning reads; v1alpha only. |
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
 | `forwarders` | reconcile | ✅ chronicle · v1beta | `.yaml`; prune-eligible; collectors separate nested resource; SDK pinned v1beta (v1 404s). |

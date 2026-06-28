@@ -11,7 +11,7 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
-// chartSpec is one chart in an `add-charts --file` batch. chartType (+ x/y/
+// chartSpec is one chart in an `charts batch --file` batch. chartType (+ x/y/
 // series-by) generates the visualization; alternatively visualization is raw.
 type chartSpec struct {
 	Title         string          `json:"title"`
@@ -28,7 +28,7 @@ type chartSpec struct {
 }
 
 // prepareChartInput validates one spec and builds the AddChart input with the same
-// defaults as `add-chart` (full-width layout, default interval/datasource).
+// defaults as `charts add` (full-width layout, default interval/datasource).
 func prepareChartInput(s chartSpec) (chronicle.AddChartInput, error) {
 	if s.Title == "" {
 		return chronicle.AddChartInput{}, fmt.Errorf("a chart spec has no title")
@@ -82,11 +82,11 @@ func newDashboardsAddChartsCmd() *cobra.Command {
 	var pace time.Duration
 	var dryRun, yes bool
 	cmd := &cobra.Command{
-		Use:   "add-charts <dashboard-id> --file <charts.json>",
+		Use:   "batch <dashboard-id> --file <charts.json>",
 		Short: "Batch-add charts from a file, paced under quota and idempotent (guarded)",
 		Long: "Author a whole dashboard's charts from a JSON array file in one guarded run.\n" +
 			"Each spec is {title, query, chartType, x, y, seriesBy, tileType, layout,\n" +
-			"interval, datasource, visualization} (same fields as `add-chart`). The build\n" +
+			"interval, datasource, visualization} (same fields as `charts add`). The build\n" +
 			"is:\n" +
 			"  - validated UP FRONT (every spec's chart-type encode vars vs its query), so a\n" +
 			"    bad spec fails before any chart is written;\n" +
@@ -194,7 +194,7 @@ func newDashboardsAddChartsCmd() *cobra.Command {
 				fmt.Printf("\nDone. %d added, %d skipped, %d failed. Re-pull to mirror locally.\n", added, skipped, failed)
 			}
 			if failed > 0 {
-				return fmt.Errorf("add-charts: %d chart(s) failed (re-run to retry — existing are skipped)", failed)
+				return fmt.Errorf("charts batch: %d chart(s) failed (re-run to retry — existing are skipped)", failed)
 			}
 			return nil
 		},

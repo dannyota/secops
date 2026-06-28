@@ -70,6 +70,7 @@ func TestTileTypeToken(t *testing.T) {
 		"":              "TILE_TYPE_VISUALIZATION",
 		"visualization": "TILE_TYPE_VISUALIZATION",
 		"BUTTON":        "TILE_TYPE_BUTTON",
+		"markdown":      "TILE_TYPE_MARKDOWN",
 	}
 	for in, want := range cases {
 		got, err := tileTypeToken(in)
@@ -77,7 +78,7 @@ func TestTileTypeToken(t *testing.T) {
 			t.Errorf("tileTypeToken(%q) = %q, %v; want %q", in, got, err, want)
 		}
 	}
-	for _, bad := range []string{"pie", "markdown"} {
+	for _, bad := range []string{"pie", "unknown"} {
 		if _, err := tileTypeToken(bad); err == nil {
 			t.Errorf("tileTypeToken(%q) should error", bad)
 		}

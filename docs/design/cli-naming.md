@@ -22,7 +22,7 @@ map onto.
 
 1. **Clear over terse, but group by noun.** A top-level group names the subject it
    manages (`search`, `rules`, `cases`, `ingest`, `content-hub`); verbs live under it
-   (`rules curated set`, `search saved run`). Where a short token is the established
+   (`curated set`, `search saved run`). Where a short token is the established
    product word it stays short (`ti` for threat intel/IOCs, `soar`).
 2. **One concept, one command.** A single SecOps record gets a single command,
    auto-routed to whichever API host serves it. The host/auth plane is spelled in
@@ -46,8 +46,7 @@ every other doc follows them verbatim.
    (`rules-create` / `rules-update` / `rules-deploy` / `rules-disable`) **keep their
    snake_case spelling** so they keep matching the directory names
    (`./reference_lists/`, `./rule_exclusions/`, …). Only the imperative/read command
-   groups moved (`curated set` → `rules curated set`, `feeds schemas` →
-   `ingest feeds schemas`, and so on).
+   groups moved (`feeds schemas` → `ingest feeds schemas`, and so on).
 
 2. **`cases` is the canonical top-level case command; there is no `soar case`.** Case
    triage is genuinely cross-plane (the modern v1alpha path and the reliable legacy
@@ -80,10 +79,17 @@ Earlier name → Phase D command. The earlier column collapses the pre-0.6.0 spe
 
 ### Detection rules
 
-| Earlier | Phase D command |
+`rules` is for the detections you **author**; Google-managed **predefined** detections
+are `curated`. Cross-cutting concerns that span both sources are top-level, not nested
+under `rules`: **`exclusions`** (findings refinements filter noise from custom *and*
+curated detections) and **`mitre`** (ATT&CK coverage aggregates both). `health` stays
+under `rules` (it rolls up the custom rules you control). The brief v0.6.0 nesting of
+`curated`/`exclusions` under `rules` was reverted in v0.6.1.
+
+| Earlier | Current command |
 |---|---|
-| `curated …` | `rules curated …` (`list`/`rules`/`rule`/`rule-sets`/`set`/`detections`/`events`/`trends`) |
-| `rule-exclusions` / `rule_exclusions` (the command) | `rules exclusions` (`list`/`get`/`deploy`) |
+| `curated …` (briefly `rules curated …`) | `curated …` (`list`/`rules`/`rule`/`rule-sets`/`set`/`detections`/`events`/`trends`) |
+| `rule-exclusions` / `rule_exclusions` (the command; briefly `rules exclusions`) | `exclusions` (`list`/`get`/`deploy`) |
 
 ### Threat intel & IOCs
 

@@ -94,9 +94,9 @@ func TestCommandsCatalogRichFlags(t *testing.T) {
 	for _, r := range collectCommands(rootCmd, "") {
 		byPath[r.Path] = r
 	}
-	r, ok := byPath["rules curated set"]
+	r, ok := byPath["curated set"]
 	if !ok {
-		t.Fatal("`rules curated set` missing from catalog")
+		t.Fatal("`curated set` missing from catalog")
 	}
 	var precision *flagInfo
 	for i := range r.Flags {
@@ -105,7 +105,7 @@ func TestCommandsCatalogRichFlags(t *testing.T) {
 		}
 	}
 	if precision == nil {
-		t.Fatal("rules curated set has no --precision flag in catalog")
+		t.Fatal("curated set has no --precision flag in catalog")
 	}
 	if precision.Type != "string" {
 		t.Errorf("--precision type = %q, want string", precision.Type)

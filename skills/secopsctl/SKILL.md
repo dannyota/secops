@@ -73,7 +73,7 @@ ritual.
 | `mitre` | ATT&CK coverage across custom + curated (`--type custom\|curated\|all`) | SIEM | read |
 | `ti` | threat intel & IOCs: `find` · `get` · `related` · `collections` · `collection` · `collection-matches` | SIEM | read |
 | `lists` | `empty` (reference list) · `watchlists …` | SIEM | read + guarded |
-| `dashboards` | charts / run-chart / verify / export / import / add-chart / edit-chart / duplicate / delete | SIEM | read + guarded |
+| `dashboards` | `create` · `list` · `get` · `edit` · `charts` (list/get/add/batch/edit/remove/run) · `markdown` (add/edit/remove) · `button` (add/edit/remove) · `layout` (show/move) · `filters` (show/set) · verify · lint/fix/inspect · export/import · duplicate · delete | SIEM | read + guarded |
 | `entities` | `summarize` · `graph` · `risk-scores` | SIEM | read |
 | `alerts` | `list` · `get` · `investigate` (AI) · `update` (feedback) | SIEM | read + guarded (`update`) |
 | `cases` | SOAR case triage: list/get/close/assign/tag/stage/comment/run-action/summarize/alert… | SOAR | read + guarded |
@@ -248,9 +248,57 @@ order: $c desc'
 
 A free-standing `search stats` takes a **bare field** in `match:` (`metadata.log_type`),
 not an assignment; the `outcome:` declares the measures. Validate a chart query with
-`search stats` **before** `dashboards add-chart`. Don't name a `match:`/`outcome:`
+`search stats` **before** `dashboards charts add`. Don't name a `match:`/`outcome:`
 variable with a reserved YARA-L keyword (e.g. `$rule`, `$events`) — it compiles but
-fails at execute time; `add-chart`/`edit-chart` warn when you do.
+fails at execute time; `charts add`/`charts edit` warn when you do.
+
+### Build and manage dashboards
+
+**The 96-column grid.** A dashboard is a grid **96 units wide**; height grows
+unbounded. Every widget (chart, markdown, button) has a position:
+`startX`/`startY` (top-left corner) and `spanX`/`spanY` (width/height).
+
+Recommended layout sizes:
+
+| Widget purpose | spanX (width) | spanY (height) | Notes |
+|---|---|---|---|
+| Full-width chart | 96 | 16 | Default — one chart per row |
+| Half-width chart | 48 | 16 | Two charts side by side |
+| Third-width chart | 32 | 16 | Three across |
+| Quarter-width chart | 24 | 12–16 | Four across (compact) |
+| Markdown heading/notes | 96 | 4–8 | Full-width text block |
+| Sidebar markdown | 24–32 | 16 | Text next to a chart |
+
+```bash
+secopsctl dashboards create --name "SOC Overview" --access public --yes # create empty
+secopsctl dashboards get <id>                                          # metadata summary
+secopsctl dashboards edit <id> --name "New Name" --access public --yes # edit metadata
+secopsctl dashboards layout show <id>                                  # grid map of all widgets
+secopsctl dashboards layout move <id> --widget-id <w> --x 0 --span-x 48 --yes  # resize/reposition
+secopsctl dashboards filters show <id>                                 # current global time filter
+secopsctl dashboards filters set <id> --time 7 --unit DAY --yes        # set time range
+
+# Chart authoring (validate the query first with `search stats`)
+secopsctl dashboards charts add <id> --title "DNS by host" \
+    --query 'metadata.event_type = "NETWORK_DNS" match: principal.hostname outcome: $c = count(metadata.id)' \
+    --chart-type bar --x principal.hostname --y '$c' \
+    --layout '{"startX":0,"spanX":48,"startY":0,"spanY":16}' --yes
+secopsctl dashboards charts list <id>                                  # list charts + queries
+
+# Markdown widgets (static text — no query)
+secopsctl dashboards markdown add <id> --title "Notes" \
+    --text "## Security Overview\nKey metrics for the SOC." \
+    --background-color "#f5f5f5" --yes
+
+# Button widgets (hyperlink tiles)
+secopsctl dashboards button add <id> --title "Docs" \
+    --label "Open docs" --url "https://example.com" \
+    --style filled --color "#4285f4" --yes
+```
+
+Three tile types: `visualization` (charts with queries), `button` (hyperlinks),
+`markdown` (static text). Charts need a query + interval; markdown needs only
+`--text`; buttons need `--label` + `--url`. All share the same grid layout.
 
 ### SOC triage — queue → case → AI verdict → close
 
@@ -327,7 +375,7 @@ The CLI takes **names**, not the server's magic ints. Common sets:
 | `cases list --priority` | `informative` · `low` · `medium` · `high` · `critical` |
 | `cases list --status` | `open` · `closed` · `all` |
 | `rules promote --run-frequency` | `LIVE` · `HOURLY` · `DAILY` |
-| `dashboards add-chart --chart-type` | `bar` · `line` · `pie` · `table` |
+| `dashboards charts add --chart-type` | `area` · `bar` · `gauge` · `line` · `map` · `metrics` · `pie` · `scatter` · `table` |
 | `search export --fields` (column labels) | `timestamp` · `user` · `hostname` · `process name` · `raw log` · `udm.additional.*` |
 
 List a case's valid root-causes with `cases values root-causes`. For any other enum,

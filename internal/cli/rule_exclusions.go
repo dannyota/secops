@@ -11,15 +11,21 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
-// newRuleExclusionsCmd holds one-off findings-refinement operations that sit
-// beside the pull/push reconcile loop. Registered under `rules` → `rules exclusions`.
+func init() {
+	rootCmd.AddCommand(newRuleExclusionsCmd())
+}
+
+// newRuleExclusionsCmd is a top-level group (`exclusions …`) — findings
+// refinements filter noise out of BOTH custom (`rules`) and Google-managed
+// (`curated`) detections, so they sit beside both rather than under either.
 func newRuleExclusionsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "exclusions <verb>",
-		Short: "Imperative findings-refinement ops (enable/disable/archive) — config-as-code is `pull/push rule_exclusions`",
-		Long: "Operate on findings refinements outside the reconcile loop. Config-as-code\n" +
-			"is `pull rule_exclusions` / `push rule_exclusions`; deployment changes are\n" +
-			"guarded and dry-run by default.",
+		Short: "Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is `pull/push rule_exclusions`",
+		Long: "Operate on findings refinements outside the reconcile loop. Exclusions apply\n" +
+			"to both custom (`rules`) and Google-managed (`curated`) detections.\n" +
+			"Config-as-code is `pull rule_exclusions` / `push rule_exclusions`; deployment\n" +
+			"changes are guarded and dry-run by default.",
 	}
 	cmd.AddCommand(newRuleExclusionsDeployCmd(), newRuleExclusionsListCmd(), newRuleExclusionsGetCmd())
 	return cmd

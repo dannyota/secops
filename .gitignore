@@ -34,9 +34,14 @@ parsers/
 # Local-only tenant denylist for the leak guard (never commit)
 /.githooks/denylist.local
 
-# Persistent browser profile for local API/UI investigation (holds an authed
-# session; never commit)
+# Persistent browser profile (holds an authed session; never commit)
 /.playwright-profile/
 
-# Playwright MCP scratch (page snapshots / console logs may hold tenant data)
+# Playwright MCP scratch (page snapshots / console logs)
 /.playwright-mcp/
+
+# Project-local MCP config (references local paths / browser profile)
+/.mcp.json
+
+# Local-only working build plan
+/plan.md

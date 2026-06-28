@@ -31,6 +31,7 @@ const (
 const (
 	TileTypeVisualization = "TILE_TYPE_VISUALIZATION"
 	TileTypeButton        = "TILE_TYPE_BUTTON"
+	TileTypeMarkdown      = "TILE_TYPE_MARKDOWN"
 )
 
 // resourceID extracts the bare ID from a value that may be a fully-qualified
@@ -125,6 +126,7 @@ func (c *Client) GetDashboard(ctx context.Context, dashboardID string, full bool
 type DashboardUpdate struct {
 	DisplayName *string
 	Description *string
+	Access      *string           // DashboardPublic or DashboardPrivate
 	Filters     []json.RawMessage // non-nil replaces definition.filters
 	Charts      []json.RawMessage // non-nil replaces definition.charts
 }
@@ -137,6 +139,7 @@ func (c *Client) UpdateDashboard(ctx context.Context, dashboardID string, upd Da
 	body := struct {
 		DisplayName *string              `json:"displayName,omitempty"`
 		Description *string              `json:"description,omitempty"`
+		Access      *string              `json:"access,omitempty"`
 		Definition  *DashboardDefinition `json:"definition,omitempty"`
 	}{}
 	var mask []string
@@ -148,6 +151,10 @@ func (c *Client) UpdateDashboard(ctx context.Context, dashboardID string, upd Da
 	if upd.Description != nil {
 		body.Description = upd.Description
 		mask = append(mask, "description")
+	}
+	if upd.Access != nil {
+		body.Access = upd.Access
+		mask = append(mask, "access")
 	}
 	if upd.Filters != nil || upd.Charts != nil {
 		def := &DashboardDefinition{}

@@ -95,6 +95,22 @@ func (c *Client) ListRuleRevisions(ctx context.Context, ruleID string) ([]Rule, 
 	return all, err
 }
 
+// GetRuleRevision fetches one stored version of a rule. version is the
+// v_<sec>_<nanos> token (with or without a leading "@") shown by
+// ListRuleRevisions; any @-suffix already on ruleID is replaced. It maps to
+// GET rules/{ruleID}@{version}?view=FULL — the addressing the console uses to
+// open a prior version.
+func (c *Client) GetRuleRevision(ctx context.Context, ruleID, version string) (*Rule, error) {
+	if i := strings.Index(ruleID, "@"); i >= 0 {
+		ruleID = ruleID[:i]
+	}
+	version = strings.TrimPrefix(strings.TrimSpace(version), "@")
+	if version == "" {
+		return c.GetRule(ctx, ruleID)
+	}
+	return c.GetRule(ctx, ruleID+"@"+version)
+}
+
 // EnableRule enables (enabled=true) or disables (enabled=false) a rule by
 // patching its deployment. Convenience over UpdateRuleDeployment, matching the
 // wrapper's enable_rule.

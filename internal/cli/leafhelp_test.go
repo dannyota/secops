@@ -13,7 +13,7 @@ import (
 func TestLeafHelpResolvesToLeaf(t *testing.T) {
 	leaves := [][]string{
 		{"rules", "list"},
-		{"rules", "curated", "set"},
+		{"curated", "set"},
 		{"search", "udm"},
 		{"alerts", "get"},
 		{"alerts", "update"},

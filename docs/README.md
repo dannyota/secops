@@ -116,10 +116,10 @@ flowchart LR
 
 | | **SIEM** · Chronicle | **SOAR** · Siemplify |
 |---|---|---|
-| **Control**<br/>`pull → push` | rules · lists · data_tables · ingest · dashboards · rules curated\* | webhooks · environments · networks · idp · soc-roles · case-stages · playbooks · content-hub · … |
+| **Control**<br/>`pull → push` | rules · lists · data_tables · ingest · dashboards · curated\* | webhooks · environments · networks · idp · soc-roles · case-stages · playbooks · content-hub · … |
 | **Operational**<br/>`search → act` | events · alerts · cases† — read via `search` · `gemini` · `ti` | `cases list`/`get` (read) · `cases` (per-case verbs) · `soar push bulk-close` |
 
-<sub>† One case, two APIs on the SOAR domain: `cases list` defaults to the New API (v1alpha) and auto-falls back to the reliable Legacy AppKey queue. \* `rules curated` = Google-managed: read + enable/disable, not full CUD. The `lists`/`ingest` command groups cover reference lists/watchlists and feeds/parsers/forwarders; their config-as-code `pull`/`push` *targets* keep snake_case mirror-dir names (`reference_lists`, `feeds`, `parsers`, `curated`). Authoritative set + live status in [design/catalog.md](design/catalog.md).</sub>
+<sub>† One case, two APIs on the SOAR domain: `cases list` defaults to the New API (v1alpha) and auto-falls back to the reliable Legacy AppKey queue. \* `curated` = Google-managed: read + enable/disable, not full CUD. The `lists`/`ingest` command groups cover reference lists/watchlists and feeds/parsers/forwarders; their config-as-code `pull`/`push` *targets* keep snake_case mirror-dir names (`reference_lists`, `feeds`, `parsers`, `curated`). Authoritative set + live status in [design/catalog.md](design/catalog.md).</sub>
 
 ## 🧭 Find your way
 

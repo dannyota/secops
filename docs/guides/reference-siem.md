@@ -118,14 +118,14 @@ COMPLETE result set (not just `--limit`) and reports the total match count. See
 | `rules trends` | Per-rule detection counts (day buckets) + last detection over `--hours` (default 7d), noisiest first — which rules are noisy or silent. No `--rule` = every rule. |
 | `rules counts` | Rule count and quota statistics for the instance. |
 | `rules retrohunt list <rule>` / `get <rule> <id>` | List a rule's retrohunts, or get one retrohunt's status (rule accepts id, display name, or slug). |
-| `rules curated list` | List curated (Google-managed) rule-set deployments + enable/alerting state. |
-| `rules curated rule-sets [--category ID]` | List curated rule SETS (id · severity · precisions · name) — the groupings `rules curated set` toggles. |
-| `rules curated rules [--search Q] [--set ID] [--category ID] [--tactic T] [--severity S]` | List/search individual curated rules; filter by name/description, parent set, category, MITRE tactic, or severity. |
-| `rules curated rule <ur_id>` | View one curated rule's detail: severity, type, precision, MITRE tactics/techniques, parent set, description (Google-managed — no source code). |
-| `rules curated detections <ur_id>` | Detections a CURATED rule produced; the curated twin of `rules detections`. |
-| `rules curated events <detection-id>` | Event + rationale behind one curated detection. |
-| `rules curated trends (--rule ur_a,… \| --all)` | Per-curated-rule detection counts + last detection; `--all` sweeps every curated rule. |
-| `rules exclusions list` / `get <id>` | List/inspect rule exclusions (findings refinements) — id, type, query, deployment state. |
+| `curated list` | List curated (Google-managed) rule-set deployments + enable/alerting state. |
+| `curated rule-sets [--category ID]` | List curated rule SETS (id · severity · precisions · name) — the groupings `curated set` toggles. |
+| `curated rules [--search Q] [--set ID] [--category ID] [--tactic T] [--severity S]` | List/search individual curated rules; filter by name/description, parent set, category, MITRE tactic, or severity. |
+| `curated rule <ur_id>` | View one curated rule's detail: severity, type, precision, MITRE tactics/techniques, parent set, description (Google-managed — no source code). |
+| `curated detections <ur_id>` | Detections a CURATED rule produced; the curated twin of `rules detections`. |
+| `curated events <detection-id>` | Event + rationale behind one curated detection. |
+| `curated trends (--rule ur_a,… \| --all)` | Per-curated-rule detection counts + last detection; `--all` sweeps every curated rule. |
+| `exclusions list` / `get <id>` | List/inspect rule exclusions (findings refinements) — id, type, query, deployment state. |
 
 ## 🔒 Threat intel & entities
 
@@ -166,9 +166,13 @@ COMPLETE result set (not just `--limit`) and reports the total match count. See
 | `lists watchlists list` / `get <id>` | List SIEM entity watchlists, or get one by id. |
 | `data-access labels list\|get <id>` / `scopes list\|get <id>` | List/get data-access RBAC labels (tag data) and scopes (grant access). |
 | `dashboards list` | List every native dashboard (id · type · title). `--json` for the full objects. |
-| `dashboards charts <id>` | List a dashboard's charts with their resolved YARA-L queries (read-only; derefs each chart → query). Also how to recover a `--chart-id`. |
+| `dashboards get <id>` | Dashboard summary: name, description, type, access (public/private), chart count, time filter, etag, timestamps. |
+| `dashboards charts list <id>` | List a dashboard's charts with their resolved YARA-L queries (read-only; derefs each chart → query). Also how to recover a `--chart-id`. |
+| `dashboards charts get <chart-id>` | Single chart detail: visualization, query body, input, layout. |
+| `dashboards charts run <id> --chart-id <c>` | Execute a chart's query (`dashboardQueries:execute`) and print the VALUES it renders — rows/series (`--json`, `--clear-cache`, `--filter`). |
 | `dashboards export <id>` | Export a dashboard with its charts + queries to one self-contained JSON document (`--out <file>` or stdout); read-only. Re-create it anywhere with `import`. |
-| `dashboards run-chart <id> --chart-id <c>` | (alias `values`) Execute a chart's query (`dashboardQueries:execute`) and print the VALUES it renders — rows/series (`--json`, `--clear-cache`, `--filter`). |
+| `dashboards layout show <id>` | Show all widgets' positions on the 96-column grid: id, type (CHART/MARKDOWN/BUTTON), X, Y, width, height, title. Sorted top-to-bottom, left-to-right. |
+| `dashboards filters show <id>` | Show a dashboard's filters: global time range and any advanced token filters. |
 | `dashboards verify [<id>]` | Execute every chart and flag the ones returning 0 rows or an error — a headless/CI dashboard health check (exit 2 if any chart needs attention). `--all` health-checks every CUSTOM dashboard in one fleet rollup (`--include-curated` to add the Google-managed ones). |
 | `alerts list … --sort priority\|created` | List Chronicle detection alerts over a time window (snapshot); client-side sort by `priority` (worst first) or `created` (newest first). |
 | `alerts get <id>` | Get one alert by id; when the alert is cased, also prints the SIEM case uuid **and its SOAR integer case id** (the `cases` pivot). |
@@ -190,8 +194,8 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md) and [reconcile](reconcile.m
 | `push <reconcile-target>` | Reconcile local files to live (create/update; `--prune` deletes on prune-eligible surfaces only — `push <target> --help` says which). Targets: `reference_lists`, `data_tables`, `parsers`, `feeds`, `forwarders`, `dashboards`, `rule_exclusions`, `metric_definitions`, `scheduled_reports`, `datataps`, `error_notifications`, `federation_groups`. |
 | `rules promote <file.yaral>` | Create a new rule from a file and deploy it in one step (create + enable). |
 | `rules retrohunt create <rule> [--wait]` | Start a retrohunt over historical data and (with `--wait`) poll until it finishes; then point at `rules detections` for the matches. |
-| `rules curated set` | Toggle a curated deployment's `enabled`/`alerting` per precision (`--category`, `--ruleset`, `--precision precise\|broad`). |
-| `rules exclusions deploy <id>` | Enable, disable, or archive one findings refinement with `--enable`, `--disable`, or `--archive`. Resolves the target and previews current → desired deployment state before acting. |
+| `curated set` | Toggle a curated deployment's `enabled`/`alerting` per precision (`--category`, `--ruleset`, `--precision precise\|broad`). |
+| `exclusions deploy <id>` | Enable, disable, or archive one findings refinement with `--enable`, `--disable`, or `--archive`. Resolves the target and previews current → desired deployment state before acting. |
 | `alerts update <id>...` | Set alert triage feedback: `--status new\|reviewed\|closed\|open`, `--verdict true-positive\|false-positive`, `--priority`, `--reason`, `--reputation`, scores, `--comment`, `--root-cause`. Several ids fan out the same update; `--where <filter>` / `--stdin-ids` resolve target ids from a snapshot or a pipeline. |
 | `lists empty <name>` | Clear all entries from one no-delete reference list. Resolves the target and previews entry count only before acting. |
 | `lists watchlists create\|delete\|add-entity\|remove-entity` | Manage tracking/hunting watchlists: `create --name X --display-name Y [--factor f]`, `delete <id> [--force]`, `add-entity <id> (--ip\|--mac\|--hostname\|--user\|--email)` (exactly one selector), `remove-entity <entity-name>`. |
@@ -200,11 +204,21 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md) and [reconcile](reconcile.m
 | `ingest parsers activate <log-type> <id>` | Make a parser version ACTIVE (live ingestion switches; use `ingest parsers versions` to find a prior id to roll back to). |
 | `ingest parsers extension create\|activate\|delete` | Manage parser extensions: `create --log-type <type> --cbn <file>`, `activate <log-type> <id>`, `delete <log-type> <id>`. |
 | `ingest pipeline delete <id>` | Delete a log processing pipeline. |
-| `dashboards add-chart <id>` | Add a chart with a YARA-L `--query` (or `--query-file`) via `:addChart`. `--chart-type bar\|line\|pie\|table --x <var> --y <var> [--series-by <var>]` GENERATES the visualization and validates the encode vars against the query's columns. `--if-absent` skips when a chart with the title exists. The `<id>` is the server id in the pulled `<slug>.json` `_server` block (or from `dashboards charts`). |
-| `dashboards add-charts <id> --file <charts.json>` | Batch-author a whole dashboard's charts from a JSON array — validated up front, idempotent (existing titles skipped), `--pace`d under the chart quota. |
-| `dashboards edit-chart <id> --chart-id <c>` | Edit a chart IN PLACE: `--query`/`--query-file`, `--visualization`/`--chart-type`, and/or `--layout` (grid position) — no remove+re-add churn. |
-| `dashboards remove-chart <id> --chart-id <c>` | Remove a chart from a dashboard via `:removeChart`. |
-| `dashboards duplicate <id>` | Copy a dashboard to a new independent one (new `--name`/`--access`) via the server `:duplicate` verb — the copy gets its own charts and queries in one call. `--deep-copy` rebuilds it client-side instead (fallback). Also the supported way to change the immutable `access`. |
+| `dashboards create` | Create an empty CUSTOM dashboard: `--name`, `--access public\|private`, `--description`. Add charts/markdown/buttons afterwards. |
+| `dashboards edit <id>` | Edit a dashboard's name (`--name`), description (`--description`), or access type (`--access public\|private`). |
+| `dashboards charts add <id>` | Add a chart with a YARA-L `--query` (or `--query-file`) via `:addChart`. `--chart-type area\|bar\|gauge\|line\|map\|metrics\|pie\|scatter\|table --x <var> --y <var> [--series-by <var>]` GENERATES the visualization. `--if-absent` skips when a chart with the title exists. |
+| `dashboards charts batch <id> --file <charts.json>` | Batch-author charts from a JSON array — validated up front, idempotent (existing titles skipped), `--pace`d under the chart quota. |
+| `dashboards charts edit <id> --chart-id <c>` | Edit a chart IN PLACE: `--query`/`--query-file`, `--visualization`/`--chart-type`, and/or `--layout` (grid position) — no remove+re-add churn. |
+| `dashboards charts remove <id> --chart-id <c>` | Remove a chart from a dashboard via `:removeChart`. |
+| `dashboards markdown add <id>` | Add a markdown tile: `--title`, `--text`/`--text-file`, `--background-color`, `--layout`. No query or datasource. |
+| `dashboards markdown edit <id> --chart-id <c>` | Edit a markdown tile's content, background color, or layout. |
+| `dashboards markdown remove <id> --chart-id <c>` | Remove a markdown tile. |
+| `dashboards button add <id>` | Add a button tile: `--title`, `--label`, `--url`, `--style filled\|outlined\|transparent`, `--color`, `--new-tab`, `--layout`. |
+| `dashboards button edit <id> --chart-id <c>` | Edit a button tile's label, url, style, color, or layout. |
+| `dashboards button remove <id> --chart-id <c>` | Remove a button tile. |
+| `dashboards layout move <id> --widget-id <c>` | Move or resize any widget (chart/markdown/button) on the 96-column grid: `--x`, `--y`, `--span-x`, `--span-y` (partial — only the flags you pass are changed). |
+| `dashboards filters set <id>` | Set the global time range filter: `--time <N> --unit HOUR\|DAY\|WEEK\|MONTH`. Replaces the existing time filter; preserves advanced filters. |
+| `dashboards duplicate <id>` | Copy a dashboard to a new independent one (new `--name`/`--access`) via the server `:duplicate` verb — the copy gets its own charts and queries in one call. `--deep-copy` rebuilds it client-side instead (fallback). |
 | `dashboards delete <id>` | Delete a whole dashboard, e.g. a stale duplicate. A corrupt dashboard whose charts are dangling/non-owned references can't be deleted by the API or the web console — the error says so. |
 | `dashboards import <file>` | Create a dashboard from an export JSON document in ONE call (dashboard + charts + queries together; server mints fresh ids). |
 | `cleanup smoke-artifacts` | Delete or neutralize only secopsctl-owned smoke-test artifacts. Dry-run prints the exact plan; apply requires `--yes`. |

@@ -160,8 +160,9 @@ var commandGroupByName = map[string]string{
 	"config": groupSetup, "doctor": groupSetup, "info": groupSetup, "version": groupSetup,
 	"status": groupSetup,
 	// Read & query.
-	"search": groupRead, "gemini": groupRead, "rules": groupRead, "ti": groupRead,
-	"alerts": groupRead, "cases": groupRead, "lists": groupRead, "entities": groupRead,
+	"search": groupRead, "gemini": groupRead, "rules": groupRead, "curated": groupRead,
+	"exclusions": groupRead, "mitre": groupRead, "ti": groupRead, "alerts": groupRead,
+	"cases": groupRead, "lists": groupRead, "entities": groupRead,
 	"data-access": groupRead, "commands": groupRead,
 	// Config as code.
 	"pull": groupAsCode, "push": groupAsCode, "drift": groupAsCode,

@@ -39,8 +39,8 @@ are two different things. They are not — see *one concept, not two* below.
 | Term | What it is | Plane | Command |
 |---|---|---|---|
 | **rule** | A detection you author in YARA-L over UDM events. A match produces a *detection*; an *alerting* rule also raises an **alert**. | SIEM | `secopsctl rules` |
-| **curated rule** | A detection authored and maintained by Google (curated detections / Applied Threat Intelligence), shipped in rule *sets*. You don't write the logic — you toggle enabled/alerting at set × precision only. | SIEM | `secopsctl rules curated` |
-| **rule exclusion** | A filter that stops matching events from ever reaching rules (custom *and* curated) — noise suppression, not a rule itself. | SIEM | `secopsctl rules exclusions` |
+| **curated rule** | A detection authored and maintained by Google (curated detections / Applied Threat Intelligence), shipped in rule *sets*. You don't write the logic — you toggle enabled/alerting at set × precision only. | SIEM | `secopsctl curated` |
+| **rule exclusion** | A filter that stops matching events from ever reaching rules (custom *and* curated) — noise suppression, not a rule itself. | SIEM | `secopsctl exclusions` |
 | **alert** | A detection raised for triage — what an alerting rule (custom or curated) produces. Alerts flow into SOAR and group into cases; an alert is then a *member of* its case. | SIEM → SOAR | `secopsctl alerts` (triage) · `cases alert …` (as a case member) |
 | **case** | The investigation record an analyst works: grouped alerts plus entities, comments, tasks, SLA, and playbook runs. **One record** — see below. | SOAR | `secopsctl cases` |
 | **playbook** | A SOAR automation: an ordered graph of actions and flow steps run against a case or alert (enrich, notify, contain). | SOAR | `secopsctl soar playbooks` |
@@ -62,7 +62,7 @@ doors — not two separate objects. The goal is one command per concept, with
 | "a SIEM case vs a SOAR case" | **One** case. The case verbs are the single top-level `cases` command, auto-routed to the host that serves them. (An alternate Chronicle-host path reaches the same case by UUID but is unused — it errors at every API version.) |
 | "a SIEM alert vs a SOAR alert" | **One** alert. You triage it on the SIEM side (`alerts`) and act on it as a member of its **case** (`cases alert …`). Same record, two stages of one life. |
 | "indicators in my environment vs the threat catalog" | Both live under one group, **`ti`**, that cross-references the two. **`ti find`/`ti get`/`ti related`** resolve an indicator value seen in your environment to its IoC record and its neighbors; **`ti collections`/`ti collection`/`ti collection-matches`** browse the upstream Mandiant threat-intelligence catalog (collections / campaigns / reports) and what in your environment matched them. (Pre-0.6.0 these were split commands `iocs`/`indicators`/`threat-intel` — now folded into `ti`.) |
-| "`rules` vs `rules curated` vs `rules exclusions`" | Three roles, not three copies: **`rules`** = detections you author; **`rules curated`** = Google-managed detections you toggle; **`rules exclusions`** = event filters that keep noise out of both. |
+| "`rules` vs `curated` vs `exclusions`" | Three roles, not three copies: **`rules`** = detections you author; **`curated`** = Google-managed detections you toggle; **`exclusions`** = event filters that keep noise out of both. |
 | "`pull`/`push` vs `soar pull`/`soar push`" | Same core loop, two planes: top-level for SIEM config, `soar …` for SOAR config. The verbs behave identically; only the host and auth differ. |
 
 ## Searching, AI, and the renamed command groups
@@ -77,8 +77,8 @@ back-compat aliases). The umbrellas you'll type:
 | **`ti`** | Threat intelligence: indicator lookups (`find`/`get`/`related`) and the upstream catalog (`collections`/`collection`/`collection-matches`). | `iocs` / `indicators` / `threat-intel` |
 | **`lists`** | Reference-list helpers (`lists empty`) and watchlists (`lists watchlists …`). | `reference-lists` / `watchlists` |
 | **`ingest`** | The ingestion plane: `ingest feeds`, `parsers`, `forwarders`, `log-types`, `pipeline`, and `ingest health`. | `feeds` / `forwarders` / `parsers` / `pipeline` / `ingestion` |
-| **`rules curated`** | Read + toggle Google-managed curated detections (see *curated rule*). | `curated` |
-| **`rules exclusions`** | Event-filter (noise-suppression) management. | `rule-exclusions` |
+| **`curated`** | Read + toggle Google-managed curated detections (see *curated rule*). | `curated` |
+| **`exclusions`** | Event-filter (noise-suppression) management. | `rule-exclusions` |
 | **`content-hub`** | The marketplace: `browse`/`list`/`get`/`contentpacks` (read) and the guarded `install`/`uninstall` for integrations and content packs. | `soar marketplace` |
 | **`status`** | Read-only health/coverage probes: `status capabilities` (session bootstrap), `coverage` (MITRE ATT&CK), `surfaces` (every API family). | `capabilities` / `coverage` / `surfaces` |
 | **`cases` / `entities`** | The top-level case and entity surfaces (canonical — no `soar case`/`entity` alias). | `soar case` / `entity` |

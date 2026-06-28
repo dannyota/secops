@@ -56,8 +56,10 @@ func tileTypeToken(s string) (string, error) {
 		return chronicle.TileTypeVisualization, nil
 	case "button":
 		return chronicle.TileTypeButton, nil
+	case "markdown":
+		return chronicle.TileTypeMarkdown, nil
 	default:
-		return "", fmt.Errorf("invalid --tile-type %q (want visualization | button)", s)
+		return "", fmt.Errorf("invalid --tile-type %q (want visualization | button | markdown)", s)
 	}
 }
 
@@ -103,12 +105,13 @@ func newDashboardsAddChartCmd() *cobra.Command {
 	var chartType, encodeX, encodeY, seriesBy string
 	var dryRun, yes, ifAbsent bool
 	cmd := &cobra.Command{
-		Use:   "add-chart <dashboard-id> --title <t> (--query <yaral> | --query-file <f>)",
+		Use:   "add <dashboard-id> --title <t> (--query <yaral> | --query-file <f>)",
 		Short: "Add a chart with a YARA-L query to a dashboard (guarded)",
 		Long: "Add a chart to a native dashboard via :addChart, authoring its YARA-L query\n" +
 			"inline (the dashboard body itself is reference-only, so `push dashboards`\n" +
 			"cannot do this). The query comes from --query or --query-file.\n\n" +
-			"Chart type: pass --chart-type bar|line|pie|table with --x/--y (encode\n" +
+			"Chart type: pass --chart-type area|bar|gauge|line|map|metrics|pie|scatter|table\n" +
+			"with --x/--y (encode\n" +
 			"variables) and optional --series-by to GENERATE the visualization instead of\n" +
 			"hand-authoring --visualization; --x/--y/--series-by are validated against the\n" +
 			"query's declared match:/outcome: variables, so a typo fails clean (not a blank\n" +
@@ -237,7 +240,7 @@ func newDashboardsAddChartCmd() *cobra.Command {
 	cmd.Flags().StringVar(&datasource, "datasource", `{"dataSources":["UDM"]}`, "chart datasource (JSON)")
 	cmd.Flags().StringVar(&layout, "layout", `{"startX":0,"spanX":96,"startY":0,"spanY":16}`, "chart layout on the 96-column grid (JSON: startX/spanX 0–96, startY/spanY); default is full-width")
 	cmd.Flags().StringVar(&visualization, "visualization", "", "optional raw visualization config (JSON); or use --chart-type to generate it")
-	cmd.Flags().StringVar(&chartType, "chart-type", "", "generate the visualization: bar | line | pie | table")
+	cmd.Flags().StringVar(&chartType, "chart-type", "", "generate the visualization: area | bar | gauge | line | map | metrics | pie | scatter | table")
 	cmd.Flags().StringVar(&encodeX, "x", "", "--chart-type: the category/itemName encode variable (a query match/outcome var)")
 	cmd.Flags().StringVar(&encodeY, "y", "", "--chart-type: the value encode variable (a query match/outcome var)")
 	cmd.Flags().StringVar(&seriesBy, "series-by", "", "--chart-type bar|line: split into stacked series by this query variable")
@@ -350,7 +353,7 @@ func newDashboardsEditChartCmd() *cobra.Command {
 	var chartType, encodeX, encodeY, seriesBy string
 	var dryRun, yes bool
 	cmd := &cobra.Command{
-		Use:   "edit-chart <dashboard-id> --chart-id <id>",
+		Use:   "edit <dashboard-id> --chart-id <id>",
 		Short: "Edit a chart's query, visualization, or layout in place (guarded)",
 		Long: "Edit an existing chart via :editChart, in place (no remove + re-add that would\n" +
 			"churn the chart id / grid position / order). Change any of:\n" +
@@ -501,7 +504,7 @@ func newDashboardsEditChartCmd() *cobra.Command {
 	cmd.Flags().StringVar(&queryFile, "query-file", "", "read the new YARA-L query from a file")
 	cmd.Flags().StringVar(&interval, "interval", "", "optional new query input interval (JSON)")
 	cmd.Flags().StringVar(&visualization, "visualization", "", "new raw visualization config (JSON); or use --chart-type")
-	cmd.Flags().StringVar(&chartType, "chart-type", "", "generate the visualization: bar | line | pie | table")
+	cmd.Flags().StringVar(&chartType, "chart-type", "", "generate the visualization: area | bar | gauge | line | map | metrics | pie | scatter | table")
 	cmd.Flags().StringVar(&encodeX, "x", "", "--chart-type: the category/itemName encode variable")
 	cmd.Flags().StringVar(&encodeY, "y", "", "--chart-type: the value encode variable")
 	cmd.Flags().StringVar(&seriesBy, "series-by", "", "--chart-type bar|line: split into stacked series by this query variable")
@@ -519,7 +522,7 @@ func newDashboardsRemoveChartCmd() *cobra.Command {
 	var chartID string
 	var dryRun, yes bool
 	cmd := &cobra.Command{
-		Use:   "remove-chart <dashboard-id> --chart-id <id>",
+		Use:   "remove <dashboard-id> --chart-id <id>",
 		Short: "Remove a chart from a dashboard (guarded)",
 		Long: "Remove a chart from a dashboard via :removeChart. Guarded: dry-run by default,\n" +
 			"--yes to apply. Re-pull afterwards so local mirrors live.",
@@ -578,7 +581,7 @@ type chartView struct {
 
 func newDashboardsChartsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "charts <dashboard-id>",
+		Use:   "list <dashboard-id>",
 		Short: "List a dashboard's charts with their resolved YARA-L queries (read-only)",
 		Long: "Dereference a dashboard's charts back to their queries: the dashboard body\n" +
 			"only references each chart by name, so this fetches each chart and its\n" +
