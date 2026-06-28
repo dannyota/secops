@@ -117,7 +117,14 @@ func newDashboardsAddChartCmd() *cobra.Command {
 			"query's declared match:/outcome: variables, so a typo fails clean (not a blank\n" +
 			"chart). --if-absent skips the add when a chart with the same title already\n" +
 			"exists (idempotent re-runs). Guarded: dry-run by default, --yes to apply.\n" +
-			"Re-pull afterwards so local mirrors live.",
+			"Re-pull afterwards so local mirrors live.\n\n" +
+			"RESERVED WORDS: avoid these as $variable names — they compile but 400 at\n" +
+			"execute time (blank chart): rule, private, global, meta, strings, condition,\n" +
+			"events, match, outcome, options, dedup, order, limit, select, unselect, and,\n" +
+			"or, not, all, any, at, contains, startswith, endswith, icontains, istartswith,\n" +
+			"iendswith, iequals, matches, in, over, nocase, ascii, wide, fullword, xor,\n" +
+			"base64, base64wide, filesize, entrypoint, int8..uint32/be variants.\n" +
+			"Rename collisions (e.g. $rule → $rule_v) before adding.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]

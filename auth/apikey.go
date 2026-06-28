@@ -36,6 +36,24 @@ func (c *apiKeyCreds) Apply(req *http.Request) error {
 	return nil
 }
 
+// SOARBearerToken returns credentials that set a Bearer Authorization header
+// for the SOAR host — the JWT minted by GenerateSoarAuthJwt on the chronicle
+// host. Unlike SOARAppKey (which sets the "AppKey" header), this uses standard
+// Bearer auth for the modern v1alpha SOAR paths.
+func SOARBearerToken(token string) Credentials {
+	return &bearerCreds{token: token}
+}
+
+type bearerCreds struct{ token string }
+
+func (c *bearerCreds) Apply(req *http.Request) error {
+	if c.token == "" {
+		return fmt.Errorf("auth: SOAR Bearer token is empty")
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	return nil
+}
+
 // FromEnv returns the first non-empty value among the named environment
 // variables (e.g. FromEnv("SECOPS_API_KEY", "SECOPS_SOAR_APP_KEY")).
 func FromEnv(names ...string) string {

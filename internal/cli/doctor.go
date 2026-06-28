@@ -194,7 +194,7 @@ func checkSOAR(ctx context.Context, inst *config.Instance) doctorCheck {
 	scl, err := newSOARClient()
 	if err != nil {
 		c.Error = err.Error()
-		c.Hint = "check soar_url and soar_app_key in config (or $SECOPS_SOAR_APP_KEY)"
+		c.Hint = "set soar_app_key in config (or $SECOPS_SOAR_APP_KEY)"
 		return c
 	}
 	if _, err := scl.ListIntegrations(ctx); err != nil {

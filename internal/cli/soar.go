@@ -56,24 +56,16 @@ func soarAppKey(inst *config.Instance) (string, error) {
 	return "", fmt.Errorf("SOAR AppKey not set; run `secopsctl config` or export SECOPS_SOAR_APP_KEY")
 }
 
-func newSOARSettings() (soar.Settings, string, error) {
+func newSOARClient() (*soar.Client, error) {
 	inst, err := loadInstance()
 	if err != nil {
-		return soar.Settings{}, "", err
+		return nil, err
 	}
 	s := soarSettings(inst)
 	if s.BaseURL == "" {
-		return soar.Settings{}, "", fmt.Errorf("soar_url is not set in the instance config (the tenant SOAR host)")
+		return nil, fmt.Errorf("soar_url is not set in the instance config (the tenant SOAR host)")
 	}
 	key, err := soarAppKey(inst)
-	if err != nil {
-		return soar.Settings{}, "", err
-	}
-	return s, key, nil
-}
-
-func newSOARClient() (*soar.Client, error) {
-	s, key, err := newSOARSettings()
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +74,15 @@ func newSOARClient() (*soar.Client, error) {
 }
 
 func newSOARLegacyClient() (*legacy.Client, error) {
-	s, key, err := newSOARSettings()
+	inst, err := loadInstance()
+	if err != nil {
+		return nil, err
+	}
+	s := soarSettings(inst)
+	if s.BaseURL == "" {
+		return nil, fmt.Errorf("soar_url is not set in the instance config (the tenant SOAR host)")
+	}
+	key, err := soarAppKey(inst)
 	if err != nil {
 		return nil, err
 	}

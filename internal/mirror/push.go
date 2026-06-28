@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"danny.vn/secops/chronicle"
 )
@@ -266,13 +267,15 @@ func createAndDeployRule(ctx context.Context, c *chronicle.Client, path, text st
 	}
 	ruleID := rule.RuleID()
 
-	// Deploy with the requested initial state. Multi-event rules (those with a
-	// match block) cannot run LIVE, so the API may return enabled=false for the
-	// default LIVE request; in that default-compatible case, re-issue at HOURLY to
-	// preserve the operator's enabled=true intent.
-	dep, derr := c.UpdateRuleDeployment(ctx, ruleID, ruleDeploymentUpdateFromCreateOptions(opts))
+	// Deploy with the requested initial state. A freshly-created rule may not be
+	// immediately deployable (indexing lag), so retry with backoff on failure.
+	// Multi-event rules (those with a match block) cannot run LIVE, so the API may
+	// return enabled=false for the default LIVE request; in that default-compatible
+	// case, re-issue at HOURLY to preserve the operator's enabled=true intent.
+	dep, derr := retryDeploy(ctx, c, ruleID, ruleDeploymentUpdateFromCreateOptions(opts))
 	if derr != nil {
-		fmt.Fprintf(w, "  WARN %s: created but deploy failed: %v\n", stem, derr)
+		fmt.Fprintf(w, "  WARN %s: created but deploy failed (after retries): %v\n", stem, derr)
+		fmt.Fprintf(w, "        → run `push rules-deploy` to enable it manually\n")
 		dep = nil
 	} else if opts.Enabled && opts.RunFrequency == "LIVE" && dep != nil && !dep.Enabled {
 		effective := dep.RunFrequency
@@ -339,6 +342,24 @@ func createAndDeployRule(ctx context.Context, c *chronicle.Client, path, text st
 	}
 	fmt.Fprintf(w, "  created  %s  (%s)%s\n", display, ruleID, note)
 	return disabled, nil
+}
+
+// retryDeploy retries UpdateRuleDeployment with exponential backoff. A freshly-
+// created rule may 400 because the server hasn't finished indexing it yet.
+func retryDeploy(ctx context.Context, c *chronicle.Client, ruleID string, update chronicle.RuleDeploymentUpdate) (*chronicle.RuleDeployment, error) {
+	backoff := [3]time.Duration{100 * time.Millisecond, 200 * time.Millisecond, 400 * time.Millisecond}
+	var lastErr error
+	for attempt := range len(backoff) + 1 {
+		dep, err := c.UpdateRuleDeployment(ctx, ruleID, update)
+		if err == nil {
+			return dep, nil
+		}
+		lastErr = err
+		if attempt < len(backoff) {
+			time.Sleep(backoff[attempt])
+		}
+	}
+	return nil, lastErr
 }
 
 // landedDisabled reports whether enabled was requested but the live deployment came

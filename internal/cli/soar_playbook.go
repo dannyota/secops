@@ -18,6 +18,7 @@ type soarPlaybookListRow struct {
 	Name       string `json:"name"`
 	Enabled    bool   `json:"enabled"`
 	Category   string `json:"category,omitempty"`
+	Type       string `json:"type,omitempty"`
 	ID         string `json:"id,omitempty"`
 	Identifier string `json:"identifier,omitempty"`
 }
@@ -76,7 +77,12 @@ func newSOARPlaybookCmd() *cobra.Command {
 			"only review/preflight artifacts before SecOps validates and runs them.",
 	}
 	cmd.AddCommand(
+		newSOARPlaybookGetCmd(),
 		newSOARPlaybookListCmd(),
+		newSOARPlaybookLintCmd(),
+		newSOARPlaybookHealthCmd(),
+		newSOARPlaybookDiffCmd(),
+		newSOARPlaybookDuplicateCmd(),
 		newSOARPlaybookDeleteCmd(),
 		newSOARPlaybookDeployCmd(),
 		newSOARPlaybookValidateCmd(),
@@ -111,6 +117,10 @@ func newSOARPlaybookListCmd() *cobra.Command {
 	var (
 		enabledOnly bool
 		types       []string
+		search      string
+		category    string
+		sortBy      string
+		desc        bool
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -126,21 +136,29 @@ func newSOARPlaybookListCmd() *cobra.Command {
 				return err
 			}
 			rows := make([]soarPlaybookListRow, 0, len(cards))
+			searchLower := strings.ToLower(search)
+			categoryLower := strings.ToLower(category)
 			for _, card := range cards {
 				if enabledOnly && !card.IsEnabled {
 					continue
 				}
-				rows = append(rows, soarPlaybookListRow{
+				if search != "" && !strings.Contains(strings.ToLower(card.Name), searchLower) {
+					continue
+				}
+				if category != "" && !strings.EqualFold(card.CategoryName, categoryLower) {
+					continue
+				}
+				row := soarPlaybookListRow{
 					Name:       card.Name,
 					Enabled:    card.IsEnabled,
 					Category:   card.CategoryName,
 					ID:         card.ID.String(),
 					Identifier: card.Identifier,
-				})
+				}
+				enrichPlaybookRow(&row, card.Raw)
+				rows = append(rows, row)
 			}
-			sort.Slice(rows, func(i, j int) bool {
-				return strings.ToLower(rows[i].Name) < strings.ToLower(rows[j].Name)
-			})
+			sortPlaybookRows(rows, sortBy, desc)
 			if jsonOut {
 				return emitJSON(rows)
 			}
@@ -151,7 +169,43 @@ func newSOARPlaybookListCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVar(&enabledOnly, "enabled-only", false, "show only enabled playbooks")
 	f.StringArrayVar(&types, "type", nil, "playbook type filter: regular or nested (repeatable)")
+	f.StringVar(&search, "search", "", "case-insensitive name substring filter")
+	f.StringVar(&category, "category", "", "exact category name filter (case-insensitive)")
+	f.StringVar(&sortBy, "sort", "name", "sort by: name, type, category, enabled")
+	f.BoolVar(&desc, "desc", false, "sort descending")
 	return markJSON(cmd)
+}
+
+func enrichPlaybookRow(row *soarPlaybookListRow, raw json.RawMessage) {
+	if len(raw) == 0 {
+		return
+	}
+	var extra struct {
+		PlaybookType any `json:"playbookType"`
+	}
+	if json.Unmarshal(raw, &extra) == nil {
+		row.Type = displayJSONScalar(extra.PlaybookType)
+	}
+}
+
+func sortPlaybookRows(rows []soarPlaybookListRow, by string, desc bool) {
+	less := func(i, j int) bool {
+		switch strings.ToLower(by) {
+		case "type":
+			return strings.ToLower(rows[i].Type) < strings.ToLower(rows[j].Type)
+		case "category":
+			return strings.ToLower(rows[i].Category) < strings.ToLower(rows[j].Category)
+		case "enabled":
+			return !rows[i].Enabled && rows[j].Enabled
+		default:
+			return strings.ToLower(rows[i].Name) < strings.ToLower(rows[j].Name)
+		}
+	}
+	if desc {
+		sort.Slice(rows, func(i, j int) bool { return less(j, i) })
+	} else {
+		sort.Slice(rows, func(i, j int) bool { return less(i, j) })
+	}
 }
 
 func newSOARPlaybookDeleteCmd() *cobra.Command {
@@ -427,14 +481,14 @@ func newSOARPlaybookDeployCmd() *cobra.Command {
 						return merr
 					}
 					if _, merr = mc.SaveWorkflowDefinitions(ctx, def); merr != nil {
-						return merr
+						return wrapPlaybookSaveError(merr)
 					}
 					fmt.Fprintf(os.Stdout, "playbook %q %sd.\n", pbName, toggle)
 					return nil
 				},
 				func() error {
 					if _, lerr := lc.SaveWorkflowDefinitions(ctx, def); lerr != nil {
-						return lerr
+						return wrapPlaybookSaveError(lerr)
 					}
 					fmt.Fprintf(os.Stdout, "playbook %q %sd.\n", pbName, toggle)
 					return nil
@@ -505,9 +559,9 @@ func normalizePlaybookTypes(types []string) []string {
 }
 
 func printSOARPlaybookRows(w io.Writer, rows []soarPlaybookListRow) {
-	fmt.Fprintln(w, "ENABLED\tNAME\tCATEGORY\tIDENTIFIER")
+	fmt.Fprintln(w, "ENABLED\tNAME\tTYPE\tCATEGORY\tIDENTIFIER")
 	for _, row := range rows {
-		fmt.Fprintf(w, "%t\t%s\t%s\t%s\n", row.Enabled, row.Name, row.Category, row.Identifier)
+		fmt.Fprintf(w, "%t\t%s\t%s\t%s\t%s\n", row.Enabled, row.Name, row.Type, row.Category, row.Identifier)
 	}
 }
 

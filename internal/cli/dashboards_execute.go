@@ -243,9 +243,21 @@ func classifyChartErr(err error) (status, msg string) {
 	}
 	var ae *chronicle.APIError
 	if errors.As(err, &ae) && ae.Status >= 400 && ae.Status < 500 && ae.Status != 429 {
-		return "error", err.Error()
+		return "error", reframeChartErr(ae)
 	}
 	return "transient", err.Error()
+}
+
+// reframeChartErr rewrites opaque YARA-L compile errors into actionable messages.
+// The most common: "no viable alternative at input '$<tok>'" means a $variable
+// name collides with a reserved keyword — rename it (e.g. $rule → $rule_v).
+func reframeChartErr(ae *chronicle.APIError) string {
+	_, after, found := strings.Cut(ae.Body, "no viable alternative at input '")
+	if found {
+		tok, _, _ := strings.Cut(after, "'")
+		return fmt.Sprintf("reserved-word variable %s — rename it (e.g. %s → %s_v) and re-add the chart", tok, tok, tok)
+	}
+	return ae.Error()
 }
 
 // retryTransient runs fn, retrying a transient (non-404) failure a few times with

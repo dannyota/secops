@@ -23,6 +23,8 @@ func newCaseSimulationCmd() *cobra.Command {
 		newSimGenerateCmd(),
 		newSimAlertCmd(),
 		newSimDeleteCmd(),
+		newSimExportCmd(),
+		newSimImportCmd(),
 	)
 	return cmd
 }
@@ -138,6 +140,8 @@ func newSimCreateCmd() *cobra.Command {
 		alertProduct string
 		alertName    string
 		eventName    string
+		eventFields  []string
+		alertFields  []string
 		dryRun       bool
 		yes          bool
 	)
@@ -166,6 +170,12 @@ func newSimCreateCmd() *cobra.Command {
 				"alertProduct": alertProduct,
 				"alertName":    alertName,
 				"eventName":    eventName,
+			}
+			if kvs := parseSimKVFields(eventFields); len(kvs) > 0 {
+				body["additionalEventFields"] = kvs
+			}
+			if kvs := parseSimKVFields(alertFields); len(kvs) > 0 {
+				body["additionalAlertFields"] = kvs
 			}
 			label := fmt.Sprintf("simulation create %q", alertName)
 			dr, ay := soarGuard(label, dryRun, yes)
@@ -213,6 +223,8 @@ func newSimCreateCmd() *cobra.Command {
 	f.StringVar(&alertSource, "alert-source", "", "alert source (required)")
 	f.StringVar(&alertProduct, "alert-product", "", "alert product (required)")
 	f.StringVar(&eventName, "event-name", "", "event name (required)")
+	f.StringArrayVar(&eventFields, "event-field", nil, "additional event fields as key=value (repeatable)")
+	f.StringArrayVar(&alertFields, "alert-field", nil, "additional alert fields as key=value (repeatable)")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
@@ -375,6 +387,18 @@ func newSimAlertCmd() *cobra.Command {
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return cmd
+}
+
+func parseSimKVFields(pairs []string) []map[string]string {
+	var out []map[string]string
+	for _, p := range pairs {
+		k, v, ok := strings.Cut(p, "=")
+		if !ok || strings.TrimSpace(k) == "" {
+			continue
+		}
+		out = append(out, map[string]string{"key": strings.TrimSpace(k), "value": v})
+	}
+	return out
 }
 
 func newSimDeleteCmd() *cobra.Command {

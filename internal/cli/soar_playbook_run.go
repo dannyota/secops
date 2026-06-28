@@ -84,7 +84,7 @@ func newSOARPlaybookRunCmd() *cobra.Command {
 			}
 			raw, err := lc.AttachWorkflowToCase(baseContext(), body)
 			if err != nil {
-				return err
+				return wrapPlaybookRunError(err)
 			}
 			if jsonOut {
 				return emitPlaybookMutationJSON("playbook run", body, dr, true, raw)
@@ -376,7 +376,7 @@ func newSOARPlaybookRerunCmd() *cobra.Command {
 			}
 			raw, err := lc.PlaybookXRerun(baseContext(), body)
 			if err != nil {
-				return err
+				return wrapPlaybookRunError(err)
 			}
 			if jsonOut {
 				return emitPlaybookMutationJSON("playbook rerun", body, dr, true, raw)

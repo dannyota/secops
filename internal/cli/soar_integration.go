@@ -23,7 +23,8 @@ func newSOARIntegrationCmd() *cobra.Command {
 		Use:   "integrations",
 		Short: "Manage SOAR integration instances (imperative create/delete)",
 	}
-	cmd.AddCommand(newSOARIntegrationCreateCmd(), newSOARIntegrationDeleteCmd(),
+	cmd.AddCommand(newSOARIntegrationGetCmd(), newSOARIntegrationTestCmd(),
+		newSOARIntegrationCreateCmd(), newSOARIntegrationDeleteCmd(),
 		newSOARIntegrationConfigureCmd(), newSOARIntegrationListCmd(), newSOARIntegrationInstancesCmd(),
 		newSOARIntegrationInstallCmd(), newSOARIntegrationUninstallCmd(),
 		newSOARIntegrationConnectorCmd(), newSOARIntegrationScaffoldCmd(),

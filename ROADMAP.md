@@ -12,7 +12,7 @@ rule: **design cleanly, port the parity slice, then finish the surface** — imp
 
 ```text
 danny.vn/secops
-├── auth/         split credentials: OAuth/ADC (SIEM) + AppKey + BearerToken (SOAR)
+├── auth/         split credentials: OAuth/ADC (SIEM) + AppKey (SOAR)
 ├── chronicle/    the SIEM SDK (pure API, typed structs, no file I/O)
 ├── config/       instance config (YAML) load/validate/defaults
 ├── internal/
@@ -127,6 +127,28 @@ Completes the dashboard authoring surface: create, metadata editing, all three t
 - **`dashboards filters show/set`.** Show current filters; set the global time range (`--time <N> --unit HOUR|DAY|WEEK|MONTH`), preserving advanced filters.
 
 **Docs:** catalog-siem (`dashboards` row), reference-siem (command table), SKILL (command map + layout guide + button/filter examples).
+
+### Wave 118 — Playbook & integration authoring suite *(built — offline-tested; v0.7.0)*
+
+Brings the SOAR playbook and integration surfaces to the same authoring-quality bar as dashboards and rules: discover, inspect, lint, diff, health, and operate.
+
+- **`playbooks get <name|uuid>`.** Rich single-playbook detail: type, trigger, step breakdown (action/condition/block counts), integration dependencies, block references, environments, creator, version — in one shot. `--json` returns the full round-trippable definition.
+- **`playbooks list` enriched.** New columns: TYPE (Regular/Nested); new flags: `--search`, `--category`, `--sort` (name|type|category|enabled), `--desc`.
+- **`playbooks lint (--name | --all)`.** Static analysis across playbook definitions: broken block refs (step references a nested playbook that doesn't exist), missing integration instances, raw placeholders inside JSON action params (FR-35 risk), whitespace-poisoned trigger conditions.
+- **`playbooks health [--hours N]`.** Fleet health roll-up: per-playbook run stats across a time window, sorted by failure rate (worst first). Composes the existing stats API across all enabled playbooks.
+- **`playbooks diff <name|uuid> <local-file>`.** Unified diff of live vs local playbook definition (canonicalized JSON). Pre-push review for drift detection.
+- **`playbooks duplicate <name|uuid> --name <new>`.** Guarded clone via `DuplicateWorkflow`.
+- **`integrations get <identifier>`.** Rich integration detail: display name, version (with update-available flag), certified/custom status, capabilities (actions/jobs), all configured instances across environments, and which playbooks use each instance.
+- **`cases simulation create` — `--event-field` / `--alert-field` (FR-39).** Repeatable `key=value` flags that map to the swagger-confirmed `additionalEventFields` / `additionalAlertFields` arrays.
+- **`integrations test <identifier>`.** Connectivity test for an integration instance; reports PASS/FAIL with the error message. `--instance <id>` tests a specific instance (default: first configured).
+- **`simulation export <name>` / `simulation import <file>`.** Round-trip custom simulation definitions as JSON for version control or cross-tenant migration. Import is guarded (dry-run/--yes).
+- **FR-34: `push rules-create` deploy retry.** The inline deploy after rule creation retries with exponential backoff (100/200/400ms) to handle indexing lag on freshly-created rules.
+- **FR-36: playbook run/rerun error translation.** Detects SOAR 500 on completed-case workflows and translates to actionable guidance ("case workflow already completed — use simulation or a new case").
+- **FR-37: playbook save error translation.** Detects SOAR 400 "refresh the screen" and translates to "local file based on a superseded version — re-export first".
+- **FR-28b: reserved-word list in `charts add --help`.** Documents the full set of YARA-L keywords that compile but 400 at execute time.
+- **FR-28c: reserved-word error reframe.** `dashboards verify` rewrites "no viable alternative" 400s into actionable "reserved-word variable $X — rename it" messages.
+
+**Docs:** catalog, SKILL command map, reference-siem/soar.
 
 ---
 

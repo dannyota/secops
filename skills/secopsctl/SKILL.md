@@ -250,7 +250,9 @@ A free-standing `search stats` takes a **bare field** in `match:` (`metadata.log
 not an assignment; the `outcome:` declares the measures. Validate a chart query with
 `search stats` **before** `dashboards charts add`. Don't name a `match:`/`outcome:`
 variable with a reserved YARA-L keyword (e.g. `$rule`, `$events`) — it compiles but
-fails at execute time; `charts add`/`charts edit` warn when you do.
+fails at execute time; `charts add`/`charts edit` warn when you do. The full reserved
+list is in `charts add --help`. `dashboards verify` rewrites the opaque "no viable
+alternative" 400 into an actionable "reserved-word variable $X — rename it" message.
 
 ### Build and manage dashboards
 
@@ -402,6 +404,20 @@ verbatim from `search udm --json` / `--format jsonl`.
 
 Every save of a SOAR playbook mints a new `identifier`. **Resolve playbooks by name**
 (`--name`), not by identifier, and re-read the list after a save.
+
+### Playbook & integration inspection
+
+`soar playbooks get <name|uuid>` — structure, trigger, step breakdown, integration
+deps, block refs. `soar playbooks lint (--name | --all)` — static analysis: broken
+block refs, missing integrations, placeholder-in-JSON, whitespace triggers.
+`soar playbooks health` — fleet-wide run stats sorted by failure rate. `soar playbooks
+diff <name> <local.json>` — unified diff of live vs export. `soar playbooks duplicate
+<name> --name <new>` — guarded clone. `soar integrations get <id>` — version,
+instances, playbook usage. `soar integrations test <id>` — connectivity test (PASS/FAIL
+with error message; `--instance <id>` for a specific instance). `cases simulation
+create --event-field key=value --alert-field key=value` adds UDM fields to simulated
+cases. `cases simulation export <name>` — export as JSON; `cases simulation import
+<file>` — guarded import from JSON.
 
 ### Curated rules: browse → search → drill → toggle
 
