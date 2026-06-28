@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,25 +12,28 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
-// Read surfaces over Google-managed curated content: list/search the individual
-// curated rules, view one rule's detail, and list the curated rule SETS. Curated
-// rules are Google-managed (no source code via the API); an operator toggles them
-// at the rule-set deployment level (`curated set`).
-
-// newCuratedRulesCmd lists/searches the individual curated rules, filterable by
-// search term, parent set, category, MITRE tactic, or severity.
+// newCuratedRulesCmd lists the individual curated rules scoped to one rule set
+// (--set required), or optionally dumps all rules with --all.
 func newCuratedRulesCmd() *cobra.Command {
 	var f curatedRuleFilter
+	var all bool
 	cmd := &cobra.Command{
-		Use:   "rules [--search Q] [--set ID] [--category ID] [--tactic T] [--severity S]",
-		Short: "Read-only: list/search the individual curated (Google-managed) rules",
-		Long: "List the individual Google-managed curated rules (distinct from the rule SETS\n" +
-			"that `rule-sets`/`list` show). Filter client-side: --search (rule name or\n" +
-			"description substring), --set (only rules in one rule set — the id from\n" +
-			"`curated rule-sets`), --category, --tactic (MITRE id like TA0005 or its name),\n" +
-			"or --severity. `curated rule <id>` shows one rule's full detail.",
+		Use:   "rules --set <id> [--search Q] [--tactic T] [--severity S]",
+		Short: "Read-only: list curated rules in one rule set (or --all for everything)",
+		Long: "List the individual Google-managed curated rules in a specific rule set.\n" +
+			"--set is required (use the id from `curated rule-sets`). Pass --all to list\n" +
+			"every curated rule across all sets. Filter further with --search (name/\n" +
+			"description substring), --tactic (MITRE id like TA0005 or its name), or\n" +
+			"--severity. `curated rule <id>` shows one rule's full detail.\n\n" +
+			"Note: only ~20% of rule sets expose individual rules via the API — the rest\n" +
+			"are opaque (Google-managed, toggled at the set level only).",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if f.set == "" && !all {
+				return fmt.Errorf("specify --set <id> to list rules in one rule set, or --all for everything\n\n" +
+					"  curated rules --set <id>   rules in one set (id from `curated rule-sets`)\n" +
+					"  curated rules --all        all curated rules across all sets")
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
@@ -41,6 +45,12 @@ func newCuratedRulesCmd() *cobra.Command {
 			rules = filterCuratedRules(rules, f)
 			if jsonOut {
 				return writeJSONValue(os.Stdout, rules)
+			}
+			if len(rules) == 0 && f.set != "" {
+				fmt.Fprintln(os.Stdout, "No individual rules exposed for this rule set.")
+				fmt.Fprintln(os.Stdout, "This set is toggled at the set level only:")
+				fmt.Fprintf(os.Stdout, "  curated set --category <cat> --ruleset %s --precision precise --enabled\n", shortID(f.set))
+				return nil
 			}
 			for i := range rules {
 				r := &rules[i]
@@ -57,6 +67,7 @@ func newCuratedRulesCmd() *cobra.Command {
 	fl.StringVar(&f.category, "category", "", "only rules in this category id")
 	fl.StringVar(&f.tactic, "tactic", "", "only rules with this MITRE tactic (id like TA0005, or its name)")
 	fl.StringVar(&f.severity, "severity", "", "only rules with this severity (e.g. High)")
+	fl.BoolVar(&all, "all", false, "list all curated rules across all sets (default: requires --set)")
 	return markJSON(cmd)
 }
 
@@ -75,59 +86,131 @@ func newCuratedRuleCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r, err := c.GetCuratedRule(baseContext(), args[0])
+			ctx := baseContext()
+			r, err := c.GetCuratedRule(ctx, args[0])
 			if err != nil {
 				return err
 			}
 			if jsonOut {
 				return writeJSONValue(os.Stdout, r)
 			}
-			printCuratedRuleDetail(os.Stdout, r)
+			nameMap := resolveSetCategoryNames(ctx, c)
+			printCuratedRuleDetail(os.Stdout, r, nameMap)
 			return nil
 		},
 	}
 	return markJSON(cmd)
 }
 
-// newCuratedRuleSetsCmd lists the curated rule SETS (the groupings a `curated set`
-// toggle acts on); pair with `curated rules --set <id>` to see a set's rules.
+// resolveSetCategoryNames builds a map of ruleSetID → displayName and
+// categoryID → displayName for human-readable output. Two API calls
+// (categories + wildcard rule-set list). Best-effort: a failure returns
+// an empty map (the detail still prints with raw IDs).
+func resolveSetCategoryNames(ctx context.Context, c *chronicle.Client) map[string]string {
+	m := map[string]string{}
+	cats, err := c.ListCuratedRuleSetCategories(ctx)
+	if err != nil {
+		return m
+	}
+	for _, cat := range cats {
+		m[lastSegment(cat.Name)] = cat.DisplayName
+	}
+	sets, err := c.ListCuratedRuleSets(ctx, "-")
+	if err != nil {
+		return m
+	}
+	for _, s := range sets {
+		m[lastSegment(s.Name)] = s.DisplayName
+	}
+	return m
+}
+
+// newCuratedRuleSetsCmd lists curated rule sets with deployment state. Default:
+// enabled (installed) only; --all for the full catalog.
 func newCuratedRuleSetsCmd() *cobra.Command {
-	var category string
+	var (
+		all      bool
+		category string
+		search   string
+	)
 	cmd := &cobra.Command{
-		Use:   "rule-sets [--category ID]",
-		Short: "Read-only: list curated rule SETS (id · severity · precisions · name)",
-		Long: "List the Google-managed curated rule sets — the groupings a deployment toggle\n" +
-			"(`curated set`) acts on, and what `list` shows deployment state for. Use a set\n" +
-			"id with `curated rules --set <id>` to see the rules in that set. --category\n" +
-			"limits to one category id (default: all categories).",
+		Use:   "rule-sets [--all] [--category C] [--search Q]",
+		Short: "Read-only: list curated rule sets with deployment state (default: enabled only)",
+		Long: "List the Google-managed curated rule sets with their deployment state\n" +
+			"(enabled/alerting per precision). Default: shows only enabled (installed)\n" +
+			"rule sets. Use --all to see the full catalog including disabled sets.\n\n" +
+			"  curated rule-sets                          enabled sets (what you're running)\n" +
+			"  curated rule-sets --all                    full catalog\n" +
+			"  curated rule-sets --category cloud         sets in one category (name or id)\n" +
+			"  curated rule-sets --search azure           text search on name/description\n" +
+			"  curated rule-sets --all --search aws       search the full catalog\n\n" +
+			"Use `curated rules --set <id>` to drill into a set's individual rules.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
 			}
-			cat := strings.TrimSpace(category)
-			if cat == "" {
-				cat = "-" // wildcard: every category
-			}
-			sets, err := c.ListCuratedRuleSets(baseContext(), cat)
+			sets, _, err := loadEnrichedRuleSets(baseContext(), c)
 			if err != nil {
 				return err
 			}
+
+			sets = filterEnrichedSets(sets, all, category, search)
+
 			if jsonOut {
 				return writeJSONValue(os.Stdout, sets)
 			}
-			for i := range sets {
-				s := &sets[i]
-				fmt.Fprintf(os.Stdout, "%-40s %-9s %-14s %s\n",
-					shortID(s.Name), severityName(s.Severity), strings.Join(s.Precisions, ","), s.DisplayName)
-			}
-			fmt.Fprintf(os.Stdout, "\n%d curated rule set(s)\n", len(sets))
-			return nil
+			return emitEnrichedSets(os.Stdout, sets, all)
 		},
 	}
-	cmd.Flags().StringVar(&category, "category", "", "limit to one category id (default: all)")
+	f := cmd.Flags()
+	f.BoolVar(&all, "all", false, "show all rule sets including disabled (default: enabled only)")
+	f.StringVar(&category, "category", "", "limit to one category (display name substring or UUID)")
+	f.StringVar(&search, "search", "", "case-insensitive substring match on set name or description")
 	return markJSON(cmd)
+}
+
+func filterEnrichedSets(sets []enrichedRuleSet, all bool, category, search string) []enrichedRuleSet {
+	cat := strings.TrimSpace(category)
+	q := strings.ToLower(strings.TrimSpace(search))
+	var out []enrichedRuleSet
+	for i := range sets {
+		s := &sets[i]
+		if !all && !s.isEnabled() {
+			continue
+		}
+		if cat != "" && !matchCategory(s.CategoryID, s.CategoryName, cat) {
+			continue
+		}
+		if q != "" &&
+			!strings.Contains(strings.ToLower(s.DisplayName), q) &&
+			!strings.Contains(strings.ToLower(s.Description), q) {
+			continue
+		}
+		out = append(out, *s)
+	}
+	return out
+}
+
+func emitEnrichedSets(w io.Writer, sets []enrichedRuleSet, showAll bool) error {
+	if len(sets) == 0 {
+		fmt.Fprintln(w, "no matching rule sets.")
+		return nil
+	}
+	for i := range sets {
+		s := &sets[i]
+		fmt.Fprintf(w, "[%-8s]  %s\n", s.stateLabel(), s.DisplayName)
+		fmt.Fprintf(w, "           id: %s | category: %s\n", s.ID, s.CategoryName)
+		fmt.Fprintf(w, "           precise: en=%-5v al=%-5v | broad: en=%-5v al=%-5v\n",
+			s.PreciseEnabled, s.PreciseAlerting, s.BroadEnabled, s.BroadAlerting)
+	}
+	label := "enabled"
+	if showAll {
+		label = "total"
+	}
+	fmt.Fprintf(w, "\n%d %s rule set(s)\n", len(sets), label)
+	return nil
 }
 
 // curatedRuleFilter holds the client-side filters for `curated rules`.
@@ -204,9 +287,9 @@ func shortID(s string) string {
 	return s
 }
 
-// printCuratedRuleDetail renders one curated rule's metadata. Curated rules are
-// Google-managed; the API exposes no source, so the YARA-L is deliberately absent.
-func printCuratedRuleDetail(w io.Writer, r *chronicle.CuratedRule) {
+// printCuratedRuleDetail renders one curated rule's metadata. nameMap maps
+// set/category IDs to display names (best-effort, may be empty).
+func printCuratedRuleDetail(w io.Writer, r *chronicle.CuratedRule, nameMap map[string]string) {
 	fmt.Fprintf(w, "%s\n", r.DisplayName)
 	fmt.Fprintf(w, "  id:          %s\n", r.ID)
 	if sev := severityName(r.Severity); sev != "" {
@@ -225,7 +308,12 @@ func printCuratedRuleDetail(w io.Writer, r *chronicle.CuratedRule) {
 		fmt.Fprintf(w, "  technique:   %s %s\n", m.ID, m.DisplayName)
 	}
 	if r.CuratedRuleSet != "" {
-		fmt.Fprintf(w, "  rule set:    %s (category %s)\n", r.RuleSetID(), r.CategoryID())
+		setID := r.RuleSetID()
+		catID := r.CategoryID()
+		setLabel := resolvedLabel(setID, nameMap)
+		catLabel := resolvedLabel(catID, nameMap)
+		fmt.Fprintf(w, "  rule set:    %s\n", setLabel)
+		fmt.Fprintf(w, "  category:    %s\n", catLabel)
 	}
 	if r.UpdateTime != "" {
 		fmt.Fprintf(w, "  updated:     %s\n", r.UpdateTime)
@@ -234,4 +322,12 @@ func printCuratedRuleDetail(w io.Writer, r *chronicle.CuratedRule) {
 		fmt.Fprintf(w, "  description: %s\n", d)
 	}
 	fmt.Fprintln(w, "  (Google-managed — YARA-L source is not exposed by the API)")
+}
+
+// resolvedLabel returns "DisplayName (id)" if the name is known, else just id.
+func resolvedLabel(id string, nameMap map[string]string) string {
+	if name, ok := nameMap[id]; ok && name != "" {
+		return fmt.Sprintf("%s (%s)", name, id)
+	}
+	return id
 }

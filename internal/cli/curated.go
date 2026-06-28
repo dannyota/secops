@@ -13,64 +13,182 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
-// The `curated` command is the imperative lane for Google-managed curated content:
-// the catalog is fixed (no create/delete), so the only writes are toggling a
-// deployment's `enabled` and `alerting` booleans per (category, rule set,
-// precision). `list` reads; `set` is a guarded production mutation (dry-run by
-// default, --yes to apply) — every toggle changes live detection/alerting.
+func init() {
+	rootCmd.AddCommand(newCuratedCmd())
+}
 
-// newCuratedCmd is registered as a subcommand of `rules` (rules.go) → `rules curated`.
 func newCuratedCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "curated <verb>",
-		Short: "Read and toggle Google-managed curated rule-set deployments (enable/alerting)",
+		Short: "Google SecOps PREDEFINED detections: browse, search, and toggle Google-managed curated rule sets",
 		Long: "Curated content is Google-managed: you cannot create or delete rule sets,\n" +
 			"only toggle each deployment's `enabled` and `alerting` per precision\n" +
-			"(precise|broad). `list` reads; `set` is a guarded live toggle.",
+			"(precise|broad).\n\n" +
+			"Browse:  categories → rule-sets → rules --set <id> → rule <id>\n" +
+			"Search:  search <query> (searches across both rule sets and rules)\n" +
+			"Toggle:  set --category C --ruleset R --precision P --enabled/--alerting",
 	}
-	cmd.AddCommand(newCuratedListCmd(), newCuratedRuleSetsCmd(), newCuratedSetCmd(),
-		newCuratedRulesCmd(), newCuratedRuleCmd(),
+	cmd.AddCommand(newCuratedCategoriesCmd(), newCuratedRuleSetsCmd(), newCuratedSearchCmd(),
+		newCuratedRulesCmd(), newCuratedRuleCmd(), newCuratedSetCmd(),
 		newCuratedDetectionsCmd(), newCuratedTrendsCmd(), newCuratedEventsCmd())
 	return cmd
 }
 
-// curatedRow is a flattened deployment for display/JSON: identity ids + the two
-// toggles + the rule-set display name.
-type curatedRow struct {
-	Category  string `json:"category"`
-	RuleSet   string `json:"ruleSet"`
-	Precision string `json:"precision"`
-	Enabled   bool   `json:"enabled"`
-	Alerting  bool   `json:"alerting"`
-	Display   string `json:"display"`
+// enrichedRuleSet joins a curated rule set with its category display name and
+// deployment state (both precisions), giving a single unified view.
+type enrichedRuleSet struct {
+	ID              string `json:"id"`
+	CategoryID      string `json:"categoryId"`
+	CategoryName    string `json:"categoryName"`
+	DisplayName     string `json:"displayName"`
+	Description     string `json:"description,omitempty"`
+	PreciseEnabled  bool   `json:"preciseEnabled"`
+	PreciseAlerting bool   `json:"preciseAlerting"`
+	BroadEnabled    bool   `json:"broadEnabled"`
+	BroadAlerting   bool   `json:"broadAlerting"`
 }
 
-func newCuratedListCmd() *cobra.Command {
-	var filter string
+func (e *enrichedRuleSet) isEnabled() bool { return e.PreciseEnabled || e.BroadEnabled }
+
+func (e *enrichedRuleSet) stateLabel() string {
+	if e.PreciseEnabled && e.BroadEnabled {
+		return "ENABLED"
+	}
+	if e.PreciseEnabled || e.BroadEnabled {
+		return "PARTIAL"
+	}
+	return "DISABLED"
+}
+
+// curatedCategoryRow is the summary for one category in `curated categories`.
+type curatedCategoryRow struct {
+	ID           string `json:"id"`
+	DisplayName  string `json:"displayName"`
+	SetCount     int    `json:"setCount"`
+	EnabledCount int    `json:"enabledCount"`
+}
+
+// loadEnrichedRuleSets joins categories, rule sets, and deployments into a
+// single enriched view. Three API calls: categories (1), rule sets via wildcard
+// (1), and deployments (1).
+func loadEnrichedRuleSets(ctx context.Context, c *chronicle.Client) ([]enrichedRuleSet, []curatedCategoryRow, error) {
+	cats, err := c.ListCuratedRuleSetCategories(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("categories: %w", err)
+	}
+	catNames := make(map[string]string, len(cats))
+	for _, cat := range cats {
+		catNames[lastSegment(cat.Name)] = cat.DisplayName
+	}
+
+	rs, err := c.ListCuratedRuleSets(ctx, "-")
+	if err != nil {
+		return nil, nil, fmt.Errorf("rule sets: %w", err)
+	}
+	sets := make([]enrichedRuleSet, 0, len(rs))
+	catSetCount := map[string]int{}
+	for _, s := range rs {
+		catID := catIDFromSetName(s.Name)
+		catSetCount[catID]++
+		sets = append(sets, enrichedRuleSet{
+			ID: lastSegment(s.Name), CategoryID: catID,
+			CategoryName: catNames[catID], DisplayName: s.DisplayName,
+			Description: s.Description,
+		})
+	}
+
+	deps, err := c.ListCuratedRuleSetDeployments(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("deployments: %w", err)
+	}
+	type depKey struct{ cat, set, prec string }
+	depByKey := make(map[depKey]*chronicle.CuratedRuleSetDeployment, len(deps))
+	for i := range deps {
+		cat, set, prec, perr := chronicle.ParseCuratedDeploymentName(deps[i].Name)
+		if perr != nil {
+			continue
+		}
+		depByKey[depKey{cat, set, prec}] = &deps[i]
+	}
+	for i := range sets {
+		s := &sets[i]
+		if d, ok := depByKey[depKey{s.CategoryID, s.ID, "precise"}]; ok {
+			s.PreciseEnabled = d.Enabled
+			s.PreciseAlerting = d.Alerting
+		}
+		if d, ok := depByKey[depKey{s.CategoryID, s.ID, "broad"}]; ok {
+			s.BroadEnabled = d.Enabled
+			s.BroadAlerting = d.Alerting
+		}
+	}
+
+	catEnabled := map[string]int{}
+	for i := range sets {
+		if sets[i].isEnabled() {
+			catEnabled[sets[i].CategoryID]++
+		}
+	}
+	catRows := make([]curatedCategoryRow, 0, len(cats))
+	for _, cat := range cats {
+		catID := lastSegment(cat.Name)
+		catRows = append(catRows, curatedCategoryRow{
+			ID: catID, DisplayName: cat.DisplayName,
+			SetCount: catSetCount[catID], EnabledCount: catEnabled[catID],
+		})
+	}
+
+	return sets, catRows, nil
+}
+
+// catIDFromSetName extracts the category ID from a rule-set resource name
+// (.../curatedRuleSetCategories/{catID}/curatedRuleSets/{setID}).
+func catIDFromSetName(name string) string {
+	const marker = "curatedRuleSetCategories/"
+	_, after, ok := strings.Cut(name, marker)
+	if !ok {
+		return ""
+	}
+	cat, _, _ := strings.Cut(after, "/")
+	return cat
+}
+
+// matchCategory returns true when q matches a category by UUID or
+// case-insensitive display name substring.
+func matchCategory(catID, catName, q string) bool {
+	if strings.EqualFold(catID, q) {
+		return true
+	}
+	return strings.Contains(strings.ToLower(catName), strings.ToLower(q))
+}
+
+func newCuratedCategoriesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Read-only: list curated rule-set deployments (with their enable/alerting state)",
+		Use:   "categories",
+		Short: "Read-only: overview of curated rule-set categories with set and enabled counts",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
 			}
-			rows, err := curatedRows(baseContext(), c)
+			_, catRows, err := loadEnrichedRuleSets(baseContext(), c)
 			if err != nil {
 				return err
 			}
-			if filter != "" {
-				rows = filterCuratedRows(rows, filter)
-			}
 			if jsonOut {
-				return writeJSONValue(os.Stdout, rows)
+				return writeJSONValue(os.Stdout, catRows)
 			}
-			return emitCuratedRows(os.Stdout, rows)
+			w := os.Stdout
+			totalSets, totalEnabled := 0, 0
+			for _, cr := range catRows {
+				fmt.Fprintf(w, "%-55s %3d sets  %3d enabled\n", cr.DisplayName, cr.SetCount, cr.EnabledCount)
+				totalSets += cr.SetCount
+				totalEnabled += cr.EnabledCount
+			}
+			fmt.Fprintf(w, "\n%d categories, %d rule sets (%d enabled)\n", len(catRows), totalSets, totalEnabled)
+			return nil
 		},
 	}
-	f := cmd.Flags()
-	f.StringVar(&filter, "filter", "", "case-insensitive substring filter on the rule-set display name")
 	return markJSON(cmd)
 }
 
@@ -179,55 +297,6 @@ func printCuratedBlastRadius(ctx context.Context, c *chronicle.Client, category,
 	fmt.Fprintln(w, "           `curated detections` for this set's recent detection volume.")
 }
 
-// curatedRows lists every deployment and joins it with category/rule-set display
-// names for a readable view.
-func curatedRows(ctx context.Context, c *chronicle.Client) ([]curatedRow, error) {
-	cats, err := c.ListCuratedRuleSetCategories(ctx)
-	if err != nil {
-		return nil, err
-	}
-	display := map[string]string{} // ruleSetID -> display name
-	for _, cat := range cats {
-		catID := lastSegment(cat.Name)
-		sets, serr := c.ListCuratedRuleSets(ctx, catID)
-		if serr != nil {
-			fmt.Fprintf(os.Stderr, "warning: list rule sets for %s: %v\n", cat.DisplayName, serr)
-			continue
-		}
-		for _, rs := range sets {
-			display[lastSegment(rs.Name)] = rs.DisplayName
-		}
-	}
-
-	deps, err := c.ListCuratedRuleSetDeployments(ctx)
-	if err != nil {
-		return nil, err
-	}
-	rows := make([]curatedRow, 0, len(deps))
-	for _, d := range deps {
-		cat, rs, prec, perr := chronicle.ParseCuratedDeploymentName(d.Name)
-		if perr != nil {
-			continue
-		}
-		rows = append(rows, curatedRow{
-			Category: cat, RuleSet: rs, Precision: prec,
-			Enabled: d.Enabled, Alerting: d.Alerting, Display: display[rs],
-		})
-	}
-	return rows, nil
-}
-
-func filterCuratedRows(rows []curatedRow, sub string) []curatedRow {
-	sub = strings.ToLower(sub)
-	var out []curatedRow
-	for _, r := range rows {
-		if strings.Contains(strings.ToLower(r.Display), sub) {
-			out = append(out, r)
-		}
-	}
-	return out
-}
-
 // guardedSIEMMutation runs a live SIEM mutation behind the standard guard: a LIVE
 // banner + the action, dry-run by default, --yes (or an interactive confirm) to
 // apply. Mirrors the SOAR `soar case` guard for the SIEM side. In read-only mode
@@ -269,20 +338,6 @@ func guardedSIEMMutation(action string, dryRunFlag, yesFlag bool, do func() erro
 		return err
 	}
 	fmt.Fprintf(w, "Done: %s.\n", action)
-	return nil
-}
-
-func emitCuratedRows(w io.Writer, rows []curatedRow) error {
-	if len(rows) == 0 {
-		fmt.Fprintln(w, "no curated deployments.")
-		return nil
-	}
-	for i := range rows {
-		r := &rows[i]
-		fmt.Fprintf(w, "en=%-5v al=%-5v %-8s %s\n", r.Enabled, r.Alerting, r.Precision, orDash(r.Display))
-		fmt.Fprintf(w, "    --category %s --ruleset %s --precision %s\n", r.Category, r.RuleSet, r.Precision)
-	}
-	fmt.Fprintf(w, "\n%d deployment(s).\n", len(rows))
 	return nil
 }
 

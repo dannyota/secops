@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"bytes"
-	"strings"
 	"testing"
 
 	"danny.vn/secops/chronicle"
@@ -18,41 +16,88 @@ func TestDescribeCuratedUpd(t *testing.T) {
 	}
 }
 
-func TestFilterCuratedRows(t *testing.T) {
-	rows := []curatedRow{
-		{Display: "AWS - Suspicious IAM"},
-		{Display: "Azure - Sign-in"},
-		{Display: "aws cloudtrail"},
+func TestMatchCategory(t *testing.T) {
+	cases := []struct {
+		catID, catName, q string
+		want              bool
+	}{
+		{"abc123", "Cloud Threats", "abc123", true},
+		{"abc123", "Cloud Threats", "ABC123", true},
+		{"abc123", "Cloud Threats", "cloud", true},
+		{"abc123", "Cloud Threats", "Cloud Threats", true},
+		{"abc123", "Cloud Threats", "xyz", false},
+		{"abc123", "Cloud Threats", "threats", true},
 	}
-	got := filterCuratedRows(rows, "aws")
-	if len(got) != 2 {
-		t.Fatalf("filter 'aws' matched %d, want 2 (case-insensitive)", len(got))
-	}
-}
-
-func TestEmitCuratedRows(t *testing.T) {
-	rows := []curatedRow{
-		{Category: "CAT", RuleSet: "RS", Precision: "precise", Enabled: true, Alerting: false, Display: "AWS - IAM"},
-	}
-	var buf bytes.Buffer
-	if err := emitCuratedRows(&buf, rows); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	for _, want := range []string{
-		"en=true", "al=false", "precise", "AWS - IAM",
-		"--category CAT --ruleset RS --precision precise", "1 deployment(s)",
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("output missing %q in:\n%s", want, out)
+	for _, tc := range cases {
+		if got := matchCategory(tc.catID, tc.catName, tc.q); got != tc.want {
+			t.Errorf("matchCategory(%q, %q, %q) = %v, want %v", tc.catID, tc.catName, tc.q, got, tc.want)
 		}
 	}
 }
 
-func TestEmitCuratedRowsEmpty(t *testing.T) {
-	var buf bytes.Buffer
-	_ = emitCuratedRows(&buf, nil)
-	if !strings.Contains(buf.String(), "no curated deployments.") {
-		t.Errorf("want empty message, got %q", buf.String())
+func TestEnrichedRuleSetState(t *testing.T) {
+	cases := []struct {
+		name           string
+		precise, broad bool
+		wantLabel      string
+		wantEnabled    bool
+	}{
+		{"both", true, true, "ENABLED", true},
+		{"precise only", true, false, "PARTIAL", true},
+		{"broad only", false, true, "PARTIAL", true},
+		{"neither", false, false, "DISABLED", false},
+	}
+	for _, tc := range cases {
+		s := enrichedRuleSet{PreciseEnabled: tc.precise, BroadEnabled: tc.broad}
+		if got := s.stateLabel(); got != tc.wantLabel {
+			t.Errorf("%s: stateLabel = %q, want %q", tc.name, got, tc.wantLabel)
+		}
+		if got := s.isEnabled(); got != tc.wantEnabled {
+			t.Errorf("%s: isEnabled = %v, want %v", tc.name, got, tc.wantEnabled)
+		}
+	}
+}
+
+func TestFilterEnrichedSets(t *testing.T) {
+	sets := []enrichedRuleSet{
+		{ID: "s1", CategoryID: "c1", CategoryName: "Cloud Threats", DisplayName: "AWS - IAM", Description: "IAM access", PreciseEnabled: true},
+		{ID: "s2", CategoryID: "c1", CategoryName: "Cloud Threats", DisplayName: "Azure - Network", Description: "DDoS firewall"},
+		{ID: "s3", CategoryID: "c2", CategoryName: "Windows Threats", DisplayName: "Named Threat", Description: "malware", BroadEnabled: true},
+	}
+
+	cases := []struct {
+		name     string
+		all      bool
+		category string
+		search   string
+		want     int
+	}{
+		{"enabled only", false, "", "", 2},
+		{"all", true, "", "", 3},
+		{"category by name", true, "cloud", "", 2},
+		{"category by id", true, "c2", "", 1},
+		{"search name", true, "", "azure", 1},
+		{"search description", true, "", "malware", 1},
+		{"enabled + search", false, "", "aws", 1},
+		{"enabled + category miss", false, "windows", "", 1},
+	}
+	for _, tc := range cases {
+		got := filterEnrichedSets(sets, tc.all, tc.category, tc.search)
+		if len(got) != tc.want {
+			t.Errorf("%s: got %d, want %d", tc.name, len(got), tc.want)
+		}
+	}
+}
+
+func TestResolvedLabel(t *testing.T) {
+	m := map[string]string{"abc": "Cloud Threats"}
+	if got := resolvedLabel("abc", m); got != "Cloud Threats (abc)" {
+		t.Errorf("known = %q", got)
+	}
+	if got := resolvedLabel("xyz", m); got != "xyz" {
+		t.Errorf("unknown = %q", got)
+	}
+	if got := resolvedLabel("abc", nil); got != "abc" {
+		t.Errorf("nil map = %q", got)
 	}
 }
