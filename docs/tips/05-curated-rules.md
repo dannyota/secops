@@ -129,12 +129,15 @@ at the rule set. Read and toggle from the CLI:
 
 | Command | Effect |
 |---|---|
-| `rules curated list [--filter SUBSTR] [--json]` | 🔒 read — list deployments with `enabled`/`alerting` (filter is a case-insensitive substring on the rule-set display name) |
-| `rules curated rules [--json]` | 🔒 read — list the individual Google-managed rules |
+| `curated categories` | 🔒 read — 12-row overview: category names + set/enabled counts |
+| `curated rule-sets [--all] [--search Q] [--category C]` | 🔒 read — enabled (installed) sets by default; `--all` for catalog |
+| `curated search <query> [--installed] [--tactic T] [--severity S]` | 🔒 read — unified search across rule sets AND individual rules |
+| `curated rules --set <id> [--all]` | 🔒 read — individual rules in one set (or `--all`) |
+| `curated rule <ur_id>` | 🔒 read — one rule's full detail (metadata, MITRE, parent set) |
 | `push curated [--dry-run\|--yes]` | ⚠️ guarded mutation — reconcile `curated/deployments.yaml` to live deployment flags |
-| `rules curated set --category C --ruleset R --precision precise\|broad [--enabled[=bool]] [--alerting[=bool]]` | ⚠️ guarded mutation — flip one deployment's flags (`--dry-run` → review → `--yes`) |
+| `curated set --category C --ruleset R --precision precise\|broad [--enabled[=bool]] [--alerting[=bool]]` | ⚠️ guarded mutation — flip one deployment's flags (`--dry-run` → review → `--yes`) |
 
-The read/toggle verbs live under `rules curated …`; the config-as-code mirror keeps
+The read/toggle verbs live under `curated …`; the config-as-code mirror keeps
 its directory name — `pull curated` / `pull curated_rules` / `push curated` (the
 `curated/` tree) are unchanged.
 

@@ -162,25 +162,29 @@ secopsctl pull curated_rules    # the individual curated rules (--filter EXPR)
 secopsctl push curated --dry-run  # reconcile curated/deployments.yaml
 secopsctl push curated --yes
 
-secopsctl rules curated list    # deployments with enable/alerting state (--filter)
-secopsctl rules curated rules   # the individual Google-managed rules
+secopsctl curated categories                     # 12-row overview
+secopsctl curated rule-sets                      # enabled (installed) sets
+secopsctl curated rule-sets --all --search azure # search the full catalog
+secopsctl curated search powershell              # unified search (sets + rules)
+secopsctl curated rules --set <id>               # rules in one set
+secopsctl curated rule <ur_id>                   # one rule's detail
 ```
 
 Toggle a deployment (guarded — dry-run by default):
 
 ```bash
-secopsctl rules curated set --category <category-id> --ruleset <ruleset-id> \
+secopsctl curated set --category <category-id> --ruleset <ruleset-id> \
   --precision precise --enabled --alerting --dry-run
 
-secopsctl rules curated set --category <category-id> --ruleset <ruleset-id> \
+secopsctl curated set --category <category-id> --ruleset <ruleset-id> \
   --precision precise --enabled --alerting --yes
 ```
 
 Use `push curated` when the desired state lives in `curated/deployments.yaml`.
-Use `rules curated set` for a one-off toggle. `--category`, `--ruleset`, and
+Use `curated set` for a one-off toggle. `--category`, `--ruleset`, and
 `--precision` are required; `--enabled` / `--alerting` apply only when present,
 so you can flip one without disturbing the other. Get the ids from
-`rules curated list --json`.
+`curated rule-sets --json`.
 
 ## See also
 

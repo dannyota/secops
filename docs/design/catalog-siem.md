@@ -39,6 +39,16 @@ Read verified; lifecycle write smoke `TestLiveRulesLifecycleWriteSmoke` (create�
 
 `rules promote <file.yaral>` (Wave 78): validate + create + deploy a brand-new rule in one guarded step (replaces `rules-create` then `rules-deploy`); writes the companion `.yaml`, refuses a file that already has one, shares the LIVE→HOURLY multi-event fallback. Verified by the gated lifecycle smoke (promote an inert disabled rule → deploy → delete, self-cleaning).
 
+**Rules dev-loop + workspace parity (Wave 115, v0.6.1):**
+
+- **`rules get <rule>`** — the current rule in one shot: a state header (running/enabled, alerting, severity, compile + execution state, run frequency, author, MITRE, current revision) followed by the YARA-L. `--text` prints just the YARA-L (raw, pipes into `rules promote` / a diff); `--json` emits the full rule + deployment. Wraps `GetRule` (the latest version) so an operator reads the live rule without addressing a revision.
+- **`rules test` now STREAMS** — it decodes the `legacy:legacyRunTestRule` chunk stream incrementally (progress percent + detections + compile/runtime errors), printing detections and scan progress on stderr as they arrive rather than buffering the whole window. `--no-stream` keeps the buffered path; `--from`/`--to` set an explicit window alongside `--hours`. The JSON shape (`detection_count` / `detections` / `compilation_errors` / `runtime_errors`) is identical on both paths, and a compile or runtime error fails the run (non-zero exit) even under `--json`. The streaming primitive (`chronicle.streamArray`) decodes the JSON-array body element-by-element and does not retry (non-idempotent POST).
+- **`mitre`** — MITRE ATT&CK coverage as data: a per-technique aggregation over custom rules (`metadata.mitre_tactic` / `mitre_technique`) + curated rules' typed tactics/techniques, with the rule count, involved tactics, and rule ids per technique, and an `UNMAPPED` bucket for rules with no MITRE meta. `--type custom|curated|all`, `--enabled`/`--alerting` (deployment-authoritative, like `rules health`), `--format table|json|csv`, `--out`.
+- **`rules versions diff <rule> <a> <b>`** / **`restore <rule> <version>`** — `diff` shows a line-by-line diff of two revisions' YARA-L (each ref a 1-based index from `rules versions` or a `v_…` token; `GetRuleRevision` addresses `rules/{id}@{version}`); the guarded `restore` re-applies a prior revision's text as a NEW revision (etag round-tripped, refuses an empty target). The `versions` parent now resolves an id/name/slug like the sibling verbs.
+- **`rules duplicate <rule> [--name]`** — guarded clone of a rule's YARA-L under a new name token, created disabled (no deployment); refuses a name collision.
+- **`rules health`** — per-rule health roll-up classified failing/erroring/silent/healthy (worst-first): compile state + deployment execution state + detection volume/last-detection over `--hours`. Composes `ListRules` + `ListRuleDeployments` + `GetRulesTrends`, no new endpoint; `--only`, `--format`, `--out`.
+- **Model:** the FULL-view `Rule` now carries `author` / `compilationState` / `runFrequency` / `liveModeEnabled` / `alertingEnabled` / `metadata{…}` and `MitreTactics()` / `MitreTechniques()` accessors (split on commas/semicolons only, so multi-word names stay intact). Offline-tested.
+
 ### `reference_lists`
 
 Typed `.txt`+`.yaml`; NoDelete; product-neutral engine.
@@ -142,19 +152,19 @@ Portability (verified). `dashboards export <id>` writes a self-contained JSON do
 
 Google-managed (no CUD): `pull curated` writes `curated/deployments.yaml`; `push curated` diffs it against live and calls `BatchUpdateCuratedRuleSetDeployments` for changed enabled/alerting tuples.
 
-`rules curated list` reads deployment state; guarded `rules curated set` remains the one-off toggle. **Curated read suite (W109):** `rules curated rule-sets [--category]` lists the curated rule SETS (`ListCuratedRuleSets`, all categories via the `-` wildcard); `rules curated rules` lists/searches the individual rules with client-side `--search` (name/description), `--set`, `--category`, `--tactic` (MITRE), `--severity` filters; `rules curated rule <id>` shows one rule's full detail (`GetCuratedRule`). The `CuratedRule` model carries `type`, `precision`, MITRE `tactics`/`techniques`, `description`, and the parent **`curatedRuleSet`** (the rule→set membership — every listed rule has it, so `--set` enumerates a set's rules). Curated YARA-L source is **not** API-exposed (Google-managed); the detail is metadata + MITRE + description.
+**Curated browsing (v0.6.1):** natural drill-down workflow: `curated categories` (12-row overview with set/enabled counts) → `curated rule-sets` (default enabled only; `--all` for catalog; `--search`/`--category` accept display name or UUID; deployment state inline per precision) → `curated rules --set <id>` (individual rules in one set; `--all` opt-in for full dump; ~80% of sets are opaque) → `curated rule <id>` (detail with resolved set/category display names). `curated search <query>` is the unified search across both rule sets and individual rules (`--installed`/`--tactic`/`--severity`). Guarded `curated set` remains the one-off toggle. Enrichment uses 3 API calls (wildcard rule-set list + categories + deployments). The old `curated list` is removed (merged into `rule-sets`). The `CuratedRule` model carries `type`, `precision`, MITRE `tactics`/`techniques`, `description`, and the parent **`curatedRuleSet`** (the rule→set membership). Curated YARA-L source is **not** API-exposed (Google-managed).
 
 Curated tuning reads (Wave 54, verified):
 
-- `rules curated detections <ur_id>` — `legacySearchCuratedDetections` (the curated twin of `rules detections`, which serves user rules only)
-- `rules curated trends --rule ur_a,… | --all` — `legacyGetCuratedRulesTrends`, day-bucketed counts + last detection; `--all` sweeps every curated rule in chunked requests
-- `rules curated events <detection-id>` — `legacyGetEventForDetection` (event + rationale behind one curated detection; answers 200 but can be empty for some detection types, e.g. GCTI_FINDING)
+- `curated detections <ur_id>` — `legacySearchCuratedDetections` (the curated twin of `rules detections`, which serves user rules only)
+- `curated trends --rule ur_a,… | --all` — `legacyGetCuratedRulesTrends`, day-bucketed counts + last detection; `--all` sweeps every curated rule in chunked requests
+- `curated events <detection-id>` — `legacyGetEventForDetection` (event + rationale behind one curated detection; answers 200 but can be empty for some detection types, e.g. GCTI_FINDING)
 
 Batch update verified by `TestLiveCuratedBatchToggleWriteSmoke` (self-restoring enable→verify→restore, alerting off).
 
 v1alpha is the only version that answers for curated rules — v1/v1beta 404.
 
-`rules curated set` blast-radius preview (Wave 78): before the guard, a best-effort read shows the addressed deployment's current → requested enabled/alerting state and the reminder that a deployment is set × precision. A set's rules are now enumerable with `rules curated rules --set <id>`, and per-set detection counts are available via `countAllCuratedRuleSetDetections` (a future inline blast-radius count); `rules curated trends` / `rules curated detections` show detection volume today.
+`curated set` blast-radius preview (Wave 78): before the guard, a best-effort read shows the addressed deployment's current → requested enabled/alerting state and the reminder that a deployment is set × precision. A set's rules are now enumerable with `curated rules --set <id>`, and per-set detection counts are available via `countAllCuratedRuleSetDetections` (a future inline blast-radius count); `curated trends` / `curated detections` show detection volume today.
 
 ### `rule_exclusions`
 
@@ -162,7 +172,7 @@ Findings refinements (display_name + type + UDM query + deployment enabled/archi
 
 Create + Update (PATCH/updateMask); deployment updates use the separate deployment PATCH. NoDelete (drift reported, never pruned); NoEtag.
 
-Guarded `rules exclusions deploy <id> --enable|--disable|--archive` handles one-off toggles (the reconcile target stays `pull`/`push rule_exclusions`).
+Guarded `exclusions deploy <id> --enable|--disable|--archive` handles one-off toggles (the reconcile target stays `pull`/`push rule_exclusions`).
 
 Read + write verified (create→update→archive). The API has no hard delete — archive is the teardown.
 

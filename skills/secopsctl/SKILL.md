@@ -37,7 +37,7 @@ AppKey call works even when SIEM ADC is expired, and vice-versa.
 
 | Plane | Host | Auth | Commands |
 |---|---|---|---|
-| **SIEM** (Chronicle) | `{region}-chronicle.googleapis.com` | Google ADC / OAuth (minted in-process, never on disk) | `pull`, `push`, `drift`, `search`, `gemini`, `rules` (+ `rules curated`, `rules exclusions`), `ti`, `lists`, `dashboards`, `entities`, `alerts`, `cases`, `ingest`, `data-access`, `status` |
+| **SIEM** (Chronicle) | `{region}-chronicle.googleapis.com` | Google ADC / OAuth (minted in-process, never on disk) | `pull`, `push`, `drift`, `search`, `gemini`, `rules` (+ `curated`, `exclusions`), `ti`, `lists`, `dashboards`, `entities`, `alerts`, `cases`, `ingest`, `data-access`, `status` |
 | **SOAR** (Siemplify) | `{tenant}.siemplify-soar.com` | AppKey (`soar_app_key` in config or `$SECOPS_SOAR_APP_KEY`; no ADC) | `soar pull/push`, `soar playbooks/integrations/jobs/ide/settings/connector/audit/legacy/users`, `cases` (SOAR-host triage), `content-hub` |
 
 ### SIEM auth recovery
@@ -67,7 +67,10 @@ ritual.
 |---|---|---|---|
 | `search` | deterministic SIEM search: `udm` · `raw` · `stats` · `event <id>` · `export` · `validate` · `run` · `saved` | SIEM | read (`saved save/share/delete` guarded) |
 | `gemini` | AI: `generate` (NL→UDM) · `search` (NL→UDM + run) · `ask` (assistant) | SIEM | read |
-| `rules` | inspect (`list` · `detections` · `test` · `validate` · `trends` · `errors` · `alerts` · `versions`) + lifecycle (`promote`, `retrohunt`); `rules curated` (Google-managed sets), `rules exclusions` | SIEM | read + guarded (`promote`, `retrohunt create`, `curated set`, `exclusions deploy`) |
+| `rules` | **your CUSTOM detections** — inspect (`list` · `get` (current state + YARA-L) · `detections` · `test` (streams) · `validate` · `trends` · `errors` · `alerts` · `versions`+`diff` · `health`) + lifecycle (`promote`, `duplicate`, `versions restore`, `retrohunt`) | SIEM | read + guarded (`promote`, `duplicate`, `versions restore`, `retrohunt create`) |
+| `curated` | **Google-managed PREDEFINED detections** — `categories` · `rule-sets` (default enabled, `--all`/`--search`/`--category`) · `search` (unified across sets+rules, `--installed`/`--tactic`/`--severity`) · `rules --set <id>` · `rule <id>` · `detections` · `events` · `trends` · `set` (toggle enable/alerting) | SIEM | read + guarded (`set`) |
+| `exclusions` | findings refinements (apply to **custom + curated**): `list` · `get` · `deploy` | SIEM | read + guarded (`deploy`) |
+| `mitre` | ATT&CK coverage across custom + curated (`--type custom\|curated\|all`) | SIEM | read |
 | `ti` | threat intel & IOCs: `find` · `get` · `related` · `collections` · `collection` · `collection-matches` | SIEM | read |
 | `lists` | `empty` (reference list) · `watchlists …` | SIEM | read + guarded |
 | `dashboards` | charts / run-chart / verify / export / import / add-chart / edit-chart / duplicate / delete | SIEM | read + guarded |
@@ -82,12 +85,15 @@ ritual.
 | `pull` / `drift` | snapshot live state / report drift (the as-code loop) | SIEM | read |
 | `push` | deploy config-as-code (rules-create/update/deploy/disable, reconcile surfaces) | SIEM | guarded |
 
-> **Names renamed in v0.6.0 (no aliases).** `query`→`search`; NL/Gemini→`gemini`;
-> `curated`→`rules curated`; `rule-exclusions`→`rules exclusions`; `indicators`/`threat-intel`→`ti`;
+> **Names renamed (no aliases).** `query`→`search`; NL/Gemini→`gemini`;
+> `rule-exclusions`→`exclusions`; `indicators`/`threat-intel`→`ti`;
 > `reference-lists`/`watchlists`→`lists`; `soar marketplace`→`content-hub`;
 > `feeds`/`parsers`/… →`ingest …`; `capabilities`/`coverage`/`surfaces`→`status …`;
-> `soar case`→`cases`. **pull/push TARGET args are unchanged** (they mirror the on-disk
-> dirs): `pull reference_lists`, `push curated`, `pull feeds`, etc. stay snake_case.
+> `soar case`→`cases`. **Top-level rule split (v0.6.1):** `rules` = your custom
+> detections; `curated` = Google-managed predefined detections; `exclusions` and
+> `mitre` are top-level (they span both). **pull/push TARGET args are unchanged**
+> (they mirror the on-disk dirs): `pull reference_lists`, `push curated`, `pull feeds`,
+> etc. stay snake_case.
 
 ## The mutation ritual — every guarded verb
 
@@ -136,7 +142,7 @@ silently clobbers them on push. The same loop applies to every reconcile surface
 `reference_lists`, `data_tables`, `feeds`, `parsers`, `dashboards`, `forwarders`,
 `rule_exclusions`, `soar/webhooks`, `soar/playbooks`, `soar/connectors`, `soar/jobs`.
 **These pull/push target names are snake_case and unchanged** — only the imperative
-command *groups* (`ingest`, `rules curated`, …) were renamed. `secopsctl status surfaces`
+command *groups* (`ingest`, `curated`, …) were renamed. `secopsctl status surfaces`
 lists each surface's lane and `--prune` eligibility.
 
 ## Command self-discovery
@@ -268,13 +274,26 @@ alert without closing the case): add `--alert <alert-id>` to `close`, or `cases 
 ### Ship and tune a detection rule
 
 ```bash
-secopsctl rules test detections/new-rule.yaral --hours 24          # PREVIEW detections vs history (no deploy)
+secopsctl rules get <rule>                                         # current state (running? alerting?) + YARA-L; --text for raw, --json for full
+secopsctl rules test detections/new-rule.yaral --hours 24          # PREVIEW detections vs history — STREAMS progress + hits (no deploy)
+secopsctl rules test detections/new-rule.yaral --from <ts> --to <ts> --json   # explicit window; --no-stream to buffer
 secopsctl rules promote detections/new-rule.yaral --dry-run        # validate + create + deploy in one step
 secopsctl rules promote detections/new-rule.yaral --alerting=false --yes
+secopsctl rules duplicate <rule> --name <new> --dry-run            # clone YARA-L under a new name (created disabled)
 secopsctl pull rules && git diff && secopsctl push rules-deploy --dry-run   # tune tracked rules
 secopsctl rules trends --hours 168                                 # noisiest rules, to drive tuning
-secopsctl status coverage                                          # MITRE ATT&CK coverage posture
-secopsctl rules curated set --category <cat> --precision broad --alerting=false --dry-run  # toggle Google-managed sets
+secopsctl rules health --only silent                               # which rules compile but never fire / error
+secopsctl mitre --type all --format json                     # MITRE ATT&CK coverage (technique × rule count)
+secopsctl rules versions <rule>                                    # revision history; `diff <rule> 1 2`; guarded `restore <rule> <v>`
+secopsctl curated categories                                       # 12-row overview: category names + set/enabled counts
+secopsctl curated rule-sets                                        # enabled (installed) sets with deployment state
+secopsctl curated rule-sets --all --search azure                   # search the full catalog
+secopsctl curated rule-sets --category "Windows Threats"            # filter by category name or UUID
+secopsctl curated search powershell                                # unified search across rule sets AND rules
+secopsctl curated search --tactic TA0003 --installed               # MITRE filter, installed only
+secopsctl curated rules --set <id>                                 # individual rules in one set
+secopsctl curated rule <ur_id>                                     # rule detail with resolved set/category names
+secopsctl curated set --category <cat> --ruleset <rs> --precision broad --alerting=false --dry-run  # toggle
 ```
 
 Investigate: `secopsctl entities graph <detection-id>` walks the findings-graph pivot;
@@ -336,9 +355,16 @@ verbatim from `search udm --json` / `--format jsonl`.
 Every save of a SOAR playbook mints a new `identifier`. **Resolve playbooks by name**
 (`--name`), not by identifier, and re-read the list after a save.
 
-### Curated rules: toggle is set×precision only
+### Curated rules: browse → search → drill → toggle
 
-`rules curated set` toggles `enabled`/`alerting` scoped to a `--category`/`--ruleset`/
+The curated workflow is a drill-down: `categories` (12 overview rows) →
+`rule-sets` (default enabled only, `--all` for catalog, `--search`/`--category`) →
+`rules --set <id>` (individual rules in one set) → `rule <id>` (detail with
+resolved names). `curated search <query>` is the unified search across both sets
+and rules (`--installed`/`--tactic`/`--severity`). ~80% of rule sets don't expose
+individual rules via the API — the CLI shows a helpful message for those.
+
+`curated set` toggles `enabled`/`alerting` scoped to a `--category`/`--ruleset`/
 `--precision`. There is no per-rule override for Google-managed curated rules — a
 platform limit, not a CLI gap.
 
@@ -385,7 +411,9 @@ names (e.g. `secopsctl-smoke-<nanos>`) and **delete by exact id**, never a list 
 | Deploy changes | `secopsctl push <target> --dry-run` → `--yes` (SOAR: `soar push`) |
 | Triage cases | `cases list` → `cases get <id>` → `cases close --id <n> --reason <r> --yes` |
 | Ship a rule | `secopsctl rules promote <file.yaral> --dry-run` → `--yes` |
-| Toggle curated rules | `secopsctl rules curated set --category <c> --precision broad --dry-run` |
+| Browse curated detections | `secopsctl curated categories` → `curated rule-sets` → `curated rules --set <id>` |
+| Search curated catalog | `secopsctl curated search <query> [--installed] [--tactic T]` |
+| Toggle curated rules | `secopsctl curated set --category <c> --ruleset <r> --precision broad --dry-run` |
 | Install Content Hub content | `secopsctl content-hub install --identifier <id> --dry-run` |
 | Pivot an investigation | `secopsctl entities graph <detection-id>` · `secopsctl entities risk-scores` |
 | Recover from ADC lapse | `gcloud auth login` then `secopsctl doctor` |
