@@ -104,7 +104,7 @@ func newSOARIntegrationGetCmd() *cobra.Command {
 					var names []string
 					_ = json.Unmarshal(pbs, &names)
 					for _, n := range names {
-						if !containsStr(detail.Playbooks, n) {
+						if !slices.Contains(detail.Playbooks, n) {
 							detail.Playbooks = append(detail.Playbooks, n)
 						}
 					}
@@ -119,10 +119,6 @@ func newSOARIntegrationGetCmd() *cobra.Command {
 		},
 	}
 	return markJSON(cmd)
-}
-
-func containsStr(ss []string, s string) bool {
-	return slices.Contains(ss, s)
 }
 
 func printIntegrationDetail(w io.Writer, d integrationGetDetail) {
@@ -142,7 +138,7 @@ func printIntegrationDetail(w io.Writer, d integrationGetDetail) {
 		fmt.Fprintf(w, "  certified:   true\n")
 	}
 
-	caps := []string{}
+	var caps []string
 	if d.HasActions {
 		caps = append(caps, "actions")
 	}

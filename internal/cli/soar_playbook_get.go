@@ -180,7 +180,7 @@ func printPlaybookDetail(w io.Writer, d playbookGetDetail) {
 	}
 
 	fmt.Fprintf(w, "  steps:        %d total", d.Steps)
-	parts := []string{}
+	var parts []string
 	if d.ActionSteps > 0 {
 		parts = append(parts, fmt.Sprintf("%d action", d.ActionSteps))
 	}
