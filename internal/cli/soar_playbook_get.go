@@ -266,7 +266,7 @@ func newSOARPlaybookDuplicateCmd() *cobra.Command {
 }
 
 // wrapPlaybookRunError translates opaque SOAR 500s from run/rerun into
-// actionable messages. FR-36: a 500 on a COMPLETED case means the workflow
+// actionable messages. A 500 on a COMPLETED case means the workflow
 // already finished.
 func wrapPlaybookRunError(err error) error {
 	var apiErr *legacy.Error
@@ -286,7 +286,7 @@ func wrapPlaybookRunError(err error) error {
 }
 
 // wrapPlaybookSaveError translates opaque SOAR 400s from push/deploy into
-// actionable messages. FR-37: a 400 "refresh the screen" means the local
+// actionable messages. A 400 "refresh the screen" means the local
 // export is based on a superseded version.
 func wrapPlaybookSaveError(err error) error {
 	var apiErr *legacy.Error

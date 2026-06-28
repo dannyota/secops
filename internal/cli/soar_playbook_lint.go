@@ -30,7 +30,7 @@ func newSOARPlaybookLintCmd() *cobra.Command {
 		Long: "Analyze playbook definitions for common problems:\n" +
 			"  - broken block refs (step references a nested playbook that doesn't exist)\n" +
 			"  - missing integration instances (step uses an unconfigured integration)\n" +
-			"  - raw placeholders in JSON action params (FR-35 risk)\n" +
+			"  - raw placeholders in JSON action params\n" +
 			"  - whitespace-poisoned trigger condition values\n\n" +
 			"--all runs across every playbook; --name targets one.",
 		Args: cobra.NoArgs,
@@ -203,7 +203,7 @@ func lintStepParams(pbName, stepName string, params json.RawMessage) []playbookL
 				Playbook: pbName,
 				Severity: "warning",
 				Check:    "placeholder-in-json",
-				Message:  fmt.Sprintf("step %q param %q contains a placeholder inside JSON — placeholder transforms may not JSON-escape the value (FR-35)", stepName, p.Name),
+				Message:  fmt.Sprintf("step %q param %q contains a placeholder inside JSON — placeholder transforms may not JSON-escape the value", stepName, p.Name),
 			})
 		}
 	}

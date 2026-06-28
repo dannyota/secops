@@ -194,20 +194,20 @@ Per-surface detail (one entry per function): see [catalog-soar.md](catalog-soar.
 |---|---|---|---|---|
 | `cases list` / `get <id>` | operational read | ✅ siemplify · v1alpha | ✅ get; list fallback | Cases on v1alpha siemplify domain; auto-falls back to legacy `ListCaseCards`; `--legacy` forces legacy. |
 | `cases summarize` / `counts` / `alert recommend` (AI) | operational read | ✅ summarize · ✅ counts · 🔨 recommend create leg — siemplify · v1alpha | — | W56 AI-assist reads; W59 counts; recommend CREATE works, fetch leg not served (400). |
-| `cases run-action` | imperative | ✅ siemplify · v1alpha | ✅ | Runs any installed integration action on a case; guarded; dry-run validated. |
-| `cases simulation` | imperative | ✅ siemplify · v1alpha | ✅ | Full simulation CRUD + export/import; write round-trip verified. W118 adds `--event-field`/`--alert-field` (FR-39), `export`, `import`. |
-| `cases <verb>` (assign/rename/stage/tag/untag/describe/importance/priority/close/reopen/merge + `comment add`) | imperative | — | ✅ 9 verbs · 🔨 W52 (smoke extended, gated) | 9 verbs verified by `TestLiveSOARCaseVerbsWriteSmoke`; W52 adds priority/reopen/comment. |
-| `cases alert <verb>` (close/priority/move/reopen) | imperative | — | 🔨 smoke extended, gated | Per-alert triage (W52); dry-run + error paths validated; writes ride extended write smoke. |
-| `playbooks generate` (AI drafting) | imperative | 🔨 siemplify · v1alpha (guarded; dry-run validated) | — | W56 Gemini drafting; creates a draft on the instance; guarded. Write smoke gated. |
-| `soar playbooks` operational helpers | operational read + guarded execution | — | ✅ | Waves 39 + 51 + 55; lifecycle ops, export, import, deploy toggle, batch delete, step insert, run/debug/rerun. |
+| `cases run-action` | imperative | ✅ siemplify · v1alpha | ✅ | Runs any installed integration action on a case; guarded; guarded. |
+| `cases simulation` | imperative | ✅ siemplify · v1alpha | ✅ | Full simulation CRUD + export/import. W118 adds `--event-field`/`--alert-field`, `export`, `import`. |
+| `cases <verb>` (assign/rename/stage/tag/untag/describe/importance/priority/close/reopen/merge + `comment add`) | imperative | — | ✅ 9 verbs · 🔨 W52 (smoke extended, gated) | 9 verbs; W52 adds priority/reopen/comment. |
+| `cases alert <verb>` (close/priority/move/reopen) | imperative | — | 🔨 smoke extended, gated | Per-alert triage (W52); guarded. |
+| `playbooks generate` (AI drafting) | imperative | 🔨 siemplify · v1alpha (guarded) | — | W56 Gemini drafting; creates a draft on the instance; guarded. Write smoke gated. |
+| `playbooks` operational helpers | operational read + guarded execution | — | ✅ | Waves 39 + 51 + 55; lifecycle ops, export, import, deploy toggle, batch delete, step insert, run/debug/rerun. |
 | `playbooks get` / `list` (enriched) / `lint` / `health` / `diff` / `duplicate` | operational read + guarded duplicate | — | ✅ | W118; full authoring inspection: get (structure+deps), lint (static analysis), health (fleet stats), diff (live vs local), duplicate. |
-| **playbook authoring palette** (`playbooks components`) | operational read | ✅ siemplify · v1alpha wildcard catalogs | — | W58 designer palette as CLI catalogs; all verified. |
+| **playbook authoring palette** (`playbooks components`) | operational read | ✅ siemplify · v1alpha wildcard catalogs | — | W58 designer palette as CLI catalogs; built. |
 | `soar jobs` operational helpers | operational read + guarded execution | — | 🔨 | Waves 39 + 55; instance set/create/delete, job run, logs. |
 | `soar push bulk-close` | imperative | — | 🔨 | Queue bulk-close with typed reason enum. |
 | `soar settings case-assignment` / `move-case-policy` (`get`/`set`) | imperative | — | 🔨 | Singleton routing policies; guarded `set`. |
 | `soar settings grouping` (`get`/`set`) | imperative (modern + legacy) | ✅ read · ✅ write — siemplify · v1alpha + legacy | — | W80/W107; full General/Overflow property bag (Timeframe/overflow/co-grouping) read+write via moduleSettings; legacy max-alerts-per-case singleton is read-only. |
-| `soar settings api-keys` (list/create/revoke) | operational | — | ✅ | W60; key lifecycle verified; key value shown once, never logged. |
-| `idp-mappings` | imperative | ✅ siemplify · v1alpha | — | SDK-only (no CLI). 500s on chronicle; answers on SOAR host. Read-validated. |
+| `soar settings api-keys` (list/create/revoke) | operational | — | ✅ | W60; key value shown once, never logged. |
+| `idp-mappings` | imperative | ✅ siemplify · v1alpha | — | SDK-only (no CLI). 500s on chronicle; answers on SOAR host. Built. |
 | `form-dynamic-parameters` | deferred | 🔒 siemplify · v1alpha (unsafe PUT) | 🔒 read | Not wired; PUT silently resets `formType` to Invalid. |
 | `soar legacy call <op>` | raw | — | ✅ | Passthrough for integrations, ontology, settings, environment-priorities, permissions. |
 
@@ -245,13 +245,13 @@ Installing content (integration packages and the connector/job/action definition
 | `commands` / `status surfaces` / `status capabilities` | offline utility + live probe | — | — | Machine-readable registries; W73 rich flag schema + `status capabilities` live probe; verified. |
 | `skill` / `skill install` | offline utility | — | — | W84; the agent operating guide embedded in the binary (`go install` ships no docs); `--json` for metadata; `install` registers it in an agent skills dir. |
 | structured `--json` errors + dry-run plan | output contract | — | — | W73 verified; stderr structured error envelope + stdout dry-run change plan. |
-| `integrations list` / `uninstall` | imperative | ✅ siemplify · v1alpha | — | Lists installed packs; uninstalls custom-only (`custom:true`); read verified. |
-| `integrations connector list` / `delete` | imperative | ✅ siemplify · v1alpha | — | Connector definitions inside a pack; delete custom-only; read + delete verified. |
+| `integrations list` / `uninstall` | imperative | ✅ siemplify · v1alpha | — | Lists installed packs; uninstalls custom-only (`custom:true`); built. |
+| `integrations connector list` / `delete` | imperative | ✅ siemplify · v1alpha | — | Connector definitions inside a pack; delete custom-only; built. |
 | `integrations get` | operational read | ✅ siemplify · v1alpha + legacy | — | W118; rich detail: version, instances across envs, playbook usage. |
 | `integrations test` | operational read | ✅ siemplify · legacy | — | W118; connectivity test for an integration instance (default or `--instance`). |
-| `integrations create` / `instances` / `configure` / `delete` (instances) | imperative | — | 🔨 | Integration instances; not reconcilable; CRUD with auto-resolve + configure overlay; `TestLiveIntegrationInstanceCRUD` validated. |
-| `integrations install` (+ pack `:install`/`:uninstall`) | imperative/raw | ✅ siemplify · v1alpha (`:install`/`:uninstall`) | 🔨 (`/store`) | Installs marketplace pack via v1alpha; verified install→uninstall round-trip (W11). |
-| `integrations action` / `job-def` (template/create/update/delete) | imperative | ✅ siemplify · v1alpha | 🔨 | Python definition authoring loop (W60+W65); `TestLiveAuthoringWriteSmoke` validated for actions. |
+| `integrations create` / `instances` / `configure` / `delete` (instances) | imperative | — | 🔨 | Integration instances; not reconcilable; CRUD with auto-resolve + configure overlay; built. |
+| `integrations install` (+ pack `:install`/`:uninstall`) | imperative/raw | ✅ siemplify · v1alpha (`:install`/`:uninstall`) | 🔨 (`/store`) | Installs marketplace pack via v1alpha; built. |
+| `integrations action` / `job-def` (template/create/update/delete) | imperative | ✅ siemplify · v1alpha | 🔨 | Python definition authoring loop (W60+W65); built. |
 
 #### Surface details
 
