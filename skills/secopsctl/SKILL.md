@@ -80,9 +80,9 @@ ritual.
 | `content-hub` | `browse` · `list` · `get` · `contentpacks` · `featured` · `diff` · `install` · `uninstall` | SOAR | read + guarded (`install`/`uninstall`) |
 | `ingest` | `feeds` · `forwarders` · `parsers` · `log-types` · `pipeline` · `health` | SIEM | read + guarded |
 | `data-access` | RBAC: `labels …` · `scopes …` | SIEM | read + guarded |
-| `status` | `capabilities` · `coverage` · `surfaces` (read-only diagnostics) | both/offline | read |
-| `playbooks` | `list` · `get` · `lint` · `health` · `diff` · `duplicate` · `deploy` · `delete` · `validate` · `run` · `debug` · `export` · `import` · `generate` · … | SOAR | read + guarded |
-| `integrations` | `list` · `get` · `test` · `create` · `delete` · `configure` · `install` · `uninstall` · `instances` · `connector` · `scaffold` · `action` · `job` | SOAR | read + guarded |
+| `status` | `capabilities` · `coverage` · `surfaces` (read-only diagnostics) · `enums [--live] [--json]` (SOAR integer-to-name enum mappings; `--live` adds instance-specific values) | both/offline | read |
+| `playbooks` | `list` · `get` · `lint` · `health` · `diff` · `duplicate` · `deploy` · `delete` · `move` · `categories` · `validate` · `run` · `debug` · `export` · `import` · `generate` · … | SOAR | read + guarded |
+| `integrations` | `list [--instances]` · `get` · `test` · `create` · `delete` · `configure` · `rename` · `install` · `uninstall` · `instances` · `connector` · `scaffold` · `action` · `job` | SOAR | read + guarded |
 | `soar` | `pull` · `push` · `jobs` · `ide` · `settings` · `connector` · `audit` · `legacy` · `users` | SOAR | read + guarded |
 | `pull` / `drift` | snapshot live state / report drift (the as-code loop) | SIEM | read |
 | `push` | deploy config-as-code (rules-create/update/deploy/disable, reconcile surfaces) | SIEM | guarded |
@@ -414,12 +414,25 @@ deps, block refs. `playbooks lint (--name | --all)` — static analysis: broken
 block refs, missing integrations, placeholder-in-JSON, whitespace triggers.
 `playbooks health` — fleet-wide run stats sorted by failure rate. `playbooks
 diff <name> <local.json>` — unified diff of live vs export. `playbooks duplicate
-<name> --name <new>` — guarded clone. `integrations get <id>` — version,
-instances, playbook usage. `integrations test <id>` — connectivity test (PASS/FAIL
-with error message; `--instance <id>` for a specific instance). `cases simulation
-create --event-field key=value --alert-field key=value` adds UDM fields to simulated
-cases. `cases simulation export <name>` — export as JSON; `cases simulation import
-<file>` — guarded import from JSON.
+<name> --name <new>` — guarded clone (native API; falls back to export→save on
+server 500). `integrations get <id>` — version, instances, playbook usage.
+`integrations test <id>` — connectivity test (PASS/FAIL with error message;
+`--instance <id>` for a specific instance). `cases simulation create
+--event-field key=value --alert-field key=value` adds UDM fields to simulated
+cases. `cases simulation export <name>` — export as JSON; `cases simulation
+import <file>` — guarded import from JSON.
+
+### Playbook export / import
+
+Two export formats, each for a different workflow:
+
+| Format | Command | Use case |
+| --- | --- | --- |
+| JSON (default) | `playbooks export --name <pb> [--out file.json]` | Edit → `push playbook` round-trip; input for `playbooks mold` |
+| ZIP bundle | `playbooks export --name <pb> --zip --out file.zip` | Cross-tenant promotion, offline backup, `playbooks import` |
+
+`playbooks import --file <bundle.zip> [--yes]` — guarded import; creates copies
+with an `IMPORT N -` prefix, disabled, in the "Imported Playbooks" category.
 
 ### Curated rules: browse → search → drill → toggle
 
@@ -434,12 +447,33 @@ individual rules via the API — the CLI shows a helpful message for those.
 `--precision`. There is no per-rule override for Google-managed curated rules — a
 platform limit, not a CLI gap.
 
-### Pull-time secret redaction
+### Playbook ZIP bundle schema
 
-`pull` masks values matching a `.secopsctl-redact` file at the data root (or
-`soar pull --redact <regex>`) to `***REDACTED***`. It is drift-safe (pull/drift/push
-load the same patterns). A push of a body still carrying the marker is **refused** —
-restore the real value or reference an env/credential first. Never hand-edit the marker.
+The ZIP from `playbooks export --zip` contains one
+`<playbook-display-name>.json` per playbook:
+
+```text
+├── CategoryName                  string (folder name in the UI)
+├── Definition
+│   ├── Name, Identifier          string (UUIDs)
+│   ├── Steps[]                   action / condition / block steps
+│   │   ├── Type                  int (0=ACTION, 4=CONDITION)
+│   │   ├── Integration, ActionName, ActionProvider
+│   │   └── Parameters[]
+│   ├── Triggers[]
+│   │   ├── Type                  int (8=ALL, 10=CASE_DATA)
+│   │   ├── Conditions[], LogicalOperator (0=AND, 1=OR)
+│   │   └── Environments[]
+│   ├── IsEnable, IsAutomatic     bool
+│   └── Category, Priority, PlaybookType, CreationSource   int enums
+├── OverviewTemplatesDetails[]
+└── WidgetTemplates[]
+```
+
+Integer enums use the server's encoding — run `status enums` for the
+SDK-known mappings, `status enums --live` for instance-specific values
+(stages, categories). The bundle is self-contained; `playbooks import`
+handles the base64 envelope automatically.
 
 ### Write-then-list lag; a failed write may have applied
 

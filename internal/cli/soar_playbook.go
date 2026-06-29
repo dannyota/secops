@@ -85,6 +85,8 @@ func newSOARPlaybookCmd() *cobra.Command {
 		newSOARPlaybookDuplicateCmd(),
 		newSOARPlaybookDeleteCmd(),
 		newSOARPlaybookDeployCmd(),
+		newSOARPlaybookMoveCmd(),
+		newSOARPlaybookCategoriesCmd(),
 		newSOARPlaybookValidateCmd(),
 		newSOARPlaybookComponentsCmd(),
 		newSOARPlaybookMoldCmd(),
@@ -474,26 +476,24 @@ func newSOARPlaybookDeployCmd() *cobra.Command {
 			}
 
 			def["isEnabled"] = wantEnabled
-			return preferModern("playbooks deploy",
-				func() error {
-					mc, merr := newSOARClient()
-					if merr != nil {
-						return merr
+			deployed := false
+			if !forceLegacy {
+				mc, merr := newSOARClient()
+				if merr == nil {
+					if _, merr = mc.SaveWorkflowDefinitions(ctx, def); merr == nil {
+						deployed = true
+					} else if !isEnumTypeMismatch(merr) {
+						fmt.Fprintf(os.Stderr, "playbooks deploy: modern v1alpha path failed (%v) — falling back to legacy\n", merr)
 					}
-					if _, merr = mc.SaveWorkflowDefinitions(ctx, def); merr != nil {
-						return wrapPlaybookSaveError(merr)
-					}
-					fmt.Fprintf(os.Stdout, "playbook %q %sd.\n", pbName, toggle)
-					return nil
-				},
-				func() error {
-					if _, lerr := lc.SaveWorkflowDefinitions(ctx, def); lerr != nil {
-						return wrapPlaybookSaveError(lerr)
-					}
-					fmt.Fprintf(os.Stdout, "playbook %q %sd.\n", pbName, toggle)
-					return nil
-				},
-			)
+				}
+			}
+			if !deployed {
+				if _, lerr := lc.SaveWorkflowDefinitions(ctx, def); lerr != nil {
+					return wrapPlaybookSaveError(lerr)
+				}
+			}
+			fmt.Fprintf(os.Stdout, "playbook %q %sd.\n", pbName, toggle)
+			return nil
 		},
 	}
 	f := cmd.Flags()

@@ -116,12 +116,6 @@ func newSOAREnginePushCmd(name string) *cobra.Command {
 						"live-only objects are reported, never deleted\n", name, reason)
 				}
 			}
-			// Apply the same .secopsctl-redact masking pull uses, so the live
-			// object canonicalizes to the redacted form and a masked value is not
-			// seen as a diff (and the marker guard refuses to deploy a mask).
-			if err := applyValueRedaction(mirror.DataRoot(out), nil); err != nil {
-				return err
-			}
 			dr, ay := soarGuard(name+" reconcile", dryRun, yes)
 			dir := filepath.Join(mirror.DataRoot(out), mirror.DirSOAR, s.Dir)
 			_, err = reconcile.Push(baseContext(), s, dir, reconcile.PushOpts{

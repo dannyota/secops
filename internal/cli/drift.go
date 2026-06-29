@@ -40,12 +40,6 @@ func newDriftCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := baseContext()
 			root := mirror.DataRoot(out)
-			// Apply the same .secopsctl-redact masking pull/push use, so a value
-			// masked on pull is also masked when the live object is canonicalized
-			// here — otherwise drift would phantom-report the redacted field.
-			if err := applyValueRedaction(root, nil); err != nil {
-				return err
-			}
 
 			wantSIEM, wantSOAR, unknown := selectDriftTargets(args, siem, soar)
 			if len(unknown) > 0 {

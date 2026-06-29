@@ -199,8 +199,8 @@ Per-surface detail (one entry per function): see [catalog-soar.md](catalog-soar.
 | `cases <verb>` (assign/rename/stage/tag/untag/describe/importance/priority/close/reopen/merge + `comment add`) | imperative | — | ✅ 9 verbs · 🔨 W52 (smoke extended, gated) | 9 verbs; W52 adds priority/reopen/comment. |
 | `cases alert <verb>` (close/priority/move/reopen) | imperative | — | 🔨 smoke extended, gated | Per-alert triage (W52); guarded. |
 | `playbooks generate` (AI drafting) | imperative | 🔨 siemplify · v1alpha (guarded) | — | W56 Gemini drafting; creates a draft on the instance; guarded. Write smoke gated. |
-| `playbooks` operational helpers | operational read + guarded execution | — | ✅ | Waves 39 + 51 + 55; lifecycle ops, export, import, deploy toggle, batch delete, step insert, run/debug/rerun. |
-| `playbooks get` / `list` (enriched) / `lint` / `health` / `diff` / `duplicate` | operational read + guarded duplicate | — | ✅ | W118; full authoring inspection: get (structure+deps), lint (static analysis), health (fleet stats), diff (live vs local), duplicate. |
+| `playbooks` operational helpers | operational read + guarded execution | — | ✅ | Waves 39 + 51 + 55; lifecycle ops, export (JSON + `--zip` platform bundle), import (from ZIP), deploy toggle, batch delete, step insert, run/debug/rerun. |
+| `playbooks get` / `list` / `lint` / `health` / `diff` / `duplicate` / `move` / `categories` | operational read + guarded mutation | ✅ duplicate · categories — siemplify · v1alpha | ✅ | W118+W120; authoring inspection + folder management. `duplicate` uses modern v1alpha primary with `--folder`/`--env`, legacy+export→save fallback. `categories` (alias `folders`): list/create/rename/delete. `move`: relocate playbook to a category. |
 | **playbook authoring palette** (`playbooks components`) | operational read | ✅ siemplify · v1alpha wildcard catalogs | — | W58 designer palette as CLI catalogs; built. |
 | `soar jobs` operational helpers | operational read + guarded execution | — | 🔨 | Waves 39 + 55; instance set/create/delete, job run, logs. |
 | `soar push bulk-close` | imperative | — | 🔨 | Queue bulk-close with typed reason enum. |
@@ -242,10 +242,10 @@ Installing content (integration packages and the connector/job/action definition
 | `info cron` | offline utility | — | — | Scans local scheduler files + pulled SOAR JSON for scheduled automation; no API call. |
 | `soar ide build-playbook` / `playbooks mold` / `playbooks trigger set` | offline utility | — | — | Composes save-ready playbook JSON from an exported base; offline-only; built + offline-tested. |
 | `integrations scaffold` / `soar ide package-integration` | offline utility | — | — | Scaffolds Python custom integration dirs; packages to ZIP for IDE import; no API call. |
-| `commands` / `status surfaces` / `status capabilities` | offline utility + live probe | — | — | Machine-readable registries; W73 rich flag schema + `status capabilities` live probe; verified. |
+| `commands` / `status surfaces` / `status capabilities` / `status enums` | offline utility + live probe | — | — | Machine-readable registries; W73 rich flag schema + `status capabilities` live probe; `status enums` lists SOAR integer-to-name enum mappings (CasePriority, CloseReason, SLA types, BlockList types); `--live` fetches instance-specific values (case stages, playbook categories); `--json` for machine output; *(built — offline-tested)*. |
 | `skill` / `skill install` | offline utility | — | — | W84; the agent operating guide embedded in the binary (`go install` ships no docs); `--json` for metadata; `install` registers it in an agent skills dir. |
 | structured `--json` errors + dry-run plan | output contract | — | — | W73 verified; stderr structured error envelope + stdout dry-run change plan. |
-| `integrations list` / `uninstall` | imperative | ✅ siemplify · v1alpha | — | Lists installed packs; uninstalls custom-only (`custom:true`); built. |
+| `integrations list` / `uninstall` / `rename` | imperative | ✅ siemplify · v1alpha | — | Lists installed packs (`--instances` nests configured instances, tags `[renamable]`); uninstalls custom-only; `rename` patches a non-system instance's displayName via v1alpha PATCH + updateMask. |
 | `integrations connector list` / `delete` | imperative | ✅ siemplify · v1alpha | — | Connector definitions inside a pack; delete custom-only; built. |
 | `integrations get` | operational read | ✅ siemplify · v1alpha + legacy | — | W118; rich detail: version, instances across envs, playbook usage. |
 | `integrations test` | operational read | ✅ siemplify · legacy | — | W118; connectivity test for an integration instance (default or `--instance`). |

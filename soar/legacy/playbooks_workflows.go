@@ -66,6 +66,13 @@ func (c *Client) DeleteWorkflows(ctx context.Context, body any) (RawJSON, error)
 	return c.externalPost(ctx, "/playbooks/DeleteWorkflows", body)
 }
 
+// CloneWorkflow creates an exact copy of a workflow definition. body carries the
+// source definition. Per Google docs, Clone is "exact copy" while Duplicate is
+// "template-based" — they share the same request/response shape. LIVE MUTATION.
+func (c *Client) CloneWorkflow(ctx context.Context, body any) (RawJSON, error) {
+	return c.externalPost(ctx, "/playbooks/CloneWorkflow", body)
+}
+
 // DuplicateWorkflow clones one workflow definition. body carries the source id.
 // LIVE MUTATION.
 func (c *Client) DuplicateWorkflow(ctx context.Context, body any) (RawJSON, error) {

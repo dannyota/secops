@@ -17,6 +17,6 @@ func newStatusCmd() *cobra.Command {
 			"  coverage      UDM / log-type coverage of the ingested data\n" +
 			"  surfaces      the API surface-family map (plane, version, lane, prune)",
 	}
-	cmd.AddCommand(newCapabilitiesCmd(), newCoverageCmd(), newSurfacesCmd())
+	cmd.AddCommand(newCapabilitiesCmd(), newCoverageCmd(), newSurfacesCmd(), newEnumsCmd())
 	return cmd
 }

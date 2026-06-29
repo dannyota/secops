@@ -34,7 +34,8 @@ P1 (1–3) parity · P2 (4–7) triage + SIEM config · P3 (8–15) modern v1alp
 P5 (21–24) finishing · 25–51 operability/UX · 52–72 triage-loop + AI + dashboards · 73–83 v0.5.0 ·
 84–110 v0.5.x · 111–114 v0.6.0 (search + gemini + Phase D rename + Content Hub) ·
 115–116 v0.6.x (rules dev-loop + dashboard quality) ·
-117–119 v0.7.0 (dashboard authoring + playbook/integration authoring + foundation).
+117–119 v0.7.0 (dashboard authoring + playbook/integration authoring + foundation) ·
+120 v0.7.1 (operational polish).
 
 ```mermaid
 flowchart LR
@@ -67,7 +68,7 @@ flowchart LR
 
 ## Completed waves (1–112)
 
-**119 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
+**120 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
 Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 ---
@@ -162,6 +163,23 @@ Structural release making the SDK, CLI, and docs solid enough that future versio
 - **Agent guide.** CLAUDE.md §6: SDK method template (decision tree, struct+Raw+UnmarshalJSON pattern), CLI command template (registration, preferModern, guard), gates checklist.
 
 **Docs:** catalog, SKILL command map, CLAUDE.md §6.
+
+### Wave 120 — v0.7.1 operational polish *(built — offline-tested)*
+
+Operational polish, playbook/integration management, and an enum reference.
+
+- **Value-pattern redaction removed.** The `.secopsctl-redact` file and `--redact` flag are gone — inline values (e.g. webhook URLs) are no longer masked on `soar pull`. `soar push playbooks` now round-trips cleanly without restoring redacted values first. Key-name credential redaction for feeds (password, apiKey, token, etc.) is unchanged.
+- **`playbooks duplicate` three-tier fallback.** Modern v1alpha `DuplicateWorkflows` as primary (auto-creates copy, renames to `--name`); legacy `DuplicateWorkflow` on modern failure; export → rename → save on legacy 500. New options: `--folder` (target category) and `--env` (override environments).
+- **`playbooks categories` CRUD.** `list`, `create`, `rename`, `delete` — full folder management. Also aliased as `playbooks folders`.
+- **`playbooks move`** — move a playbook to a different category by name or id.
+- **`playbooks deploy` silent enum fallback.** Imported playbooks carry numeric enum fields that the modern v1alpha `SaveWorkflowDefinitions` rejects with HTTP 400. The deploy command now detects this specific error and falls back to the legacy path silently.
+- **`integrations rename`** — rename an integration instance's displayName via v1alpha PATCH with updateMask. Resolves by `--instance <uuid>` or `--env <env>`. System default instances (server-managed) cannot be renamed (API returns 400).
+- **`integrations list --instances`** — shows configured instances nested under each pack with environment and display name. Non-system instances tagged `[renamable]`.
+- **`status enums` — SOAR enum reference.** Lists every SDK-defined enum (CasePriority, CloseReason, SLA types, BlockList types/scopes) with integer-to-name mappings. `--live` adds instance-specific values: case stages and playbook categories. SDK: new `GetMetadata`, `CloneWorkflow`, `DuplicateWorkflows`, `UpdateIntegrationInstance` methods.
+- **Playbook ZIP bundle format documented** in the SKILL guide.
+- **SDK fix:** `IntegrationInstance.IntegrationIdentifier` field name corrected (was `IntegrationName`, didn't match the JSON). Added `SystemDefault` field.
+
+**Docs:** catalog, SKILL (ZIP format + command map).
 
 ---
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -26,7 +25,7 @@ func newSOARIntegrationCmd() *cobra.Command {
 	cmd.AddCommand(newSOARIntegrationGetCmd(), newSOARIntegrationTestCmd(),
 		newSOARIntegrationCreateCmd(), newSOARIntegrationDeleteCmd(),
 		newSOARIntegrationConfigureCmd(), newSOARIntegrationListCmd(), newSOARIntegrationInstancesCmd(),
-		newSOARIntegrationInstallCmd(), newSOARIntegrationUninstallCmd(),
+		newSOARIntegrationInstallCmd(), newSOARIntegrationUninstallCmd(), newSOARIntegrationRenameCmd(),
 		newSOARIntegrationConnectorCmd(), newSOARIntegrationScaffoldCmd(),
 		newSOARIntegrationActionCmd(), newSOARIntegrationJobCmd())
 	return cmd
@@ -469,45 +468,6 @@ func newSOARConnectorDefDeleteCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("integration")
 	_ = cmd.MarkFlagRequired("id")
 	return cmd
-}
-
-// newSOARIntegrationListCmd lists installed integration packs via the modern
-// v1alpha surface — the discovery side of uninstall. Read-only.
-func newSOARIntegrationListCmd() *cobra.Command {
-	var custom bool
-	cmd := &cobra.Command{
-		Use:   "list [--custom]",
-		Short: "List installed integration packs (read-only)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := newSOARClient()
-			if err != nil {
-				return err
-			}
-			ints, err := c.ListIntegrations(baseContext())
-			if err != nil {
-				return err
-			}
-			if custom {
-				ints = slices.DeleteFunc(ints, func(i soar.Integration) bool { return !soar.IsDeletableIntegration(i) })
-			}
-			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(ints)
-			}
-			for _, i := range ints {
-				tag := ""
-				if soar.IsDeletableIntegration(i) {
-					tag = "  [deletable]"
-				}
-				fmt.Fprintf(os.Stdout, "%-52s %s%s\n", i.Identifier, i.DisplayName, tag)
-			}
-			fmt.Fprintf(os.Stdout, "\n%d integration(s)\n", len(ints))
-			return nil
-		},
-	}
-	f := cmd.Flags()
-	f.BoolVar(&custom, "custom", false, "show only deletable (custom pack or clone) integrations")
-	return markJSON(cmd)
 }
 
 // newSOARIntegrationUninstallCmd deletes a CUSTOM integration pack (e.g. a cloned

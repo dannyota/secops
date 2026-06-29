@@ -12,13 +12,14 @@ import (
 // IntegrationInstance is a configured instance of an integration in a specific
 // environment — the runtime card (credentials, parameters, enabled/disabled).
 type IntegrationInstance struct {
-	Name            string          `json:"name"`
-	Identifier      string          `json:"identifier"`
-	DisplayName     string          `json:"displayName"`
-	IntegrationName string          `json:"integrationName"`
-	Environment     string          `json:"environment"`
-	IsEnabled       bool            `json:"isEnabled"`
-	Raw             json.RawMessage `json:"-"`
+	Name                  string          `json:"name"`
+	Identifier            string          `json:"identifier"`
+	DisplayName           string          `json:"displayName"`
+	IntegrationIdentifier string          `json:"integrationIdentifier"`
+	Environment           string          `json:"environment"`
+	IsEnabled             bool            `json:"isEnabled"`
+	SystemDefault         bool            `json:"systemDefault"`
+	Raw                   json.RawMessage `json:"-"`
 }
 
 // UnmarshalJSON decodes the typed fields while preserving the complete server
@@ -99,6 +100,19 @@ func (c *Client) ListIntegrationsFiltered(ctx context.Context, filter string) ([
 		return nil, err
 	}
 	return all, nil
+}
+
+// UpdateIntegrationInstance patches an integration instance (rename, change
+// description, toggle parameters). fields lists the updateMask entries
+// (e.g. "displayName", "description", "parameters"). body is the sparse
+// instance payload.
+func (c *Client) UpdateIntegrationInstance(ctx context.Context, integration, instanceID string, body any, fields ...string) (json.RawMessage, error) {
+	var out json.RawMessage
+	res := fmt.Sprintf("integrations/%s/integrationInstances/%s", integration, instanceID)
+	if err := c.t.V1Alpha(ctx, "PATCH", res, body, &out, transport.UpdateMask(fields...)); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // ExecuteConnectorTest runs the test script for a connector instance. Returns

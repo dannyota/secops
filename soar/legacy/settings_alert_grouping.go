@@ -7,6 +7,12 @@ package legacy
 
 import "context"
 
+// GetMetadata returns instance-wide metadata (case stages, users, alert types,
+// assignment policy, environment type).
+func (c *Client) GetMetadata(ctx context.Context) (RawJSON, error) {
+	return c.externalGet(ctx, "/settings/GetMetadata")
+}
+
 // SettingXGetMaximumAlertsGroupingConfiguration returns the maximum-alerts
 // grouping configuration.
 func (c *Client) SettingXGetMaximumAlertsGroupingConfiguration(ctx context.Context) (RawJSON, error) {

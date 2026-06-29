@@ -49,6 +49,22 @@ func (c *Client) SaveWorkflowDefinitions(ctx context.Context, body any) (json.Ra
 	return out, nil
 }
 
+// DuplicateWorkflows duplicates one or more playbook definitions via the
+// v1alpha SOAR-host path. body carries:
+//
+//	{"identifiers":["uuid",...],"priority":0,"categoryId":0,"environments":["Default Environment"]}
+//
+// priority and categoryId 0 = keep original value. The copy is auto-named
+// "Copy of <original>". Returns {"payload":[...]} wrapping the full
+// definitions of the created copies.
+func (c *Client) DuplicateWorkflows(ctx context.Context, body any) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.t.V1Alpha(ctx, "POST", "legacyPlaybooks:legacyDuplicateWorkflows", body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeleteWorkflows deletes one or more playbook definitions by their identifiers
 // via the v1alpha SOAR-host legacyPlaybooks:legacyDeleteWorkflows surface.
 // identifiers is the list of workflow definition UUIDs to delete.

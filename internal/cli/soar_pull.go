@@ -16,9 +16,8 @@ import (
 
 func newSOARPullCmd() *cobra.Command {
 	var (
-		out     string
-		prune   bool
-		redacts []string
+		out   string
+		prune bool
 	)
 	bespoke := []string{"grouping", "cases"}
 	engine := mirror.SOARSurfaceNames()
@@ -29,7 +28,7 @@ func newSOARPullCmd() *cobra.Command {
 		Short: "Read-only: snapshot SOAR state to local files",
 		Long: "Targets: " + strings.Join(valid, ", ") + ".\n" +
 			"Engine surfaces (" + strings.Join(engine, ", ") + ") snapshot one\n" +
-			"redacted, diff-friendly file per object for the pull->diff->push loop.\n\n" +
+			"diff-friendly file per object for the pull->diff->push loop.\n\n" +
 			"--prune removes local files whose live counterparts have been deleted,\n" +
 			"so the mirror directory is an exact reflection of the instance. Refused\n" +
 			"on an incomplete listing to prevent false deletions.",
@@ -41,11 +40,6 @@ func newSOARPullCmd() *cobra.Command {
 			root := filepath.Join(dataRoot, mirror.DirSOAR)
 			ctx := baseContext()
 			pullOpts := reconcile.PullOpts{Prune: prune}
-			// Mask inline-secret values (e.g. a webhook URL with a token in a
-			// playbook step param) per .secopsctl-redact + --redact before writing.
-			if err := applyValueRedaction(dataRoot, redacts); err != nil {
-				return err
-			}
 
 			runLegacy := func(fn func(*legacy.Client, string) (int, error), sub string) error {
 				lc, err := newSOARLegacyClient()
@@ -113,6 +107,5 @@ func newSOARPullCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&out, "out", "", "output root directory (default: cwd)")
 	f.BoolVar(&prune, "prune", false, "remove local files with no live counterpart")
-	f.StringArrayVar(&redacts, "redact", nil, "regex masking matched substrings of inline string values on write (repeatable); for a durable, drift-safe rule put the pattern in .secopsctl-redact at the data root")
 	return cmd
 }
