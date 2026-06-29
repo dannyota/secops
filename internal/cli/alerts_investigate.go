@@ -72,7 +72,11 @@ func newAlertsInvestigateCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				prev := inv.Status
 				inv = res
+				if inv.Status != prev {
+					fmt.Fprintf(os.Stderr, "  status: %s\n", inv.Status)
+				}
 				return nil
 			}
 			if err := aiPoll(poll, func() bool { return inv.Completed() }); err != nil {
@@ -83,6 +87,13 @@ func newAlertsInvestigateCmd() *cobra.Command {
 			}
 			fmt.Fprintf(os.Stdout, "Investigation %s (alert %s)\n", inv.InvestigationID(), alertID)
 			fmt.Fprintf(os.Stdout, "Status:     %s\n", inv.Status)
+			if strings.HasSuffix(inv.Status, "_FAILURE") || strings.HasSuffix(inv.Status, "_ERROR") {
+				fmt.Fprintf(os.Stderr, "investigation completed with error status %s\n", inv.Status)
+				if inv.Summary != "" {
+					fmt.Fprintf(os.Stderr, "  detail: %s\n", strings.TrimSpace(inv.Summary))
+				}
+				return fmt.Errorf("investigation failed: %s", inv.Status)
+			}
 			fmt.Fprintf(os.Stdout, "Verdict:    %s\n", orDash(inv.Verdict))
 			fmt.Fprintf(os.Stdout, "Confidence: %s\n", orDash(inv.Confidence))
 			if inv.Summary != "" {

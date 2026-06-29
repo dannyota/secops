@@ -35,7 +35,8 @@ P5 (21–24) finishing · 25–51 operability/UX · 52–72 triage-loop + AI + d
 84–110 v0.5.x · 111–114 v0.6.0 (search + gemini + Phase D rename + Content Hub) ·
 115–116 v0.6.x (rules dev-loop + dashboard quality) ·
 117–119 v0.7.0 (dashboard authoring + playbook/integration authoring + foundation) ·
-120 v0.7.1 (operational polish) · 121 v0.7.2 (case improvements + Gemini reorg + fixes).
+120 v0.7.1 (operational polish) · 121 v0.7.2 (case improvements + Gemini reorg + fixes) ·
+122 v0.7.3 (parser dev-loop + content-hub + operational polish).
 
 ```mermaid
 flowchart LR
@@ -68,7 +69,7 @@ flowchart LR
 
 ## Completed waves (1–112)
 
-**120 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
+**121 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
 Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 ---
@@ -189,6 +190,24 @@ Case operational verbs, AI command consolidation, and operational fixes.
 - **Transport: `ExternalBytes`** — raw-bytes response path for binary endpoints (reports).
 
 - **Docs overhaul.** Fixed `gemini generate` → `gemini generate-query` across 7 files; shortened verbose headings in surfaces/cli-naming/soar design docs; expanded rules/playbooks/soar-cases guides with missing commands (15+ rule verbs, 17 case verbs, playbook inspect/folder sections); fixed stale status rows (data-access, alert act verbs); cleaned docsify layout (removed Jekyll, streamlined CSS).
+
+### Wave 122 — v0.7.3 parser dev-loop + content-hub + operational polish *(built)*
+
+Parser authoring ergonomics (the full create→test→pull→push cycle), Content Hub output fixes, and remaining operational polish.
+
+- **`parsers run` error surfacing.** The `runParser` API returns per-event error details (UDM validation failures, field-type mismatches) alongside or instead of `parsedEvents`, but `parsers run` currently swallows them — a failing parser returns only the raw log with no diagnostic. Surface the API error detail in both `--json` (include error fields per result) and table mode (one-line error per failed log). Unblocks iterative parser authoring (UDM validation, reserved-field collisions, repeated-field patterns all produce zero output today).
+- **`parsers extension create` base64 encoding.** The `cbn_snippet` field expects base64-encoded bytes; the command currently sends raw text → HTTP 400. Wrap file contents with `base64.StdEncoding.EncodeToString()` before populating the request.
+- **`pull parsers` custom parser discovery.** A newly-created custom parser (active on the server, confirmed via `parsers versions`) is not discovered by `pull parsers`. The list/discovery call likely filters on `creator_source=CUSTOMER` at the list level, missing log types where the first version was prebuilt. Walk all log types with an active custom version.
+- **`push parsers` conf-only create.** A `.conf` file without a companion `.yaml` is silently ignored (0 creates). Match the `push rules-create` pattern: treat a `.conf`-only file as a new custom parser to create, no stub `.yaml` needed.
+- **`parsers run` prebuilt parser support.** Make `--cbn` optional for prebuilt log types — when omitted, test logs against the active prebuilt parser server-side. Enables safe evaluation of log-type changes (e.g. testing whether a different parser handles a sample correctly) without modifying production feed config.
+- **`alerts investigate` progress + error surfacing.** Replace the blocking ~90s poll with incremental progress on stderr (status + elapsed timer). When the investigation returns `STATUS_COMPLETED_ERROR`, surface the notebook error message instead of an empty result.
+- **`content-hub featured install` endpoint fix.** `featured install --yes` always returns HTTP 404 (dry-run succeeds because it skips the API call). The POST path or payload shape is wrong — match the browser's Content Hub install request. Blocks restoring deleted playbook blocks from featured content via CLI.
+- **`content-hub` text/JSON output fixes.** Multiple subcommands render wrong or missing fields: `list`/`contentpacks` have empty `displayName` (the identifier carries the name but the display field is blank); `diff` text mode prints `response: object` instead of a human-readable comparison; `get` text mode shows an empty `Name:` instead of `title` and reports `Installed: false` for installed packs; `integrations list --instances` lacks `installedVersion` alongside `latestVersion`/`updateAvailable`.
+- **`parsers extension list` string validationReport handling.** The API returns `validationReport` as either a resource-name string or a nested object depending on state; the Go struct expected only the object form, crashing on deserialization. Custom `UnmarshalJSON` accepts both.
+- **`parsers extension activate` empty body.** The `:activate` RPC expects an empty JSON body (`{}`); sending no body at all causes HTTP 400. Send `struct{}{}` for the POST body.
+- **`alerts list --json` valid JSON output.** Replace hand-built JSON array construction (manual `bufio.Writer` with ignored write errors) with `json.NewEncoder` + `SetIndent` — structurally valid output by construction regardless of payload size.
+- **`playbooks summary` diagnostic on generic 500.** The workflow-instance-cards API returns a generic 500 (errorCode 2000) when no workflow instance exists for a case+playbook combo (playbook didn't fire, closed case, multi-alert group mismatch). Intercept and surface a diagnostic message instead of a raw 500 dump.
+- **`cases list --filter` compound expression warning.** The v1alpha cases API only supports `contains(displayName,...)` and `startswith(displayName,...)`; compound AND/OR expressions and most other filter patterns 500. Warn on stderr when a compound expression is detected.
 
 ---
 

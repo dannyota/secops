@@ -141,7 +141,10 @@ func parserLiveObject(logType string, p chronicle.Parser) (reconcile.Object, err
 	return reconcile.Object{Slug: logType, ServerID: p.Name, Canonical: canon, Raw: raw}, nil
 }
 
-// loadParsers reads every `<logType>.yaml` + sibling `<logType>.conf` into objects.
+// loadParsers reads every `<logType>.yaml` + sibling `<logType>.conf` into
+// objects. A `.conf` file without a companion `.yaml` is treated as a new
+// custom parser to create (the stem is the log type), matching the
+// `push rules-create` pattern where only the source file is needed.
 func loadParsers(dir string) ([]reconcile.Object, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -150,12 +153,14 @@ func loadParsers(dir string) ([]reconcile.Object, error) {
 		}
 		return nil, err
 	}
+	yamlSeen := map[string]bool{}
 	var objs []reconcile.Object
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
 			continue
 		}
 		stem := strings.TrimSuffix(e.Name(), ".yaml")
+		yamlSeen[stem] = true
 		var meta parserMeta
 		if rerr := readYAMLFile(filepath.Join(dir, e.Name()), &meta); rerr != nil {
 			return nil, rerr
@@ -177,6 +182,24 @@ func loadParsers(dir string) ([]reconcile.Object, error) {
 			return nil, cerr
 		}
 		objs = append(objs, reconcile.Object{Slug: stem, ServerID: meta.Name, Canonical: canon})
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".conf") {
+			continue
+		}
+		stem := strings.TrimSuffix(e.Name(), ".conf")
+		if yamlSeen[stem] {
+			continue
+		}
+		cbn, rerr := os.ReadFile(filepath.Join(dir, e.Name()))
+		if rerr != nil {
+			return nil, rerr
+		}
+		canon, cerr := canonicalParser(parserSpec{LogType: stem, CBN: string(cbn)})
+		if cerr != nil {
+			return nil, cerr
+		}
+		objs = append(objs, reconcile.Object{Slug: stem, Canonical: canon})
 	}
 	return objs, nil
 }

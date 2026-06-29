@@ -95,7 +95,7 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `reference_lists` | reconcile + imperative | ✅ chronicle · v1alpha | Typed `.txt`+`.yaml`; NoDelete; resource-name normalization; empty-list canonical fix. |
 | `data_tables` | reconcile | ✅ chronicle · v1alpha | `.csv`+`.yaml`; columns immutable after create; rows wholesale destroy-and-replace. |
 | `feeds` | reconcile | ✅ chronicle · v1alpha | `.yaml`; secrets redacted on pull, overlaid on update; `secret_ref` env/Secret Manager; not prune-eligible. |
-| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate; parser-dev loop + `validate` verb. |
+| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate; parser-dev loop (`run` error surfacing, prebuilt support, `validate`); extensions (list/get/create/activate/delete); conf-only create; custom-parser discovery on pull. |
 | `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards; `create`/`get`/`edit` (metadata + access); `charts` (list/get/add/batch/edit/remove/run — 9 chart types, reserved-word help in `charts add`); `markdown` (add/edit/remove); `button` (add/edit/remove); `layout` (show/move); `filters` (show/set global time range); `lint`/`fix`/`inspect` quality; `verify` (single + fleet, reserved-word error reframe); `duplicate` + deep-copy; export↔import. |
 | `curated` / `curated_rules` | reconcile + imperative | ✅ chronicle · v1alpha | Google-managed; batch enable/alerting reconcile; curated tuning reads; v1alpha only. |
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
@@ -236,8 +236,8 @@ Installing content (integration packages and the connector/job/action definition
 
 | Function (CLI) | Lane | New API (status · domain · version) | Legacy (siemplify · external) | Notes |
 |---|---|---|---|---|
-| `content-hub list` / `get` / `contentpacks` / `browse` | imperative read | ✅ siemplify · v1alpha | — | Content Hub reads; 405 integrations + 59 packs; read-validated; install round-trip verified (W11). |
-| `content-hub install` / `uninstall` | imperative | ✅ siemplify · v1alpha | 🔨 (`/store`) | Reversible marketplace install pair (`marketplaceIntegrations:install`/`:uninstall`); guarded; install→uninstall round-trip verified (W11, W110). |
+| `content-hub list` / `get` / `contentpacks` / `browse` / `diff` | imperative read | ✅ siemplify · v1alpha | — | Content Hub reads; 405 integrations + 59 packs; `diff` shows installed-vs-latest comparison; text/JSON output fixes (W122). |
+| `content-hub install` / `uninstall` / `featured install` | imperative | ✅ siemplify · v1alpha | 🔨 (`/store`) | Marketplace install pair + featured-content install (uid-based path); guarded; install round-trip verified (W11, W110, W122). |
 | `info soar-integrations` | operational read | 🔨 siemplify · v1alpha | 🔨 | Coverage report joining packs with runtime cards; flags config/runtime gaps; built + offline-tested. |
 | `info cron` | offline utility | — | — | Scans local scheduler files + pulled SOAR JSON for scheduled automation; no API call. |
 | `soar ide build-playbook` / `playbooks mold` / `playbooks trigger set` | offline utility | — | — | Composes save-ready playbook JSON from an exported base; offline-only; built + offline-tested. |

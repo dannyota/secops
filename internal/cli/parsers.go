@@ -229,16 +229,26 @@ func newParsersVersionsCmd() *cobra.Command {
 func newParsersRunCmd() *cobra.Command {
 	var cbnFile, logsFile string
 	cmd := &cobra.Command{
-		Use:   "run <log-type> --cbn <file> --logs <file>",
+		Use:   "run <log-type> [--cbn <file>] --logs <file>",
 		Short: "Validate a CBN parser against sample logs (no server change)",
-		Long: "Run a local parser's CBN against sample log lines and print the parsed UDM.\n" +
+		Long: "Run a parser's CBN against sample log lines and print the parsed UDM.\n" +
 			"Purely inert — it creates and activates nothing — so it's safe to run before\n" +
-			"`push parsers` (which would create a new version and activate it).",
+			"`push parsers` (which would create a new version and activate it).\n\n" +
+			"When --cbn is omitted, the request tests against the active prebuilt parser\n" +
+			"server-side — useful for evaluating whether a different parser/log-type handles\n" +
+			"a sample correctly without modifying production config.\n\n" +
+			"Per-log errors (UDM validation failures, field-type mismatches) are surfaced in\n" +
+			"table mode as a one-line error per failed log; --json includes the full error\n" +
+			"detail per result.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			code, err := os.ReadFile(cbnFile)
-			if err != nil {
-				return fmt.Errorf("read --cbn: %w", err)
+			var code string
+			if cbnFile != "" {
+				raw, err := os.ReadFile(cbnFile)
+				if err != nil {
+					return fmt.Errorf("read --cbn: %w", err)
+				}
+				code = string(raw)
 			}
 			logs, err := readLines(cmd, logsFile) // verbatim lines ('-' = stdin); # and blanks are real log content
 			if err != nil {
@@ -251,19 +261,48 @@ func newParsersRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := c.RunParser(baseContext(), args[0], string(code), logs)
+			resp, err := c.RunParser(baseContext(), args[0], code, logs)
 			if err != nil {
 				return err
 			}
-			return emitJSON(resp) // the parsed UDM is inherently structured output
+			if jsonOut {
+				return emitJSON(resp)
+			}
+			return printRunParserResults(resp)
 		},
 	}
-	cmd.Flags().StringVar(&cbnFile, "cbn", "", "parser source (CBN) file to test (required)")
+	cmd.Flags().StringVar(&cbnFile, "cbn", "", "parser source (CBN) file to test (omit to test against the prebuilt parser)")
 	cmd.Flags().StringVar(&logsFile, "logs", "", "sample log lines, one per line ('-' for stdin) (required)")
-	_ = cmd.MarkFlagRequired("cbn")
 	_ = cmd.MarkFlagRequired("logs")
-	// Output is always the parsed UDM as JSON (inherently structured).
 	return markJSON(cmd)
+}
+
+func printRunParserResults(resp *chronicle.RunParserResponse) error {
+	if len(resp.RunParserResults) == 0 {
+		fmt.Fprintln(os.Stdout, "no results.")
+		return nil
+	}
+	ok, errCount := 0, 0
+	for i, r := range resp.RunParserResults {
+		switch {
+		case len(r.Errors) > 0:
+			errCount++
+			for _, e := range r.Errors {
+				fmt.Fprintf(os.Stderr, "  [log %d] error: %s\n", i+1, strings.TrimSpace(string(e)))
+			}
+		case r.ParsedEvents != nil && len(r.ParsedEvents.Events) > 0:
+			ok++
+			fmt.Fprintf(os.Stdout, "  [log %d] %d UDM event(s)\n", i+1, len(r.ParsedEvents.Events))
+		default:
+			fmt.Fprintf(os.Stdout, "  [log %d] no output (no events, no errors)\n", i+1)
+		}
+	}
+	fmt.Fprintf(os.Stdout, "\n%d log(s): %d parsed, %d error(s). Use --json for the full UDM output.\n",
+		len(resp.RunParserResults), ok, errCount)
+	if errCount > 0 {
+		return fmt.Errorf("%d log(s) failed to parse", errCount)
+	}
+	return nil
 }
 
 func newParsersActivateCmd() *cobra.Command {

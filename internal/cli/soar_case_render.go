@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -197,9 +198,11 @@ func msToUTC(ms int64) string {
 	return time.UnixMilli(ms).UTC().Format("2006-01-02 15:04")
 }
 
-// validateCaseFilter checks for common mistakes in --filter syntax. The modern
-// cases API uses SQL-style operators (=, !=, AND, OR); OData-style tokens (eq,
-// ne, gt, lt) are a frequent mistake from other platforms.
+// validateCaseFilter checks for common mistakes in --filter syntax and warns
+// about known server-side limitations. The v1alpha cases API only supports
+// contains(displayName,...) and startswith(displayName,...); all other patterns
+// (status, priority, createTime, compound AND/OR, displayName equality) return
+// a generic HTTP 500. Use `bulk-close --where` (legacy API) for broader filters.
 func validateCaseFilter(f string) error {
 	f = strings.TrimSpace(f)
 	if f == "" {
@@ -211,6 +214,12 @@ func validateCaseFilter(f string) error {
 			return fmt.Errorf("--filter uses SQL-style syntax (= != > < >= <=), not OData — "+
 				"got %q; example: --filter \"status = 'OPENED'\"", w)
 		}
+	}
+	lo := strings.ToLower(f)
+	if strings.Contains(lo, " and ") || strings.Contains(lo, " or ") {
+		fmt.Fprintf(os.Stderr, "warning: --filter compound expressions (AND/OR) are not supported by the v1alpha cases API and will likely 500.\n"+
+			"  Only contains(displayName,...) and startswith(displayName,...) are known to work.\n"+
+			"  For broader filtering use `soar push bulk-close --where` (legacy API).\n")
 	}
 	return nil
 }

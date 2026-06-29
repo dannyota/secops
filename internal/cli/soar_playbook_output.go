@@ -85,7 +85,7 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 				},
 			)
 			if err != nil {
-				return err
+				return wrapWorkflowCards500(err, caseID, alert)
 			}
 
 			card, err := pickWorkflowCard(cardsRaw, definition)
@@ -287,6 +287,22 @@ func wrapCloudLogging500(err error) error {
 		return fmt.Errorf("%s\n  correlation id (for SecOps support): %s", hint, cid)
 	}
 	return fmt.Errorf("%s", hint)
+}
+
+// wrapWorkflowCards500 intercepts the generic SOAR 500 (errorCode 2000) from
+// the workflow-instance-cards call and returns a diagnostic hint. The API 500s
+// when no workflow instance exists for the case+alert combo (playbook didn't
+// fire, closed case, or multi-alert group mismatch).
+func wrapWorkflowCards500(err error, caseID int, alert string) error {
+	var apiErr *legacy.Error
+	if !errors.As(err, &apiErr) || apiErr.Status != 500 {
+		return err
+	}
+	return fmt.Errorf("no workflow data for case %d / alert %s — the playbook may not "+
+		"have run on this alert group, or the case is closed. The API returns a generic "+
+		"500 for this condition (not a request-shape bug).\n"+
+		"  Try: cases get %d --json to verify alert groups and playbook runs",
+		caseID, truncate(alert, 40), caseID)
 }
 
 func newSOARPlaybookPythonLogsCmd() *cobra.Command {

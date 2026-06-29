@@ -106,14 +106,15 @@ func newExtCreateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("read --cbn %s: %w", cbnFile, err)
 			}
-			cfg := &chronicle.ParserExtensionConfig{CbnSnippet: string(cbn)}
+			sampleLog := ""
 			if strings.TrimSpace(logFile) != "" {
 				log, lerr := os.ReadFile(logFile)
 				if lerr != nil {
 					return fmt.Errorf("read --log %s: %w", logFile, lerr)
 				}
-				cfg.Log = string(log)
+				sampleLog = string(log)
 			}
+			cfg := chronicle.NewCBNSnippetConfig(string(cbn), sampleLog)
 			action := fmt.Sprintf("parsers extension create %s from %s", logType, cbnFile)
 			return guardedSIEMMutation(action, dryRun, yes, func() error {
 				c, cerr := newChronicleClient()

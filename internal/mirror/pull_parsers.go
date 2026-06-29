@@ -31,6 +31,7 @@ func PullParsers(ctx context.Context, c *chronicle.Client, outDir string, logTyp
 		if err != nil {
 			return 0, err
 		}
+		logTypes = mergeOnDiskLogTypes(logTypes, out)
 	}
 	if len(logTypes) == 0 {
 		fmt.Println("parsers:      no log types in use, nothing to pull")
@@ -118,6 +119,41 @@ func logTypesInUse(ctx context.Context, c *chronicle.Client) ([]string, error) {
 	}
 	sort.Strings(types)
 	return types, nil
+}
+
+// mergeOnDiskLogTypes augments the feed-derived log types with any log types
+// already present on disk (from a prior pull or manual placement). This ensures
+// custom parsers on feedless log types are re-pulled on subsequent runs.
+func mergeOnDiskLogTypes(feedTypes []string, dir string) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return feedTypes
+	}
+	seen := make(map[string]bool, len(feedTypes))
+	for _, t := range feedTypes {
+		seen[t] = true
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		var stem string
+		switch {
+		case strings.HasSuffix(name, ".conf"):
+			stem = strings.TrimSuffix(name, ".conf")
+		case strings.HasSuffix(name, ".yaml"):
+			stem = strings.TrimSuffix(name, ".yaml")
+		default:
+			continue
+		}
+		if stem != "" && !seen[stem] {
+			seen[stem] = true
+			feedTypes = append(feedTypes, stem)
+		}
+	}
+	sort.Strings(feedTypes)
+	return feedTypes
 }
 
 // mapString returns m[key] as a string, or "" when absent or non-string. Used

@@ -197,10 +197,11 @@ func (c *Client) ListFeaturedPlaybooks(ctx context.Context) (json.RawMessage, er
 	return out, nil
 }
 
-// InstallFeaturedPlaybook installs a featured playbook by resource name.
-func (c *Client) InstallFeaturedPlaybook(ctx context.Context, name string, body any) (json.RawMessage, error) {
+// InstallFeaturedPlaybook installs a featured playbook by its uid. body
+// carries the install options — the API requires {"environments": [...]}.
+func (c *Client) InstallFeaturedPlaybook(ctx context.Context, uid string, body any) (json.RawMessage, error) {
 	var out json.RawMessage
-	if err := c.t.V1Alpha(ctx, "POST", name+":install", body, &out); err != nil {
+	if err := c.t.V1Alpha(ctx, "POST", "contentHub/featuredContentPlaybooks/"+uid+":install", body, &out); err != nil {
 		return nil, err
 	}
 	return out, nil

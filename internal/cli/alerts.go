@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -479,27 +477,15 @@ func describeAlertUpdate(u chronicle.AlertUpdate) string {
 // objects as a JSON array under --json.
 func emitAlerts(w io.Writer, snap *chronicle.AlertsSnapshot) error {
 	if jsonOut {
-		bw := bufio.NewWriter(w)
-		_, _ = bw.WriteString("[\n")
-		first := true
+		raws := make([]json.RawMessage, 0, len(snap.Alerts))
 		for i := range snap.Alerts {
-			if len(snap.Alerts[i].Raw) == 0 {
-				continue
+			if len(snap.Alerts[i].Raw) > 0 {
+				raws = append(raws, snap.Alerts[i].Raw)
 			}
-			if !first {
-				_, _ = bw.WriteString(",\n")
-			}
-			first = false
-			var buf bytes.Buffer
-			if err := json.Indent(&buf, snap.Alerts[i].Raw, "  ", "  "); err != nil {
-				buf.Reset()
-				buf.Write(snap.Alerts[i].Raw)
-			}
-			_, _ = bw.WriteString("  ")
-			_, _ = bw.Write(buf.Bytes())
 		}
-		_, _ = bw.WriteString("\n]\n")
-		return bw.Flush()
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(raws)
 	}
 	if len(snap.Alerts) == 0 {
 		fmt.Fprintln(w, "no alerts.")

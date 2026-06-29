@@ -3,6 +3,7 @@ package chronicle
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -23,13 +24,37 @@ import (
 // are loosely specified by the API, so the bulk of the freeform payload is
 // preserved verbatim — only the load-bearing identifiers are typed.
 type ParserExtension struct {
-	Name       string                     `json:"name,omitempty"`
-	State      string                     `json:"state,omitempty"`
-	CreateTime string                     `json:"createTime,omitempty"`
-	UpdateTime string                     `json:"updateTime,omitempty"`
-	Validation *ParserExtensionValidation `json:"validationReport,omitempty"`
-	CbnSnippet string                     `json:"cbnSnippet,omitempty"` // base64-encoded snippet
-	Log        string                     `json:"log,omitempty"`        // base64-encoded sample log
+	Name             string                     `json:"name,omitempty"`
+	State            string                     `json:"state,omitempty"`
+	CreateTime       string                     `json:"createTime,omitempty"`
+	UpdateTime       string                     `json:"updateTime,omitempty"`
+	Validation       *ParserExtensionValidation `json:"validationReport,omitempty"`
+	ValidationReport string                     `json:"-"`                    // resource name form (when API returns a string)
+	CbnSnippet       string                     `json:"cbnSnippet,omitempty"` // base64-encoded snippet
+	Log              string                     `json:"log,omitempty"`        // base64-encoded sample log
+}
+
+// UnmarshalJSON handles the API returning validationReport as either a string
+// (resource name) or an object.
+func (e *ParserExtension) UnmarshalJSON(b []byte) error {
+	type alias ParserExtension
+	var v alias
+	if err := json.Unmarshal(b, &v); err != nil {
+		var raw struct {
+			alias
+			ValidationReport json.RawMessage `json:"validationReport,omitempty"`
+		}
+		if err2 := json.Unmarshal(b, &raw); err2 != nil {
+			return err
+		}
+		v = raw.alias
+		var s string
+		if json.Unmarshal(raw.ValidationReport, &s) == nil {
+			v.ValidationReport = s
+		}
+	}
+	*e = ParserExtension(v)
+	return nil
 }
 
 // ParserExtensionValidation is the server-side validation report for an
@@ -183,7 +208,7 @@ func (c *Client) ListParserExtensions(ctx context.Context, logType string, pageS
 // :activate RPC suffix. Returns *APIError on failure.
 func (c *Client) ActivateParserExtension(ctx context.Context, logType, extID string) error {
 	sub := "logTypes/" + url.PathEscape(logType) + "/parserExtensions/" + url.PathEscape(extID) + ":activate"
-	return c.post(ctx, c.resourcePath(sub, true), nil, nil)
+	return c.post(ctx, c.resourcePath(sub, true), struct{}{}, nil)
 }
 
 // DeleteParserExtension permanently removes a parser extension.

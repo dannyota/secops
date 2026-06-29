@@ -132,15 +132,15 @@ type RunParserResponse struct {
 // code and each sample log are base64-encoded on send (the API expects base64
 // for both the parser cbn and every log entry), mirroring the wrapper.
 //
+// When code is empty, the request omits the parser block — the API then tests
+// the logs against the active prebuilt parser for the log type server-side.
+//
 // DEVIATION: the wrapper's optional parser-extension and statedump-parsing
 // features are omitted here; this method covers the common "test a parser
 // against logs and read the UDM" path. statedump_allowed is sent as false.
 func (c *Client) RunParser(ctx context.Context, logType, code string, sampleLogs []string) (*RunParserResponse, error) {
 	if logType == "" {
 		return nil, fmt.Errorf("chronicle: RunParser: logType is required")
-	}
-	if code == "" {
-		return nil, fmt.Errorf("chronicle: RunParser: code is required")
 	}
 	if len(sampleLogs) == 0 {
 		return nil, fmt.Errorf("chronicle: RunParser: at least one sample log is required")
@@ -151,17 +151,29 @@ func (c *Client) RunParser(ctx context.Context, logType, code string, sampleLogs
 		encodedLogs[i] = base64.StdEncoding.EncodeToString([]byte(log))
 	}
 
-	body := struct {
-		Parser struct {
-			CBN string `json:"cbn"`
-		} `json:"parser"`
-		Log              []string `json:"log"`
-		StatedumpAllowed bool     `json:"statedump_allowed"`
-	}{
-		Log:              encodedLogs,
-		StatedumpAllowed: false,
+	var body any
+	if code != "" {
+		b := struct {
+			Parser struct {
+				CBN string `json:"cbn"`
+			} `json:"parser"`
+			Log              []string `json:"log"`
+			StatedumpAllowed bool     `json:"statedump_allowed"`
+		}{
+			Log:              encodedLogs,
+			StatedumpAllowed: false,
+		}
+		b.Parser.CBN = base64.StdEncoding.EncodeToString([]byte(code))
+		body = b
+	} else {
+		body = struct {
+			Log              []string `json:"log"`
+			StatedumpAllowed bool     `json:"statedump_allowed"`
+		}{
+			Log:              encodedLogs,
+			StatedumpAllowed: false,
+		}
 	}
-	body.Parser.CBN = base64.StdEncoding.EncodeToString([]byte(code))
 
 	var resp RunParserResponse
 	sub := parserLogTypePath(logType) + ":runParser"

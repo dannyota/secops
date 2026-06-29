@@ -4,9 +4,56 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
+
+// printMarketplaceDetail renders a human-readable summary of a marketplace
+// integration or content pack from its raw JSON. The GET endpoints return
+// richer fields (title, installed, installedVersion, version, description)
+// than the typed struct captures.
+func printMarketplaceDetail(raw json.RawMessage, identifier, displayName string) {
+	var detail struct {
+		Title            string `json:"title"`
+		Installed        *bool  `json:"installed"`
+		InstalledVersion string `json:"installedVersion"`
+		Version          string `json:"version"`
+		Description      string `json:"description"`
+		UpdateAvailable  *bool  `json:"updateAvailable"`
+	}
+	_ = json.Unmarshal(raw, &detail)
+
+	name := detail.Title
+	if name == "" {
+		name = displayName
+	}
+	if name == "" {
+		name = identifier
+	}
+
+	fmt.Printf("Identifier:  %s\n", identifier)
+	fmt.Printf("Name:        %s\n", name)
+	if detail.Installed != nil {
+		fmt.Printf("Installed:   %v\n", *detail.Installed)
+	}
+	if detail.InstalledVersion != "" {
+		fmt.Printf("Version:     %s (installed) / %s (latest)\n", detail.InstalledVersion, detail.Version)
+	} else if detail.Version != "" {
+		fmt.Printf("Version:     %s\n", detail.Version)
+	}
+	if detail.UpdateAvailable != nil && *detail.UpdateAvailable {
+		fmt.Println("Update:      available")
+	}
+	if detail.Description != "" {
+		desc := strings.TrimSpace(detail.Description)
+		if len(desc) > 200 {
+			desc = desc[:200] + "…"
+		}
+		fmt.Printf("Description: %s\n", desc)
+	}
+	fmt.Println("\n(--json for the full record)")
+}
 
 // newSOARMarketplaceCmd is the top-level `content-hub` group (UI "Content Hub"):
 // browse + install/uninstall marketplace integrations and content packs. Content
@@ -195,14 +242,22 @@ func newSOARMarketplaceListCmd() *cobra.Command {
 				items = filtered
 			}
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(items)
+				raws := make([]json.RawMessage, len(items))
+				for i := range items {
+					raws[i] = items[i].Raw
+				}
+				return emitJSON(raws)
 			}
 			for _, m := range items {
 				tag := ""
 				if m.IsInstalled {
 					tag = "  [installed]"
 				}
-				fmt.Fprintf(os.Stdout, "%-44s %s%s\n", m.Identifier, m.DisplayName, tag)
+				name := m.DisplayName
+				if name == "" {
+					name = m.Identifier
+				}
+				fmt.Fprintf(os.Stdout, "%-44s%s\n", name, tag)
 			}
 			fmt.Fprintf(os.Stdout, "\n%d marketplace integration(s)\n", len(items))
 			return nil
@@ -230,10 +285,7 @@ func newSOARMarketplaceGetCmd() *cobra.Command {
 			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(m.Raw)
 			}
-			fmt.Printf("Identifier:  %s\n", m.Identifier)
-			fmt.Printf("Name:        %s\n", m.DisplayName)
-			fmt.Printf("Installed:   %v\n", m.IsInstalled)
-			fmt.Println("\n(--json for the full record)")
+			printMarketplaceDetail(m.Raw, m.Identifier, m.DisplayName)
 			return nil
 		},
 	}
@@ -257,14 +309,22 @@ func newSOARContentPacksCmd() *cobra.Command {
 				return err
 			}
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(packs)
+				raws := make([]json.RawMessage, len(packs))
+				for i := range packs {
+					raws[i] = packs[i].Raw
+				}
+				return emitJSON(raws)
 			}
 			for _, p := range packs {
 				tag := ""
 				if p.IsInstalled {
 					tag = "  [installed]"
 				}
-				fmt.Fprintf(os.Stdout, "%-44s %s%s\n", p.Identifier, p.DisplayName, tag)
+				name := p.DisplayName
+				if name == "" {
+					name = p.Identifier
+				}
+				fmt.Fprintf(os.Stdout, "%-44s%s\n", name, tag)
 			}
 			fmt.Fprintf(os.Stdout, "\n%d content pack(s)\n", len(packs))
 			return nil
@@ -291,10 +351,7 @@ func newSOARContentPackGetCmd() *cobra.Command {
 			if jsonOut {
 				return json.NewEncoder(os.Stdout).Encode(p.Raw)
 			}
-			fmt.Printf("Identifier:  %s\n", p.Identifier)
-			fmt.Printf("Name:        %s\n", p.DisplayName)
-			fmt.Printf("Installed:   %v\n", p.IsInstalled)
-			fmt.Println("\n(--json for the full record)")
+			printMarketplaceDetail(p.Raw, p.Identifier, p.DisplayName)
 			return nil
 		},
 	}
