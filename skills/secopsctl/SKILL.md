@@ -66,7 +66,7 @@ ritual.
 | Group | What | Plane | Kind |
 |---|---|---|---|
 | `search` | deterministic SIEM search: `udm` · `raw` · `stats` · `event <id>` · `export` · `validate` · `run` · `saved` | SIEM | read (`saved save/share/delete` guarded) |
-| `gemini` | AI: `generate` (NL→UDM) · `search` (NL→UDM + run) · `ask` (assistant) | SIEM | read |
+| `gemini` | AI hub: `generate-query` (NL→UDM) · `search` (NL→UDM + run) · `ask` (assistant) · `investigate` · `summarize` · `generate` (playbook) | SIEM+SOAR | read |
 | `rules` | **your CUSTOM detections** — inspect (`list` · `get` (current state + YARA-L) · `detections` · `test` (streams) · `validate` · `trends` · `errors` · `alerts` · `versions`+`diff` · `health`) + lifecycle (`promote`, `duplicate`, `versions restore`, `retrohunt`) | SIEM | read + guarded (`promote`, `duplicate`, `versions restore`, `retrohunt create`) |
 | `curated` | **Google-managed PREDEFINED detections** — `categories` · `rule-sets` (default enabled, `--all`/`--search`/`--category`) · `search` (unified across sets+rules, `--installed`/`--tactic`/`--severity`) · `rules --set <id>` · `rule <id>` · `detections` · `events` · `trends` · `set` (toggle enable/alerting) | SIEM | read + guarded (`set`) |
 | `exclusions` | findings refinements (apply to **custom + curated**): `list` · `get` · `deploy` | SIEM | read + guarded (`deploy`) |
@@ -75,8 +75,8 @@ ritual.
 | `lists` | `empty` (reference list) · `watchlists …` | SIEM | read + guarded |
 | `dashboards` | `create` · `list` · `get` · `edit` · `charts` (list/get/add/batch/edit/remove/run) · `markdown` (add/edit/remove) · `button` (add/edit/remove) · `layout` (show/move) · `filters` (show/set) · verify · lint/fix/inspect · export/import · duplicate · delete | SIEM | read + guarded |
 | `entities` | `summarize` · `graph` · `risk-scores` | SIEM | read |
-| `alerts` | `list` · `get` · `investigate` (AI) · `update` (feedback) | SIEM | read + guarded (`update`) |
-| `cases` | SOAR case triage: list/get/close/assign/tag/stage/comment/run-action/summarize/alert… | SOAR | read + guarded |
+| `alerts` | `list` · `get` · `update` (feedback) | SIEM | read + guarded (`update`) |
+| `cases` | SOAR case triage: list/get/close/assign/tag/stage/comment/run-action/incident/report/alert… | SOAR | read + guarded |
 | `content-hub` | `browse` · `list` · `get` · `contentpacks` · `featured` · `diff` · `install` · `uninstall` | SOAR | read + guarded (`install`/`uninstall`) |
 | `ingest` | `feeds` · `forwarders` · `parsers` · `log-types` · `pipeline` · `health` | SIEM | read + guarded |
 | `data-access` | RBAC: `labels …` · `scopes …` | SIEM | read + guarded |
@@ -198,13 +198,15 @@ Gemini-powered (the console's "Get the help of AI" / "Gemini Investigations"). O
 account opt-in is needed (`gemini ask --opt-in`); read-only.
 
 ```bash
-secopsctl gemini generate 'failed admin logins in the last hour'   # NL → UDM query (don't run)
+secopsctl gemini generate-query 'failed admin logins in the last hour'  # NL → UDM query (don't run)
 secopsctl gemini search   'network connections to a public IP in the last hour'  # NL → UDM + run
 secopsctl gemini ask      'how do I write a YARA-L rule for process injection?'  # assistant Q&A
+secopsctl gemini investigate --alert-id <id>                            # AI triage (moved from alerts)
+secopsctl gemini summarize --case-id <id>                               # AI case summary (moved from cases)
 ```
 
-`gemini generate`/`search` honor the **time window the model infers** from the text
-("…in the last hour") unless you set `--hours`/`--from` explicitly. `gemini search`
+`gemini generate-query`/`search` honor the **time window the model infers** from the text
+("…in the last hour") unless you set `--hours`/`--from` explicitly. `gemini search`/`search generate-query`
 takes the same `--format`/`--fields`/`--out` flags as `search udm`.
 
 ## Output & JSON contracts

@@ -7,10 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"maps"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -40,8 +37,9 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 			"  secopsctl playbooks summary --case-id 123 --playbook \"My Playbook\"\n" +
 			"`--playbook` is resolved to its definition id via `playbooks list`, and the\n" +
 			"alert identifier is read from the case automatically (use `--alert` when a case\n" +
-			"has more than one alert, or `--definition` to pass the id directly). Prefers the\n" +
-			"v1alpha SOAR-host path and falls back to the legacy API.",
+			"has more than one alert, or `--definition` to pass the id directly). Uses the\n" +
+			"two-call pattern (list cards → get instance detail) for reliable results\n" +
+			"across single- and multi-alert cases.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if caseID <= 0 {
@@ -52,9 +50,6 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 				return err
 			}
 			ctx := baseContext()
-			// Resolve the friendly inputs to the opaque selectors the API needs:
-			// a playbook NAME → its definition id, and (when --alert is omitted) the
-			// case's single alert identifier.
 			if strings.TrimSpace(definition) == "" && strings.TrimSpace(playbook) != "" {
 				if definition, err = resolvePlaybookDefinition(ctx, lc, playbook); err != nil {
 					return err
@@ -65,44 +60,84 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 					return err
 				}
 			}
-			if strings.TrimSpace(definition) == "" {
-				return fmt.Errorf("select the run: pass --playbook <name> or --definition <id>")
+
+			cardsBody := map[string]any{
+				"caseId":          strconv.Itoa(caseID),
+				"alertIdentifier": alert,
 			}
-			body, err := workflowSummaryBody(caseID, alert, definition, fetchSteps, collapseBlocks)
-			if err != nil {
-				return err
+			getCards := func(fn func(context.Context, any) (json.RawMessage, error)) (json.RawMessage, error) {
+				return fn(ctx, cardsBody)
 			}
-			render := func(raw json.RawMessage) error {
-				if jsonOut {
-					return writeRawJSON(os.Stdout, raw)
-				}
-				printWorkflowSummary(cmd.OutOrStdout(), raw, showErrors, steps)
-				return nil
-			}
-			return preferModern("playbooks summary",
+
+			var cardsRaw json.RawMessage
+			err = preferModern("playbooks summary (cards)",
 				func() error {
 					mc, merr := newSOARClient()
 					if merr != nil {
 						return merr
 					}
-					// The v1alpha path expects caseId as a string; build the
-					// modern body from the same map with the type overridden.
-					modernBody := maps.Clone(body)
-					modernBody["caseId"] = strconv.Itoa(caseID)
-					raw, merr := mc.GetWorkflowInstanceSummary(ctx, modernBody)
+					cardsRaw, merr = getCards(mc.GetWorkflowInstanceCards)
+					return merr
+				},
+				func() error {
+					cardsRaw, err = getCards(lc.GetWorkflowInstancesCards)
+					return err
+				},
+			)
+			if err != nil {
+				return err
+			}
+
+			card, err := pickWorkflowCard(cardsRaw, definition)
+			if err != nil {
+				return err
+			}
+			if card == nil {
+				if playbook != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "no playbook runs found for %q on case %d alert %s\n", playbook, caseID, truncate(alert, 40))
+				} else {
+					fmt.Fprintf(cmd.OutOrStdout(), "no playbook runs found on case %d alert %s\n", caseID, truncate(alert, 40))
+				}
+				return nil
+			}
+
+			if jsonOut && !fetchSteps {
+				return writeRawJSON(os.Stdout, card.raw)
+			}
+
+			instanceBody := map[string]any{
+				"caseId":                   strconv.Itoa(caseID),
+				"alertIdentifier":          alert,
+				"definitionIdentifier":     card.definitionID,
+				"shouldFetchSteps":         fetchSteps,
+				"collapseBlocks":           collapseBlocks,
+				"loopsRequestedIterations": []any{},
+			}
+
+			var instanceRaw json.RawMessage
+			err = preferModern("playbooks summary (instance)",
+				func() error {
+					mc, merr := newSOARClient()
 					if merr != nil {
 						return merr
 					}
-					return render(raw)
+					instanceRaw, merr = mc.GetWorkflowInstance(ctx, instanceBody)
+					return merr
 				},
 				func() error {
-					raw, lerr := lc.GetWorkflowInstanceSummary(ctx, body)
-					if lerr != nil {
-						return lerr
-					}
-					return render(raw)
+					instanceRaw, err = lc.GetWorkflowInstance(ctx, instanceBody)
+					return err
 				},
 			)
+			if err != nil {
+				return err
+			}
+
+			if jsonOut {
+				return writeRawJSON(os.Stdout, instanceRaw)
+			}
+			printWorkflowSummary(cmd.OutOrStdout(), instanceRaw, showErrors, steps)
+			return nil
 		},
 	}
 	f := cmd.Flags()
@@ -116,6 +151,48 @@ func newSOARPlaybookSummaryCmd() *cobra.Command {
 	f.BoolVar(&steps, "steps", false, "print the full per-step execution trace (every completed step, not just faulted ones) — for debugging a run that finished but did the wrong thing")
 	_ = cmd.MarkFlagRequired("case-id")
 	return markJSON(cmd)
+}
+
+type workflowCard struct {
+	definitionID string
+	name         string
+	status       string
+	raw          json.RawMessage
+}
+
+// pickWorkflowCard finds the matching card from the cards response. The
+// response may be a top-level array or wrapped in {"payload": [...]}.
+// When definition is set, matches by definitionIdentifier; otherwise returns
+// the first card.
+func pickWorkflowCard(cardsRaw json.RawMessage, definition string) (*workflowCard, error) {
+	var cards []json.RawMessage
+	if err := json.Unmarshal(cardsRaw, &cards); err != nil {
+		var wrapper struct {
+			Payload []json.RawMessage `json:"payload"`
+		}
+		if err2 := json.Unmarshal(cardsRaw, &wrapper); err2 == nil {
+			cards = wrapper.Payload
+		} else {
+			return nil, fmt.Errorf("parse workflow cards: %w", err)
+		}
+	}
+	if len(cards) == 0 {
+		return nil, nil
+	}
+	for _, raw := range cards {
+		m, ok := rawJSONObject(raw)
+		if !ok {
+			continue
+		}
+		id := rawScalarString(m["definitionIdentifier"])
+		name := rawScalarString(m["name"])
+		status := rawScalarString(m["status"])
+		if definition != "" && !strings.EqualFold(id, definition) {
+			continue
+		}
+		return &workflowCard{definitionID: id, name: name, status: status, raw: raw}, nil
+	}
+	return nil, nil
 }
 
 func newSOARPlaybookResultsCmd() *cobra.Command {
@@ -361,229 +438,4 @@ func workflowSummaryBody(caseID int, alert, definition string, fetchSteps, colla
 		body["definitionIdentifier"] = definition
 	}
 	return body, nil
-}
-
-func printPlaybookDebugResponse(w io.Writer, raw json.RawMessage) {
-	m, ok := rawJSONObject(raw)
-	if !ok {
-		printGenericItemsSummary(w, "debug response records", raw)
-		return
-	}
-	fmt.Fprintln(w, "debug_run:")
-	printJSONField(w, m, "workflowInstanceId", "workflow_instance_id")
-	printJSONField(w, m, "newTestCaseId", "new_test_case_id")
-	printJSONField(w, m, "triggerMatches", "trigger_matches")
-	printJSONField(w, m, "newWorkflowIdentifier", "new_workflow_identifier")
-	if hasJSONValue(m, "alertGroupIdentifier") {
-		fmt.Fprintln(w, "alert_group_identifier: present")
-	}
-	if hasJSONValue(m, "alertIdentifier") {
-		fmt.Fprintln(w, "alert_identifier: present")
-	}
-}
-
-// faultedStep is the subset of a faulted workflow step we surface: the action
-// that failed, its status, the runtime error message (a Python traceback, for a
-// script action), and a Cloud Logging deep-link to the raw step logs.
-type faultedStep struct {
-	ActionName              string `json:"actionName"`
-	Name                    string `json:"name"`
-	Status                  string `json:"status"`
-	Message                 string `json:"message"`
-	IntegrationInstanceName string `json:"integrationInstanceName"`
-	LogsExplorerURL         string `json:"logsExplorerUrl"`
-}
-
-func printWorkflowSummary(w io.Writer, raw json.RawMessage, showErrors, showSteps bool) {
-	m, ok := rawJSONObject(raw)
-	if !ok {
-		printGenericItemsSummary(w, "workflow summary records", raw)
-		return
-	}
-	fmt.Fprintln(w, "workflow_summary:")
-	// Step collections are large arrays — print their counts, not the full dump.
-	for _, kv := range []struct{ key, label string }{
-		{"completedSteps", "completed"},
-		{"faultedSteps", "faulted"},
-		{"retryPendingSteps", "retry_pending"},
-		{"usedIntegrations", "used_integrations"},
-	} {
-		if rawItems, ok := m[kv.key]; ok {
-			fmt.Fprintf(w, "  %s: %d\n", kv.label, jsonArrayLen(rawItems))
-		}
-	}
-	// Scalars.
-	for _, key := range []string{"totalPendingActionSteps", "executionTimeInMs"} {
-		printJSONField(w, m, key, snakeCase(key))
-	}
-	printFaultedSteps(w, m["faultedSteps"], showErrors)
-	if showSteps {
-		printStepTrace(w, m["completedSteps"], showErrors)
-	}
-}
-
-// playbookTraceStep is the subset of a workflow step rendered by --steps: the
-// per-step execution trace (status · integration/action · result), so a run that
-// completed but behaved wrong is debuggable, not just one with faulted steps.
-type playbookTraceStep struct {
-	Status                  string `json:"status"`
-	Name                    string `json:"name"`
-	Integration             string `json:"integration"`
-	ActionName              string `json:"actionName"`
-	Message                 string `json:"message"`
-	IntegrationInstanceName string `json:"integrationInstanceName"`
-	LogsExplorerURL         string `json:"logsExplorerUrl"`
-	CreationTimeMs          int64  `json:"creationTimeUnixTimeInMs"`
-}
-
-// printStepTrace renders every completed step as a chronological execution trace.
-func printStepTrace(w io.Writer, rawSteps json.RawMessage, showErrors bool) {
-	var steps []playbookTraceStep
-	if json.Unmarshal(rawSteps, &steps) != nil || len(steps) == 0 {
-		return
-	}
-	sort.SliceStable(steps, func(i, j int) bool { return steps[i].CreationTimeMs < steps[j].CreationTimeMs })
-	fmt.Fprintln(w, "  steps (execution trace, oldest first):")
-	for i := range steps {
-		s := &steps[i]
-		action := strings.TrimSpace(s.Integration + " / " + s.ActionName)
-		label := defaultString(strings.TrimSpace(s.Name), action)
-		fmt.Fprintf(w, "    %-10s %s\n", defaultString(s.Status, "?"), label)
-		if msg := strings.TrimSpace(s.Message); msg != "" {
-			if !showErrors {
-				msg = truncate(msg, 100)
-			}
-			fmt.Fprintf(w, "               %s\n", msg)
-		}
-		if s.LogsExplorerURL != "" {
-			fmt.Fprintf(w, "               logs: %s\n", s.LogsExplorerURL)
-		}
-	}
-}
-
-// printFaultedSteps expands each faulted step with its action, error message, and
-// Logs Explorer link — the point of inspecting a failed run. The error message is
-// collapsed to one truncated line unless showErrors is set.
-func printFaultedSteps(w io.Writer, rawFaulted json.RawMessage, showErrors bool) {
-	if len(rawFaulted) == 0 {
-		return
-	}
-	var steps []faultedStep
-	if err := json.Unmarshal(rawFaulted, &steps); err != nil || len(steps) == 0 {
-		return
-	}
-	fmt.Fprintf(w, "faulted (%d):\n", len(steps))
-	hasMsg := false
-	for i := range steps {
-		s := &steps[i]
-		fmt.Fprintf(w, "  [%d] %s — %s", i+1, firstNonEmpty(s.ActionName, s.Name, "(step)"), orDash(s.Status))
-		if s.IntegrationInstanceName != "" {
-			fmt.Fprintf(w, " (%s)", s.IntegrationInstanceName)
-		}
-		fmt.Fprintln(w)
-		if msg := strings.TrimSpace(s.Message); msg != "" {
-			hasMsg = true
-			if showErrors {
-				fmt.Fprintf(w, "      error: %s\n", msg)
-			} else {
-				fmt.Fprintf(w, "      error: %s\n", truncate(strings.Join(strings.Fields(msg), " "), 300))
-			}
-		}
-		if s.LogsExplorerURL != "" {
-			fmt.Fprintf(w, "      logs:  %s\n", s.LogsExplorerURL)
-		}
-	}
-	if hasMsg && !showErrors {
-		fmt.Fprintln(w, "  (use --show-errors for full messages)")
-	}
-}
-
-func printActionResultsSummary(w io.Writer, raw json.RawMessage) {
-	records := rawRecordList(raw)
-	if len(records) == 0 {
-		printGenericItemsSummary(w, "action results", raw)
-		return
-	}
-	statuses := map[string]int{}
-	pythonIDs := 0
-	for _, record := range records {
-		m, ok := rawJSONObject(record)
-		if !ok {
-			continue
-		}
-		status := rawScalarString(m["status"])
-		if status == "" {
-			status = "(unknown)"
-		}
-		statuses[status]++
-		if hasJSONValue(m, "pythonExecutionId") {
-			pythonIDs++
-		}
-	}
-	fmt.Fprintf(w, "action_results: %d\n", len(records))
-	if len(statuses) > 0 {
-		fmt.Fprintln(w, "status:")
-		for _, status := range sortedMapKeys(statuses) {
-			fmt.Fprintf(w, "- %s: %d\n", status, statuses[status])
-		}
-	}
-	fmt.Fprintf(w, "python_execution_ids: %d present\n", pythonIDs)
-}
-
-func printSingleActionResultSummary(w io.Writer, raw json.RawMessage) {
-	m, ok := rawJSONObject(raw)
-	if !ok {
-		printGenericItemsSummary(w, "action result records", raw)
-		return
-	}
-	fmt.Fprintln(w, "action_result:")
-	printJSONField(w, m, "status", "status")
-	printJSONField(w, m, "resultCode", "result_code")
-	for _, field := range []string{
-		"message",
-		"resultJsonObject",
-		"targetedEntitiesJsonObject",
-		"resultEntitiesJsonObject",
-		"resultValue",
-		"scriptResultEntityData",
-		"pythonExecutionId",
-	} {
-		fmt.Fprintf(w, "%s: %t\n", snakeCase(field), hasJSONValue(m, field))
-	}
-}
-
-func printGenericItemsSummary(w io.Writer, label string, raw json.RawMessage) {
-	records := rawRecordList(raw)
-	if len(records) > 0 {
-		fmt.Fprintf(w, "%s: %d\n", label, len(records))
-		return
-	}
-	switch firstJSONByte(raw) {
-	case '[':
-		fmt.Fprintf(w, "%s: 0\n", label)
-	case '{':
-		fmt.Fprintln(w, "response: object")
-	default:
-		fmt.Fprintln(w, "response: received")
-	}
-}
-
-func printPendingStepCount(w io.Writer, raw json.RawMessage) {
-	switch firstJSONByte(raw) {
-	case '{', '[':
-	default:
-		if count := rawScalarString(raw); count != "" {
-			fmt.Fprintf(w, "pending_steps: %s\n", count)
-			return
-		}
-	}
-	if m, ok := rawJSONObject(raw); ok {
-		for _, key := range []string{"count", "pendingSteps", "pendingStepsCount", "totalCount"} {
-			if value := rawScalarString(m[key]); value != "" {
-				fmt.Fprintf(w, "pending_steps: %s\n", value)
-				return
-			}
-		}
-	}
-	printGenericItemsSummary(w, "pending steps", raw)
 }

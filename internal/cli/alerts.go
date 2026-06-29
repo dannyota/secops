@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,8 +35,10 @@ func newAlertsCmd() *cobra.Command {
 			"`list` and `get` read only; `update` is a guarded live mutation (dry-run by\n" +
 			"default, --yes to apply); `investigate` starts a generation unless --latest.",
 	}
+	inv := newAlertsInvestigateCmd()
+	inv.Hidden = true
 	cmd.AddCommand(newAlertsListCmd(), newAlertsGetCmd(), newAlertsUpdateCmd(),
-		newAlertsEnrichCmd(), newAlertsInvestigateCmd())
+		newAlertsEnrichCmd(), inv)
 	return cmd
 }
 
@@ -475,17 +479,27 @@ func describeAlertUpdate(u chronicle.AlertUpdate) string {
 // objects as a JSON array under --json.
 func emitAlerts(w io.Writer, snap *chronicle.AlertsSnapshot) error {
 	if jsonOut {
-		parts := make([]json.RawMessage, 0, len(snap.Alerts))
+		bw := bufio.NewWriter(w)
+		_, _ = bw.WriteString("[\n")
+		first := true
 		for i := range snap.Alerts {
-			if len(snap.Alerts[i].Raw) > 0 {
-				parts = append(parts, snap.Alerts[i].Raw)
+			if len(snap.Alerts[i].Raw) == 0 {
+				continue
 			}
+			if !first {
+				_, _ = bw.WriteString(",\n")
+			}
+			first = false
+			var buf bytes.Buffer
+			if err := json.Indent(&buf, snap.Alerts[i].Raw, "  ", "  "); err != nil {
+				buf.Reset()
+				buf.Write(snap.Alerts[i].Raw)
+			}
+			_, _ = bw.WriteString("  ")
+			_, _ = bw.Write(buf.Bytes())
 		}
-		b, err := json.Marshal(parts)
-		if err != nil {
-			return err
-		}
-		return writeRawJSON(w, b)
+		_, _ = bw.WriteString("\n]\n")
+		return bw.Flush()
 	}
 	if len(snap.Alerts) == 0 {
 		fmt.Fprintln(w, "no alerts.")

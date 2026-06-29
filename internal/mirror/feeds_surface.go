@@ -337,7 +337,7 @@ func canonicalFeed(spec feedSpec) ([]byte, error) {
 	if err := json.Unmarshal(raw, &v); err != nil {
 		return nil, err
 	}
-	rb, err := json.Marshal(redact(v))
+	rb, err := json.Marshal(stripSecrets(v))
 	if err != nil {
 		return nil, err
 	}

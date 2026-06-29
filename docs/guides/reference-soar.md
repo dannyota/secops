@@ -16,7 +16,7 @@ flowchart LR
   work -- "guarded verbs (dry-run → --yes)" --> live
 ```
 
-## 🔒 Cases — read-only
+## Cases: read-only
 
 A case is one record: `cases …` is the canonical command. The `--id` is the SOAR
 integer id from `cases list`.
@@ -61,7 +61,7 @@ Terms compose with `and` / `or` and parentheses. A zero-match query returns an
 empty result (HTTP 204), not an error. Very long filters are sent automatically
 via the method-override POST the UI uses, so URL length is not a practical limit.
 
-## ⚠️ Cases — guarded mutations
+## Cases: guarded mutations
 
 Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 [triage](triage.md).
@@ -88,7 +88,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `cases alert reopen` | Reopen one closed alert in a case (`--id`, `--alert`). |
 | `cases simulation create\|generate\|alert\|delete` | Create a custom simulated test case from alert/event field specs, generate test case(s) from named simulation(s), simulate an alert inside a case, or delete a custom simulation — playbook testing. |
 
-## 🔒 SOAR engine & config — read-only
+## SOAR engine and config: read-only
 
 | Command | What it does |
 |---|---|
@@ -111,7 +111,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar users list [--grep] [--all]` | List SOAR users (the USERNAME column is the value for `cases assign --user`). |
 | `soar legacy list [--grep] [--tag] [--method M]` | List external-API ops available to `soar legacy call` (offline, from the bundled index). |
 
-### SOAR playbooks — read-only
+### SOAR playbooks: read-only
 
 | Command | What it does |
 |---|---|
@@ -131,7 +131,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `soar playbooks generate-status --case-id N --alert <id>` | Poll the status of a by-alert AI playbook generation. |
 | `soar playbooks python-logs` | Read Python execution logs (`--filter`, `--page-size`, `--page-token`). Can 500 on some instances; prefer `soar playbooks summary` for failed-run triage. |
 
-### Content Hub — read-only
+### Content Hub: read-only
 
 | Command | What it does |
 |---|---|
@@ -142,7 +142,7 @@ Dry-run by default; pass `--yes` to apply. See [SOAR cases](soar-cases.md) and
 | `content-hub contentpacks` / `contentpacks get <id>` | List Content Hub content packs, or inspect one. |
 | `content-hub featured list` | List featured playbooks from the Content Hub. |
 
-## ⚠️ SOAR — guarded mutations
+## SOAR: guarded mutations
 
 Dry-run by default; pass `--yes` to apply. Each prints a `LIVE DEPLOY` banner.
 
@@ -183,7 +183,7 @@ Dry-run by default; pass `--yes` to apply. Each prints a `LIVE DEPLOY` banner.
 `soar push cases` and it is not part of `drift`, so the pull → diff → push loop
 does not close for it — use it to capture state for review, not to reconcile it.
 
-## 🛠️ SOAR IDE & offline tooling
+## SOAR IDE and offline tooling
 
 Offline composers and scaffolds — no API call until you save through the guarded
 loop above.
@@ -198,7 +198,7 @@ loop above.
 | `soar playbooks step insert --file <pb.json> --mold <step.json> --after <step> --out <f>` | Splice a NEW action step into a playbook definition after an anchor step — fresh graph identity, rewired relations (`--branch` picks a condition branch). |
 | `soar playbooks trigger set --file <playbook.json> --out <playbook.json>` | Edit trigger fields in exported playbook JSON (`--enabled`, `--trigger-enabled`, `--type`, `--execution-mode`, `--cron`, `--conditions`, `--reaction-conditions`) before validation and guarded save. |
 
-## 🧪 Cookbook (SOAR)
+## Cookbook (SOAR)
 
 **Triage a case** — `--id` is the SOAR integer id from `cases list`
 ([SOAR cases](soar-cases.md), [triage](triage.md)):
@@ -269,7 +269,7 @@ secopsctl soar legacy call <write-op> --method POST --write --body req.json --dr
 secopsctl soar legacy call <write-op> --method POST --write --body req.json --yes      # deploy live
 ```
 
-## 🔗 See also
+## See also
 
 - [SOAR cases](soar-cases.md) · [Triage](triage.md) · [Playbooks](playbooks.md) · [Content Hub](content-hub.md) · [Reconcile](reconcile.md)
 - [SIEM/SOAR command reference — SIEM](reference-siem.md) (global flags · exit codes · output contract)

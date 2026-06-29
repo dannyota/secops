@@ -150,7 +150,7 @@ secopsctl ti related <ioc-id> [--collection-type campaign|report|all] [--json]  
 secopsctl ti collections [--types campaign,report,…] [--limit N] [--json]                  # threat collections (built, read)
 secopsctl ti collection-matches <collection-alt-name-or-id> [--json]                       # collection match counts (built, read)
 secopsctl gemini search '<question>' [--hours N] [--limit N] [--json]                       # NL → UDM → run (built, read)
-secopsctl gemini generate '<question>'                                                     # NL → UDM, do not run (built, read)
+secopsctl gemini generate-query '<question>'                                               # NL → UDM, do not run (built, read)
 secopsctl entities summarize <type> <value> [--hours N] [--json]                           # built, read
 ```
 
@@ -220,7 +220,7 @@ per-command status is in [catalog.md](catalog.md).*
 secopsctl search udm | alerts list/get | ti find/get/related/collections/collection-matches | entities summarize # read
 secopsctl search udm '<filter>' --raw [--limit N]                                             # raw log line per matched event (UDM-scoped) -> ingest parsers run --logs -
 secopsctl search raw '<regex>' [--unparsed] [--limit N]                                        # content-based raw log search (reaches no-parser logs) -> ingest parsers run --logs -
-secopsctl alerts    update | bulk <close|verdict|priority|comment>                            # act (planned)
+secopsctl alerts    update --status --verdict [--comment]                                     # act (built, guarded)
 secopsctl cases list | get | assign | rename | stage | tag | untag | describe | importance | close | merge
 secopsctl soar push bulk-close                                                    # queue bulk-close (fixed reason)
 ```
@@ -279,17 +279,15 @@ is verified end-to-end (`TestLiveSOARCaseVerbsWriteSmoke`: create two throwaway
 cases → run every verb → merge → close). Status detail is in
 [soar.md](soar.md) and [catalog.md](catalog.md).
 
-### Still planned — alert act verbs and the generalized bulk model
+### Alert act verbs
 
-The `alerts` **read** namespace is wired (`alerts list`/`get`, read-validated;
-alerts are also readable as a **field of the case** via `cases get`). Two
-pieces of the operator model above are **not yet wired**: the alert **act** verbs
-(`alerts update`/`bulk` — `UpdateAlert`/`BulkUpdateAlerts` exist in the SDK, gated,
-not run), and the generalized subset-act model on a SIEM-native namespace
-(reviewed-`--ids` preferred, `--filter` gated dry-run-first and `--limit`-capped —
-beyond today's fixed-reason `soar push bulk-close`). Both follow the same guard: read
-and `--dry-run` previews ship first, and no `--yes` bulk mutation is trusted until a
-gated live smoke runs against an inert throwaway.
+The `alerts` namespace covers reads (`alerts list`/`get`; alerts are also
+readable as a **field of the case** via `cases get`) and the guarded **act** verb
+`alerts update` (set status, verdict, priority, comment, scores on one or more
+alerts — dry-run default, `--yes` to apply). The generalized subset-act bulk
+model (reviewed-`--ids` preferred, `--filter` gated dry-run-first and
+`--limit`-capped) is the planned next step beyond today's fixed-reason
+`soar push bulk-close`.
 
 ## Non-goals
 

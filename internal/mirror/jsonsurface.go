@@ -114,7 +114,7 @@ func (spec jsonSurfaceSpec) buildObject(full json.RawMessage) (reconcile.Object,
 	if err := json.Unmarshal(full, &v); err != nil {
 		return reconcile.Object{}, err
 	}
-	rb, err := json.Marshal(redact(v))
+	rb, err := json.Marshal(stripSecrets(v))
 	if err != nil {
 		return reconcile.Object{}, err
 	}

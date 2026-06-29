@@ -26,26 +26,37 @@ func init() {
 func newGeminiCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gemini",
-		Short: "AI (Gemini): generate a query from natural language, NL search, ask the assistant",
-		Long: "Gemini-powered features:\n" +
-			"  generate  turn a natural-language question into a UDM query (don't run it)\n" +
-			"  search    turn a natural-language question into a UDM query AND run it\n" +
-			"  ask       ask the Gemini assistant a question (YARA-L help, UDM fields, …)\n\n" +
+		Short: "AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks",
+		Long: "All Gemini-powered features consolidated in one group:\n" +
+			"  generate-query  turn a natural-language question into a UDM query (don't run it)\n" +
+			"  search          turn a natural-language question into a UDM query AND run it\n" +
+			"  ask             ask the Gemini assistant a question (YARA-L help, UDM fields, …)\n" +
+			"  investigate     run the AI investigation for an alert (verdict, confidence, next steps)\n" +
+			"  summarize       AI-powered case summary (reasons + recommended next steps)\n" +
+			"  generate        generate a playbook definition from a description or case context\n\n" +
 			"Deterministic search lives under `secopsctl search`.",
 	}
-	cmd.AddCommand(newGeminiGenerateCmd(), newGeminiSearchCmd(), newGeminiAskCmd())
+	cmd.AddCommand(
+		newGeminiGenerateQueryCmd(),
+		newGeminiSearchCmd(),
+		newGeminiAskCmd(),
+		newAlertsInvestigateCmd(),
+		newCaseSummarizeCmd(),
+		newSOARPlaybookGenerateCmd(),
+	)
 	return cmd
 }
 
-// newGeminiGenerateCmd turns natural language into a UDM query via Gemini and
-// prints it (with the model's suggested window) — it does not run a search.
-func newGeminiGenerateCmd() *cobra.Command {
+// newGeminiGenerateQueryCmd turns natural language into a UDM query via Gemini
+// and prints it (with the model's suggested window) — it does not run a search.
+func newGeminiGenerateQueryCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "generate <natural language>",
-		Short: "Generate a UDM query from natural language (Gemini); do not run it",
+		Use:     "generate-query <natural language>",
+		Aliases: []string{"translate"},
+		Short:   "Generate a UDM query from natural language (Gemini); do not run it",
 		Long: "Translate a plain-English question into a UDM query via Gemini and print it,\n" +
 			"along with any time window the model inferred. Use `gemini search` to also run it.",
-		Example: "  secopsctl gemini generate 'failed logins to admin accounts in the last hour'",
+		Example: "  secopsctl gemini generate-query 'failed logins to admin accounts in the last hour'",
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newChronicleClient()

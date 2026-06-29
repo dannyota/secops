@@ -48,9 +48,11 @@ func caseVerbs() []*cobra.Command {
 		newCaseReopenCmd(),
 		newCaseMergeCmd(),
 		newCaseCommentCmd(),
+		newCaseIncidentCmd(),
+		newCaseReportCmd(),
 		newCaseAlertCmd(),
 		newCaseValuesCmd(),
-		newCaseSummarizeCmd(),
+		func() *cobra.Command { c := newCaseSummarizeCmd(); c.Hidden = true; return c }(),
 		newCaseCountsCmd(),
 		newCaseOverviewCmd(),
 		newCaseWorkloadCmd(),
@@ -555,4 +557,89 @@ func newCaseMergeCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("into")
 	return markJSON(cmd)
+}
+
+func newCaseIncidentCmd() *cobra.Command {
+	var (
+		caseID      int
+		unset       bool
+		dryRun, yes bool
+	)
+	cmd := &cobra.Command{
+		Use:   "incident --id N",
+		Short: "Mark (or unmark) a case as an incident",
+		Long: "Set the incident flag on a case. Pass --unset to remove the incident flag.\n" +
+			"The case must be assigned to the current user. Guarded: dry-run by default,\n" +
+			"--yes to apply live.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			body := map[string]any{"caseId": caseID}
+			verb := "mark"
+			if unset {
+				verb = "unmark"
+			}
+			return caseAction(fmt.Sprintf("%s case %d as incident", verb, caseID), body, dryRun, yes,
+				func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
+					if unset {
+						return lc.DynamicCaseXUnraiseIncident(ctx, body)
+					}
+					return lc.DynamicCaseXRaiseIncident(ctx, body)
+				})
+		},
+	}
+	caseGuardFlags(cmd, &caseID, nil, &dryRun, &yes, false)
+	cmd.Flags().BoolVar(&unset, "unset", false, "remove the incident flag instead of setting it")
+	return markJSON(cmd)
+}
+
+func newCaseReportCmd() *cobra.Command {
+	var (
+		caseID  int
+		format  string
+		outFile string
+	)
+	cmd := &cobra.Command{
+		Use:   "report --id N [--format pdf|doc|xlsx|csv] [--out FILE]",
+		Short: "Generate and download a case report",
+		Long: "Generate a case report in the specified format. The response is binary (the\n" +
+			"report file itself). Use --out to save to a file; without it, writes to stdout\n" +
+			"(pipe to a file). Formats: pdf (default), doc, docx, xlsx, csv, html.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if caseID <= 0 {
+				return fmt.Errorf("--id is required")
+			}
+			kindMap := map[string]int{
+				"pdf": 0, "rtf": 1, "doc": 2, "docx": 3,
+				"html": 4, "xlsx": 5, "csv": 6,
+			}
+			kind, ok := kindMap[strings.ToLower(format)]
+			if !ok {
+				return fmt.Errorf("unknown format %q — use pdf, doc, docx, xlsx, csv, or html", format)
+			}
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			body := map[string]any{"caseId": caseID, "reportKind": kind}
+			data, err := lc.DynamicCaseXGenerateReportBytes(baseContext(), body)
+			if err != nil {
+				return err
+			}
+			if outFile != "" {
+				if err := os.WriteFile(outFile, data, 0o644); err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "report saved to %s (%d bytes)\n", outFile, len(data))
+				return nil
+			}
+			_, err = os.Stdout.Write(data)
+			return err
+		},
+	}
+	cmd.Flags().IntVar(&caseID, "id", 0, "SOAR case id (required)")
+	cmd.Flags().StringVar(&format, "format", "pdf", "report format: pdf, doc, docx, xlsx, csv, html")
+	cmd.Flags().StringVar(&outFile, "out", "", "save report to this file path")
+	_ = cmd.MarkFlagRequired("id")
+	return cmd
 }

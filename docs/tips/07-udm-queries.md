@@ -148,7 +148,7 @@ metadata.event_type = "USER_RESOURCE_UPDATE_PERMISSIONS"
 AND metadata.product_event_type = "SetIamPolicy"
 ```
 
-## ⚠️ The important lesson: verify vendor/log tags in YOUR data
+## Verify vendor/log tags in your data
 
 > **Before trusting any curated (or third-party) rule that filters on a vendor tag
 > like `metadata.vendor_name = "<Some Product>"`, confirm your events actually carry

@@ -16,7 +16,7 @@ func TestPlaybookComponentsCommandRegistered(t *testing.T) {
 	}
 }
 
-// TestActionParameterSchemaCaptured locks FR-31b: an action row carries the full
+// TestActionParameterSchemaCaptured verifies an action row carries the full
 // parameter schema (name/type/mandatory/default/optionalValues/description), so a
 // step can be authored from --json output, not just a parameter count.
 func TestActionParameterSchemaCaptured(t *testing.T) {

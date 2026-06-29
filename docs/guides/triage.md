@@ -12,7 +12,7 @@ flowchart LR
   queue["queue<br/>counts · list"] --> case["case<br/>get · summarize"]
   case --> ai["AI verdict<br/>alerts investigate"]
   ai --> act["act<br/>case + alert verbs"]
-  act --> tune["tune<br/>rules trends · events"]
+  act --> tune["tune<br/>rules trends · detections · events"]
   tune -. fewer alerts .-> queue
 ```
 
@@ -111,7 +111,7 @@ lane (`--legacy` forces it) — see
 [SOAR cases](soar-cases.md) for the two-API story. Exit codes are git-style:
 `0` success, `2` divergence (`drift`), `1` any error.
 
-## 🤖 Running this from an agent
+## Running this from an agent
 
 Three guardrails make the triage loop safe to hand to automation:
 

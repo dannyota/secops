@@ -33,7 +33,7 @@ AppKey header and never touches ADC. See `danny.vn/secops/auth`.
 > file (`config.Load(...).Settings()`), but the SDK has no dependency on it —
 > populate `Settings` however you like.
 
-## ⚙️ Settings & hosts
+## Settings and hosts
 
 Get the hosts and project forms right or surfaces 404 / hit the wrong host.
 
@@ -51,7 +51,7 @@ Get the hosts and project forms right or surfaces 404 / hit the wrong host.
   `ProjectNumber`, `Region`, and `CustomerID` for the v1alpha resource path.
   `soar.Settings` and `legacy.Settings` are the same type.
 
-## 🔒 Chronicle (SIEM)
+## Chronicle (SIEM)
 
 ```go
 package main
@@ -222,7 +222,7 @@ honoring `res.TimeRange` when present.
 > verbs (GET/HEAD/PUT/DELETE), never for a mutating POST/PATCH (a write that 500s may
 > already have applied server-side; see the SOAR sections below).
 
-## 🔒 SOAR (modern v1alpha)
+## SOAR (modern v1alpha)
 
 ```go
 package main
@@ -291,7 +291,7 @@ Definition authoring mirrors the IDE's create flow:
 > unused (it 500s at every version — see [`catalog.md`](../design/catalog.md)).
 > For full case details and the triage verbs, use the `soar/legacy` client below.
 
-## 🔒 SOAR (legacy external API)
+## SOAR (legacy external API)
 
 The `soar/legacy` package speaks the Siemplify external API (`/api/external/v1`),
 the broad and reliable AppKey path for SOAR. It is a permanent part of the design —
@@ -365,7 +365,7 @@ if errors.As(err, &apiErr) {
 }
 ```
 
-## 📌 Notes
+## Notes
 
 - **Construction is offline.** `NewClient` never calls the network, gcloud, or the
   AppKey — credentials and connectivity errors surface on the **first** API call,

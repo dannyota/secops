@@ -147,6 +147,12 @@ func (c *Client) DynamicCaseXGenerateReport(ctx context.Context, body any) (RawJ
 	return c.externalPost(ctx, "/dynamic-cases/GenerateCaseReport", body)
 }
 
+// DynamicCaseXGenerateReportBytes is like DynamicCaseXGenerateReport but returns
+// the raw bytes (the response may be binary content, not JSON).
+func (c *Client) DynamicCaseXGenerateReportBytes(ctx context.Context, body any) ([]byte, error) {
+	return c.t.ExternalBytes(ctx, "POST", "/dynamic-cases/GenerateCaseReport", body)
+}
+
 // DynamicCaseXRequest adds an evidence (attachment) to a case via the request
 // endpoint. body is the freeform legacy payload. LIVE MUTATION.
 func (c *Client) DynamicCaseXRequest(ctx context.Context, body any) (RawJSON, error) {

@@ -19,7 +19,7 @@ specifics.
 Keep the AppKey out of the repo — in an env var or secret store, never in
 committed config (same rule as feeds, [08-feeds-parsers.md](08-feeds-parsers.md)).
 
-## 🔀 Two API surfaces
+## Two API surfaces
 
 SOAR exposes **two** API surfaces on the **same host**, and the same AppKey works
 for both. Pick per task — they don't share response shapes, so don't mix them in
@@ -58,7 +58,7 @@ Map between them via the lookup that returns both — the SIEM-side case fetch
 exposes the SOAR integer ID alongside the UUID. Always know which ID a given
 endpoint expects.
 
-## ⚠️ The playbook-versioning gotcha
+## The playbook-versioning gotcha
 
 The SOAR trap that bites everyone:
 
@@ -95,7 +95,7 @@ digits, spaces, hyphens, underscores — and integration-action steps have
 step-shape rules. Prototype playbook automation in the UI, then export and check
 into git, rather than hand-authoring blind.
 
-## 💡 Case hygiene as detection-as-code
+## Case hygiene as detection-as-code
 
 A busy SOAR queue fills with low-value and stale cases. Rather than build native
 SOAR playbooks for housekeeping, run **case-hygiene logic as code on a schedule**
@@ -129,7 +129,7 @@ Two design rules make these safe to automate:
    [10-llm-and-automation.md](10-llm-and-automation.md) for the broader
    dry-run-first automation pattern.
 
-## 🔒 What's worth tracking
+## What's worth tracking
 
 Export and version the SOAR state that matters for review and disaster recovery:
 

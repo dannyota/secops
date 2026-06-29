@@ -93,6 +93,9 @@ func newCaseWorkloadCmd() *cobra.Command {
 			"open-status base (e.g. \"priority = 'PRIORITY_HIGH'\"). JSON or table.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if err := validateCaseFilter(filter); err != nil {
+				return err
+			}
 			cases, err := fetchCases(joinFilter("status = 'OPENED'", filter), maxItems)
 			if err != nil {
 				return err
@@ -145,6 +148,9 @@ func newCaseAgingCmd() *cobra.Command {
 			"--filter composes with the open-status base. JSON or table.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if err := validateCaseFilter(filter); err != nil {
+				return err
+			}
 			cases, err := fetchCases(joinFilter("status = 'OPENED'", filter), maxItems)
 			if err != nil {
 				return err
@@ -200,6 +206,9 @@ func newCaseStatsCmd() *cobra.Command {
 			"narrows the scanned set. JSON or table.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if err := validateCaseFilter(filter); err != nil {
+				return err
+			}
 			cases, err := fetchCases(filter, maxItems)
 			if err != nil {
 				return err

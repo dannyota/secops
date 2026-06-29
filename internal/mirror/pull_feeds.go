@@ -82,7 +82,7 @@ func feedRecord(f chronicle.Feed, display string) map[string]any {
 		"log_type":             logType,
 		"asset_namespace":      details["assetNamespace"],
 		"labels":               details["labels"],
-		"settings":             redact(settings),
+		"settings":             stripSecrets(settings),
 		"last_initiation_time": f.LastFeedInitiationTime,
 		"failure_msg":          f.FailureMsg,
 		"failure_details":      failureDetails(f.FailureDetails),

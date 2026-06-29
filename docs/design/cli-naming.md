@@ -1,4 +1,4 @@
-# Command naming — Phase D (hard rename, no aliases)
+# Command naming
 
 Phase D is a one-shot **hard rename** of the `secopsctl` command surface to a small
 set of self-describing top-level groups. Every command name now says what it
@@ -74,7 +74,7 @@ Earlier name → Phase D command. The earlier column collapses the pre-0.6.0 spe
 | `query run` | `search run` |
 | `query saved …` | `search saved …` (`list`/`get`/`run`/`save`/`share`/`unshare`/`delete`) |
 | `query nl '<q>'` | `gemini search '<q>'` |
-| `query nl --translate-only '<q>'` | `gemini generate '<q>'` |
+| `query nl --translate-only '<q>'` | `gemini generate-query '<q>'` |
 | `query gemini '<q>'` | `gemini ask '<q>'` |
 
 ### Detection rules

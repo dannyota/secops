@@ -97,3 +97,42 @@ func (c *Client) PlaybookXGetSimulationEnrichment(ctx context.Context, body any)
 func (c *Client) PlaybookXGetStatsMap(ctx context.Context, body any) (RawJSON, error) {
 	return c.externalPost(ctx, "/playbooks/GetPlaybookStatsMap", body)
 }
+
+// WorkflowStatus is the status of a workflow instance (playbook run). The integer
+// values are the server's WorkflowInstanceStatusEnum — sourced from the swagger
+// schema description.
+type WorkflowStatus int
+
+const (
+	WorkflowFaulted           WorkflowStatus = 0
+	WorkflowInProgress        WorkflowStatus = 1
+	WorkflowCompleted         WorkflowStatus = 2
+	WorkflowPendingUserInput  WorkflowStatus = 3
+	WorkflowPendingPrevSteps  WorkflowStatus = 4
+	WorkflowStarted           WorkflowStatus = 5
+	WorkflowFaultedAndSkipped WorkflowStatus = 6
+	WorkflowHandledTimedout   WorkflowStatus = 7
+)
+
+func (s WorkflowStatus) String() string {
+	switch s {
+	case WorkflowFaulted:
+		return "Faulted"
+	case WorkflowInProgress:
+		return "InProgress"
+	case WorkflowCompleted:
+		return "Completed"
+	case WorkflowPendingUserInput:
+		return "PendingUserInput"
+	case WorkflowPendingPrevSteps:
+		return "PendingPreviousSteps"
+	case WorkflowStarted:
+		return "Started"
+	case WorkflowFaultedAndSkipped:
+		return "FaultedAndSkipped"
+	case WorkflowHandledTimedout:
+		return "HandledTimedout"
+	default:
+		return "WorkflowStatus(" + strconv.Itoa(int(s)) + ")"
+	}
+}

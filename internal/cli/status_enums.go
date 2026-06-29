@@ -84,6 +84,16 @@ func staticEnums() []enumGroup {
 		{Enum: "BlockListScope", Source: "sdk", Entries: []enumEntry{
 			{"All", 0}, {"ForAggregationOnly", 1}, {"ForGroupOnly", 2}, {"ForModel", 3}, {"ForCreationAlert", 4},
 		}},
+		{Enum: "WorkflowsStatus", Source: "sdk", Entries: []enumEntry{
+			{"Faulted", 0},
+			{"InProgress", 1},
+			{"Completed", 2},
+			{"PendingUserInput", 3},
+			{"PendingPreviousSteps", 4},
+			{"Started", 5},
+			{"FaultedAndSkipped", 6},
+			{"HandledTimedout", 7},
+		}},
 	}
 }
 

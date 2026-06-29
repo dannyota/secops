@@ -109,7 +109,7 @@ func newSOARPlaybookCmd() *cobra.Command {
 		newSOARPlaybookStatsCmd(),
 		newSOARPlaybookExportCmd(),
 		newSOARPlaybookImportCmd(),
-		newSOARPlaybookGenerateCmd(),
+		func() *cobra.Command { c := newSOARPlaybookGenerateCmd(); c.Hidden = true; return c }(),
 		newSOARPlaybookGenerateStatusCmd(),
 	)
 	return cmd

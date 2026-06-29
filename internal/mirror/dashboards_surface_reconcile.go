@@ -342,7 +342,7 @@ func parseDesired(raw json.RawMessage) (desiredDashboard, error) {
 
 // validateDashboardObject statically checks a dashboard body the engine is about
 // to create/update, catching the shapes the API rejects at apply time so the
-// dry-run preview is a real safety check (FR-02 class): a missing displayName, an
+// dry-run preview is a real safety check: a missing displayName, an
 // empty new chart, a bad tileType token, or a non-object chartLayout. Structural
 // only — it is not the server's full validation.
 func validateDashboardObject(o reconcile.Object) error {

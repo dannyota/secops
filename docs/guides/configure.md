@@ -164,7 +164,7 @@ project *ID* — secopsctl picks the right form per endpoint. Both `project_id` 
 *any* command if either is absent (`config <path> is missing required key(s):
 project_number`), so set both.
 
-## force_ipv4
+## IPv4-only mode
 
 Opt-in network workaround for corporate VPNs or broken IPv6 — pins the dialer to
 IPv4. Off by default; turn it on only if connections hang or time out:
@@ -173,7 +173,7 @@ IPv4. Off by default; turn it on only if connections hang or time out:
 secopsctl config --force-ipv4 --non-interactive
 ```
 
-## Example instance.yaml
+## Example config file
 
 Placeholders only — replace with your tenant's values. The file lives at
 `~/.secopsctl/instance.yaml` (`0600`).

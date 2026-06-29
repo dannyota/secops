@@ -9,7 +9,7 @@ For the shared pull → diff → push mechanics see [the-loop.md](the-loop.md).
 For YARA-L authoring craft see [../tips/03-yara-l-rules.md](../tips/03-yara-l-rules.md).
 For surface status see [../design/catalog.md](../design/catalog.md).
 
-## 📁 What lands on disk
+## What lands on disk
 
 Each rule pulls to a pair of files under `<dataRoot>/rules/`. `<dataRoot>` is the
 current working directory by default: `pull rules` writes `./rules/` there (override
@@ -37,7 +37,7 @@ flowchart LR
 > `push` can read as delete-then-recreate of the live rule. Rename in the SIEM,
 > then `pull`.
 
-## 🔒 Pull
+## Pull
 
 ```bash
 secopsctl pull rules
@@ -48,7 +48,7 @@ Read-only. Mirrors every live rule to `<slug>.yaral` + `<slug>.yaml`. `--out`
 sets the output root (default: cwd). Commit the result; the git history is the
 review surface.
 
-## 🚀 The four push paths
+## Push paths
 
 `push` is a live deploy and defaults to a dry run. Always preview with
 `--dry-run`, review the plan, then re-run with `--yes`.
@@ -99,7 +99,7 @@ secopsctl push rules-update --rules-dir ./snapshot/rules --dry-run
 > ✅ After any live push, re-`pull rules` so the companion `.yaml` (new
 > `rule_id`, fresh `etag`, current deployment) matches the instance.
 
-## 🔁 etag concurrency
+## etag concurrency
 
 `rules-update` round-trips the stored `etag` for optimistic concurrency on the
 YARA-L text update. If the live rule changed since your last `pull`, the `etag`
@@ -111,45 +111,80 @@ re-applying your change, then pushing again.
 alerting / runFrequency) and carry **no** concurrency token, so they are not
 etag-guarded. `rules-deploy` refuses archived rules before applying.
 
-## 🔎 Inspect a rule
+## Inspect and operate
 
-Operational reads over an already-deployed rule. All take a `<rule-id>` (from
-the companion `.yaml`'s `rule_id`).
+Read-only operational commands over deployed rules. All accept a rule id,
+display name, or slug (resolved via the companion `.yaml`'s `rule_id`).
 
-| Command | Reads |
+| Command | Does |
 |---|---|
-| `secopsctl rules detections <rule-id>` | detections the rule produced |
-| `secopsctl rules errors <rule-id>` | execution errors the rule produced |
-| `secopsctl rules alerts <rule-id>` | alerts the rule generated (raw shape) |
-| `secopsctl rules retrohunt list <rule-id>` | the rule's retrohunts |
+| `rules list` | list all detection rules (id, name, slug) |
+| `rules get <rule>` | show a rule's state (enabled/alerting/archived, compile, severity, MITRE, revision); `--text` for raw YARA-L |
+| `rules validate <file.yaral>` | syntax-check a YARA-L file against the API without deploying |
+| `rules detections <rule>` | detections the rule produced |
+| `rules errors <rule>` | execution errors the rule produced |
+| `rules alerts <rule>` | alerts the rule generated (raw shape) |
+| `rules health` | per-rule health roll-up (failing/erroring/silent/healthy); `--only`, `--format`, `--out` |
+| `rules trends` | per-rule detection counts + last detection (noisy vs silent) |
+| `rules counts` | rule count and quota statistics for the instance |
+| `rules events <rule> <detection-id>` | UDM events behind one detection — the evidence pivot |
 
 ```bash
-secopsctl rules detections <rule-id> --hours 24 --limit 100 --state ALERTING
-secopsctl rules errors <rule-id> --hours 24
-secopsctl rules alerts <rule-id> --hours 24
+secopsctl rules get my-rule --text                     # print the YARA-L
+secopsctl rules validate ./new_rule.yaral              # syntax check only
+secopsctl rules detections <rule> --hours 24 --limit 100 --state ALERTING
+secopsctl rules errors <rule> --hours 24
+secopsctl rules alerts <rule> --hours 24
+secopsctl rules health --hours 168 --only failing
+secopsctl rules trends --hours 168
 ```
 
-`detections` filters by alert `--state` (e.g. `ALERTING`) and pages with
-`--limit`; both `detections` and `errors` take a `--hours` look-back window
-(default 24). `rules errors` accepts both string and structured SecOps error
-payloads, printing a compact type/message in table output. Add `--json` for the
-typed record plus the raw server record.
+### Versioning
+
+Each rule revision is tracked server-side. List, diff, and restore:
+
+```bash
+secopsctl rules versions <rule>                        # list saved revisions
+secopsctl rules versions diff <rule> <a> <b>           # line-by-line diff of two revisions
+secopsctl rules versions restore <rule> <version> --yes  # guarded: re-apply a prior revision
+```
 
 ### Retrohunts
 
 Run a rule over historical data, then read its status.
 
 ```bash
-secopsctl rules retrohunt create <rule-id> --hours 168 --dry-run
-secopsctl rules retrohunt create <rule-id> --hours 168 --yes
-secopsctl rules retrohunt list <rule-id>
-secopsctl rules retrohunt get <rule-id> <retrohunt-id>
+secopsctl rules retrohunt create <rule> --hours 168 --dry-run
+secopsctl rules retrohunt create <rule> --hours 168 --yes --wait  # poll until done
+secopsctl rules retrohunt list <rule>
+secopsctl rules retrohunt get <rule> <retrohunt-id>
 ```
 
 `create` is guarded (dry-run by default, `--yes` to start); `--hours` sets the
-look-back (default 168 = 7d). `list` and `get` are read-only.
+look-back (default 168 = 7d); `--wait` polls until completion. `list` and `get`
+are read-only.
 
-## 🛡️ Curated (Google-managed) rule sets
+### Promote and duplicate
+
+```bash
+secopsctl rules promote ./new_rule.yaral --dry-run     # one-step create + deploy from a .yaral
+secopsctl rules duplicate <rule> --name "Copy of X" --yes  # clone disabled under a new name
+```
+
+`promote` is a shortcut that creates and deploys in one step (guarded).
+`duplicate` clones the YARA-L under a new name, created disabled.
+
+### MITRE coverage
+
+ATT&CK coverage across custom + curated rules (top-level, not under `rules`):
+
+```bash
+secopsctl mitre                                        # technique × rule matrix
+secopsctl mitre --type custom --enabled --alerting     # filter to active custom rules
+secopsctl coverage                                     # threat-collection × rule coverage
+```
+
+## Curated (Google-managed) rule sets
 
 Curated content is authored by Google. You cannot create, edit, or delete it —
 only `pull` it for visibility and toggle each deployment's `enabled` /

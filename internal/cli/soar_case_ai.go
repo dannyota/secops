@@ -133,6 +133,9 @@ func newCaseCountsCmd() *cobra.Command {
 			"\"status = 'OPENED' and (assignee = '@Tier1')\".",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validateCaseFilter(filter); err != nil {
+				return err
+			}
 			c, err := newSOARClient()
 			if err != nil {
 				return err

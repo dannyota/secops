@@ -102,7 +102,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 | `federationGroups` · `tenants` · `multitenantDirectory` (MSSP) | reconcile · read | 🔨 federationGroups reconcile + tenants/directory reads; multitenantDirectory **read-validated**, federationGroups/tenants **403** on a single tenant | multi-tenant only; `chronicle/federation.go` |
 | ingestion (`logs`/`events`/`entities:import`) | imperative | ✅ | — |
 
-### Entities, Threat Intel & investigation
+### Entities & investigation
 
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
@@ -127,13 +127,13 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 > delivered as **curated rule sets** (above), not a separate API. Custom TI is
 > ingested through normal logs + reference lists.
 
-### Admin, governance & Content Hub
+### Governance & admin
 
 | Family | Lane | Status | Gaps |
 |---|---|---|---|
 | dashboards (native) | reconcile + imperative | ✅ | `definition.charts[].dashboardChart` is a scalar ref — the YARA-L lives in separate `dashboardCharts`→`dashboardQueries`. Default pull is reference-only; **`pull dashboards --with-charts` derefs charts inline** (query-bearing) and `push`/`drift` reconcile them (`:addChart`/`:editChart`; W72, verified). Chart-query authoring also via SDK `AddChart`/`EditChart` + CLI `dashboards add-chart`/`edit-chart`/`remove-chart`/`charts` (W70/W71). **W79:** chart layout/filters/reorder reconcile via a `definition.charts` PATCH when the chart SET is unchanged (a membership change defers it — the wholesale-replace PATCH must never drop a chart); chart REMOVAL stays UI / `remove-chart` (no `--prune` for sub-resources); a `Surface.Validate` hook schema-checks the body in dry-run |
-| **data-access labels** (`dataAccessLabels`) | imperative | ✅ SDK CRUD; create→get→delete write-validated (self-cleaning smoke) | imperative, NOT reconcile: create→list lags + create-despite-error break diffing; CLI ⬜ |
-| **data-access scopes** (`dataAccessScopes`) | imperative | ✅ SDK CRUD; create→get→delete write-validated (throwaway unassigned scope) | imperative (same quirks as labels); CLI ⬜ |
+| **data-access labels** (`dataAccessLabels`) | imperative | ✅ SDK CRUD + CLI `data-access labels list/get/create/delete` | imperative, NOT reconcile: create→list lags + create-despite-error break diffing |
+| **data-access scopes** (`dataAccessScopes`) | imperative | ✅ SDK CRUD + CLI `data-access scopes list/get/create/delete` | imperative (same quirks as labels) |
 | **risk config** (`{instance}/riskConfig`) | imperative | ✅ `GetRiskConfig` + idempotent `UpdateRiskConfig` write-validated (singleton sub-resource) | path is the singleton `{instance}/riskConfig` (GET/PATCH), not a colon verb; CLI ⬜ |
 | **BigQuery export** (`{instance}/bigQueryExport`) | imperative (read) | ✅ `GetBigQueryExport` wired (pinned **v1**); returns a clean typed error when not provisioned (Enterprise Plus / Pre-GA) | `provision`/`update` ⬜ (gated writes) |
 | **entity risk scores** (`entityRiskScores:query`) | operational (read) | ✅ `QueryEntityRiskScores` (filter/orderBy), read-validated (301) | behavioral risk (0–1000); v1alpha |
@@ -154,7 +154,7 @@ Status legend: ✅ built + validated · 🔨 partial / built-not-validated · �
 
 ---
 
-## SOAR — legacy plane — `soar/legacy/` (AppKey)  ·  the reliable lane
+## SOAR legacy — `soar/legacy/` (AppKey)
 
 ~99.8% of the external API (`third_party/siemplify-swagger.json`) is wrapped: cases
 (+ the 9 mutate verbs, bulk), playbooks/workflows, connectors, jobs, environments,
@@ -181,7 +181,7 @@ v1alpha equivalent we rely on.
 
 ---
 
-## SOAR — modern plane — `soar/` (AppKey, v1alpha)  ·  preferred per validated surface
+## SOAR modern — `soar/` (AppKey, v1alpha)
 
 Modern v1alpha on the SOAR host, used where it has earned its place. A surface
 goes modern-by-default only after it holds up live; until then config-as-code

@@ -23,7 +23,7 @@ operational SOAR usage. Two facts drive it:
 All identifiers here are placeholders (`<tenant>`, `<num>`, `<reg>`, `<id>`) — the
 public repo stays tenant-neutral; real values come from config/env at runtime.
 
-## The operator surface — three lanes
+## The operator surface — four lanes
 
 What an operator actually drives. Every surface is classified into one lane, and the
 engine enforces the boundary (a batch/bundle/selector endpoint *cannot* register as

@@ -122,7 +122,8 @@ func init() {
 	}
 	w.bind(udmCmd)
 
-	searchCmd.AddCommand(markJSON(udmCmd), newQueryRawCmd())
+	searchCmd.AddCommand(markJSON(udmCmd), newQueryRawCmd(),
+		newGeminiGenerateQueryCmd())
 	rootCmd.AddCommand(searchCmd)
 }
 

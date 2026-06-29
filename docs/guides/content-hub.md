@@ -10,7 +10,7 @@ and `uninstall` are **guarded mutations** (dry-run by default, `--yes` to apply)
 > `soar` group. See [configure](configure.md). The two-host rule is in the
 > [SOAR design](../design/soar.md).
 
-## 🧭 The verbs
+## Commands
 
 | Command | Kind | Does |
 |---|---|---|
@@ -27,7 +27,7 @@ Two more read/guarded verbs round it out: `content-hub diff <integration-id>`
 `content-hub featured list` / `featured install` (Google-curated featured
 playbooks).
 
-## 🔎 Browse and inspect
+## Browse and inspect
 
 ```bash
 secopsctl content-hub browse                 # totals + installed counts at a glance
@@ -45,7 +45,7 @@ secopsctl content-hub contentpacks           # list packs
 secopsctl content-hub contentpacks get <identifier>
 ```
 
-## 📦 Install / uninstall
+## Install and uninstall
 
 Both write verbs require `--identifier <id>` and follow the standard guarded
 flow: **dry-run by default**, `--yes` to apply.
@@ -62,7 +62,7 @@ Run the preview first, read what it would change, then re-run with `--yes`. A
 hard read-only session (`--read-only` / `SECOPS_READONLY=1`) degrades both to a
 preview even with `--yes`.
 
-## 🍳 Recipe: browse → install → configure
+## Recipe: browse, install, configure
 
 Install an integration from the Content Hub, then turn it into a working,
 configured instance. Installing puts the integration's actions and connectors
@@ -91,7 +91,7 @@ integration's parameters; see [Playbooks](playbooks.md) and the
 [Catalog (SOAR)](../design/catalog-soar.md) for the full integration lifecycle
 (install → configure → instances → connectors → jobs).
 
-## 🔗 See also
+## See also
 
 - [Configure](configure.md) — set `soar_url` + the AppKey the Content Hub needs.
 - [Playbooks](playbooks.md) — build and operate playbooks on the installed packs.

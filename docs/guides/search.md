@@ -14,7 +14,7 @@ Natural-language ("ask it in English") search lives under a separate group,
 [`gemini`](gemini.md) — it turns a sentence into a UDM query and (optionally)
 runs it through the same engine documented here.
 
-## 🗺️ Two planes
+## Two planes
 
 The control plane manages **detection-as-code** (rules, lists, configs) via
 pull → diff → push. The operational plane is the day job: **query a window of
@@ -35,7 +35,7 @@ flowchart LR
   act -- "case work" --> cases["cases"]
 ```
 
-## 🧭 Subcommands at a glance
+## Subcommands
 
 Every verb is `secopsctl search <verb>`. All are read-only except the guarded
 `saved` write verbs.
@@ -51,7 +51,7 @@ Every verb is `secopsctl search <verb>`. All are read-only except the guarded
 | `search run --file <path>` | run a UDM query loaded from a file or stdin |
 | `search saved …` | server-side saved & shared searches (Search Manager) |
 
-## 🔎 UDM event search
+## UDM event search
 
 ```bash
 secopsctl search udm '<filter>'
@@ -68,7 +68,7 @@ last `--hours`; `--from` / `--to` override it.
 | `--limit int` | `10000` | maximum events to return |
 | `--all` | off | fetch the **complete** result set and report the total match count |
 | `--raw` | off | print each matched event's full raw log line instead of the summary |
-| `--format string` | auto | output format — see [output contract](#-output-shape-the-result) |
+| `--format string` | auto | output format — see [output contract](#output-shape-the-result) |
 | `--fields string` | — | comma-separated dotted UDM paths to project |
 | `--out string` | stdout | write results to a file instead of stdout |
 
@@ -90,7 +90,7 @@ records and let you project just the fields you want.
 For filter syntax, fields, and query craft see the
 [Search & UDM queries tip](../tips/07-udm-queries.md).
 
-## 📐 Output: shape the result
+## Output: shape the result
 
 `search udm`, `search run`, `search saved run`, and `gemini search` share one
 **agent-first output contract**: pick a format, project the fields you want,
@@ -124,7 +124,7 @@ secopsctl search udm 'metadata.event_type = "USER_LOGIN" AND security_result.act
 `--all` reports the **total match count** so you know whether a capped run
 truncated. Without it, a run returns at most `--limit` events (default `10000`).
 
-## 🪵 Raw-log search
+## Raw-log search
 
 ```bash
 secopsctl search raw '<regex>'
@@ -149,7 +149,7 @@ secopsctl search raw 'admin@example.com' --hours 6
 secopsctl search raw 'login' --unparsed --limit 50
 ```
 
-## 📊 Stats / aggregations
+## Stats and aggregations
 
 ```bash
 secopsctl search stats '<aggregation-query>'
@@ -175,7 +175,7 @@ secopsctl search stats --hours 24 'metadata.log_type != ""
 Validate a chart's aggregation here before wiring it into a dashboard — see the
 [dashboards tip](../tips/06-dashboards.md).
 
-## 🔬 Inspect one event
+## Inspect one event
 
 ```bash
 secopsctl search event '<id>'
@@ -194,7 +194,7 @@ secopsctl search event 'AAAA…=' --json   # enriched UDM
 secopsctl search event 'AAAA…=' --raw     # the original raw log
 ```
 
-## 📤 Export everything
+## Export all events
 
 ```bash
 secopsctl search export '<filter>' --out events.csv
@@ -216,7 +216,7 @@ secopsctl search export 'metadata.event_type = "NETWORK_DNS"' --hours 24 --out d
 secopsctl search export 'principal.hostname = "host-01"' --fields timestamp,user,hostname
 ```
 
-## ✅ Validate
+## Validate
 
 ```bash
 secopsctl search validate 'metadata.event_type = "NETWORK_DNS"'
@@ -225,7 +225,7 @@ secopsctl search validate 'metadata.event_type = "NETWORK_DNS"'
 Checks a UDM query's syntax **without running it** — no window, no events, no
 quota spent. Use it in a pre-commit / CI step over your saved `*.udm` files.
 
-## 📁 Run a query from a file
+## Run a query from a file
 
 ```bash
 secopsctl search run --file detections/failed-logins.udm --hours 24
@@ -233,12 +233,12 @@ echo 'metadata.event_type = "NETWORK_CONNECTION"' | secopsctl search run --file 
 ```
 
 Loads the UDM query from a file (or `-` for stdin) and runs it over a window.
-It honors the full [output contract](#-output-shape-the-result)
+It honors the full [output contract](#output-shape-the-result)
 (`--format` / `--fields` / `--out` / `--all`) plus the window flags
 (`--hours` / `--from` / `--to` / `--limit`). Keep hunting queries as files in
 git and replay them with `search run` so the query text is reviewable.
 
-## 💾 Saved & shared searches
+## Saved and shared searches
 
 The Search Manager stores named searches server-side. They are **private** by
 default and can be **shared** org-wide. List and run verbs are read-only; the
@@ -273,7 +273,7 @@ secopsctl search saved delete <id> --yes     # remove it
 `--description`, and `--share` to publish org-wide at creation. Run any guarded
 verb without `--yes` first, read the preview, then re-run with `--yes`.
 
-## 🪤 Hunt walkthrough
+## Hunt walkthrough
 
 A read-only chain across surfaces: search a window, pull an indicator out of an
 event, resolve it to threat intel, then read the collection behind it. Nothing
@@ -301,7 +301,7 @@ raw event to the threat intelligence behind an indicator. Threat-intel verbs
 live under [`ti`](../design/catalog-siem.md) (`ti find` / `ti get` / `ti related`
 / `ti collections` / `ti collection`).
 
-## 🔗 See also
+## See also
 
 - [Gemini](gemini.md) — natural-language → UDM, run it, ask the assistant.
 - [The loop](the-loop.md) — the control plane: pull → diff → push.

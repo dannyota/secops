@@ -12,7 +12,7 @@ A SIEM case UUID resolves to its SOAR id via `cases soar-id <uuid>` — see
 SOAR auth is the **AppKey** (no ADC) and needs `soar_url` set. See
 [configure](configure.md).
 
-## 🔒 Read
+## Read
 
 ```bash
 secopsctl cases list                       # default: open cases
@@ -37,7 +37,7 @@ secopsctl cases comment list --id 12345     # the case-wall comments
   case id, and `cases soar-id <uuid>` bulk-resolves SIEM case uuids to SOAR ids.
 - Reads only — no `LIVE DEPLOY` banner.
 
-## 🧭 Mutating verbs
+## Mutating verbs
 
 Each verb is `secopsctl cases <verb> --id N <verb-flags>`. Most verbs share
 `--id` (required) and the `--dry-run` (default) / `--yes` apply gate; many also
@@ -105,7 +105,29 @@ secopsctl cases values root-causes  # valid --root-cause values
 `--user` on `assign` is a SOAR **user id**, not a name. List the user directory
 with `soar users list` to find the id (a role is passed as `@RoleName`).
 
-## 🧹 Bulk-close a queue
+### Other case verbs
+
+| Verb | Does |
+|---|---|
+| `incident --id N` | Mark (or `--unset`) a case as an incident |
+| `report --id N` | Generate + download a case report (`--format pdf\|doc\|xlsx\|csv`, `--out`) |
+| `run-action --id N --action <name> --instance <uuid>` | Execute a manual integration action on a case |
+| `chat list --id N` | List case chat messages |
+| `chat send --id N --text <s>` | Send a chat message |
+| `custom-fields --case-id N` | List custom field values |
+| `wall --case-id N` | List case wall timeline records |
+| `context list --id N` | List context properties |
+| `context set --id N --key <k> --value <v>` | Set a context property |
+| `task list --id N` | List case checklist tasks |
+| `task add --id N --title <s>` | Add a task |
+| `evidence add --id N --file <path>` | Attach evidence |
+| `overview --id N` | Case overview (entities, widgets) |
+| `counts` | Case counts by priority (queue-level) |
+| `workload` | Open-case load per analyst |
+| `aging` | Open cases by age with SLA status |
+| `stats` | Queue statistics (open/closed, percentiles) |
+
+## Bulk-close a queue
 
 `cases close` closes one case. To close **many** cases at once, use the
 queue verb:
@@ -127,7 +149,7 @@ note in `--comment`. (List your tags / stages / root-causes with `soar pull
 case-tags` / `case-stages` / `close-root-causes`; find an assignee id for
 `assign --user` with `soar users list`.)
 
-## 🔀 One case, two APIs
+## One case, two APIs
 
 `list` defaults to the modern **v1alpha cases API** on the SOAR host and
 **auto-falls back** to the reliable **legacy AppKey queue** on error; force the

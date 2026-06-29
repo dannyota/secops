@@ -81,6 +81,10 @@ func shortCommit(c string) string {
 // versionLine is a compact one-line version string for doctor/help.
 func versionLine() string {
 	bi := resolveBuildInfo()
+	if bi.Commit == "unknown" {
+		return fmt.Sprintf("secopsctl %s (%s %s/%s)",
+			bi.Version, bi.GoVersion, bi.OS, bi.Arch)
+	}
 	return fmt.Sprintf("secopsctl %s (%s, %s %s/%s)",
 		bi.Version, shortCommit(bi.Commit), bi.GoVersion, bi.OS, bi.Arch)
 }
@@ -98,7 +102,9 @@ func init() {
 				return enc.Encode(bi)
 			}
 			fmt.Printf("secopsctl %s\n", bi.Version)
-			fmt.Printf("  commit:  %s\n", bi.Commit)
+			if bi.Commit != "unknown" {
+				fmt.Printf("  commit:  %s\n", bi.Commit)
+			}
 			if bi.Date != "" {
 				fmt.Printf("  built:   %s\n", bi.Date)
 			}

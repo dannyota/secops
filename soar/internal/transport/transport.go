@@ -211,6 +211,17 @@ func (t *Transport) External(ctx context.Context, method, path string, body, out
 	return t.do(ctx, method, full, body, out, nil)
 }
 
+// ExternalBytes is like External but returns the raw response bytes without JSON
+// decoding — for endpoints that return binary content (reports, exports).
+func (t *Transport) ExternalBytes(ctx context.Context, method, path string, body any) ([]byte, error) {
+	full := t.base + ExternalPrefix + "/" + strings.TrimLeft(path, "/")
+	var raw []byte
+	if err := t.do(ctx, method, full, body, &raw, nil); err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+
 // retryStatuses5xx are server errors safe to retry ONLY for idempotent methods —
 // a 5xx on a mutating POST may have already taken effect server-side (the SOAR
 // external API in particular returns a post-creation 500 on CreateManualCase
@@ -338,7 +349,9 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 				return fmt.Errorf("soar: read response: %w", readErr)
 			}
 			if out != nil && len(data) > 0 {
-				if err := json.Unmarshal(data, out); err != nil {
+				if bp, ok := out.(*[]byte); ok {
+					*bp = data
+				} else if err := json.Unmarshal(data, out); err != nil {
 					return fmt.Errorf("soar: decode response: %w", err)
 				}
 			}

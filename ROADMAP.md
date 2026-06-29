@@ -35,7 +35,7 @@ P5 (21–24) finishing · 25–51 operability/UX · 52–72 triage-loop + AI + d
 84–110 v0.5.x · 111–114 v0.6.0 (search + gemini + Phase D rename + Content Hub) ·
 115–116 v0.6.x (rules dev-loop + dashboard quality) ·
 117–119 v0.7.0 (dashboard authoring + playbook/integration authoring + foundation) ·
-120 v0.7.1 (operational polish).
+120 v0.7.1 (operational polish) · 121 v0.7.2 (case improvements + Gemini reorg + fixes).
 
 ```mermaid
 flowchart LR
@@ -77,14 +77,6 @@ Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 > Only the most recent waves are detailed below; older completed waves are in git
 > history (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
-
-### Wave 113 — Phase D: hard command rename to plain groups, no aliases *(built — offline-tested)*
-
-The CLI surface was **hard-renamed** to plain, discoverable command groups with **no back-compat aliases** (the interim descriptive-alias layer from Wave 85 was removed): `query` → `search` + `gemini`; `curated` → `rules curated`; `rule-exclusions` → `rules exclusions`; `iocs`/`indicators`/`threat-intel` → `ti`; `reference-lists`/`watchlists` → `lists`; `soar marketplace` → top-level `content-hub`; `feeds`/`forwarders`/`parsers`/`log-types`/`pipeline`/`ingestion` → `ingest`; `capabilities`/`coverage`/`surfaces` → `status`; `soar playbook`/`integration`/`job` → the plurals, with offline authoring/packaging under `soar ide`; `soar case` → top-level `cases`; `entity` → `entities`. **Unchanged on purpose:** the `pull`/`push` *target* args and on-disk mirror directories keep snake_case (`reference_lists`, `data_tables`, `feeds`, `parsers`, `curated`, `rule_exclusions`), the Go SDK method names, and the top-level `drift`/`data-access`/`commands`/`info`/`doctor`/`config`/`version` commands. `commands --json` is the machine-readable source of truth for the settled tree. Part of the **v0.6.0** milestone. **Docs:** cli-naming, catalog, GLOSSARY, all guides + tips.
-
-### Wave 114 — Content Hub promoted to a top-level group *(built — offline-tested)*
-
-The marketplace verbs were promoted out of `soar` into a top-level **`content-hub`** group: `browse` (catalog + installed-count overview), `list [--installed]`, `get <id>`, `contentpacks` / `contentpacks get <id>`, `diff` (installed vs marketplace version), and `featured list` / `featured install` (featured playbooks), plus the guarded reversible **`install`/`uninstall`** for marketplace integrations (`marketplaceIntegrations:install`/`:uninstall`, dry-run by default) built on Wave 110. All Content Hub surfaces live on the SOAR (siemplify) host. Content-pack deploy (`contentHub/contentPacks:deploy*`) stays SDK-only pending a captured deploy-body shape. Part of the **v0.6.0** milestone. **Docs:** catalog-soar, content-hub guide.
 
 ### Wave 115 — Rules dev-loop + workspace parity: streaming test, MITRE coverage, version diff/restore, duplicate, health roll-up *(built — offline-tested; v0.6.1)*
 
@@ -180,6 +172,23 @@ Operational polish, playbook/integration management, and an enum reference.
 - **SDK fix:** `IntegrationInstance.IntegrationIdentifier` field name corrected (was `IntegrationName`, didn't match the JSON). Added `SystemDefault` field.
 
 **Docs:** catalog, SKILL (ZIP format + command map).
+
+### Wave 121 — v0.7.2 case improvements, Gemini reorg, operational fixes *(built)*
+
+Case operational verbs, AI command consolidation, and operational fixes.
+
+- **`playbooks summary` rewrite.** Switch from the broken `GetWorkflowInstanceSummary` to the two-call pattern (`GetWorkflowInstancesCards` → `GetWorkflowInstance`). Fixes 500 on multi-alert/closed cases.
+- **`cases list --filter` syntax validation.** Client-side validation rejects OData-style operators (`eq`, `ne`) with guidance on the SQL-style syntax the v1alpha API uses.
+- **`WorkflowsStatus` enum.** Added to `status enums` (SDK type + CLI display, values 0–7) and the `WorkflowStatus` typed enum to the SDK.
+- **`alerts list --json` fix.** Switched to streaming per-alert output to avoid large-buffer truncation.
+- **Gemini command reorg.** All AI features under the `gemini` group: `generate-query` (was `generate`), `search`, `ask`, `investigate`, `summarize`, `generate` (playbook). Hidden backward-compat aliases at old locations. `search generate-query` alias added.
+- **`cases incident`** — mark/unmark a case as incident (`--unset` to clear).
+- **`cases report`** — export a case report (PDF/DOC/DOCX/XLSX/CSV/HTML; `--out` saves to file).
+- **Version "unknown" fix.** `version`/`doctor` omit commit info for non-git installs.
+- **Internal: `redact.go` → `secret_strip.go`.** Renamed credential-scrubbing helper to `stripSecrets()`.
+- **Transport: `ExternalBytes`** — raw-bytes response path for binary endpoints (reports).
+
+- **Docs overhaul.** Fixed `gemini generate` → `gemini generate-query` across 7 files; shortened verbose headings in surfaces/cli-naming/soar design docs; expanded rules/playbooks/soar-cases guides with missing commands (15+ rule verbs, 17 case verbs, playbook inspect/folder sections); fixed stale status rows (data-access, alert act verbs); cleaned docsify layout (removed Jekyll, streamlined CSS).
 
 ---
 

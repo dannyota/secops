@@ -5,7 +5,7 @@ building blocks, author (offline or with the API), then operate what runs.
 Mutations are guarded throughout (`--dry-run` default, `--yes` to apply); SOAR
 auth is the AppKey — see [configure](configure.md).
 
-## 🔎 Discover the palette
+## Discover the palette
 
 The designer's Step Selection panel as read-only catalogs — what a playbook
 *can* be built from:
@@ -29,7 +29,7 @@ secopsctl soar playbooks components usage --action "Close Case" --integration Si
 — every playbook whose steps reference that action: the impact analysis for
 editing or deleting it.
 
-## 📝 Author
+## Author
 
 **The config-as-code path** (recommended): playbooks are a reconcile surface —
 `soar pull playbooks` → edit the JSON → `git diff` → `soar push playbooks`
@@ -67,11 +67,31 @@ returns a generated draft definition *without persisting it* — review, then
 save through the normal guarded loop. Instances can restrict the Playbook
 Assistant to interactive auth; the verb reports that plainly.
 
-## ▶️ Operate
+## Inspect and audit
 
 | Task | Command |
 |---|---|
-| What exists / is enabled | `soar playbooks list [--type nested] [--enabled-only]` |
+| Show a playbook's structure | `soar playbooks get <name>` — trigger, steps, integration dependencies |
+| Static analysis | `soar playbooks lint (--name <p> \| --all)` — broken block refs, missing integrations, bad triggers |
+| Fleet health | `soar playbooks health [--hours N]` — per-playbook run stats sorted by failure rate |
+| Compare live vs local | `soar playbooks diff <name> <local-file>` — drift detection for one playbook |
+| Clone a playbook | `soar playbooks duplicate <name> --name "Copy" --yes` |
+
+## Folder management
+
+```bash
+soar playbooks categories list                # list playbook folders
+soar playbooks categories create --name ops   # create a folder (guarded)
+soar playbooks categories rename --id N --name new-name --yes
+soar playbooks categories delete --id N --yes
+soar playbooks move <name> --folder ops --yes # move a playbook to a folder
+```
+
+## Operate
+
+| Task | Command |
+|---|---|
+| What exists / is enabled | `soar playbooks list [--type nested] [--enabled-only] [--search S] [--category C]` |
 | Turn one on/off | `soar playbooks deploy (--name \| --identifier) --enable\|--disable` |
 | Run / rerun on a case | `soar playbooks run` · `rerun` · `rerun-block` (explicit case/alert selectors) |
 | Debug from an export | `soar playbooks debug` + `cases simulation list/get` |

@@ -33,7 +33,7 @@ scope_info:   ...
 entry_count:  12
 ```
 
-### `syntax_type` must match the entries
+### Syntax type must match the entries
 
 The syntax type tells Chronicle how to interpret each line; entries must conform or
 the list is invalid:

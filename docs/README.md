@@ -17,7 +17,7 @@ New here? **[Install](guides/install.md) → [Configure & auth](guides/configure
 [The loop](guides/the-loop.md).** Building it? **[Architecture](design/architecture.md).**
 Want the status of every surface? **[Catalog](design/catalog.md).**
 
-## ⏱️ In 60 seconds
+## In 60 seconds
 
 ```bash
 # 1 — build the single static binary (Go ≥ 1.26)
@@ -41,7 +41,7 @@ gives a clean `doctor` — add SOAR whenever you need it. Full walkthrough,
 including where to find your four identifiers and your SOAR host:
 [Configure & auth](guides/configure.md).
 
-## 🚀 What you can do
+## What you can do
 
 - **Config as code** — `pull` → `git diff` → `push` across SIEM and SOAR
   surfaces (rules, reference lists, data tables, feeds, parsers, dashboards,
@@ -61,7 +61,7 @@ including where to find your four identifiers and your SOAR host:
   `--fields` dotted-path projection, `--out`, `--all` for the complete result set
   plus a total match count) and server-side **saved & shared** searches
   (`search saved …`). See [Search](guides/search.md).
-- **Natural-language search with Gemini** — `gemini generate` (NL → UDM, no run),
+- **Natural-language search with Gemini** — `gemini generate-query` (NL → UDM, no run),
   `gemini search` (NL → UDM, then run), `gemini ask` (the SecOps assistant). The
   model's suggested time window is honored; the AI path is one-time opt-in and
   read-only-aware. See [Gemini](guides/gemini.md).
@@ -77,7 +77,7 @@ including where to find your four identifiers and your SOAR host:
   dry-run-first guard on every mutating verb. See
   [LLM & automation](tips/10-llm-and-automation.md).
 
-## 🧩 The model in one screen
+## The model in one screen
 
 Two products (SIEM · SOAR), each split across two planes — **control** (config as
 code) and **operational** (live data). One CLI; the two planes are two loops:
@@ -121,17 +121,17 @@ flowchart LR
 
 <sub>† One case, two APIs on the SOAR domain: `cases list` defaults to the New API (v1alpha) and auto-falls back to the reliable Legacy AppKey queue. \* `curated` = Google-managed: read + enable/disable, not full CUD. The `lists`/`ingest` command groups cover reference lists/watchlists and feeds/parsers/forwarders; their config-as-code `pull`/`push` *targets* keep snake_case mirror-dir names (`reference_lists`, `feeds`, `parsers`, `curated`). Authoritative set + live status in [design/catalog.md](design/catalog.md).</sub>
 
-## 🧭 Find your way
+## Navigation
 
 | Folder | For | Start here |
 |---|---|---|
-| 🧭 **[guides/](guides/)** | using `secopsctl` | [Install](guides/install.md) → [Configure & auth](guides/configure.md) → [The loop](guides/the-loop.md) · then [Triage](guides/triage.md) · [Playbooks](guides/playbooks.md) · [Rules](guides/rules.md) · [Search](guides/search.md) · [Gemini](guides/gemini.md) · [Content Hub](guides/content-hub.md) · [SOAR cases](guides/soar-cases.md) · [Reconcile](guides/reconcile.md) · [Go SDK](guides/sdk.md) · [Reference: SIEM](guides/reference-siem.md) · [Reference: SOAR](guides/reference-soar.md) |
-| 📐 **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Surfaces](design/surfaces.md) · [Catalog (status)](design/catalog.md) |
-| 💡 **[tips/](tips/)** | the SecOps craft | [All tips](tips/README.md) — [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [dashboards](tips/06-dashboards.md) · [feeds & parsers](tips/08-feeds-parsers.md) · [SOAR ops](tips/09-soar-operations.md) |
+| **[guides/](guides/)** | using `secopsctl` | [Install](guides/install.md) → [Configure & auth](guides/configure.md) → [The loop](guides/the-loop.md) · then [Triage](guides/triage.md) · [Playbooks](guides/playbooks.md) · [Rules](guides/rules.md) · [Search](guides/search.md) · [Gemini](guides/gemini.md) · [Content Hub](guides/content-hub.md) · [SOAR cases](guides/soar-cases.md) · [Reconcile](guides/reconcile.md) · [Go SDK](guides/sdk.md) · [Reference: SIEM](guides/reference-siem.md) · [Reference: SOAR](guides/reference-soar.md) |
+| **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Surfaces](design/surfaces.md) · [Catalog (status)](design/catalog.md) |
+| **[tips/](tips/)** | the SecOps craft | [All tips](tips/README.md) — [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [dashboards](tips/06-dashboards.md) · [feeds & parsers](tips/08-feeds-parsers.md) · [SOAR ops](tips/09-soar-operations.md) |
 
 Unfamiliar term? [Glossary](GLOSSARY.md). Writing docs? [Style guide](STYLE.md). Running an AI agent? [`skills/secopsctl/SKILL.md`](../skills/secopsctl/SKILL.md) — the operating guide for agents driving this CLI.
 
-## 📏 The rules these docs follow
+## Documentation rules
 
 - **[design/catalog.md](design/catalog.md) is the source of truth for status** — every
   surface carries `designed / built / validated`. A code spine (the surface-family

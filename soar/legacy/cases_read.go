@@ -47,6 +47,20 @@ func (c *Client) GetWorkflowInstanceSummary(ctx context.Context, body any) (RawJ
 	return c.externalPost(ctx, "/cases/GetWorkflowInstanceSummary", body)
 }
 
+// GetWorkflowInstancesCards returns the playbook execution cards for a
+// case+alert. body carries: caseId (string), alertIdentifier.
+func (c *Client) GetWorkflowInstancesCards(ctx context.Context, body any) (RawJSON, error) {
+	return c.externalPost(ctx, "/cases/GetWorkflowInstancesCards", body)
+}
+
+// GetWorkflowInstance returns the full step-by-step execution detail for one
+// playbook run. body carries: caseId (string), alertIdentifier,
+// definitionIdentifier, shouldFetchSteps, collapseBlocks,
+// loopsRequestedIterations.
+func (c *Client) GetWorkflowInstance(ctx context.Context, body any) (RawJSON, error) {
+	return c.externalPost(ctx, "/cases/GetWorkflowInstance", body)
+}
+
 // GetAlertNames returns the distinct alert names in the queue. body is the
 // freeform filter payload.
 func (c *Client) GetAlertNames(ctx context.Context, body any) (RawJSON, error) {

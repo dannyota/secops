@@ -2,7 +2,7 @@
 
 The contract every doc in `docs/` follows. Keep it short; keep it true to the code.
 
-## 🗂️ Where a doc goes
+## Where a doc goes
 
 | Folder | Audience | Answers |
 |---|---|---|
@@ -14,7 +14,7 @@ Root holds only the map (`README.md`), this guide (`STYLE.md`), and the `GLOSSAR
 One concept per file. If a file passes **450 lines**, split it (the enforced cap; see
 *Length + lint* below).
 
-## ✍️ Voice
+## Voice
 
 - **Short, dense, technical.** State what's true; cut filler, hedging, and history
   ("we tried…", "it turns out…"). A reader's time is the budget.
@@ -22,7 +22,7 @@ One concept per file. If a file passes **450 lines**, split it (the enforced cap
 - **Tenant-neutral always** — placeholders only (`<tenant>`, `<region>`,
   `000000000000`, `example.com`). Never a real project/customer/host/IP/rule name.
 
-## 🎨 Format
+## Format
 
 - **Emoji** signpost sections — at most one per H1/H2, none mid-sentence. Use a
   consistent set: 📐 design · 🧭 guide · 💡 tip · ⚠️ danger · ✅ done · 🔒 read-only.
@@ -31,9 +31,9 @@ One concept per file. If a file passes **450 lines**, split it (the enforced cap
 - **Mermaid for every flow or structure** (see below) — a diagram beats a paragraph.
 - **One H1** per file (the title). Sentence-case headings.
 
-## 📊 Mermaid
+## Mermaid
 
-Use a fenced ```mermaid block (renders on GitHub **and** the Jekyll site). Reach
+Use a fenced ```mermaid block (renders on GitHub **and** the docsify site). Reach
 for it whenever there's a flow, a plane/lane split, a state machine, or a
 component map.
 
@@ -47,17 +47,11 @@ Diagrams are **part of the doc↔code contract**: a diagram must match what the 
 does (the planes, the lanes, the surfaces, the auth). When the code changes, update
 the diagram in the same change. A wrong diagram is a bug.
 
-**Mermaid on the Jekyll site — mind Liquid's braces.** Jekyll runs Liquid over the
-page *before* the browser sees it, and Liquid consumes its delimiters —
-`{% raw %}{{ … }}{% endraw %}` (output) and `{% raw %}{% … %}{% endraw %}` (tags).
-Two consequences: Mermaid's **hexagon node** `{% raw %}id{{"label"}}{% endraw %}`
-renders on GitHub but is silently stripped to garbage on the site, and a literal tag
-delimiter written anywhere in a page breaks the Jekyll build. Use a rhombus/decision
-node `id{"label"}` (single braces, Liquid-safe) or a rectangle for diagrams, and wrap
-any literal Liquid token you must show in a Liquid `raw` block. Keep `<br/>` for line
-breaks (not `\n`) and escape literal angle brackets in labels as `&lt;`/`&gt;`.
+**Mermaid on the docsify site.** Mermaid blocks render client-side via the mermaid
+plugin. Keep `<br/>` for line breaks (not `\n`) and escape literal angle brackets
+in labels as `&lt;`/`&gt;`. The theme toggle re-renders diagrams automatically.
 
-## 🔗 Doc ↔ code consistency
+## Doc-to-code consistency
 
 - Every command, flag, and path shown must exist in the code (verify against
   `--help` / the source, not memory).
@@ -76,19 +70,18 @@ breaks (not `\n`) and escape literal angle brackets in labels as `&lt;`/`&gt;`.
 - Design changes land **with the code** in the same change — docs and code never
   drift. If they disagree, that's a bug.
 
-## ✏️ kramdown (the Jekyll site is stricter than GitHub)
+## Formatting rules
 
 - A **blank line before every table, list, and fenced block**, and **after every
-  heading** — a table directly under a heading renders as flat pipes on the site.
-- New page under `docs/`? add it to the left-nav in `docs/_layouts/default.html`
-  (hand-maintained) or it's unreachable from the site.
+  heading** — consistent whitespace keeps the source readable and the linter happy.
+- New page under `docs/`? Add it to `docs/_sidebar.md` or it's unreachable from
+  the site.
 
-## 📏 Length + lint (enforced)
+## Length and lint
 
 - **A doc is capped at 450 lines** (`scripts/check-lengths.sh`, in CI + pre-commit).
   Over it → split into a focused page or trim; history survives in git. A doc that
   becomes a long log (the old 2417-line roadmap) belongs out of `docs/` / in git
   history, not on a reader's — or an agent's — path.
-- **Fenced code blocks must declare a language** (` ```bash `/` ```go `/` ```text `)
-  and the kramdown blank-line rules are linted by `markdownlint-cli2`
-  (`.markdownlint.jsonc`). Run `npx markdownlint-cli2 "docs/**/*.md"` before a docs PR.
+- **Fenced code blocks must declare a language** (` ```bash `/` ```go `/` ```text `).
+  Run `npx markdownlint-cli2 "docs/**/*.md"` before committing docs changes.

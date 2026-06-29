@@ -14,7 +14,7 @@ flowchart LR
 Prerequisite: a resolved config and working auth — see [configure.md](configure.md),
 then `secopsctl doctor`.
 
-## 🔒 Pull (read-only)
+## Pull (read-only)
 
 Mirror live state into files. `pull` never mutates the instance. Files land in
 the **current directory** (override with `--out DIR`) — run it from inside a
@@ -46,7 +46,7 @@ forces legacy outright. See
 [reconcile.md](reconcile.md) for the full target set on both planes, and
 [rules.md](rules.md) for rule-specific paths.
 
-## ⚠️ Review, then push
+## Review, then push
 
 Every `push` is a **production deploy to a live SIEM**. The dry run is the
 default and prints a `LIVE DEPLOY` banner; `--yes` applies (or confirm
@@ -86,7 +86,7 @@ secopsctl push data_tables --prune --yes      # apply, including deletes
 
 Full reconcile model and the per-surface target list: [reconcile.md](reconcile.md).
 
-## ✅ Drift — the CI gate
+## Drift: the CI gate
 
 `drift` is read-only. It compares committed local files to live state and exits
 non-zero on any divergence (or when a surface cannot be verified) — run it after

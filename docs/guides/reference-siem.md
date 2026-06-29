@@ -15,7 +15,7 @@ flowchart LR
   files -- "git diff → push (dry-run → --yes)" --> live
 ```
 
-## 🌐 Global flags
+## Global flags
 
 Set on any command (SIEM or SOAR):
 
@@ -47,7 +47,7 @@ without the flag; and `doctor`, `drift`, `push`, and the guarded mutating verbs
 emit structured JSON under `--json` too (dry-run/apply metadata, plus
 request/response fields where the command has them).
 
-## 🧰 Platform & utility
+## Platform and utility
 
 Offline or cross-plane helpers — no surface mutation.
 
@@ -66,7 +66,7 @@ Offline or cross-plane helpers — no surface mutation.
 | `version` | Print version, commit, and build info. |
 | `help` | Help about any command. |
 
-## 🔁 The config-as-code loop
+## Config-as-code loop
 
 ADC/OAuth auth (`gcloud auth application-default login`). See
 [the loop](the-loop.md), [rules](rules.md), and [reconcile](reconcile.md).
@@ -80,7 +80,7 @@ ADC/OAuth auth (`gcloud auth application-default login`). See
 Targets stay snake_case (they mirror the on-disk directory tree); only the
 standalone command groups carry the renamed names.
 
-## 🔒 Search & AI search
+## Search and AI search
 
 | Command | What it does |
 |---|---|
@@ -92,7 +92,7 @@ standalone command groups carry the renamed names.
 | `search validate <query>` | Validate a UDM query's syntax without running it (no mutation; non-zero exit if invalid). |
 | `search run --file <path>` / `-` | Run a UDM predicate from a file (or stdin with `-`); blank/`#`-comment lines ignored — so a tracked `.udm` file is a runnable query. Same window/`--limit`/output flags as `search udm`. |
 | `search saved` / `saved list` / `saved get <id>` / `saved run <id>` | Server-side saved & shared searches (Search Manager): `list` enumerates personal + org-shared searches, `get` shows one (query, type, sharing), `run` executes a saved search by id with the same output flags. |
-| `gemini generate <text>` | Translate a natural-language request to a UDM query with SecOps Gemini and print it **without running it** — review before executing. Honors the model's suggested time window. `--opt-in` once per account. |
+| `gemini generate-query <text>` | Translate a natural-language request to a UDM query with SecOps Gemini and print it **without running it** — review before executing. Alias `translate`. Honors the model's suggested time window. `--opt-in` once per account. |
 | `gemini search <text>` | Translate a natural-language request to UDM **and run it** — same output flags as `search udm`; honors the model's suggested time window. |
 | `gemini ask <question>` | Ask the SecOps Gemini assistant a question (YARA-L authoring help, UDM fields, environment-grounded answers). Read-only. `--opt-in` once per account. |
 
@@ -103,7 +103,7 @@ into columns; `--out <file>` writes the result to a file; `--all` fetches the
 COMPLETE result set (not just `--limit`) and reports the total match count. See
 [search](search.md) for the full story.
 
-## 🔒 Rules & detections
+## Rules and detections
 
 | Command | What it does |
 |---|---|
@@ -127,7 +127,7 @@ COMPLETE result set (not just `--limit`) and reports the total match count. See
 | `curated trends (--rule ur_a,… \| --all)` | Per-curated-rule detection counts + last detection; `--all` sweeps every curated rule. |
 | `exclusions list` / `get <id>` | List/inspect rule exclusions (findings refinements) — id, type, query, deployment state. |
 
-## 🔒 Threat intel & entities
+## Threat intel and entities
 
 | Command | What it does |
 |---|---|
@@ -142,7 +142,7 @@ COMPLETE result set (not just `--limit`) and reports the total match count. See
 | `entities graph explore --param k=v …` | Expand a node of an initialized findings graph. |
 | `entities risk-scores [--filter EXPR] [--order-by FIELD] [--limit N]` | Per-entity behavioral risk scores (normalized) — prioritize which hosts/users to look at first. JSON. |
 
-## 🔒 Ingestion
+## Ingestion
 
 | Command | What it does |
 |---|---|
@@ -159,7 +159,7 @@ COMPLETE result set (not just `--limit`) and reports the total match count. See
 | `ingest parsers extension list <log-type>` / `get <log-type> <id>` | List / get parser extensions for a log type (read-only). |
 | `ingest pipeline list` / `get <id>` | List / show log processing pipelines (read-only). |
 
-## 🔒 Lists, dashboards, data-access & alerts
+## Lists, dashboards, data-access, and alerts
 
 | Command | What it does |
 |---|---|
@@ -179,7 +179,7 @@ COMPLETE result set (not just `--limit`) and reports the total match count. See
 | `alerts enrich <id>` | A SIEM alert's full context — rule detection, mapped UDM events, entities/indicators, MITRE tags, triage verdict, and the SOAR case bridge — via `legacy:legacyBatchGetCollections` (the surface the console uses). |
 | `alerts investigate <id> --latest` | Read the alert's most recent AI (Gemini) investigation: verdict, confidence, summary, suggested next steps (`--json` adds the agent's per-step UDM queries). Without `--latest` it **starts** a new investigation (a generation; refused in read-only mode) and polls to completion. |
 
-## ⚠️ SIEM — guarded mutations
+## SIEM: guarded mutations
 
 Dry-run by default; pass `--yes` (or confirm interactively) to deploy. Each
 prints a `LIVE DEPLOY` banner. See [rules](rules.md) and [reconcile](reconcile.md).
@@ -223,7 +223,7 @@ prints a `LIVE DEPLOY` banner. See [rules](rules.md) and [reconcile](reconcile.m
 | `dashboards import <file>` | Create a dashboard from an export JSON document in ONE call (dashboard + charts + queries together; server mints fresh ids). |
 | `cleanup smoke-artifacts` | Delete or neutralize only secopsctl-owned smoke-test artifacts. Dry-run prints the exact plan; apply requires `--yes`. |
 
-## 🧪 Cookbook (SIEM)
+## Cookbook (SIEM)
 
 End-to-end recipes. The deeper how-to lives in the per-area guides.
 
@@ -269,7 +269,7 @@ secopsctl gemini generate 'failed logins for admin in the last day'  # review th
 secopsctl gemini search   'failed logins for admin in the last day'  # translate + run
 ```
 
-## 🔗 See also
+## See also
 
 - [Install](install.md) · [Configure](configure.md) · [The loop](the-loop.md)
 - [Rules](rules.md) · [Search](search.md) · [Gemini](gemini.md) · [Reconcile](reconcile.md) · [SDK](sdk.md)
