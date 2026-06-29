@@ -49,17 +49,6 @@ jobs:
       - run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - run: govulncheck ./...
 
-  semgrep:
-    name: semgrep (SAST)
-    runs-on: ubuntu-latest
-    container:
-      image: semgrep/semgrep
-    steps:
-      - uses: actions/checkout@v7
-      # OSS rulesets — no login/token required. The local pre-commit gate uses
-      # `semgrep --pro`; CI runs the open rulesets so it is green without secrets.
-      - run: semgrep scan --config p/golang --config p/secrets --error --quiet
-
   docs:
     name: docs lint + length budget
     runs-on: ubuntu-latest
