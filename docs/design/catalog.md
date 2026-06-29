@@ -95,7 +95,7 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `reference_lists` | reconcile + imperative | ✅ chronicle · v1alpha | Typed `.txt`+`.yaml`; NoDelete; resource-name normalization; empty-list canonical fix. |
 | `data_tables` | reconcile | ✅ chronicle · v1alpha | `.csv`+`.yaml`; columns immutable after create; rows wholesale destroy-and-replace. |
 | `feeds` | reconcile | ✅ chronicle · v1alpha | `.yaml`; secrets redacted on pull, overlaid on update; `secret_ref` env/Secret Manager; not prune-eligible. |
-| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate; parser-dev loop (`run` error surfacing, prebuilt support, `validate`); extensions (list/get/create/activate/delete); conf-only create; custom-parser discovery on pull. |
+| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate; parser-dev loop (`run` with per-event error/parsedFields/failedFieldsAndErrors diagnostic output, `--cbn` required, `validate`); extensions (list/get/create/activate/delete); conf-only create; custom-parser discovery on pull. |
 | `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards; `create`/`get`/`edit` (metadata + access); `charts` (list/get/add/batch/edit/remove/run — 9 chart types, reserved-word help in `charts add`); `markdown` (add/edit/remove); `button` (add/edit/remove); `layout` (show/move); `filters` (show/set global time range); `lint`/`fix`/`inspect` quality; `verify` (single + fleet, reserved-word error reframe); `duplicate` + deep-copy; export↔import. |
 | `curated` / `curated_rules` | reconcile + imperative | ✅ chronicle · v1alpha | Google-managed; batch enable/alerting reconcile; curated tuning reads; v1alpha only. |
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
@@ -132,7 +132,7 @@ Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.
 | **entities** | operational (read) | 🔨 chronicle · v1alpha | `entities summarize`/`risk-scores`; enrichment read-only; tolerant `flexInt` for proto3 string-encoded counters |
 | **watchlists** (`lists watchlists`) | operational (read) | ✅ chronicle · v1 | `lists watchlists list`/`get`; pinned v1 (`watchlistsAPIVersion`) |
 | **analytics & AI reads** | operational (read) | ✅ chronicle (W17, `chronicle/analytics.go`) | Investigations + steps + risk scores + MITRE coverage + BigQuery export; writes gated |
-| **alert AI investigation** (`gemini investigate`) | operational | ✅ chronicle · v1alpha | Per-alert Gemini TIN triage (W57); trigger + poll + notebook; `--latest` read-only variant; v0.7.2: moved to `gemini` group (hidden alias at `alerts investigate`) |
+| **alert AI investigation** (`gemini investigate`) | operational | ✅ chronicle · v1alpha | Per-alert Gemini TIN triage (W57); default shows existing result (no re-trigger), `--rerun` forces new, `--latest` read-only; v0.7.2: moved to `gemini` group (hidden alias at `alerts investigate`) |
 | **Gemini NL→UDM** (`gemini generate-query`/`search`) | operational (read) | ✅ chronicle · v1alpha | v0.6.0: `generate-query` translates NL→UDM (no run); `search` translates + runs (same output flags); honors the model's suggested time window; one-time `--opt-in`; v0.7.2 reorg: all AI under `gemini` group (`investigate`, `summarize`, `generate` also live here; hidden aliases at old locations); `search generate-query` alias *(built)*. |
 | **Gemini assistant** (`gemini ask`) | operational (read) | ✅ chronicle · v1alpha | YARA-L / UDM Q&A; verified (W56); HTML blocks rendered as prose; `--opt-in` |
 | **findings graph** (`findingsGraph`) | operational (read) | ✅ chronicle · v1alpha | Graph-pivot from detection id (W56); SDK-only (`chronicle/findings_graph.go`) |
@@ -236,7 +236,7 @@ Installing content (integration packages and the connector/job/action definition
 
 | Function (CLI) | Lane | New API (status · domain · version) | Legacy (siemplify · external) | Notes |
 |---|---|---|---|---|
-| `content-hub list` / `get` / `contentpacks` / `browse` / `diff` | imperative read | ✅ siemplify · v1alpha | — | Content Hub reads; 405 integrations + 59 packs; `diff` shows installed-vs-latest comparison; text/JSON output fixes (W122). |
+| `content-hub list` / `get` / `contentpacks` / `browse` / `diff` | imperative read | ✅ siemplify · v1alpha | — | Content Hub reads; 405 integrations + 59 packs; `diff` shows installed-vs-latest comparison; text/JSON output fixes (W122); displayName + installed/deployed tags fixed (W123). |
 | `content-hub install` / `uninstall` / `featured install` | imperative | ✅ siemplify · v1alpha | 🔨 (`/store`) | Marketplace install pair + featured-content install (uid-based path); guarded; install round-trip verified (W11, W110, W122). |
 | `info soar-integrations` | operational read | 🔨 siemplify · v1alpha | 🔨 | Coverage report joining packs with runtime cards; flags config/runtime gaps; built + offline-tested. |
 | `info cron` | offline utility | — | — | Scans local scheduler files + pulled SOAR JSON for scheduled automation; no API call. |

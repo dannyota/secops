@@ -36,7 +36,8 @@ P5 (21–24) finishing · 25–51 operability/UX · 52–72 triage-loop + AI + d
 115–116 v0.6.x (rules dev-loop + dashboard quality) ·
 117–119 v0.7.0 (dashboard authoring + playbook/integration authoring + foundation) ·
 120 v0.7.1 (operational polish) · 121 v0.7.2 (case improvements + Gemini reorg + fixes) ·
-122 v0.7.3 (parser dev-loop + content-hub + operational polish).
+122 v0.7.3 (parser dev-loop + content-hub + operational polish) ·
+123 v0.7.4 (parser diagnostics + content-hub tags + investigate UX).
 
 ```mermaid
 flowchart LR
@@ -208,6 +209,15 @@ Parser authoring ergonomics (the full create→test→pull→push cycle), Conten
 - **`alerts list --json` valid JSON output.** Replace hand-built JSON array construction (manual `bufio.Writer` with ignored write errors) with `json.NewEncoder` + `SetIndent` — structurally valid output by construction regardless of payload size.
 - **`playbooks summary` diagnostic on generic 500.** The workflow-instance-cards API returns a generic 500 (errorCode 2000) when no workflow instance exists for a case+playbook combo (playbook didn't fire, closed case, multi-alert group mismatch). Intercept and surface a diagnostic message instead of a raw 500 dump.
 - **`cases list --filter` compound expression warning.** The v1alpha cases API only supports `contains(displayName,...)` and `startswith(displayName,...)`; compound AND/OR expressions and most other filter patterns 500. Warn on stderr when a compound expression is detected.
+
+### Wave 123 — v0.7.4 parser diagnostics, content-hub JSON tags, investigate UX *(built)*
+
+Three field-report fixes: parser error surfacing, content-hub display names, and investigate default behavior.
+
+- **`parsers run` error field fix (FR-50).** The `RunParserResult` struct mapped `json:"errors"` (plural array) but the API returns `"error"` (singular gRPC Status with code+message). Silent JSON mismatch caused all parse errors to be dropped — a failing parser showed "no output" with zero diagnostic info. Fixed the field name, added `parsedFields` and `failedFieldsAndErrors` for partial-parse debugging. Table mode now shows the validation error (e.g. "udm validation failed: target field is not set"); `--json` includes the full error object.
+- **`parsers run --cbn` required (FR-49).** The API requires a `parser` block — there is no "test against prebuilt" mode. The help text claimed `--cbn` was optional but omitting it always gave HTTP 400. Made `--cbn` required; removed the dead no-parser-block code path; updated help text. The official Python wrapper also requires parser code.
+- **`content-hub list`/`contentpacks` display names (FR-55).** JSON tags on `MarketplaceIntegration` and `ContentPack` structs were wrong: API uses `"title"` not `"displayName"`, `"installed"` not `"isInstalled"`, and `"deployed"` not `"isInstalled"` for content packs. All 407 integrations and 59 content packs now show human-readable names and correct installed/deployed status.
+- **`gemini investigate` shows existing result by default.** Matches the web UI behavior: checks for an existing completed investigation first and shows it instantly (no 90s poll wait). Only triggers a new one when none exists. `--rerun` forces a new investigation; `--latest` remains strict read-only. Mutually exclusive flags enforced.
 
 ---
 

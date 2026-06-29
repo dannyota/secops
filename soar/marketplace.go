@@ -20,8 +20,8 @@ import (
 type MarketplaceIntegration struct {
 	Name        string          `json:"name"`
 	Identifier  string          `json:"identifier"`
-	DisplayName string          `json:"displayName"`
-	IsInstalled bool            `json:"isInstalled"`
+	DisplayName string          `json:"title"`
+	IsInstalled bool            `json:"installed"`
 	Raw         json.RawMessage `json:"-"`
 }
 
@@ -96,8 +96,8 @@ func (c *Client) UninstallMarketplaceIntegration(ctx context.Context, identifier
 type ContentPack struct {
 	Name        string          `json:"name"`
 	Identifier  string          `json:"identifier"`
-	DisplayName string          `json:"displayName"`
-	IsInstalled bool            `json:"isInstalled"`
+	DisplayName string          `json:"title"`
+	IsInstalled bool            `json:"deployed"`
 	Raw         json.RawMessage `json:"-"`
 }
 

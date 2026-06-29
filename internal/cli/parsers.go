@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -229,27 +230,21 @@ func newParsersVersionsCmd() *cobra.Command {
 func newParsersRunCmd() *cobra.Command {
 	var cbnFile, logsFile string
 	cmd := &cobra.Command{
-		Use:   "run <log-type> [--cbn <file>] --logs <file>",
+		Use:   "run <log-type> --cbn <file> --logs <file>",
 		Short: "Validate a CBN parser against sample logs (no server change)",
 		Long: "Run a parser's CBN against sample log lines and print the parsed UDM.\n" +
 			"Purely inert — it creates and activates nothing — so it's safe to run before\n" +
 			"`push parsers` (which would create a new version and activate it).\n\n" +
-			"When --cbn is omitted, the request tests against the active prebuilt parser\n" +
-			"server-side — useful for evaluating whether a different parser/log-type handles\n" +
-			"a sample correctly without modifying production config.\n\n" +
 			"Per-log errors (UDM validation failures, field-type mismatches) are surfaced in\n" +
 			"table mode as a one-line error per failed log; --json includes the full error\n" +
 			"detail per result.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var code string
-			if cbnFile != "" {
-				raw, err := os.ReadFile(cbnFile)
-				if err != nil {
-					return fmt.Errorf("read --cbn: %w", err)
-				}
-				code = string(raw)
+			raw, err := os.ReadFile(cbnFile)
+			if err != nil {
+				return fmt.Errorf("read --cbn: %w", err)
 			}
+			code := string(raw)
 			logs, err := readLines(cmd, logsFile) // verbatim lines ('-' = stdin); # and blanks are real log content
 			if err != nil {
 				return fmt.Errorf("read --logs: %w", err)
@@ -271,8 +266,9 @@ func newParsersRunCmd() *cobra.Command {
 			return printRunParserResults(resp)
 		},
 	}
-	cmd.Flags().StringVar(&cbnFile, "cbn", "", "parser source (CBN) file to test (omit to test against the prebuilt parser)")
+	cmd.Flags().StringVar(&cbnFile, "cbn", "", "parser source (CBN) file to test (required)")
 	cmd.Flags().StringVar(&logsFile, "logs", "", "sample log lines, one per line ('-' for stdin) (required)")
+	_ = cmd.MarkFlagRequired("cbn")
 	_ = cmd.MarkFlagRequired("logs")
 	return markJSON(cmd)
 }
@@ -285,16 +281,17 @@ func printRunParserResults(resp *chronicle.RunParserResponse) error {
 	ok, errCount := 0, 0
 	for i, r := range resp.RunParserResults {
 		switch {
-		case len(r.Errors) > 0:
+		case r.Error != nil:
 			errCount++
-			for _, e := range r.Errors {
-				fmt.Fprintf(os.Stderr, "  [log %d] error: %s\n", i+1, strings.TrimSpace(string(e)))
-			}
+			fmt.Fprintf(os.Stderr, "  [log %d] error: %s\n", i+1, strings.TrimSpace(r.Error.Message))
+			printParsedFields(i+1, r)
 		case r.ParsedEvents != nil && len(r.ParsedEvents.Events) > 0:
 			ok++
 			fmt.Fprintf(os.Stdout, "  [log %d] %d UDM event(s)\n", i+1, len(r.ParsedEvents.Events))
 		default:
-			fmt.Fprintf(os.Stdout, "  [log %d] no output (no events, no errors)\n", i+1)
+			errCount++
+			fmt.Fprintf(os.Stderr, "  [log %d] no UDM output (parser produced no events)\n", i+1)
+			printParsedFields(i+1, r)
 		}
 	}
 	fmt.Fprintf(os.Stdout, "\n%d log(s): %d parsed, %d error(s). Use --json for the full UDM output.\n",
@@ -303,6 +300,27 @@ func printRunParserResults(resp *chronicle.RunParserResponse) error {
 		return fmt.Errorf("%d log(s) failed to parse", errCount)
 	}
 	return nil
+}
+
+func printParsedFields(logNum int, r chronicle.RunParserResult) {
+	if len(r.FailedFieldsAndErrors) > 0 {
+		var fields map[string]any
+		if json.Unmarshal(r.FailedFieldsAndErrors, &fields) == nil && len(fields) > 0 {
+			fmt.Fprintf(os.Stderr, "  [log %d] failed fields:\n", logNum)
+			for k, v := range fields {
+				fmt.Fprintf(os.Stderr, "           %s: %v\n", k, v)
+			}
+		}
+	}
+	if len(r.ParsedFields) > 0 {
+		var fields map[string]any
+		if json.Unmarshal(r.ParsedFields, &fields) == nil && len(fields) > 0 {
+			fmt.Fprintf(os.Stderr, "  [log %d] parsed fields (partial):\n", logNum)
+			for k, v := range fields {
+				fmt.Fprintf(os.Stderr, "           %s: %v\n", k, v)
+			}
+		}
+	}
 }
 
 func newParsersActivateCmd() *cobra.Command {

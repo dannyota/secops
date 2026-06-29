@@ -201,7 +201,9 @@ account opt-in is needed (`gemini ask --opt-in`); read-only.
 secopsctl gemini generate-query 'failed admin logins in the last hour'  # NL → UDM query (don't run)
 secopsctl gemini search   'network connections to a public IP in the last hour'  # NL → UDM + run
 secopsctl gemini ask      'how do I write a YARA-L rule for process injection?'  # assistant Q&A
-secopsctl gemini investigate --alert-id <id>                            # AI triage (moved from alerts)
+secopsctl gemini investigate <alert-id>                                  # shows existing result or triggers new
+secopsctl gemini investigate <alert-id> --rerun                          # force new investigation
+secopsctl gemini investigate <alert-id> --latest                         # read-only: show existing only
 secopsctl gemini summarize --case-id <id>                               # AI case summary (moved from cases)
 ```
 
