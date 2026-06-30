@@ -8,8 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"danny.vn/secops/chronicle"
 	"github.com/spf13/cobra"
+
+	"danny.vn/secops/chronicle"
 )
 
 func TestIoCValueType(t *testing.T) {

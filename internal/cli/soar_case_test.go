@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"danny.vn/secops/chronicle"
 	"danny.vn/secops/soar"
 	"danny.vn/secops/soar/legacy"
-	"github.com/spf13/cobra"
 )
 
 func TestCaseBody(t *testing.T) {

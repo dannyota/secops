@@ -14,11 +14,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"danny.vn/secops/auth"
 	"danny.vn/secops/chronicle"
 	"danny.vn/secops/soar"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // TestUDMSummarySnakeCase locks in the snake_case fallback: the legacy tool
