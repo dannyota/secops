@@ -141,9 +141,97 @@ func execResultRowCount(raw json.RawMessage) (count int, known bool) {
 	return 0, false
 }
 
+// renderTable parses a column-major dashboard query result into a text table.
+// The API returns results as [{column, values[]}, ...] — each entry is one
+// column with its header and all row values. This transposes into rows.
+func renderChartTable(raw json.RawMessage) (string, error) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return "", err
+	}
+	rv, ok := m["results"]
+	if !ok {
+		return "(no results key in response)", nil
+	}
+	var cols []struct {
+		Column string            `json:"column"`
+		Values []json.RawMessage `json:"values"`
+	}
+	if err := json.Unmarshal(rv, &cols); err != nil {
+		return "", fmt.Errorf("results is not a column array: %w", err)
+	}
+	if len(cols) == 0 {
+		return "(no columns)", nil
+	}
+	nRows := 0
+	for _, c := range cols {
+		nRows = max(nRows, len(c.Values))
+	}
+	if nRows == 0 {
+		return "(0 rows)", nil
+	}
+
+	var buf strings.Builder
+	tw := tabwriter.NewWriter(&buf, 0, 2, 2, ' ', 0)
+	headers := make([]string, len(cols))
+	for i, c := range cols {
+		headers[i] = c.Column
+	}
+	fmt.Fprintln(tw, strings.Join(headers, "\t"))
+	for r := range nRows {
+		vals := make([]string, len(cols))
+		for ci, c := range cols {
+			if r < len(c.Values) {
+				vals[ci] = unwrapChartValue(c.Values[r])
+			}
+		}
+		fmt.Fprintln(tw, strings.Join(vals, "\t"))
+	}
+	_ = tw.Flush()
+	return strings.TrimRight(buf.String(), "\n"), nil
+}
+
+// unwrapChartValue extracts a human-readable scalar from a dashboard query
+// result cell. The API returns typed wrappers like {value:{stringVal:"x"}} or
+// {value:{doubleVal:1.5}}. This unwraps to the bare value.
+func unwrapChartValue(raw json.RawMessage) string {
+	var wrapper struct {
+		Value struct {
+			StringVal *string  `json:"stringVal"`
+			DoubleVal *float64 `json:"doubleVal"`
+			IntVal    *int64   `json:"intVal"`
+			Int64Val  *string  `json:"int64Val"`
+			BoolVal   *bool    `json:"boolVal"`
+		} `json:"value"`
+	}
+	if json.Unmarshal(raw, &wrapper) == nil {
+		v := wrapper.Value
+		switch {
+		case v.StringVal != nil:
+			return *v.StringVal
+		case v.DoubleVal != nil:
+			s := fmt.Sprintf("%f", *v.DoubleVal)
+			s = strings.TrimRight(s, "0")
+			s = strings.TrimRight(s, ".")
+			return s
+		case v.IntVal != nil:
+			return fmt.Sprintf("%d", *v.IntVal)
+		case v.Int64Val != nil:
+			return *v.Int64Val
+		case v.BoolVal != nil:
+			return fmt.Sprintf("%t", *v.BoolVal)
+		}
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	return strings.TrimSpace(string(raw))
+}
+
 func newDashboardsRunChartCmd() *cobra.Command {
 	var chartID, filter string
-	var clearCache bool
+	var clearCache, tableMode bool
 	cmd := &cobra.Command{
 		Use:     "run <dashboard-id> --chart-id <id>",
 		Aliases: []string{"values"},
@@ -178,6 +266,17 @@ func newDashboardsRunChartCmd() *cobra.Command {
 			if jsonOut {
 				return writeRawJSON(os.Stdout, res)
 			}
+			if tableMode {
+				tbl, err := renderChartTable(res)
+				if err != nil {
+					return err
+				}
+				if n, known := execResultRowCount(res); known {
+					fmt.Printf("chart %s: %d row(s)\n\n", chartID, n)
+				}
+				fmt.Println(tbl)
+				return nil
+			}
 			if n, known := execResultRowCount(res); known {
 				fmt.Printf("chart %s: %d row(s).\n", chartID, n)
 			}
@@ -189,6 +288,7 @@ func newDashboardsRunChartCmd() *cobra.Command {
 	cmd.Flags().StringVar(&chartID, "chart-id", "", "id (or resource name) of the chart to execute (required)")
 	cmd.Flags().StringVar(&filter, "filter", "", "optional dashboard-filter JSON array applied to the query")
 	cmd.Flags().BoolVar(&clearCache, "clear-cache", false, "bypass the query cache (read from the database)")
+	cmd.Flags().BoolVar(&tableMode, "table", false, "render the query result as a text table instead of raw JSON")
 	_ = cmd.MarkFlagRequired("chart-id")
 	return markJSON(cmd)
 }

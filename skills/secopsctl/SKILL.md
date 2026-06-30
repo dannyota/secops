@@ -312,7 +312,15 @@ secopsctl dashboards charts add <id> --title "DNS by host" \
     --query 'metadata.event_type = "NETWORK_DNS" match: principal.hostname outcome: $c = count(metadata.id)' \
     --chart-type bar --x principal.hostname --y '$c' \
     --layout '{"startX":0,"spanX":48,"startY":0,"spanY":16}' --yes
-secopsctl dashboards charts list <id>                                  # list charts + queries
+secopsctl dashboards charts list <id>                                  # list charts + queries + filtersIds
+secopsctl dashboards charts get <chart-id>                             # full detail: viz, query, filters, layout
+secopsctl dashboards charts run <id> --chart-id <cid> --table          # execute query → readable table output
+secopsctl dashboards charts edit <id> --chart-id <cid> --title "New name" --yes  # rename in place
+secopsctl dashboards charts edit <id> --chart-id <cid> --filters GlobalTimeFilter --yes  # bind to time filter
+
+# Stacked bar/line (--series-by puts seriesColumn at viz top level)
+secopsctl dashboards charts add <id> --title "By actor" \
+    --query '...' --chart-type bar --x actor --y count --series-by dataset --yes
 
 # Markdown widgets (static text — no query)
 secopsctl dashboards markdown add <id> --title "Notes" \

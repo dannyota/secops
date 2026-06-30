@@ -85,7 +85,7 @@ func TestBuildVisualizationNewTypes(t *testing.T) {
 		x, y, by   string
 		wantSeries string
 	}{
-		{"area", "day", "count", "", "AREA"},
+		{"area", "day", "count", "", "LINE"},
 		{"scatter", "x", "y", "", "SCATTER"},
 		{"gauge", "", "value", "", "GAUGE"},
 		{"metrics", "", "count", "", "METRICS"},

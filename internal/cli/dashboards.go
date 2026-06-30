@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -319,11 +320,63 @@ func newDashboardsChartsGroupCmd() *cobra.Command {
 	return cmd
 }
 
+// extractDashboardID extracts the parent dashboard ID from a chart's resource
+// name (projects/.../nativeDashboards/<dashId>/dashboardCharts/<chartId>).
+func extractDashboardID(chartName string) string {
+	const marker = "nativeDashboards/"
+	_, after, found := strings.Cut(chartName, marker)
+	if !found {
+		return ""
+	}
+	if id, _, ok := strings.Cut(after, "/"); ok && id != "" {
+		return id
+	}
+	return ""
+}
+
+// chartDefinitionEntry holds the definition-level fields for a chart (from the
+// dashboard's definition.charts[] array, NOT from the chart API object).
+type chartDefinitionEntry struct {
+	FiltersIds  []string        `json:"filtersIds,omitempty"`
+	ChartLayout json.RawMessage `json:"chartLayout,omitempty"`
+}
+
+// lookupChartDefinition reads the dashboard definition and returns the
+// definition-level fields (filtersIds, chartLayout) for a specific chart.
+func lookupChartDefinition(ctx context.Context, c *chronicle.Client, dashboardID, chartID string) (*chartDefinitionEntry, error) {
+	full, err := c.GetDashboard(ctx, dashboardID, true)
+	if err != nil {
+		return nil, err
+	}
+	var def struct {
+		Definition struct {
+			Charts []struct {
+				DashboardChart string          `json:"dashboardChart"`
+				FiltersIds     []string        `json:"filtersIds"`
+				ChartLayout    json.RawMessage `json:"chartLayout"`
+			} `json:"charts"`
+		} `json:"definition"`
+	}
+	if err := json.Unmarshal(full.Raw, &def); err != nil {
+		return nil, err
+	}
+	want := lastSegment(chartID)
+	for _, ch := range def.Definition.Charts {
+		if lastSegment(ch.DashboardChart) == want {
+			return &chartDefinitionEntry{
+				FiltersIds:  ch.FiltersIds,
+				ChartLayout: ch.ChartLayout,
+			}, nil
+		}
+	}
+	return nil, nil
+}
+
 // newDashboardsChartGetCmd shows a single chart's full detail.
 func newDashboardsChartGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <chart-id>",
-		Short: "Show a single chart's full detail: visualization, query, layout (read-only)",
+		Short: "Show a single chart's full detail: visualization, query, layout, filters (read-only)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newChronicleClient()
@@ -335,16 +388,46 @@ func newDashboardsChartGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			chartName := nestedString(raw, "name")
+			cid := lastSegment(chartName)
+
+			// Look up definition-level fields (filtersIds, chartLayout) from
+			// the parent dashboard.
+			var defEntry *chartDefinitionEntry
+			if dashID := extractDashboardID(chartName); dashID != "" {
+				defEntry, _ = lookupChartDefinition(ctx, c, dashID, cid)
+			}
+
 			if jsonOut {
-				return emitJSON(raw)
+				var merged map[string]json.RawMessage
+				if err := json.Unmarshal(raw, &merged); err != nil {
+					return emitJSON(raw)
+				}
+				if defEntry != nil {
+					if b, err := json.Marshal(defEntry.FiltersIds); err == nil {
+						merged["filtersIds"] = b
+					}
+					if len(defEntry.ChartLayout) > 0 {
+						merged["chartLayout"] = defEntry.ChartLayout
+					}
+				}
+				return emitJSON(merged)
 			}
 			title, tileType, dataSources, viz := parseChartFields(raw)
-			cid := lastSegment(nestedString(raw, "name"))
 			fmt.Printf("%-14s %s\n", "ID:", cid)
 			fmt.Printf("%-14s %s\n", "Title:", title)
 			fmt.Printf("%-14s %s\n", "Tile type:", tileType)
 			if len(dataSources) > 0 {
 				fmt.Printf("%-14s %s\n", "Datasources:", strings.Join(dataSources, ", "))
+			}
+			if defEntry != nil {
+				if len(defEntry.FiltersIds) > 0 {
+					fmt.Printf("%-14s %s\n", "Filters:", strings.Join(defEntry.FiltersIds, ", "))
+				}
+				if len(defEntry.ChartLayout) > 0 {
+					fmt.Printf("%-14s %s\n", "Layout:", string(defEntry.ChartLayout))
+				}
 			}
 			if len(viz) > 0 && string(viz) != "{}" {
 				fmt.Printf("Visualization:\n%s\n", indentJSONPrefixed(viz, "  "))

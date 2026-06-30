@@ -78,6 +78,30 @@ func TestBuildVisualization(t *testing.T) {
 	if v["groupingType"] != "Stacked" {
 		t.Errorf("series-by bar should be Stacked, got %v", v["groupingType"])
 	}
+	// FR-59: seriesColumn must be at viz top level, NOT inside series[0].encode
+	sc, _ := v["seriesColumn"].([]any)
+	if len(sc) != 1 || sc[0] != "user" {
+		t.Errorf("seriesColumn should be [\"user\"] at top level, got %v", v["seriesColumn"])
+	}
+	enc = v["series"].([]any)[0].(map[string]any)["encode"].(map[string]any)
+	if _, has := enc["seriesColumn"]; has {
+		t.Error("seriesColumn must NOT be inside series[0].encode (FR-59)")
+	}
+	// FR-62: xAxes/yAxes must be present
+	if v["xAxes"] == nil || v["yAxes"] == nil {
+		t.Error("stacked bar must have xAxes and yAxes (FR-62)")
+	}
+	// FR-63: series entry must have encode, seriesType, dataLabel
+	s0 := v["series"].([]any)[0].(map[string]any)
+	if s0["seriesType"] != "BAR" {
+		t.Errorf("series[0].seriesType = %v, want BAR", s0["seriesType"])
+	}
+	if s0["dataLabel"] == nil {
+		t.Error("series[0] must have dataLabel (FR-63)")
+	}
+	if s0["stack"] != "stack" {
+		t.Errorf("series[0].stack = %v, want \"stack\"", s0["stack"])
+	}
 
 	// pie uses itemName/value
 	b, _ = buildVisualization("pie", "name", "count", "")

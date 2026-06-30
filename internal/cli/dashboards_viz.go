@@ -146,18 +146,32 @@ func buildVisualization(chartType, x, y, seriesBy string) (json.RawMessage, erro
 			return nil, fmt.Errorf("a %s chart needs --x (category) and --y (value)", chartType)
 		}
 		seriesType := strings.ToUpper(chartType)
-		encode := map[string]any{"x": x, "y": y}
-		grouping := "Off"
-		if seriesBy != "" {
-			encode["seriesColumn"] = seriesBy
-			grouping = "Stacked"
+		if seriesType == "AREA" {
+			seriesType = "LINE"
 		}
-		return marshalViz(map[string]any{
-			"series":       []any{map[string]any{"seriesType": seriesType, "encode": encode}},
-			"xAxes":        []any{map[string]any{"axisType": "CATEGORY", "displayName": x}},
-			"yAxes":        []any{map[string]any{"axisType": "VALUE", "displayName": y}},
-			"groupingType": grouping,
-		})
+		viz := map[string]any{
+			"xAxes": []any{map[string]any{"axisType": "CATEGORY", "displayName": x}},
+			"yAxes": []any{map[string]any{"axisType": "VALUE", "displayName": y}},
+		}
+		if seriesBy != "" {
+			viz["seriesColumn"] = []string{seriesBy}
+			viz["groupingType"] = "Stacked"
+			viz["legends"] = []any{map[string]any{"legendOrient": "HORIZONTAL", "top": 12}}
+			viz["series"] = []any{map[string]any{
+				"encode":     map[string]any{"x": x, "y": y},
+				"seriesType": seriesType,
+				"dataLabel":  map[string]any{},
+				"stack":      "stack",
+			}}
+		} else {
+			viz["groupingType"] = "Off"
+			viz["series"] = []any{map[string]any{
+				"encode":     map[string]any{"x": x, "y": y},
+				"seriesType": seriesType,
+				"dataLabel":  map[string]any{},
+			}}
+		}
+		return marshalViz(viz)
 	case "scatter", "scatterplot":
 		if x == "" || y == "" {
 			return nil, fmt.Errorf("a scatter chart needs --x and --y")
