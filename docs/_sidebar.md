@@ -33,6 +33,7 @@
   - [09 · SOAR operations](tips/09-soar-operations.md)
   - [10 · LLM & automation](tips/10-llm-and-automation.md)
   - [11 · Gemini & AI](tips/11-gemini-and-ai.md)
+  - [12 · Parser extensions](tips/12-parser-extensions.md)
 
 - **Design**
   - [Architecture](design/architecture.md)

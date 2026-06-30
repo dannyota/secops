@@ -22,3 +22,16 @@ func TestRulesCreateFlagChanged(t *testing.T) {
 		t.Fatal("changed --enabled was not detected")
 	}
 }
+
+// TestPullHasForwarders: forwarders is a pull target (symmetry with push/drift).
+func TestPullHasForwarders(t *testing.T) {
+	found := false
+	for _, p := range pullOrder {
+		if p.name == "forwarders" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("forwarders is not a pull target")
+	}
+}

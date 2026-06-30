@@ -18,15 +18,6 @@ service-account*.json
 # Local tenant configuration (use config/instance.example.yaml as a template)
 config/instance.yaml
 
-# Pulled tenant content (local working data; do not commit tenant data)
-rules/
-reference_lists/
-data_tables/
-dashboards/
-curated/
-feeds/
-parsers/
-
 # OS / editor cruft
 .DS_Store
 *.swp
@@ -42,6 +33,8 @@ parsers/
 
 # Project-local MCP config (references local paths / browser profile)
 /.mcp.json
+
+samples/
 
 # Local-only working build plan
 /plan.md

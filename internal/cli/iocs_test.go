@@ -1,9 +1,15 @@
 package cli
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 
 	"danny.vn/secops/chronicle"
+	"github.com/spf13/cobra"
 )
 
 func TestIoCValueType(t *testing.T) {
@@ -74,6 +80,70 @@ func TestRelatedThreatCollectionTypes(t *testing.T) {
 			if got[i] != c.want[i] {
 				t.Fatalf("relatedThreatCollectionTypes(%q)[%d] = %q, want %q", c.in, i, got[i], c.want[i])
 			}
+		}
+	}
+}
+
+// TestReadIndicatorList: file input skips blanks and # comments, trims whitespace.
+func TestReadIndicatorList(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "iocs.txt")
+	if err := os.WriteFile(p, []byte("a.com\n\n# a comment\n  1.2.3.4  \nevil.example\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readIndicatorList(&cobra.Command{}, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"a.com", "1.2.3.4", "evil.example"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("readIndicatorList = %v, want %v", got, want)
+	}
+}
+
+// TestReadIndicatorListStdin: "-" reads from the command's stdin.
+func TestReadIndicatorListStdin(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.SetIn(strings.NewReader("x.com\n# c\nhash123\n"))
+	got, err := readIndicatorList(cmd, "-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, []string{"x.com", "hash123"}) {
+		t.Errorf("stdin read = %v", got)
+	}
+}
+
+func TestBuildWatchlistEntity(t *testing.T) {
+	e, label, err := buildWatchlistEntity("", "", "host-1", "", "", "ns")
+	if err != nil || e.Asset == nil || e.Namespace != "ns" || !strings.Contains(label, "host-1") {
+		t.Errorf("hostname entity = %+v, %q, %v", e, label, err)
+	}
+	if _, _, err := buildWatchlistEntity("", "", "", "", "", ""); err == nil {
+		t.Error("no selector must error")
+	}
+	if _, _, err := buildWatchlistEntity("1.2.3.4", "", "h", "", "", ""); err == nil {
+		t.Error("two selectors must error")
+	}
+	// Pin the exact wire shapes (per the documented entity oneof: ip/mac/email
+	// are single-element arrays, hostname/userid scalars) so a shape change is a
+	// deliberate edit, not drift — the add itself stays gated until a live smoke.
+	for _, tc := range []struct {
+		ip, mac, hostname, user, email string
+		wantJSON                       string
+	}{
+		{ip: "10.0.0.5", wantJSON: `{"asset":{"ip":["10.0.0.5"]}}`},
+		{mac: "00:11:22:33:44:55", wantJSON: `{"asset":{"mac":["00:11:22:33:44:55"]}}`},
+		{hostname: "h-1", wantJSON: `{"asset":{"hostname":"h-1"}}`},
+		{user: "u-1", wantJSON: `{"user":{"userid":"u-1"}}`},
+		{email: "user@example.com", wantJSON: `{"user":{"email_addresses":["user@example.com"]}}`},
+	} {
+		e, _, err := buildWatchlistEntity(tc.ip, tc.mac, tc.hostname, tc.user, tc.email, "")
+		if err != nil {
+			t.Fatalf("build: %v", err)
+		}
+		got, _ := json.Marshal(e)
+		if string(got) != tc.wantJSON {
+			t.Errorf("entity wire shape = %s, want %s", got, tc.wantJSON)
 		}
 	}
 }
