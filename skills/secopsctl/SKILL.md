@@ -238,6 +238,27 @@ straight into a parser test:
 ```bash
 secopsctl search udm 'metadata.log_type = "KONG_GATEWAY" AND metadata.event_type = "GENERIC_EVENT"' \
     --raw --limit 50 | secopsctl ingest parsers run KONG_GATEWAY --cbn parser.conf --logs -
+# statedump diagnostics are auto-injected; use --statedump for verbose output on every log
+secopsctl ingest parsers run KONG_GATEWAY --cbn parser.conf --logs sample.txt --statedump
+```
+
+### Parser management — upgrade, rollback, extractors
+
+```bash
+secopsctl ingest parsers upgrade FORTINET_FIREWALL              # preview release candidate (dry-run)
+secopsctl ingest parsers upgrade FORTINET_FIREWALL --yes        # activate it
+secopsctl ingest parsers rollback FORTINET_FIREWALL             # preview rollback candidate
+secopsctl ingest parsers rollback FORTINET_FIREWALL --yes       # apply rollback
+
+secopsctl ingest parsers extension extract GCP_DNS              # discover extractable raw log fields
+secopsctl ingest parsers extension extract GCP_DNS --all --yes  # create extractor extension for all fields
+secopsctl ingest parsers extension extract GCP_DNS --fields insertId,logName --yes  # specific fields
+secopsctl ingest parsers extension setting GCP_DNS              # show current extraction type
+secopsctl ingest parsers extension setting GCP_DNS all --yes    # extract all fields (up to 100)
+
+secopsctl ingest log-types list                                 # active log types (feedCount > 0)
+secopsctl ingest log-types list --all --sort feeds              # full catalog, sorted by feed count
+secopsctl ingest log-types create MY_LOG "My Log" --yes         # create custom log type (adds _CUSTOM suffix)
 ```
 
 ### Aggregate (stats) — the YARA-L a dashboard chart uses

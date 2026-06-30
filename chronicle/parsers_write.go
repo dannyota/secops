@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // Parser write/lifecycle operations.
@@ -141,6 +142,11 @@ type RunParserResponse struct {
 // code and each sample log are base64-encoded on send (the API expects base64
 // for both the parser cbn and every log entry), mirroring the wrapper. code is
 // required — the API returns 400 without a parser block.
+//
+// A statedump filter is injected automatically (before the closing brace of
+// the outermost filter block) when the CBN does not already contain one, so
+// diagnostics (@onErrorCount, @output, intermediate variables) are always
+// available in the response.
 func (c *Client) RunParser(ctx context.Context, logType, code string, sampleLogs []string) (*RunParserResponse, error) {
 	if logType == "" {
 		return nil, fmt.Errorf("chronicle: RunParser: logType is required")
@@ -151,6 +157,8 @@ func (c *Client) RunParser(ctx context.Context, logType, code string, sampleLogs
 	if len(sampleLogs) == 0 {
 		return nil, fmt.Errorf("chronicle: RunParser: at least one sample log is required")
 	}
+
+	code = injectStatedump(code)
 
 	encodedLogs := make([]string, len(sampleLogs))
 	for i, log := range sampleLogs {
@@ -165,7 +173,7 @@ func (c *Client) RunParser(ctx context.Context, logType, code string, sampleLogs
 		StatedumpAllowed bool     `json:"statedump_allowed"`
 	}{
 		Log:              encodedLogs,
-		StatedumpAllowed: false,
+		StatedumpAllowed: true,
 	}
 	body.Parser.CBN = base64.StdEncoding.EncodeToString([]byte(code))
 
@@ -175,4 +183,17 @@ func (c *Client) RunParser(ctx context.Context, logType, code string, sampleLogs
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// injectStatedump appends a statedump filter before the final closing brace
+// of the outermost filter block when the CBN does not already contain one.
+func injectStatedump(code string) string {
+	if strings.Contains(code, "statedump") {
+		return code
+	}
+	i := strings.LastIndex(code, "}")
+	if i < 0 {
+		return code
+	}
+	return code[:i] + "\n  statedump { label => \"secopsctl\" }\n}\n"
 }

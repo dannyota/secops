@@ -13,7 +13,7 @@ import (
 func newParsersExtensionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "extension <verb>",
-		Short: "Manage low-code parser extensions (list / get / create / activate / delete)",
+		Short: "Manage parser extensions (list / create / extract / setting / activate / delete)",
 	}
 	cmd.AddCommand(
 		newExtListCmd(),
@@ -21,6 +21,8 @@ func newParsersExtensionCmd() *cobra.Command {
 		newExtCreateCmd(),
 		newExtActivateCmd(),
 		newExtDeleteCmd(),
+		newExtExtractCmd(),
+		newExtSettingCmd(),
 	)
 	return cmd
 }

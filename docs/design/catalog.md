@@ -95,7 +95,7 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `reference_lists` | reconcile + imperative | ✅ chronicle · v1alpha | Typed `.txt`+`.yaml`; NoDelete; resource-name normalization; empty-list canonical fix. |
 | `data_tables` | reconcile | ✅ chronicle · v1alpha | `.csv`+`.yaml`; columns immutable after create; rows wholesale destroy-and-replace. |
 | `feeds` | reconcile | ✅ chronicle · v1alpha | `.yaml`; secrets redacted on pull, overlaid on update; `secret_ref` env/Secret Manager; not prune-eligible. |
-| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate; parser-dev loop (`run` with per-event error/parsedFields/failedFieldsAndErrors diagnostic output, `--cbn` required, `validate`); extensions (list/get/create/activate/delete); conf-only create; custom-parser discovery on pull. |
+| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate; parser-dev loop (`run` with per-event error/parsedFields/failedFieldsAndErrors diagnostic output, `--cbn` required, `validate`); extensions (list/get/create/activate/delete + extract discover/create + setting read/update); conf-only create; custom-parser discovery on pull; `upgrade` (preview + activate release candidate); `rollback` (revert to last used version). |
 | `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards; `create`/`get`/`edit` (metadata + access); `charts` (list/get/add/batch/edit/remove/run — 9 chart types, reserved-word help in `charts add`); `markdown` (add/edit/remove); `button` (add/edit/remove); `layout` (show/move); `filters` (show/set global time range); `lint`/`fix`/`inspect` quality; `verify` (single + fleet, reserved-word error reframe); `duplicate` + deep-copy; export↔import. |
 | `curated` / `curated_rules` | reconcile + imperative | ✅ chronicle · v1alpha | Google-managed; batch enable/alerting reconcile; curated tuning reads; v1alpha only. |
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
@@ -107,6 +107,7 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `enrichment_controls` | imperative | 🔨 chronicle · v1alpha | Turn off UDM enrichment per log type; no patch, imperative only; feature-gated 403. |
 | `federation_groups` · `tenants` (MSSP) | reconcile · read | 🔨 chronicle · v1alpha | Multi-tenant federation; MSSP-only (403 on single tenant); `multitenantDirectory` read-validated. |
 | schema discovery | imperative (read) | ✅ chronicle · v1alpha | `feedSourceTypeSchemas`, `logTypeSchemas`, `logTypeSetting`, `logTypes.get`; read-validated. |
+| `log-types` | imperative | ✅ chronicle · v1alpha | List (default: active feeds only, search/sort), get, create custom (auto `_CUSTOM` suffix); permanent — no delete/rename endpoint (API or console). |
 | governance — `riskConfig` · `dataAccessLabels`/`Scopes` | imperative | ✅ chronicle · v1 | SDK-only (no CLI yet); write-validated; quirky create (persist-despite-error, list lag, tombstone). |
 
 #### Surface details

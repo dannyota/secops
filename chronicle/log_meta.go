@@ -23,8 +23,27 @@ import (
 // ingestion and rules APIs is the trailing segment (see LogTypeID). DisplayName
 // is the human-readable description.
 type LogType struct {
-	Name        string `json:"name,omitempty"`
-	DisplayName string `json:"displayName,omitempty"`
+	Name               string          `json:"name,omitempty"`
+	DisplayName        string          `json:"displayName,omitempty"`
+	ProductSource      string          `json:"productSource,omitempty"`
+	IsCustom           bool            `json:"isCustom,omitempty"`
+	Golden             bool            `json:"golden,omitempty"`
+	CustomLogTypeLabel string          `json:"customLogTypeLabel,omitempty"`
+	HasCustomParser    bool            `json:"hasCustomParser,omitempty"`
+	ParserType         string          `json:"parserType,omitempty"`
+	LastIngestedTime   string          `json:"lastIngestedTime,omitempty"`
+	FeedCount          int             `json:"feedCount,omitempty"`
+	CollectionTime     string          `json:"collectionTime,omitempty"`
+	Raw                json.RawMessage `json:"-"`
+}
+
+func (l *LogType) UnmarshalJSON(b []byte) error {
+	type alias LogType
+	if err := json.Unmarshal(b, (*alias)(l)); err != nil {
+		return err
+	}
+	l.Raw = append(l.Raw[:0:0], b...)
+	return nil
 }
 
 // LogTypeID returns the trailing <id> segment of the log type's resource Name
@@ -116,6 +135,35 @@ func (c *Client) GetLogTypeDescription(ctx context.Context, logType string) (str
 		return resp.NextPageToken, nil
 	})
 	return desc, err
+}
+
+// CreateLogType creates a custom log type. logTypeID is the slug (e.g.
+// "my_custom_log", 4-63 chars, /[a-z][0-9]-/). displayName is the label shown
+// in the UI/feed creation. Returns the newly created LogType.
+func (c *Client) CreateLogType(ctx context.Context, logTypeID, displayName string) (*LogType, error) {
+	if !strings.HasSuffix(logTypeID, "_CUSTOM") {
+		logTypeID += "_CUSTOM"
+	}
+	if !strings.HasSuffix(displayName, " Custom") {
+		displayName += " Custom"
+	}
+	body := struct {
+		DisplayName        string `json:"displayName"`
+		ProductSource      string `json:"productSource"`
+		IsCustom           bool   `json:"isCustom"`
+		CustomLogTypeLabel string `json:"customLogTypeLabel"`
+	}{
+		DisplayName:        displayName,
+		ProductSource:      displayName,
+		IsCustom:           true,
+		CustomLogTypeLabel: logTypeID,
+	}
+	q := url.Values{"logTypeId": {logTypeID}}
+	var out LogType
+	if err := c.post(ctx, c.resourcePath("logTypes", false), body, &out, withQuery(q)); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // ValueMatch is one ingested UDM field value matching a findUdmFieldValues

@@ -219,6 +219,18 @@ Three field-report fixes: parser error surfacing, content-hub display names, and
 - **`content-hub list`/`contentpacks` display names (FR-55).** JSON tags on `MarketplaceIntegration` and `ContentPack` structs were wrong: API uses `"title"` not `"displayName"`, `"installed"` not `"isInstalled"`, and `"deployed"` not `"isInstalled"` for content packs. All 407 integrations and 59 content packs now show human-readable names and correct installed/deployed status.
 - **`gemini investigate` shows existing result by default.** Matches the web UI behavior: checks for an existing completed investigation first and shows it instantly (no 90s poll wait). Only triggers a new one when none exists. `--rerun` forces a new investigation; `--latest` remains strict read-only. Mutually exclusive flags enforced.
 
+### Wave 124 — v0.7.5 parser lifecycle + log-type management *(built)*
+
+Parser management suite + log-type CRUD + extractor reorganization.
+
+- **`parsers upgrade`** — preview and activate a prebuilt parser release candidate via `activateReleaseCandidateParser`. Dry-run by default.
+- **`parsers rollback`** — revert to the last used parser version. Finds the active `RELEASE_CANDIDATE` parser via `ListParsers`, deactivates it via `DeactivateParser`.
+- **`parsers extension extract`** — discover extractable raw-log fields (read-only) or create an extractor extension with `--fields`/`--all` (mutation, guarded). Uses `GenerateUdmKeyValueMappings` + `CreateParserExtension` with `dynamicParsing.optedFields`.
+- **`parsers extension setting`** — read or update the auto-extraction setting (`OPT_IN`/`ALL_FIELDS`/`DISABLED`) per log type via `getLogTypeSetting`/`updateLogTypeSetting`.
+- **`ingest log-types create`** — create custom log types (auto-appends `_CUSTOM` suffix per API requirement). Custom log types are permanent — no delete or rename endpoint exists (API or console).
+- **`ingest log-types list`** — default to active feeds only (feedCount > 0), `--all` for full catalog, `--sort` (name/feeds/collection), `--search`.
+- **SDK:** `FetchParserCandidates`, `GenerateUdmKeyValueMappings`, `UpdateLogTypeSetting`, `CreateLogType`.
+
 ---
 
 ## Non-goals

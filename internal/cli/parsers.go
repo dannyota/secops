@@ -30,13 +30,17 @@ func newParsersCmd() *cobra.Command {
 			"  versions     list a log type's parser versions (id, state, created)\n" +
 			"  run          validate a CBN parser against sample logs (no server change)\n" +
 			"  validate     show parsing errors from a submitted parser's validation report\n" +
-			"  activate     make a specific parser version ACTIVE (guarded)\n\n" +
+			"  activate     make a specific parser version ACTIVE (guarded)\n" +
+			"  upgrade      preview + activate a prebuilt parser update (release candidate)\n" +
+			"  rollback     roll back to the last used parser version\n" +
+			"  extension    manage parser extensions (extract / setting / create / activate)\n\n" +
 			"Parser-dev loop: sample-logs → write CBN → run → `push parsers` (submit) →\n" +
 			"validate (why a submit's FAILED_PRECONDITION failed). Config-as-code is\n" +
 			"`push parsers` (edit + create-new-version + activate).",
 	}
 	cmd.AddCommand(newParsersVersionsCmd(), newParsersRunCmd(), newParsersActivateCmd(),
-		newParsersSampleLogsCmd(), newParsersValidateCmd(), newParsersExtensionCmd())
+		newParsersSampleLogsCmd(), newParsersValidateCmd(), newParsersExtensionCmd(),
+		newParsersUpgradeCmd(), newParsersRollbackCmd())
 	return cmd
 }
 
@@ -229,6 +233,7 @@ func newParsersVersionsCmd() *cobra.Command {
 
 func newParsersRunCmd() *cobra.Command {
 	var cbnFile, logsFile string
+	var statedump bool
 	cmd := &cobra.Command{
 		Use:   "run <log-type> --cbn <file> --logs <file>",
 		Short: "Validate a CBN parser against sample logs (no server change)",
@@ -237,7 +242,10 @@ func newParsersRunCmd() *cobra.Command {
 			"`push parsers` (which would create a new version and activate it).\n\n" +
 			"Per-log errors (UDM validation failures, field-type mismatches) are surfaced in\n" +
 			"table mode as a one-line error per failed log; --json includes the full error\n" +
-			"detail per result.",
+			"detail per result.\n\n" +
+			"When a log produces no output, the statedump diagnostic (@onErrorCount and\n" +
+			"intermediate state) is shown automatically. Use --statedump to see the full\n" +
+			"statedump for every log (including successful ones).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			raw, err := os.ReadFile(cbnFile)
@@ -263,17 +271,18 @@ func newParsersRunCmd() *cobra.Command {
 			if jsonOut {
 				return emitJSON(resp)
 			}
-			return printRunParserResults(resp)
+			return printRunParserResults(resp, statedump)
 		},
 	}
 	cmd.Flags().StringVar(&cbnFile, "cbn", "", "parser source (CBN) file to test (required)")
 	cmd.Flags().StringVar(&logsFile, "logs", "", "sample log lines, one per line ('-' for stdin) (required)")
+	cmd.Flags().BoolVar(&statedump, "statedump", false, "show full statedump for every log (debugging)")
 	_ = cmd.MarkFlagRequired("cbn")
 	_ = cmd.MarkFlagRequired("logs")
 	return markJSON(cmd)
 }
 
-func printRunParserResults(resp *chronicle.RunParserResponse) error {
+func printRunParserResults(resp *chronicle.RunParserResponse, showStatedump bool) error {
 	if len(resp.RunParserResults) == 0 {
 		fmt.Fprintln(os.Stdout, "no results.")
 		return nil
@@ -285,13 +294,18 @@ func printRunParserResults(resp *chronicle.RunParserResponse) error {
 			errCount++
 			fmt.Fprintf(os.Stderr, "  [log %d] error: %s\n", i+1, strings.TrimSpace(r.Error.Message))
 			printParsedFields(i+1, r)
+			printStatedumpSummary(i+1, r, showStatedump)
 		case r.ParsedEvents != nil && len(r.ParsedEvents.Events) > 0:
 			ok++
 			fmt.Fprintf(os.Stdout, "  [log %d] %d UDM event(s)\n", i+1, len(r.ParsedEvents.Events))
+			if showStatedump {
+				printStatedumpSummary(i+1, r, true)
+			}
 		default:
 			errCount++
 			fmt.Fprintf(os.Stderr, "  [log %d] no UDM output (parser produced no events)\n", i+1)
 			printParsedFields(i+1, r)
+			printStatedumpSummary(i+1, r, true)
 		}
 	}
 	fmt.Fprintf(os.Stdout, "\n%d log(s): %d parsed, %d error(s). Use --json for the full UDM output.\n",
@@ -320,6 +334,53 @@ func printParsedFields(logNum int, r chronicle.RunParserResult) {
 				fmt.Fprintf(os.Stderr, "           %s: %v\n", k, v)
 			}
 		}
+	}
+}
+
+// printStatedumpSummary extracts key diagnostics from the statedump results.
+// When verbose is true, the full statedump text is printed; otherwise only a
+// one-line summary (@onErrorCount + @output size) is shown.
+func printStatedumpSummary(logNum int, r chronicle.RunParserResult, verbose bool) {
+	if len(r.StatedumpResults) == 0 {
+		return
+	}
+	for _, raw := range r.StatedumpResults {
+		var entry struct {
+			Result string `json:"statedumpResult"`
+		}
+		if json.Unmarshal(raw, &entry) != nil || entry.Result == "" {
+			continue
+		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  [log %d] statedump:%s\n", logNum, entry.Result)
+		} else {
+			printStatedumpOneLiner(logNum, entry.Result)
+		}
+	}
+}
+
+func printStatedumpOneLiner(logNum int, dump string) {
+	var state map[string]any
+	start := strings.Index(dump, "{")
+	if start < 0 {
+		return
+	}
+	if json.Unmarshal([]byte(dump[start:]), &state) != nil {
+		return
+	}
+	var parts []string
+	if v, ok := state["@onErrorCount"]; ok {
+		if n, ok := v.(float64); ok && n > 0 {
+			parts = append(parts, fmt.Sprintf("on_error fired %d time(s)", int(n)))
+		}
+	}
+	if v, ok := state["@output"]; ok {
+		if arr, ok := v.([]any); ok && len(arr) == 0 {
+			parts = append(parts, "no @output merge")
+		}
+	}
+	if len(parts) > 0 {
+		fmt.Fprintf(os.Stderr, "  [log %d] statedump: %s\n", logNum, strings.Join(parts, "; "))
 	}
 }
 

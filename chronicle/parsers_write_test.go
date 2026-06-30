@@ -89,8 +89,12 @@ func TestRunParserDecode(t *testing.T) {
 	if err := json.Unmarshal([]byte(rt.body), &sent); err != nil {
 		t.Fatalf("request body not JSON: %v\n%s", err, rt.body)
 	}
-	if dec, _ := base64.StdEncoding.DecodeString(sent.Parser.CBN); string(dec) != "filter{}" {
+	dec, _ := base64.StdEncoding.DecodeString(sent.Parser.CBN)
+	if !strings.Contains(string(dec), "filter{") {
 		t.Errorf("cbn not base64-encoded source: %q", sent.Parser.CBN)
+	}
+	if !strings.Contains(string(dec), "statedump") {
+		t.Errorf("auto-injected statedump missing from cbn: %q", string(dec))
 	}
 	if len(sent.Log) != 1 {
 		t.Fatalf("want 1 log, got %d", len(sent.Log))
