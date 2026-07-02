@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"danny.vn/secops/auth"
 	"danny.vn/secops/chronicle"
@@ -217,7 +216,6 @@ func rejectUnknownSubcommand(cmd *cobra.Command, args []string) error {
 }
 
 func init() {
-	cobra.OnInitialize(initViper)
 	rootCmd.AddGroup(
 		&cobra.Group{ID: groupSetup, Title: "Setup & health:"},
 		&cobra.Group{ID: groupRead, Title: "Read & query:"},
@@ -260,11 +258,6 @@ func normalizeOutputFlags() error {
 		jsonOut = true
 	}
 	return nil
-}
-
-func initViper() {
-	viper.SetEnvPrefix("SECOPSCTL")
-	viper.AutomaticEnv()
 }
 
 // loadInstance resolves and loads the instance config honoring --config.
