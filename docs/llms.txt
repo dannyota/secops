@@ -1,0 +1,43 @@
+# secopsctl
+
+> Operate Google SecOps (Chronicle SIEM + Siemplify SOAR) as code — one Go CLI and one importable Go SDK. The core loop is pull live state → review the git diff → push it back.
+
+## Docs
+
+- [Home](https://secops.danny.vn): Overview, quick start, and navigation
+- [Install](https://secops.danny.vn/#/guides/install): Build from source or download signed release binaries
+- [Configure & auth](https://secops.danny.vn/#/guides/configure): Config file, SIEM ADC, SOAR AppKey setup
+- [The loop](https://secops.danny.vn/#/guides/the-loop): The pull → git diff → push workflow
+- [Rules](https://secops.danny.vn/#/guides/rules): YARA-L detection rules management
+- [Search](https://secops.danny.vn/#/guides/search): UDM, raw log, stats, and event search
+- [Gemini](https://secops.danny.vn/#/guides/gemini): Natural-language search and AI assistant
+- [SOAR cases](https://secops.danny.vn/#/guides/soar-cases): Case lifecycle and triage
+- [Triage](https://secops.danny.vn/#/guides/triage): Alert and case triage workflows
+- [Playbooks](https://secops.danny.vn/#/guides/playbooks): Playbook authoring and management
+- [Content Hub](https://secops.danny.vn/#/guides/content-hub): Marketplace integrations and content packs
+- [Reconcile surfaces](https://secops.danny.vn/#/guides/reconcile): Config-as-code reconciliation engine
+- [Go SDK](https://secops.danny.vn/#/guides/sdk): Importable Go clients for SIEM and SOAR
+
+## Reference
+
+- [SIEM reference](https://secops.danny.vn/#/guides/reference-siem): All SIEM commands and flags
+- [SOAR reference](https://secops.danny.vn/#/guides/reference-soar): All SOAR commands and flags
+- [Architecture](https://secops.danny.vn/#/design/architecture): Internal design and module layout
+- [API surfaces](https://secops.danny.vn/#/design/surfaces): Every API family by plane, host, and auth
+- [Catalog](https://secops.danny.vn/#/design/catalog): Live status of every surface and command
+
+## Tips
+
+- [SecOps as code](https://secops.danny.vn/#/tips/01-secops-as-code): Detection-as-code philosophy
+- [YARA-L rules](https://secops.danny.vn/#/tips/03-yara-l-rules): Rule authoring patterns
+- [Dashboards](https://secops.danny.vn/#/tips/06-dashboards): Dashboard design and management
+- [UDM queries](https://secops.danny.vn/#/tips/07-udm-queries): Query language and patterns
+- [Feeds & parsers](https://secops.danny.vn/#/tips/08-feeds-parsers): Log ingestion pipeline
+- [SOAR operations](https://secops.danny.vn/#/tips/09-soar-operations): Operational SOAR workflows
+- [LLM & automation](https://secops.danny.vn/#/tips/10-llm-and-automation): Agent-first design patterns
+- [Parser extensions](https://secops.danny.vn/#/tips/12-parser-extensions): Custom parser development
+
+## Optional
+
+- [Full documentation](https://secops.danny.vn/llms-full.txt): All docs concatenated in one file
+- [GitHub](https://github.com/dannyota/secops): Source code and releases

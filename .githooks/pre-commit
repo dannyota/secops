@@ -73,4 +73,18 @@ if [ -x scripts/check-lengths.sh ]; then
     exit 1
   fi
 fi
+
+# SEO/GEO consistency: only when docs/ files are staged.
+if git diff --cached --name-only | grep -q '^docs/'; then
+  if [ -x scripts/check-seo.sh ]; then
+    if ! out="$(bash scripts/check-seo.sh 2>&1)"; then
+      {
+        echo "✋ commit blocked by SEO/GEO check (scripts/check-seo.sh):"
+        printf '%s\n' "$out" | grep -E 'MISSING|FAIL|out of date'
+        echo "Run: ./scripts/generate-llms-full.sh  then re-stage. Override: git commit --no-verify"
+      } >&2
+      exit 1
+    fi
+  fi
+fi
 exit 0

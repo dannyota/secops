@@ -50,7 +50,7 @@ jobs:
       - run: govulncheck ./...
 
   docs:
-    name: docs lint + length budget
+    name: docs lint + length budget + SEO
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -60,3 +60,5 @@ jobs:
       - run: npx --yes markdownlint-cli2 "docs/**/*.md" "ROADMAP.md" "skills/**/*.md"
       # File-length budget: Markdown docs <= 450, Go source <= 700 lines (CLAUDE.md §4).
       - run: ./scripts/check-lengths.sh
+      # SEO/GEO: required files exist, sitemap matches sidebar, llms-full.txt is fresh.
+      - run: ./scripts/check-seo.sh
