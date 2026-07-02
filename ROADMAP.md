@@ -173,6 +173,36 @@ Five dashboard improvements enabling LLM agents to author and verify charts prog
 
 **Docs:** catalog (`dashboards` row), SKILL (command map + stacked-bar example).
 
+### Wave 127 — generated command reference, SEO generation, global `--output`, docs-site branding *(built)*
+
+Docs-toolchain and output-contract improvements.
+
+- **`docs generate` (hidden).** Walks the command tree and generates one
+  reference page per top-level group into `docs/commands/` (23 pages, every
+  runnable verb with usage, fenced long help, flags table, guarded-mutation
+  note), plus an index, and syncs a marker-delimited block in
+  `docs/_sidebar.md`. `--check` regenerates in memory and fails on staleness —
+  wired into CI so the published reference can never drift from the binary.
+  Generated pages are exempt from the 450-line docs cap (`check-lengths.sh`).
+- **`scripts/gen-seo.sh`.** `sitemap.xml` and `llms.txt` are now generated from
+  `docs/_sidebar.md` (descriptions extracted from each page's first paragraph,
+  `lastmod` from the last git commit date) instead of hand-maintained;
+  `llms-full.txt` regeneration is folded in. `--check` replaces `check-seo.sh`
+  in CI. The command-reference index feeds `llms-full.txt`.
+- **Global `--output table|json|csv`.** Root persistent flag, mutually
+  exclusive with `--json` (`--output json` ≡ `--json` everywhere via a root
+  PersistentPreRun). The format-aware commands (`query udm`, `mitre`,
+  `rules health`) resolve local `--format` → global `--output` → `--json`
+  through one shared `effectiveFormat` helper, and their CSV writers share
+  `printCSVTo`.
+- **Docs-site branding.** `banner.svg` (README + site), `og.svg`/`og.png`
+  (1200×630 social card), and `favicon.svg` redrawn as one set — blue gradient,
+  shield mark, stat pills, the pull → git diff → push loop; replaces the old
+  `banner.png`/`og-facebook.png`.
+
+**Docs:** catalog (`docs generate` + `--output` rows), SKILL (global flags +
+self-discovery), this wave.
+
 ---
 
 ## Non-goals

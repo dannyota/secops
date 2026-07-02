@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -110,7 +109,7 @@ func newMitreCmd() *cobra.Command {
 	f.StringVar(&ruleType, "type", "all", "which rules to include: custom | curated | all")
 	f.BoolVar(&enabled, "enabled", false, "custom rules: only those with the deployment enabled")
 	f.BoolVar(&alerting, "alerting", false, "custom rules: only those with alerting on")
-	f.StringVar(&format, "format", "", "output: table | json | csv (default table, or json under --json)")
+	f.StringVar(&format, "format", "", "output: table | json | csv (default table; overrides the global --output/--json)")
 	f.StringVar(&out, "out", "", "write to a file instead of stdout")
 	return markJSON(cmd)
 }
@@ -251,26 +250,21 @@ func (a *mitreAgg) summary(rows []mitreRow) map[string]any {
 
 func (a *mitreAgg) render(w io.Writer, format string) error {
 	rows := a.rows()
-	if format == "" {
+	if format = effectiveFormat(format); format == "" {
 		format = "table"
-		if jsonOut {
-			format = "json"
-		}
 	}
 	switch format {
 	case "json":
 		return writeIndentedValue(w, map[string]any{"summary": a.summary(rows), "techniques": rows})
 	case "csv":
-		cw := csv.NewWriter(w)
-		_ = cw.Write([]string{"technique", "technique_name", "tactics", "rule_count", "rule_ids"})
+		csvRows := make([][]string, 0, len(rows))
 		for _, r := range rows {
-			_ = cw.Write([]string{
+			csvRows = append(csvRows, []string{
 				r.Technique, r.TechniqueName, strings.Join(r.Tactics, ";"),
 				fmt.Sprintf("%d", r.RuleCount), strings.Join(r.RuleIDs, ";"),
 			})
 		}
-		cw.Flush()
-		return cw.Error()
+		return printCSVTo(w, []string{"technique", "technique_name", "tactics", "rule_count", "rule_ids"}, csvRows)
 	default: // table
 		tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
 		fmt.Fprintln(tw, "TECHNIQUE\tNAME\tTACTICS\tRULES")

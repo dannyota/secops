@@ -33,6 +33,7 @@ const defaultRequestTimeout = 60 * time.Second
 var (
 	cfgFile        string        // --config
 	jsonOut        bool          // --json
+	outputFormat   string        // --output: table | json | csv ("" = per-command default)
 	forceLegacy    bool          // --legacy: force the legacy AppKey path, skip modern v1alpha
 	nonInteractive bool          // --non-interactive: never prompt (no TTY confirmation)
 	requestTimeout time.Duration // --timeout: per-request HTTP timeout (0 = none)
@@ -41,6 +42,9 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "secopsctl",
 	Short: "Operate Google SecOps (Chronicle SIEM + Siemplify SOAR) as code",
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		return normalizeOutputFlags()
+	},
 	Long: "secopsctl operates a Google SecOps instance — Chronicle SIEM and\n" +
 		"Siemplify SOAR — as code, for any tenant.\n\n" +
 		"Config as code: pull live state -> review in `git diff` -> push back\n" +
@@ -224,7 +228,10 @@ func init() {
 	pf := rootCmd.PersistentFlags()
 	pf.StringVar(&cfgFile, "config", "",
 		"path to the instance config YAML (overrides $SECOPSCTL_CONFIG and discovery)")
-	pf.BoolVar(&jsonOut, "json", false, "emit machine-readable JSON where supported")
+	pf.BoolVar(&jsonOut, "json", false, "emit machine-readable JSON where supported (alias for --output json)")
+	pf.StringVar(&outputFormat, "output", "",
+		"output format where a command renders tabular data: table | json | csv "+
+			"(json works wherever --json does; a command-local --format overrides this)")
 	pf.BoolVar(&forceLegacy, "legacy", false,
 		"force the legacy AppKey path on dual-generation surfaces (currently the 'soar case list' "+
 			"surface); ignored where a command has no modern/legacy split")
@@ -237,6 +244,22 @@ func init() {
 		"per-request HTTP timeout for API calls; a slow/blocked endpoint fails fast instead of hanging. "+
 			"Per request, not per command — it never spans a confirm prompt or caps a multi-call command in "+
 			"aggregate (0 disables; raise for a single very large request, e.g. --timeout 5m)")
+	rootCmd.MarkFlagsMutuallyExclusive("json", "output")
+}
+
+// normalizeOutputFlags folds the global --output choice into the older --json
+// switch (--output json behaves exactly like --json everywhere) and rejects an
+// unknown format before any RunE runs.
+func normalizeOutputFlags() error {
+	switch outputFormat {
+	case "", "table", "json", "csv":
+	default:
+		return fmt.Errorf("--output must be table, json, or csv (got %q)", outputFormat)
+	}
+	if outputFormat == "json" {
+		jsonOut = true
+	}
+	return nil
 }
 
 func initViper() {

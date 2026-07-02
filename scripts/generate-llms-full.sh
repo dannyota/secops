@@ -47,6 +47,7 @@ FILES=(
   docs/design/siem.md
   docs/design/soar.md
   docs/design/cli-naming.md
+  docs/commands/README.md
 )
 
 {

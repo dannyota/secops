@@ -30,15 +30,12 @@ type resultOutput struct {
 	out    string   // file path, or "" for stdout
 }
 
-// resolveFormat picks the effective format: an explicit --format wins; else the
-// global --json means json; else jsonl when stdout is piped (agent-friendly) and
-// table on an interactive terminal.
+// resolveFormat picks the effective format: an explicit --format wins, then the
+// global --output, then --json means json; else jsonl when stdout is piped
+// (agent-friendly) and table on an interactive terminal.
 func (o resultOutput) resolveFormat() string {
-	if o.format != "" {
-		return o.format
-	}
-	if jsonOut {
-		return formatJSON
+	if f := effectiveFormat(o.format); f != "" {
+		return f
 	}
 	if stdoutIsTerminal() {
 		return formatTable

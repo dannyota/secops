@@ -214,7 +214,10 @@ takes the same `--format`/`--fields`/`--out` flags as `search udm`.
 ## Output & JSON contracts
 
 Pass `--json` (or `--format json`) on any read command for parseable output (the human
-table is for people). Under `--json`, a failure prints a structured `{code, message,
+table is for people). The global `--output table|json|csv` is equivalent where
+supported: `--output json` ≡ `--json` on every command; `--output csv|table` applies
+on the format-aware commands (`query udm`, `mitre`, `rules health`), where a local
+`--format` overrides it. Under `--json`, a failure prints a structured `{code, message,
 retryable, status, request_id}` envelope on **stderr** while stdout stays clean for the
 payload — so branch on exit code, parse stdout, surface stderr. For bulk event work
 prefer `--format jsonl` (per-line) or `search export` (server-side CSV, uncapped).

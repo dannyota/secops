@@ -271,7 +271,7 @@ func TestRenamedCommandsCanonicalAndAlias(t *testing.T) {
 // `capabilities --json` instead (TestCommandAliasesInCapabilities).
 func TestRenamedGroupsNotCatalogRows(t *testing.T) {
 	byPath := map[string]commandRow{}
-	for _, r := range collectCommands(rootCmd, "") {
+	for _, r := range collectCommands(rootCmd) {
 		byPath[r.Path] = r
 	}
 	for _, p := range renamePairs {
@@ -306,7 +306,7 @@ func TestCommandAliasesInCapabilities(t *testing.T) {
 // emit JSON (pull writes files; config is interactive) are not.
 func TestCommandsCatalogJSONColumn(t *testing.T) {
 	byPath := map[string]commandRow{}
-	for _, r := range collectCommands(rootCmd, "") {
+	for _, r := range collectCommands(rootCmd) {
 		byPath[r.Path] = r
 	}
 
@@ -488,7 +488,7 @@ func TestEnumFromUsage(t *testing.T) {
 // the parsed enum for a representative guarded verb.
 func TestCommandsCatalogRichFlags(t *testing.T) {
 	byPath := map[string]commandRow{}
-	for _, r := range collectCommands(rootCmd, "") {
+	for _, r := range collectCommands(rootCmd) {
 		byPath[r.Path] = r
 	}
 	r, ok := byPath["curated set"]
@@ -583,7 +583,7 @@ func TestAuditMutationWritesJSONL(t *testing.T) {
 }
 
 func TestCommandsCatalog(t *testing.T) {
-	rows := collectCommands(rootCmd, "")
+	rows := collectCommands(rootCmd)
 	if len(rows) < 100 {
 		t.Fatalf("suspiciously few commands: %d", len(rows))
 	}
@@ -634,7 +634,7 @@ func TestCommandsCatalog(t *testing.T) {
 // misclassified as `read` by the catalog AND uncovered by read-only mode — this
 // is the tripwire.
 func TestGuardFlagPairInvariant(t *testing.T) {
-	for _, r := range collectCommands(rootCmd, "") {
+	for _, r := range collectCommands(rootCmd) {
 		hasYes, hasDry := false, false
 		for _, f := range r.Flags {
 			switch f.Name {

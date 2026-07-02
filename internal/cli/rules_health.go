@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/csv"
 	"fmt"
 	"io"
 	"sort"
@@ -115,7 +114,7 @@ func newRulesHealthCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.IntVar(&hours, "hours", 168, "detection-trend look-back window in hours (default 7d)")
 	f.StringVar(&only, "only", "", "show only one bucket: failing | erroring | silent | healthy")
-	f.StringVar(&format, "format", "", "output: table | json | csv (default table, or json under --json)")
+	f.StringVar(&format, "format", "", "output: table | json | csv (default table; overrides the global --output/--json)")
 	f.StringVar(&out, "out", "", "write to a file instead of stdout")
 	return markJSON(cmd)
 }
@@ -181,27 +180,25 @@ func classifyHealth(r healthRow) string {
 }
 
 func renderHealth(w io.Writer, rows []healthRow, hours int, format string) error {
-	if format == "" {
+	if format = effectiveFormat(format); format == "" {
 		format = "table"
-		if jsonOut {
-			format = "json"
-		}
 	}
 	switch format {
 	case "json":
 		return writeIndentedValue(w, map[string]any{"summary": healthSummary(rows), "window_hours": hours, "rules": rows})
 	case "csv":
-		cw := csv.NewWriter(w)
-		_ = cw.Write([]string{"rule_id", "display_name", "compile_state", "execution_state", "enabled", "alerting", "detections_in_window", "last_detection", "status"})
+		csvRows := make([][]string, 0, len(rows))
 		for _, r := range rows {
-			_ = cw.Write([]string{
+			csvRows = append(csvRows, []string{
 				r.RuleID, r.DisplayName, r.Compile, r.Execution,
 				strconv.FormatBool(r.Enabled), strconv.FormatBool(r.Alerting),
 				strconv.Itoa(r.Detections), r.LastDetection, r.Status,
 			})
 		}
-		cw.Flush()
-		return cw.Error()
+		return printCSVTo(w, []string{
+			"rule_id", "display_name", "compile_state", "execution_state",
+			"enabled", "alerting", "detections_in_window", "last_detection", "status",
+		}, csvRows)
 	default: // table
 		tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
 		fmt.Fprintln(tw, "STATUS\tRULE ID\tDISPLAY NAME\tCOMPILE\tEXEC\tEN\tAL\tDETS\tLAST DETECTION")

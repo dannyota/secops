@@ -35,6 +35,33 @@
   - [11 · Gemini & AI](tips/11-gemini-and-ai.md)
   - [12 · Parser extensions](tips/12-parser-extensions.md)
 
+<!-- commands:start -->
+- **Command reference**
+  - [Overview](commands/README.md)
+  - [alerts](commands/alerts.md)
+  - [cases](commands/cases.md)
+  - [cleanup](commands/cleanup.md)
+  - [content-hub](commands/content-hub.md)
+  - [curated](commands/curated.md)
+  - [dashboards](commands/dashboards.md)
+  - [data-access](commands/data-access.md)
+  - [entities](commands/entities.md)
+  - [exclusions](commands/exclusions.md)
+  - [gemini](commands/gemini.md)
+  - [global](commands/global.md)
+  - [info](commands/info.md)
+  - [ingest](commands/ingest.md)
+  - [integrations](commands/integrations.md)
+  - [lists](commands/lists.md)
+  - [playbooks](commands/playbooks.md)
+  - [rules](commands/rules.md)
+  - [search](commands/search.md)
+  - [skill](commands/skill.md)
+  - [soar](commands/soar.md)
+  - [status](commands/status.md)
+  - [ti](commands/ti.md)
+<!-- commands:end -->
+
 - **Design**
   - [Architecture](design/architecture.md)
   - [Surfaces](design/surfaces.md)

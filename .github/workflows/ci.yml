@@ -21,6 +21,9 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
+      # Command-reference freshness: docs/commands/ + the sidebar block must match
+      # the committed command tree (regenerate with `secopsctl docs generate`).
+      - run: go run ./cmd/secopsctl docs generate --check
 
   lint:
     name: golangci-lint
@@ -60,5 +63,6 @@ jobs:
       - run: npx --yes markdownlint-cli2 "docs/**/*.md" "ROADMAP.md" "skills/**/*.md"
       # File-length budget: Markdown docs <= 450, Go source <= 700 lines (CLAUDE.md §4).
       - run: ./scripts/check-lengths.sh
-      # SEO/GEO: required files exist, sitemap matches sidebar, llms-full.txt is fresh.
-      - run: ./scripts/check-seo.sh
+      # SEO/GEO freshness: sitemap.xml + llms.txt + llms-full.txt must match what
+      # gen-seo.sh generates from the sidebar and docs (regenerate + commit if not).
+      - run: ./scripts/gen-seo.sh --check

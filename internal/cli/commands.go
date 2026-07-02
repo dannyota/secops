@@ -72,7 +72,7 @@ func newCommandsCmd() *cobra.Command {
 			"for automation/agents.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			rows := collectCommands(rootCmd, "")
+			rows := collectCommands(rootCmd)
 			sort.Slice(rows, func(i, j int) bool { return rows[i].Path < rows[j].Path })
 			if jsonOut {
 				return emitJSON(rows)
@@ -100,13 +100,12 @@ func newCommandsCmd() *cobra.Command {
 	return markJSON(cmd)
 }
 
-// collectCommands walks the tree depth-first and returns one row per runnable,
-// visible command: every leaf, plus parents that do real work of their own
-// (e.g. `info`); navigation-only group parents (whose RunE is the help-only
-// one requireSubcommand injects), hidden commands, and cobra's built-ins are
-// skipped.
-func collectCommands(cmd *cobra.Command, prefix string) []commandRow {
-	var rows []commandRow
+// walkRunnable walks the tree depth-first and visits every runnable, visible
+// command: every leaf, plus parents that do real work of their own (e.g.
+// `info`); navigation-only group parents (whose RunE is the help-only one
+// requireSubcommand injects), hidden commands, and cobra's built-ins are
+// skipped. Shared by the `commands` catalog and `docs generate`.
+func walkRunnable(cmd *cobra.Command, prefix string, visit func(path string, c *cobra.Command)) {
 	for _, c := range cmd.Commands() {
 		if c.Hidden || c.Name() == "help" || c.Name() == "completion" {
 			continue
@@ -114,23 +113,31 @@ func collectCommands(cmd *cobra.Command, prefix string) []commandRow {
 		path := strings.TrimSpace(prefix + " " + c.Name())
 		runnable := !c.HasSubCommands() ||
 			((c.Run != nil || c.RunE != nil) && !helpOnlyParents[c])
-		// Only runnable verbs are catalog rows (an agent invokes every row). A
-		// navigation-only group is never a row even if it carries aliases — the
-		// old→new group-rename map lives in `capabilities --json` instead.
 		if runnable {
-			rows = append(rows, commandRow{
-				Path:    path,
-				Aliases: c.Aliases,
-				Kind:    commandKind(c),
-				JSON:    c.Annotations[jsonAnnotation] == "true",
-				Short:   c.Short,
-				Args:    positionalSpec(c),
-				Example: strings.TrimSpace(c.Example),
-				Flags:   localFlagInfos(c),
-			})
+			visit(path, c)
 		}
-		rows = append(rows, collectCommands(c, path)...)
+		walkRunnable(c, path, visit)
 	}
+}
+
+// collectCommands returns one catalog row per runnable command. Only runnable
+// verbs are rows (an agent invokes every row). A navigation-only group is never
+// a row even if it carries aliases — the old→new group-rename map lives in
+// `capabilities --json` instead.
+func collectCommands(cmd *cobra.Command) []commandRow {
+	var rows []commandRow
+	walkRunnable(cmd, "", func(path string, c *cobra.Command) {
+		rows = append(rows, commandRow{
+			Path:    path,
+			Aliases: c.Aliases,
+			Kind:    commandKind(c),
+			JSON:    c.Annotations[jsonAnnotation] == "true",
+			Short:   c.Short,
+			Args:    positionalSpec(c),
+			Example: strings.TrimSpace(c.Example),
+			Flags:   localFlagInfos(c),
+		})
+	})
 	return rows
 }
 

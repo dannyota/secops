@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1A73E8"/>
+      <stop offset="100%" stop-color="#0D3C8C"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#AECBFA"/>
+      <stop offset="100%" stop-color="#4285F4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="300" rx="16" fill="url(#bg)"/>
+  <!-- Shield icon -->
+  <g transform="translate(80,55)">
+    <path d="M95 10 L175 45 V115 C175 155 145 185 95 200 C45 185 15 155 15 115 V45 Z" fill="url(#accent)" opacity="0.92"/>
+    <path d="M70 105 L90 125 L125 85" stroke="#0D3C8C" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  <!-- Title -->
+  <text x="290" y="135" font-family="Google Sans,Roboto,system-ui,-apple-system,Segoe UI,sans-serif" font-size="82" font-weight="800" fill="white" letter-spacing="-2">secopsctl</text>
+  <!-- Subtitle -->
+  <text x="290" y="185" font-family="Google Sans,Roboto,system-ui,-apple-system,Segoe UI,sans-serif" font-size="26" fill="#D2E3FC" letter-spacing="0.5">Operate Google SecOps as code — Chronicle SIEM + Siemplify SOAR</text>
+  <!-- Stats pills -->
+  <g transform="translate(290,215)">
+    <rect width="140" height="34" rx="17" fill="white" opacity="0.15"/>
+    <text x="70" y="23" font-family="Google Sans,Roboto,system-ui,sans-serif" font-size="14" fill="white" text-anchor="middle" font-weight="600">340+ commands</text>
+    <rect x="155" width="120" height="34" rx="17" fill="white" opacity="0.15"/>
+    <text x="215" y="23" font-family="Google Sans,Roboto,system-ui,sans-serif" font-size="14" fill="white" text-anchor="middle" font-weight="600">SIEM + SOAR</text>
+    <rect x="290" width="115" height="34" rx="17" fill="white" opacity="0.15"/>
+    <text x="347" y="23" font-family="Google Sans,Roboto,system-ui,sans-serif" font-size="14" fill="white" text-anchor="middle" font-weight="600">Go SDK + CLI</text>
+    <rect x="420" width="160" height="34" rx="17" fill="white" opacity="0.15"/>
+    <text x="500" y="23" font-family="Google Sans,Roboto,system-ui,sans-serif" font-size="14" fill="white" text-anchor="middle" font-weight="600">config-as-code + drift</text>
+  </g>
+  <!-- Google color dots -->
+  <g transform="translate(1120,248)">
+    <circle cx="0" cy="0" r="5" fill="#8AB4F8"/>
+    <circle cx="16" cy="0" r="5" fill="#F28B82"/>
+    <circle cx="32" cy="0" r="5" fill="#FDD663"/>
+    <circle cx="48" cy="0" r="5" fill="#81C995"/>
+  </g>
+</svg>

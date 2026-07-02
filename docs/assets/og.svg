@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1A73E8"/>
+      <stop offset="100%" stop-color="#0D3C8C"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#AECBFA"/>
+      <stop offset="100%" stop-color="#4285F4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- Shield icon -->
+  <g transform="translate(524,52) scale(0.8)">
+    <path d="M95 10 L175 45 V115 C175 155 145 185 95 200 C45 185 15 155 15 115 V45 Z" fill="url(#accent)" opacity="0.92"/>
+    <path d="M70 105 L90 125 L125 85" stroke="#0D3C8C" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  <!-- Title -->
+  <text x="600" y="330" text-anchor="middle" font-family="Google Sans,Roboto,system-ui,-apple-system,Segoe UI,sans-serif" font-size="96" font-weight="800" fill="white" letter-spacing="-2">secopsctl</text>
+  <!-- Subtitle -->
+  <text x="600" y="388" text-anchor="middle" font-family="Google Sans,Roboto,system-ui,-apple-system,Segoe UI,sans-serif" font-size="32" fill="#D2E3FC">Operate Google SecOps as code</text>
+  <text x="600" y="428" text-anchor="middle" font-family="Google Sans,Roboto,system-ui,-apple-system,Segoe UI,sans-serif" font-size="22" fill="#AECBFA">Chronicle SIEM + Siemplify SOAR &#183; a Go CLI &amp; unofficial SDK</text>
+  <!-- The loop: pull -> git diff -> push -->
+  <g transform="translate(600,470)" font-family="Roboto Mono,Consolas,monospace" font-size="24" font-weight="600">
+    <rect x="-235" width="105" height="48" rx="10" fill="white" opacity="0.15"/>
+    <text x="-182" y="32" fill="white" text-anchor="middle">pull</text>
+    <text x="-105" y="32" fill="#FDD663" text-anchor="middle">&#8594;</text>
+    <rect x="-77" width="150" height="48" rx="10" fill="white" opacity="0.15"/>
+    <text x="-2" y="32" fill="white" text-anchor="middle">git diff</text>
+    <text x="100" y="32" fill="#FDD663" text-anchor="middle">&#8594;</text>
+    <rect x="128" width="107" height="48" rx="10" fill="white" opacity="0.15"/>
+    <text x="181" y="32" fill="white" text-anchor="middle">push</text>
+  </g>
+  <!-- Footer caption + Google color dots -->
+  <text x="600" y="572" text-anchor="middle" font-family="Google Sans,Roboto,system-ui,sans-serif" font-size="20" fill="#AECBFA">git is the source of truth &#183; every push is a reviewed deploy</text>
+  <g transform="translate(576,600)">
+    <circle cx="0" cy="0" r="5" fill="#8AB4F8"/>
+    <circle cx="16" cy="0" r="5" fill="#F28B82"/>
+    <circle cx="32" cy="0" r="5" fill="#FDD663"/>
+    <circle cx="48" cy="0" r="5" fill="#81C995"/>
+  </g>
+</svg>
