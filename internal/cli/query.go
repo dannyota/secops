@@ -114,7 +114,9 @@ func init() {
 			"With --raw, --limit defaults to 100 (one raw fetch per matched event).\n\n" +
 			"--count-only answers \"how many events match?\" without downloading them;\n" +
 			"--out + --meta save results with a .meta.json provenance sidecar (query,\n" +
-			"window, counts, tool version) for evidence trails.",
+			"window, counts, tool version) for evidence trails.\n\n" +
+			"--enrich-ip appends IP geolocation columns (country, state, ASN, carrier)\n" +
+			"to the field projection — combine with --fields for a login-audit table.",
 		Example: "  # network connections in the last 6 hours\n" +
 			"  secopsctl search udm 'metadata.event_type = \"NETWORK_CONNECTION\"' --hours 6\n\n" +
 			"  # a fixed window, machine-readable\n" +
@@ -123,7 +125,10 @@ func init() {
 			"  # a year-long window: auto-chunked; count first, then save with provenance\n" +
 			"  secopsctl search udm '<filter>' --from 2025-01-01 --to 2026-01-01 --count-only\n" +
 			"  secopsctl search udm '<filter>' --from 2025-01-01 --to 2026-01-01 --all \\\n" +
-			"      --format jsonl --out evidence/events.jsonl --meta",
+			"      --format jsonl --out evidence/events.jsonl --meta\n\n" +
+			"  # login audit with IP geo enrichment\n" +
+			"  secopsctl search udm 'metadata.event_type = \"USER_LOGIN\"' --hours 72 \\\n" +
+			"      --fields principal.user.userid,metadata.event_timestamp --enrich-ip --format csv",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUDMQuery(args[0], w, cmd.Flags().Changed("limit"))

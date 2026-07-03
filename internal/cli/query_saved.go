@@ -168,6 +168,7 @@ type queryWindowFlags struct {
 	all       bool
 	countOnly bool
 	meta      bool
+	enrichIP  bool
 	format    string
 	fields    string
 	out       string
@@ -186,16 +187,35 @@ func (q *queryWindowFlags) bind(f *cobra.Command) {
 		"(complete-results engine; far cheaper than fetching events to count them)")
 	fl.BoolVar(&q.meta, "meta", false, "with --out: also write a <file>.meta.json sidecar recording the "+
 		"query, window, counts, save time, and tool version (evidence provenance)")
+	fl.BoolVar(&q.enrichIP, "enrich-ip", false, "append IP geolocation columns (country, state, ASN, carrier) "+
+		"to the --fields projection — works with table, csv, and jsonl output")
 	fl.StringVar(&q.format, "format", "", "output format: table|json|jsonl|csv (default: table on a terminal, jsonl when piped)")
 	fl.StringVar(&q.fields, "fields", "", "comma-separated UDM field paths to project (e.g. metadata.event_type,principal.hostname)")
 	fl.StringVar(&q.out, "out", "", "write results to a file instead of stdout")
 	f.MarkFlagsMutuallyExclusive("count-only", "raw")
 	f.MarkFlagsMutuallyExclusive("count-only", "all")
+	f.MarkFlagsMutuallyExclusive("count-only", "enrich-ip")
+}
+
+// ipGeoFields are the UDM field paths appended by --enrich-ip: the inline
+// principal location (country, state) plus the ipGeoArtifact enrichment (ASN,
+// carrier). extractUDMField auto-enters singleton arrays, so the dotted path
+// through ipGeoArtifact resolves without an explicit [0].
+var ipGeoFields = []string{
+	"principal.ip",
+	"principal.location.countryOrRegion",
+	"principal.location.state",
+	"principal.ipGeoArtifact.network.asn",
+	"principal.ipGeoArtifact.network.carrierName",
 }
 
 // output builds the result-rendering choice from the flags.
 func (q *queryWindowFlags) output() resultOutput {
-	return resultOutput{format: q.format, fields: splitFields(q.fields), out: q.out}
+	fields := splitFields(q.fields)
+	if q.enrichIP {
+		fields = append(fields, ipGeoFields...)
+	}
+	return resultOutput{format: q.format, fields: fields, out: q.out}
 }
 
 func init() {

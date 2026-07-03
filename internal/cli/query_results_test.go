@@ -18,6 +18,8 @@ func TestExtractUDMField(t *testing.T) {
 		{"scalar array joined", `{"udm":{"principal":{"ip":["1.1.1.1","2.2.2.2"]}}}`, "principal.ip", "1.1.1.1,2.2.2.2"},
 		{"missing field", `{"udm":{"metadata":{}}}`, "principal.hostname", ""},
 		{"number leaf", `{"udm":{"network":{"sent_bytes":42}}}`, "network.sent_bytes", "42"},
+		{"singleton array auto-enter", `{"udm":{"principal":{"ipGeoArtifact":[{"network":{"asn":"7552"}}]}}}`, "principal.ipGeoArtifact.network.asn", "7552"},
+		{"multi-element array no auto-enter", `{"udm":{"principal":{"ipGeoArtifact":[{"network":{"asn":"1"}},{"network":{"asn":"2"}}]}}}`, "principal.ipGeoArtifact.network.asn", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

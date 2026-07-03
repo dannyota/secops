@@ -197,7 +197,11 @@ secopsctl search udm 'principal.hostname = "host-01"' --from 2024-01-02T00:00:00
 - `--format jsonl|json|csv|table` — default **table** on a terminal, **jsonl** when piped
   (one event per line → stream/grep/`jq` per record). `json` is the full indented array.
 - `--fields a,b,c` — project dotted UDM paths (e.g. `metadata.event_type,principal.hostname`);
-  tolerant of camelCase/snake_case and the `{udm}` vs `{event}` result shapes.
+  tolerant of camelCase/snake_case and the `{udm}` vs `{event}` result shapes. Singleton
+  arrays are auto-entered (e.g. `principal.ipGeoArtifact.network.asn` resolves without `[0]`).
+- `--enrich-ip` — append IP geolocation columns (country, state, ASN, carrier) to the
+  field projection. Combine with `--fields` for a login-audit table:
+  `search udm '…' --fields principal.user.userid --enrich-ip --format csv`.
 - `--out <file>` — write results to a file instead of stdout. Add `--meta` to also write a
   `<file>.meta.json` **provenance sidecar** — query, window, per-chunk + total counts, save
   time, tool version — so a saved result set documents itself (evidence trails).

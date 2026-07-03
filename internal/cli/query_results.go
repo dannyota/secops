@@ -173,6 +173,11 @@ func extractUDMField(ev json.RawMessage, path string) string {
 	}
 	var cur any = root
 	for seg := range strings.SplitSeq(path, ".") {
+		// Auto-enter a singleton array so principal.ipGeoArtifact.network.asn
+		// resolves without an explicit [0] segment.
+		if arr, ok := cur.([]any); ok && len(arr) == 1 {
+			cur = arr[0]
+		}
 		m, ok := cur.(map[string]any)
 		if !ok {
 			return ""

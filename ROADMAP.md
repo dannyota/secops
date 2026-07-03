@@ -40,7 +40,9 @@ P5 (21–24) finishing · 25–51 operability/UX · 52–72 triage-loop + AI + d
 123 v0.7.4 (parser diagnostics + content-hub tags + investigate UX) ·
 124 v0.7.5 (parser lifecycle + log-type management) ·
 125 v0.7.6 (parser extension docs + test refactor) ·
-126 v0.7.7 (dashboard chart improvements for agent authoring).
+126 v0.7.7 (dashboard chart improvements for agent authoring) ·
+127 v0.7.7+ (command reference + SEO + global --output) ·
+128–130 search + field-report closeout + repo health.
 
 ```mermaid
 flowchart LR
@@ -71,9 +73,9 @@ flowchart LR
 
 ---
 
-## Completed waves (1–119)
+## Completed waves (1–120)
 
-**126 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
+**130 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
 Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 ---
@@ -82,23 +84,6 @@ Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 > Only the most recent waves are detailed below; older completed waves are in git
 > history (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
-
-### Wave 120 — v0.7.1 operational polish *(built)*
-
-Operational polish, playbook/integration management, and an enum reference.
-
-- **Value-pattern redaction removed.** The `.secopsctl-redact` file and `--redact` flag are gone — inline values (e.g. webhook URLs) are no longer masked on `soar pull`. `soar push playbooks` now round-trips cleanly without restoring redacted values first. Key-name credential redaction for feeds (password, apiKey, token, etc.) is unchanged.
-- **`playbooks duplicate` three-tier fallback.** Modern v1alpha `DuplicateWorkflows` as primary (auto-creates copy, renames to `--name`); legacy `DuplicateWorkflow` on modern failure; export → rename → save on legacy 500. New options: `--folder` (target category) and `--env` (override environments).
-- **`playbooks categories` CRUD.** `list`, `create`, `rename`, `delete` — full folder management. Also aliased as `playbooks folders`.
-- **`playbooks move`** — move a playbook to a different category by name or id.
-- **`playbooks deploy` silent enum fallback.** Imported playbooks carry numeric enum fields that the modern v1alpha `SaveWorkflowDefinitions` rejects with HTTP 400. The deploy command now detects this specific error and falls back to the legacy path silently.
-- **`integrations rename`** — rename an integration instance's displayName via v1alpha PATCH with updateMask. Resolves by `--instance <uuid>` or `--env <env>`. System default instances (server-managed) cannot be renamed (API returns 400).
-- **`integrations list --instances`** — shows configured instances nested under each pack with environment and display name. Non-system instances tagged `[renamable]`.
-- **`status enums` — SOAR enum reference.** Lists every SDK-defined enum (CasePriority, CloseReason, SLA types, BlockList types/scopes) with integer-to-name mappings. `--live` adds instance-specific values: case stages and playbook categories. SDK: new `GetMetadata`, `CloneWorkflow`, `DuplicateWorkflows`, `UpdateIntegrationInstance` methods.
-- **Playbook ZIP bundle format documented** in the SKILL guide.
-- **SDK fix:** `IntegrationInstance.IntegrationIdentifier` field name corrected (was `IntegrationName`, didn't match the JSON). Added `SystemDefault` field.
-
-**Docs:** catalog, SKILL (ZIP format + command map).
 
 ### Wave 121 — v0.7.2 case improvements, Gemini reorg, operational fixes *(built)*
 
@@ -269,6 +254,25 @@ Authoring-loop fixes across parsers, dashboards, and rules.
   now linked from the tips index.
 
 **Docs:** catalog (parsers/dashboards/rules rows), SKILL (extension verbs), tips 12 + index, this wave.
+
+### Wave 130 — IP geo enrichment, field-projection improvement, SDK doc comments, dry-run banner *(built)*
+
+Search usability and repo health.
+
+- **`search udm --enrich-ip`.** Appends IP geolocation columns (country, state,
+  ASN, carrier) to the field projection — combine with `--fields` for a
+  login-audit CSV. The inline `principal.location` and the enrichment
+  `principal.ipGeoArtifact` fields are both projected.
+- **Singleton-array auto-enter in `--fields`.** `extractUDMField` now
+  auto-enters a single-element array so a dotted path like
+  `principal.ipGeoArtifact.network.asn` resolves without an explicit `[0]`.
+  Multi-element arrays still render as compact JSON (no silent data loss).
+- **Chore: 43 SDK doc comments** across `soar/` CRUD surfaces + `FindRawLogs`.
+- **Chore: `DRY RUN —` banner normalization** — uniform em-dash across all
+  25+ guarded commands. `CasePriority` enum dedup (single typed enum, not two
+  switch sites).
+
+**Docs:** catalog (UDM events row), SKILL (--enrich-ip, singleton auto-enter), this wave.
 
 ---
 
