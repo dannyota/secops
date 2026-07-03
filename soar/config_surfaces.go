@@ -133,84 +133,97 @@ func (c *Client) deleteInCollection(ctx context.Context, resource, id string) er
 	return c.t.V1Alpha(ctx, "DELETE", resource+"/"+id, nil, nil)
 }
 
-// Environment writes (modern v1alpha). LIVE MUTATIONS.
+// CreateEnvironment creates a SOAR environment (v1alpha environments).
 func (c *Client) CreateEnvironment(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "environments", body)
 }
 
+// GetEnvironment returns a single SOAR environment by id (v1alpha environments).
 func (c *Client) GetEnvironment(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "environments", id)
 }
 
+// UpdateEnvironment patches a SOAR environment (v1alpha environments).
 func (c *Client) UpdateEnvironment(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "environments", id, body, updateMask...)
 }
 
+// DeleteEnvironment deletes a SOAR environment by id (v1alpha environments).
 func (c *Client) DeleteEnvironment(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "environments", id)
 }
 
-// SocRole writes (modern v1alpha). LIVE MUTATIONS.
+// CreateSocRole creates a SOC role definition (v1alpha socRoles).
 func (c *Client) CreateSocRole(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "socRoles", body)
 }
 
+// GetSocRole returns a single SOC role by id (v1alpha socRoles).
 func (c *Client) GetSocRole(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "socRoles", id)
 }
 
+// UpdateSocRole patches a SOC role definition (v1alpha socRoles).
 func (c *Client) UpdateSocRole(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "socRoles", id, body, updateMask...)
 }
 
+// DeleteSocRole deletes a SOC role by id (v1alpha socRoles).
 func (c *Client) DeleteSocRole(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "socRoles", id)
 }
 
-// CustomList writes (modern v1alpha). LIVE MUTATIONS.
+// CreateCustomList creates a custom list (v1alpha customLists).
 func (c *Client) CreateCustomList(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "customLists", body)
 }
 
+// GetCustomList returns a single custom list by id (v1alpha customLists).
 func (c *Client) GetCustomList(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "customLists", id)
 }
 
+// UpdateCustomList patches a custom list (v1alpha customLists).
 func (c *Client) UpdateCustomList(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "customLists", id, body, updateMask...)
 }
 
+// DeleteCustomList deletes a custom list by id (v1alpha customLists).
 func (c *Client) DeleteCustomList(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "customLists", id)
 }
 
-// CaseStageDefinition writes (modern v1alpha). LIVE MUTATIONS.
+// CreateCaseStageDefinition creates a case-stage definition (v1alpha caseStageDefinitions).
 func (c *Client) CreateCaseStageDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "caseStageDefinitions", body)
 }
 
+// DeleteCaseStageDefinition deletes a case-stage definition by id (v1alpha caseStageDefinitions).
 func (c *Client) DeleteCaseStageDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "caseStageDefinitions", id)
 }
 
-// CaseCloseDefinition writes (modern v1alpha). LIVE MUTATIONS.
+// CreateCaseCloseDefinition creates a case-close (root-cause) definition (v1alpha caseCloseDefinitions).
 func (c *Client) CreateCaseCloseDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "caseCloseDefinitions", body)
 }
 
+// DeleteCaseCloseDefinition deletes a case-close definition by id (v1alpha caseCloseDefinitions).
 func (c *Client) DeleteCaseCloseDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "caseCloseDefinitions", id)
 }
 
-// CaseTagDefinition writes (modern v1alpha). LIVE MUTATIONS.
+// CreateCaseTagDefinition creates a case-tag definition (v1alpha caseTagDefinitions).
 func (c *Client) CreateCaseTagDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "caseTagDefinitions", body)
 }
 
+// GetCaseTagDefinition returns a single case-tag definition by id (v1alpha caseTagDefinitions).
 func (c *Client) GetCaseTagDefinition(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "caseTagDefinitions", id)
 }
 
+// DeleteCaseTagDefinition deletes a case-tag definition by id (v1alpha caseTagDefinitions).
 func (c *Client) DeleteCaseTagDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "caseTagDefinitions", id)
 }

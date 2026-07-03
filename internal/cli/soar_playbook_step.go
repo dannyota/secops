@@ -312,7 +312,7 @@ func emitWorkflowStepActionPreview(action string, summary workflowStepInstanceSu
 	printStepSummaryFields(w, summary)
 	fmt.Fprintln(w)
 	if dryRun {
-		fmt.Fprintln(w, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+		fmt.Fprintln(w, "DRY RUN — no API call made. Re-run with --yes to apply.")
 		return nil
 	}
 	if !assumeYes {

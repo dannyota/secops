@@ -94,7 +94,7 @@ func newAuthoringUpdateCmd(kind string) *cobra.Command {
 			action := fmt.Sprintf("update %s definition %s in integration %s (fields: %s)", kind, id, integration, strings.Join(mask, ","))
 			dr, ay := soarGuard(action, dryRun, yes)
 			if dr || !ay {
-				fmt.Fprintf(os.Stdout, "DRY RUN: would %s.\n", action)
+				fmt.Fprintf(os.Stdout, "DRY RUN — would %s.\n", action)
 				return nil
 			}
 			var out json.RawMessage
@@ -227,7 +227,7 @@ func newAuthoringCreateCmd(kind string) *cobra.Command {
 			action := fmt.Sprintf("create %s definition %q in integration %s (%d-byte body)", kind, displayNameOf(body, name), integration, len(body))
 			dr, ay := soarGuard(action, dryRun, yes)
 			if dr || !ay {
-				fmt.Fprintf(os.Stdout, "DRY RUN: would %s.\n", action)
+				fmt.Fprintf(os.Stdout, "DRY RUN — would %s.\n", action)
 				return nil
 			}
 			out, err := createAuthoringDef(c, kind, integration, body)
@@ -280,7 +280,7 @@ func newAuthoringDeleteCmd(kind string) *cobra.Command {
 			action := fmt.Sprintf("delete %s definition %s from integration %s", kind, id, integration)
 			dr, ay := soarGuard(action, dryRun, yes)
 			if dr || !ay {
-				fmt.Fprintf(os.Stdout, "DRY RUN: would %s — irreversible; playbooks referencing it break (check `components usage` first).\n", action)
+				fmt.Fprintf(os.Stdout, "DRY RUN — would %s — irreversible; playbooks referencing it break (check `components usage` first).\n", action)
 				return nil
 			}
 			if kind == "action" {

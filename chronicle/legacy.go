@@ -50,6 +50,7 @@ func (c *Client) FindRawLogsByIDs(ctx context.Context, ids []string) (json.RawMe
 	return out, nil
 }
 
+// FindRawLogs runs a raw-log search with the given request body (v1alpha legacy:legacyFindRawLogs, POST).
 func (c *Client) FindRawLogs(ctx context.Context, body any) (json.RawMessage, error) {
 	var out json.RawMessage
 	if err := c.post(ctx, c.resourcePath("legacy:legacyFindRawLogs", true), body, &out); err != nil {

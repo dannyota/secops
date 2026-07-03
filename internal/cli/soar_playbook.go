@@ -258,7 +258,7 @@ func newSOARPlaybookDeleteCmd() *cobra.Command {
 			label := formatDeleteLabel(name, ids)
 			dr, ay := soarGuard("playbook delete "+label, dryRun, yes)
 			if dr {
-				fmt.Fprintf(os.Stdout, "DRY RUN: would delete %d playbook(s): %s\n", len(ids), label)
+				fmt.Fprintf(os.Stdout, "DRY RUN — would delete %d playbook(s): %s\n", len(ids), label)
 				return nil
 			}
 			if !ay {
@@ -467,7 +467,7 @@ func newSOARPlaybookDeployCmd() *cobra.Command {
 			fmt.Fprintf(os.Stdout, "Playbook: %q (%s)\n", pbName, identifier)
 			fmt.Fprintf(os.Stdout, "  isEnabled: %v → %v (mints a new version)\n", currentEnabled, wantEnabled)
 			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {

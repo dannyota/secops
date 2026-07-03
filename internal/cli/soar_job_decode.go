@@ -260,7 +260,7 @@ func emitSOARJobMutationPreview(action string, row soarJobRow, dryRun, assumeYes
 	fmt.Fprintf(w, "Job: %s\n", jobSelectorLabel(row))
 	fmt.Fprintf(w, "Enabled: %s\n", boolPtrString(row.Enabled))
 	if dryRun {
-		fmt.Fprintln(w, "\nDRY RUN -- no mutation sent (the target was resolved with a live read). Re-run with --yes to apply.")
+		fmt.Fprintln(w, "\nDRY RUN — no mutation sent (the target was resolved with a live read). Re-run with --yes to apply.")
 		return nil
 	}
 	if !assumeYes {
@@ -282,7 +282,7 @@ func emitSOARJobInstanceMutationPreview(action string, row soarJobInstanceRow, d
 	fmt.Fprintf(w, "Job instance: %s\n", jobInstanceSelectorLabel(row))
 	fmt.Fprintf(w, "Enabled: %s\n", boolPtrString(row.Enabled))
 	if dryRun {
-		fmt.Fprintln(w, "\nDRY RUN -- no mutation sent (the target was resolved with a live read). Re-run with --yes to apply.")
+		fmt.Fprintln(w, "\nDRY RUN — no mutation sent (the target was resolved with a live read). Re-run with --yes to apply.")
 		return nil
 	}
 	if !assumeYes {

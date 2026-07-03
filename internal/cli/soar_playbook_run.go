@@ -624,7 +624,7 @@ func emitPlaybookMutationPreview(action string, body map[string]any, dryRun, ass
 	}
 	fmt.Fprintf(w, "Request body:\n%s\n\n", pretty)
 	if dryRun {
-		fmt.Fprintln(w, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+		fmt.Fprintln(w, "DRY RUN — no API call made. Re-run with --yes to apply.")
 		return nil
 	}
 	if !assumeYes {

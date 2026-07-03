@@ -163,18 +163,14 @@ func emitSOARCaseFull(w io.Writer, raw json.RawMessage) error {
 	return nil
 }
 
+// soarPriorityName renders a case/alert priority via the SDK's typed enum —
+// one int↔name mapping, owned by soar/legacy. Unmapped values (including the
+// request-only 0 "Unchanged" sentinel) render as the raw number.
 func soarPriorityName(p int) string {
-	switch p {
-	case -1:
-		return "Informative"
-	case 40:
-		return "Low"
-	case 60:
-		return "Medium"
-	case 80:
-		return "High"
-	case 100:
-		return "Critical"
+	switch cp := legacy.CasePriority(p); cp {
+	case legacy.PriorityInformative, legacy.PriorityLow, legacy.PriorityMedium,
+		legacy.PriorityHigh, legacy.PriorityCritical:
+		return cp.String()
 	default:
 		return strconv.Itoa(p)
 	}

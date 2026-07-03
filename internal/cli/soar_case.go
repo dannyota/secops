@@ -192,7 +192,7 @@ func caseAction(action string, body any, dryRun, yes bool, do func(ctx context.C
 
 	if dr {
 		if !jsonOut {
-			fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run without --dry-run to apply.")
+			fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run without --dry-run to apply.")
 		}
 		return emit(false)
 	}

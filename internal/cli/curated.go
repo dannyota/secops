@@ -327,7 +327,7 @@ func guardedSIEMMutation(action string, dryRunFlag, yesFlag bool, do func() erro
 	fmt.Fprintf(w, "!! Action: %s\n", action)
 	fmt.Fprintln(w, bar)
 	if dryRun {
-		fmt.Fprintln(w, "DRY RUN -- no changes applied. Re-run with --yes to apply.")
+		fmt.Fprintln(w, "DRY RUN — no changes applied. Re-run with --yes to apply.")
 		return nil
 	}
 	if !assumeYes {

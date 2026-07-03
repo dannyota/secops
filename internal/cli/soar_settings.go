@@ -133,7 +133,7 @@ func newSOARAPIKeyCreateCmd() *cobra.Command {
 			action := fmt.Sprintf("create API key %q (permission group %d)", name, permissionGroup)
 			dr, ay := soarGuard(action, dryRun, yes)
 			if dr || !ay {
-				fmt.Fprintf(os.Stdout, "DRY RUN: would %s, environments %s; a fresh secret is minted locally and printed once on apply.\n",
+				fmt.Fprintf(os.Stdout, "DRY RUN — would %s, environments %s; a fresh secret is minted locally and printed once on apply.\n",
 					action, strings.Join(environments, ","))
 				return nil
 			}
@@ -196,7 +196,7 @@ func newSOARAPIKeyRevokeCmd() *cobra.Command {
 			action := fmt.Sprintf("revoke API key id %d %q", match.ID, match.Name)
 			dr, ay := soarGuard(action, dryRun, yes)
 			if dr || !ay {
-				fmt.Fprintf(os.Stdout, "DRY RUN: would %s — any client using it loses access immediately.\n", action)
+				fmt.Fprintf(os.Stdout, "DRY RUN — would %s — any client using it loses access immediately.\n", action)
 				return nil
 			}
 			if err := lc.RevokeAPIKey(baseContext(), *match); err != nil {

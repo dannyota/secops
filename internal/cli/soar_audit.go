@@ -159,7 +159,7 @@ func newNotificationsCloseCmd() *cobra.Command {
 				fmt.Fprintf(os.Stdout, "Close notification %d\n", id)
 			}
 			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {

@@ -182,7 +182,7 @@ func newSimCreateCmd() *cobra.Command {
 			fmt.Fprintf(os.Stdout, "Simulation: %s (rule %s, source %s, product %s, event %s)\n",
 				alertName, ruleName, alertSource, alertProduct, eventName)
 			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {
@@ -261,7 +261,7 @@ func newSimGenerateCmd() *cobra.Command {
 				fmt.Fprintf(os.Stdout, "  - %s\n", n)
 			}
 			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {
@@ -343,7 +343,7 @@ func newSimAlertCmd() *cobra.Command {
 			dr, ay := soarGuard(label, dryRun, yes)
 			fmt.Fprintf(os.Stdout, "Simulate alert on case %d (alert %s)\n", caseID, truncate(alert, 60))
 			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {
@@ -428,7 +428,7 @@ func newSimDeleteCmd() *cobra.Command {
 			dr, ay := soarGuard(label, dryRun, yes)
 			fmt.Fprintf(os.Stdout, "Delete simulation: %s\n", name)
 			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {

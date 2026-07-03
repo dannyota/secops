@@ -134,7 +134,7 @@ func newCaseRunActionCmd() *cobra.Command {
 				if jsonOut {
 					return emitGuardedResult("soar case run-action", true, false)
 				}
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no action executed. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN — no action executed. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {

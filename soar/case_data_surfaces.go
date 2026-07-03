@@ -22,18 +22,22 @@ func (c *Client) ListCustomFields(ctx context.Context) ([]json.RawMessage, error
 	return c.listCollection(ctx, "customFields")
 }
 
+// CreateCustomField creates a case custom-field definition (v1alpha customFields).
 func (c *Client) CreateCustomField(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "customFields", body)
 }
 
+// GetCustomField returns a single custom-field definition by id (v1alpha customFields).
 func (c *Client) GetCustomField(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "customFields", id)
 }
 
+// UpdateCustomField patches a custom-field definition (v1alpha customFields).
 func (c *Client) UpdateCustomField(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "customFields", id, body, updateMask...)
 }
 
+// DeleteCustomField deletes a custom-field definition by id (v1alpha customFields).
 func (c *Client) DeleteCustomField(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "customFields", id)
 }
@@ -44,18 +48,22 @@ func (c *Client) ListCalculatedFieldDefinitions(ctx context.Context) ([]json.Raw
 	return c.listCollection(ctx, "calculatedFieldDefinitions")
 }
 
+// CreateCalculatedFieldDefinition creates a calculated-field definition (v1alpha calculatedFieldDefinitions).
 func (c *Client) CreateCalculatedFieldDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "calculatedFieldDefinitions", body)
 }
 
+// GetCalculatedFieldDefinition returns a single calculated-field definition by id (v1alpha calculatedFieldDefinitions).
 func (c *Client) GetCalculatedFieldDefinition(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "calculatedFieldDefinitions", id)
 }
 
+// UpdateCalculatedFieldDefinition patches a calculated-field definition (v1alpha calculatedFieldDefinitions).
 func (c *Client) UpdateCalculatedFieldDefinition(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "calculatedFieldDefinitions", id, body, updateMask...)
 }
 
+// DeleteCalculatedFieldDefinition deletes a calculated-field definition by id (v1alpha calculatedFieldDefinitions).
 func (c *Client) DeleteCalculatedFieldDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "calculatedFieldDefinitions", id)
 }
@@ -66,18 +74,22 @@ func (c *Client) ListPropertySchemaDefinitions(ctx context.Context) ([]json.RawM
 	return c.listCollection(ctx, "propertySchemaDefinitions")
 }
 
+// CreatePropertySchemaDefinition creates a property-schema definition (v1alpha propertySchemaDefinitions).
 func (c *Client) CreatePropertySchemaDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "propertySchemaDefinitions", body)
 }
 
+// GetPropertySchemaDefinition returns a single property-schema definition by id (v1alpha propertySchemaDefinitions).
 func (c *Client) GetPropertySchemaDefinition(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "propertySchemaDefinitions", id)
 }
 
+// UpdatePropertySchemaDefinition patches a property-schema definition (v1alpha propertySchemaDefinitions).
 func (c *Client) UpdatePropertySchemaDefinition(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "propertySchemaDefinitions", id, body, updateMask...)
 }
 
+// DeletePropertySchemaDefinition deletes a property-schema definition by id (v1alpha propertySchemaDefinitions).
 func (c *Client) DeletePropertySchemaDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "propertySchemaDefinitions", id)
 }

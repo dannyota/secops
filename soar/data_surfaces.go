@@ -27,18 +27,22 @@ func (c *Client) ListSlaDefinitions(ctx context.Context) ([]json.RawMessage, err
 	return c.listCollection(ctx, "slaDefinitions")
 }
 
+// CreateSlaDefinition creates an SLA definition (v1alpha slaDefinitions).
 func (c *Client) CreateSlaDefinition(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "slaDefinitions", body)
 }
 
+// GetSlaDefinition returns a single SLA definition by id (v1alpha slaDefinitions).
 func (c *Client) GetSlaDefinition(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "slaDefinitions", id)
 }
 
+// UpdateSlaDefinition patches an SLA definition (v1alpha slaDefinitions).
 func (c *Client) UpdateSlaDefinition(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "slaDefinitions", id, body, updateMask...)
 }
 
+// DeleteSlaDefinition deletes an SLA definition by id (v1alpha slaDefinitions).
 func (c *Client) DeleteSlaDefinition(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "slaDefinitions", id)
 }
@@ -50,18 +54,22 @@ func (c *Client) ListSoarNetworks(ctx context.Context) ([]json.RawMessage, error
 	return c.listCollection(ctx, "soarNetworks")
 }
 
+// CreateSoarNetwork creates a SOAR network (v1alpha soarNetworks).
 func (c *Client) CreateSoarNetwork(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "soarNetworks", body)
 }
 
+// GetSoarNetwork returns a single SOAR network by id (v1alpha soarNetworks).
 func (c *Client) GetSoarNetwork(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "soarNetworks", id)
 }
 
+// UpdateSoarNetwork patches a SOAR network (v1alpha soarNetworks).
 func (c *Client) UpdateSoarNetwork(ctx context.Context, id string, body any, updateMask ...string) (json.RawMessage, error) {
 	return c.updateInCollection(ctx, "soarNetworks", id, body, updateMask...)
 }
 
+// DeleteSoarNetwork deletes a SOAR network by id (v1alpha soarNetworks).
 func (c *Client) DeleteSoarNetwork(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "soarNetworks", id)
 }
@@ -76,14 +84,17 @@ func (c *Client) ListEntitiesBlocklists(ctx context.Context) ([]json.RawMessage,
 	return c.listCollection(ctx, "entitiesBlocklists")
 }
 
+// CreateEntitiesBlocklist creates an entity block-list entry (v1alpha entitiesBlocklists).
 func (c *Client) CreateEntitiesBlocklist(ctx context.Context, body any) (json.RawMessage, error) {
 	return c.createInCollection(ctx, "entitiesBlocklists", body)
 }
 
+// GetEntitiesBlocklist returns a single entity block-list entry by id (v1alpha entitiesBlocklists).
 func (c *Client) GetEntitiesBlocklist(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.getInCollection(ctx, "entitiesBlocklists", id)
 }
 
+// DeleteEntitiesBlocklist deletes an entity block-list entry by id (v1alpha entitiesBlocklists).
 func (c *Client) DeleteEntitiesBlocklist(ctx context.Context, id string) error {
 	return c.deleteInCollection(ctx, "entitiesBlocklists", id)
 }

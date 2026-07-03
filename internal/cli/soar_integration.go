@@ -290,7 +290,7 @@ func newSOARIntegrationConfigureCmd() *cobra.Command {
 			}
 			fmt.Fprintln(os.Stdout)
 			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {
@@ -449,7 +449,7 @@ func newSOARConnectorDefDeleteCmd() *cobra.Command {
 			}
 			dr, _ := soarGuard("integration connector delete", dryRun, yes)
 			if dr {
-				fmt.Fprintf(os.Stdout, "DRY RUN: would delete custom connector definition %q (%s/%s)\n", def.DisplayName, integration, id)
+				fmt.Fprintf(os.Stdout, "DRY RUN — would delete custom connector definition %q (%s/%s)\n", def.DisplayName, integration, id)
 				return nil
 			}
 			if err := c.DeleteConnectorDef(ctx, integration, id); err != nil {
@@ -508,7 +508,7 @@ func newSOARIntegrationUninstallCmd() *cobra.Command {
 				key = target.Identifier
 			}
 			if dr {
-				fmt.Fprintf(os.Stdout, "DRY RUN: would delete custom integration %q (%s)\n", target.DisplayName, key)
+				fmt.Fprintf(os.Stdout, "DRY RUN — would delete custom integration %q (%s)\n", target.DisplayName, key)
 				return nil
 			}
 			if err := c.DeleteIntegration(ctx, key); err != nil {

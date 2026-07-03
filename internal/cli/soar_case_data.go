@@ -224,7 +224,7 @@ func newCaseContextSetCmd() *cobra.Command {
 			dr, ay := soarGuard(label, dryRun, yes)
 			fmt.Fprintf(os.Stdout, "Case: %d\nKey: %s\nValue: %s\n", caseID, key, value)
 			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN -- no API call made. Re-run with --yes to apply.")
+				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {
