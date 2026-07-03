@@ -33,14 +33,15 @@ func newParsersCmd() *cobra.Command {
 			"  activate     make a specific parser version ACTIVE (guarded)\n" +
 			"  upgrade      preview + activate a prebuilt parser update (release candidate)\n" +
 			"  rollback     roll back to the last used parser version\n" +
+			"  delete       delete a specific parser version (guarded; --force for ACTIVE)\n" +
 			"  extension    manage parser extensions (extract / setting / create / activate)\n\n" +
 			"Parser-dev loop: sample-logs → write CBN → run → `push parsers` (submit) →\n" +
 			"validate (why a submit's FAILED_PRECONDITION failed). Config-as-code is\n" +
 			"`push parsers` (edit + create-new-version + activate).",
 	}
 	cmd.AddCommand(newParsersVersionsCmd(), newParsersRunCmd(), newParsersActivateCmd(),
-		newParsersSampleLogsCmd(), newParsersValidateCmd(), newParsersExtensionCmd(),
-		newParsersUpgradeCmd(), newParsersRollbackCmd())
+		newParsersSampleLogsCmd(), newParsersValidateCmd(), newParsersDeleteCmd(),
+		newParsersExtensionCmd(), newParsersUpgradeCmd(), newParsersRollbackCmd())
 	return cmd
 }
 

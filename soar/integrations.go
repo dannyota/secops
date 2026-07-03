@@ -262,6 +262,17 @@ func (c *Client) ListJobs(ctx context.Context, integration string) ([]JobDef, er
 	return all, nil
 }
 
+// GetJobDef fetches one job definition by its parent integration key and
+// numeric job id (the id from ListJobs).
+func (c *Client) GetJobDef(ctx context.Context, integration, jobID string) (*JobDef, error) {
+	var out JobDef
+	res := fmt.Sprintf("integrations/%s/jobs/%s", integration, jobID)
+	if err := c.t.V1Alpha(ctx, "GET", res, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // pageTokenOpt builds the transport option carrying a pagination token. On the
 // first page (empty token) it yields an empty Query, a harmless no-op the
 // transport folds into its query map. DEVIATION: the transport exposes

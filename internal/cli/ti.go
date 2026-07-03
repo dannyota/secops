@@ -20,13 +20,19 @@ func newTICmd() *cobra.Command {
 		Use:   "ti",
 		Short: "Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections",
 		Long: "Read-only threat intelligence:\n" +
-			"  find / get / related        IOC matches in your data (resolve a value, inspect an IOC)\n" +
-			"  collections / collection    Google/Mandiant threat collections the tenant matches\n" +
-			"  collection-matches          IoC match counts for given threat collections",
+			"  find / get / related           IOC matches in your data (resolve a value, inspect an IOC)\n" +
+			"  collections / collection       Google/Mandiant threat collections the tenant matches\n" +
+			"  collection-matches             IoC match counts for given threat collections\n" +
+			"  associations                   IoC associations (malware families, threat actors) by id\n" +
+			"  related-associations           IoC associations related to a threat resource\n" +
+			"  coverage                       Rule coverage for threat collections\n" +
+			"  filters                        Threat-collection filter set (JSON-only)",
 	}
 	cmd.AddCommand(
 		newIoCsFindCmd(), newIoCsGetCmd(), newIoCsRelatedCmd(),
 		newTICollectionsCmd(), newTICollectionCmd(), newTIRelatedCmd(),
+		newTIAssociationsCmd(), newTIRelatedAssociationsCmd(),
+		newTICoverageCmd(), newTIFiltersCmd(),
 	)
 	return cmd
 }

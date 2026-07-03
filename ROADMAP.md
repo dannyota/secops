@@ -306,6 +306,36 @@ Backlog clearout: compound operations, promotion reporting, and bulk data import
 
 Global `--no-progress` flag for streaming-progress control (s1ctl-inspired); `entities audit` cross-references entity risk scores with watchlist coverage (empty/default-factor health, coverage gaps, `--min-risk`, `--json`).
 
+### Wave 134 — SOAR jobs scheduler: modern instance lane, run history, revisions *(built — offline-tested)*
+
+Modern v1alpha read/write plane for scheduled job instances: `soar jobs instance
+list/get/set/run/delete` promoted to modern-by-default with legacy fallback;
+flag-based `instance create` with simple interval or advanced calendar schedules
+(once/daily/weekly/monthly) and `--param` resolution against the job-def parameter
+spec; `instance history` per-run execution logs with status filter; job-definition
+`revision list/create/rollback/delete`. The typed instance model matches the live
+payload shape (typed parameter array, advanced-schedule config, epoch-millis
+timestamps). Recipe page: docs/tips/13-scheduled-jobs.md.
+
+### Wave 135 — Emerging Threats coverage & IoC associations *(built — offline-tested)*
+
+`ti coverage` (rule↔threat-collection coverage mapping, filtered by collection ids),
+`ti associations` / `ti related-associations` (malware-family / threat-actor
+association records via batchGet + related pivots), `ti filters` (threat-collection
+filter-set metadata). SDK chunks long id lists (80 names / 40 collection ids per
+call); licensed-add-on 403s surface cleanly.
+
+### Wave 136 — search ergonomics, stats syntax reference, parser lifecycle *(built — offline-tested)*
+
+`search udm --raw --all` runs the complete-results engine before raw hydration
+(total match count reported); single-chunk searches show indeterminate stderr
+progress. Aggregation queries (`match:`/`outcome:`) auto-route from `search udm`/
+`search run` to the stats engine; the full YARA-L 2.0 section/aggregate syntax is
+documented in `search stats --help` and docs/tips/14-stats-queries.md; stats tables
+render array outcomes comma-joined. Parser lifecycle: pull/reconcile prefer the
+CUSTOM parser version when a prebuilt is also active; new guarded `ingest parsers
+delete` refuses an ACTIVE version without `--force`.
+
 ---
 
 ## Non-goals

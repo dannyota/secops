@@ -3,15 +3,13 @@ package cli
 // soar_job.go — row types and command constructors for SOAR job commands.
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
-
-	"danny.vn/secops/soar/legacy"
 )
 
 type soarJobRow struct {
@@ -31,8 +29,13 @@ type soarJobInstanceRow struct {
 	UniqueIdentifier string `json:"unique_identifier,omitempty"`
 	Name             string `json:"name,omitempty"`
 	Category         string `json:"category,omitempty"`
+	Integration      string `json:"integration,omitempty"`
+	DefinitionName   string `json:"definition_name,omitempty"`
 	Enabled          *bool  `json:"enabled,omitempty"`
 	Custom           *bool  `json:"custom,omitempty"`
+	LastRunStatus    string `json:"last_run_status,omitempty"`
+	LastRunTime      string `json:"last_run_time,omitempty"`
+	IntervalSeconds  string `json:"interval_seconds,omitempty"`
 	ParameterCount   int    `json:"parameter_count"`
 }
 
@@ -62,6 +65,7 @@ func newSOARJobCmd() *cobra.Command {
 		newSOARJobTemplateCmd(),
 		newSOARJobInstanceCmd(),
 		newSOARJobLogsCmd(),
+		newSOARJobRevisionCmd(),
 	)
 	return cmd
 }
@@ -229,19 +233,14 @@ func newSOARJobInstanceCmd() *cobra.Command {
 		Use:   "instance",
 		Short: "Inspect, guarded-run, and manage configured job instances",
 	}
-	cmd.AddCommand(newSOARJobInstanceListCmd(), newSOARJobInstanceRunCmd(),
+	cmd.AddCommand(newSOARJobInstanceListCmd(), newSOARJobInstanceGetCmd(),
+		newSOARJobInstanceRunCmd(), newSOARJobInstanceHistoryCmd(),
 		newSOARJobInstanceSetCmd(), newSOARJobInstanceCreateCmd(), newSOARJobInstanceDeleteCmd())
 	return cmd
 }
 
-// newSOARJobInstanceSetCmd toggles a scheduled job instance's enabled state —
-// the "disable a noisy or broken scheduled job" path. Whole-body update: the
-// instance is fetched fresh, isEnabled overlaid byte-preservingly (no
-// float64 round-trip), and the body PUT back. NOTE: the swagger's update shape
-// (JobDataUpdateRequest) declares jobDefinitionId/jobDefinitionName, which the
-// live list records do not carry — whether the server resolves them from
-// id/uniqueIdentifier is exactly what the gated same-value write smoke
-// (TestLiveJobInstanceSetWriteSmoke) verifies before this is run for real.
+// newSOARJobInstanceSetCmd toggles a scheduled job instance's enabled state.
+// Modern path uses a sparse PATCH with updateMask; legacy uses whole-body PUT.
 func newSOARJobInstanceSetCmd() *cobra.Command {
 	var (
 		selector        string
@@ -256,44 +255,82 @@ func newSOARJobInstanceSetCmd() *cobra.Command {
 			if enable == disable {
 				return fmt.Errorf("pass exactly one of --enable / --disable")
 			}
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
-			}
-			raw, err := lc.ListJobInstances(baseContext())
-			if err != nil {
-				return err
-			}
-			instRaw, row, err := findSOARJobInstance(raw, selector)
-			if err != nil {
-				return err
-			}
-			// RawMessage overlay: every field except isEnabled keeps its exact
-			// bytes (a map[string]any round-trip would coerce int64 ids through
-			// float64).
-			var body map[string]json.RawMessage
-			if err := json.Unmarshal(instRaw, &body); err != nil {
-				return fmt.Errorf("decode job instance: %w", err)
-			}
-			enabledRaw, _ := json.Marshal(enable)
-			body["isEnabled"] = enabledRaw
-			action := fmt.Sprintf("job instance set %s enabled=%v", jobInstanceSelectorLabel(row), enable)
-			dr, ay := soarGuard(action, dryRun, yes)
-			if err := emitSOARJobInstanceMutationPreview("UPDATE SOAR job instance", row, dr, ay); err != nil {
-				return err
-			}
-			if dr || !ay {
-				return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
-			}
-			resp, err := lc.UpdateJobInstance(baseContext(), body)
-			if err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp)
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance updated.")
-			return nil
+			return preferModern("soar jobs instance set",
+				func() error {
+					sc, err := newSOARClient()
+					if err != nil {
+						return err
+					}
+					instances, err := sc.ListAllJobInstances(baseContext())
+					if err != nil {
+						return err
+					}
+					ji, err := findModernJobInstance(instances, selector)
+					if err != nil {
+						return err
+					}
+					row := soarJobInstanceRowFromModern(*ji)
+					integration, jobID, instanceID, ok := parseJobInstanceName(ji.Name)
+					if !ok {
+						return fmt.Errorf("cannot parse resource name %q", ji.Name)
+					}
+					action := fmt.Sprintf("job instance set %s enabled=%v", jobInstanceSelectorLabel(row), enable)
+					dr, ay := soarGuard(action, dryRun, yes)
+					if err := emitSOARJobInstanceMutationPreview("UPDATE SOAR job instance", row, dr, ay); err != nil {
+						return err
+					}
+					if dr || !ay {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
+					}
+					body := map[string]any{"enabled": enable}
+					resp, err := sc.UpdateJobInstance(baseContext(), integration, jobID, instanceID, body, "enabled")
+					if err != nil {
+						return err
+					}
+					if jsonOut {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp.Raw)
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance updated.")
+					return nil
+				},
+				func() error {
+					lc, err := newSOARLegacyClient()
+					if err != nil {
+						return err
+					}
+					raw, err := lc.ListJobInstances(baseContext())
+					if err != nil {
+						return err
+					}
+					instRaw, row, err := findSOARJobInstance(raw, selector)
+					if err != nil {
+						return err
+					}
+					var body map[string]json.RawMessage
+					if err := json.Unmarshal(instRaw, &body); err != nil {
+						return fmt.Errorf("decode job instance: %w", err)
+					}
+					enabledRaw, _ := json.Marshal(enable)
+					body["isEnabled"] = enabledRaw
+					action := fmt.Sprintf("job instance set %s enabled=%v", jobInstanceSelectorLabel(row), enable)
+					dr, ay := soarGuard(action, dryRun, yes)
+					if err := emitSOARJobInstanceMutationPreview("UPDATE SOAR job instance", row, dr, ay); err != nil {
+						return err
+					}
+					if dr || !ay {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
+					}
+					resp, err := lc.UpdateJobInstance(baseContext(), body)
+					if err != nil {
+						return err
+					}
+					if jsonOut {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp)
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance updated.")
+					return nil
+				},
+			)
 		},
 	}
 	f := cmd.Flags()
@@ -306,45 +343,10 @@ func newSOARJobInstanceSetCmd() *cobra.Command {
 	return markJSON(cmd)
 }
 
-// newSOARJobInstanceCreateCmd creates a scheduled job instance from a JSON
-// body (JobDataAddRequest — typically a copied-and-edited record from
-// `instance list --json`, or a definition from `job template list`).
-func newSOARJobInstanceCreateCmd() *cobra.Command {
-	var (
-		file        string
-		dryRun, yes bool
-	)
-	cmd := &cobra.Command{
-		Use:   "create --file <instance.json>",
-		Short: "GUARDED: create a scheduled job instance from a JSON body",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			data, err := os.ReadFile(file)
-			if err != nil {
-				return err
-			}
-			// Validate it is a JSON object, but send (and preview) the exact file
-			// bytes — no float64 round-trip.
-			var probe map[string]json.RawMessage
-			if err := json.Unmarshal(data, &probe); err != nil {
-				return fmt.Errorf("%s: %w", file, err)
-			}
-			body := json.RawMessage(bytes.TrimSpace(data))
-			return caseAction(fmt.Sprintf("create job instance from %s", file), body, dryRun, yes,
-				func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
-					return lc.CreateJobInstance(ctx, body)
-				})
-		},
-	}
-	f := cmd.Flags()
-	f.StringVar(&file, "file", "", "job instance JSON body (required)")
-	guardRunFlags(cmd, &dryRun, &yes)
-	_ = cmd.MarkFlagRequired("file")
-	return markJSON(cmd)
-}
+// newSOARJobInstanceCreateCmd is defined in soar_job_create.go.
 
-// newSOARJobInstanceDeleteCmd deletes a scheduled job instance by id — the
-// clean by-id delete the definition-level DeleteJobData lacks.
+// newSOARJobInstanceDeleteCmd deletes a scheduled job instance. Modern path
+// uses the v1alpha DELETE; legacy uses the by-id delete.
 func newSOARJobInstanceDeleteCmd() *cobra.Command {
 	var (
 		selector    string
@@ -355,38 +357,77 @@ func newSOARJobInstanceDeleteCmd() *cobra.Command {
 		Short: "GUARDED: delete a scheduled job instance",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
-			}
-			raw, err := lc.ListJobInstances(baseContext())
-			if err != nil {
-				return err
-			}
-			_, row, err := findSOARJobInstance(raw, selector)
-			if err != nil {
-				return err
-			}
-			if row.ID == "" {
-				return fmt.Errorf("instance %q carries no numeric id; cannot delete by id", selector)
-			}
-			action := fmt.Sprintf("job instance delete %s", jobInstanceSelectorLabel(row))
-			dr, ay := soarGuard(action, dryRun, yes)
-			if err := emitSOARJobInstanceMutationPreview("DELETE SOAR job instance", row, dr, ay); err != nil {
-				return err
-			}
-			if dr || !ay {
-				return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
-			}
-			resp, err := lc.DeleteJobInstance(baseContext(), row.ID)
-			if err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp)
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance deleted.")
-			return nil
+			return preferModern("soar jobs instance delete",
+				func() error {
+					sc, err := newSOARClient()
+					if err != nil {
+						return err
+					}
+					instances, err := sc.ListAllJobInstances(baseContext())
+					if err != nil {
+						return err
+					}
+					ji, err := findModernJobInstance(instances, selector)
+					if err != nil {
+						return err
+					}
+					row := soarJobInstanceRowFromModern(*ji)
+					integration, jobID, instanceID, ok := parseJobInstanceName(ji.Name)
+					if !ok {
+						return fmt.Errorf("cannot parse resource name %q", ji.Name)
+					}
+					action := fmt.Sprintf("job instance delete %s", jobInstanceSelectorLabel(row))
+					dr, ay := soarGuard(action, dryRun, yes)
+					if err := emitSOARJobInstanceMutationPreview("DELETE SOAR job instance", row, dr, ay); err != nil {
+						return err
+					}
+					if dr || !ay {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
+					}
+					if err := sc.DeleteJobInstance(baseContext(), integration, jobID, instanceID); err != nil {
+						return err
+					}
+					if jsonOut {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, true, nil)
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance deleted.")
+					return nil
+				},
+				func() error {
+					lc, err := newSOARLegacyClient()
+					if err != nil {
+						return err
+					}
+					raw, err := lc.ListJobInstances(baseContext())
+					if err != nil {
+						return err
+					}
+					_, row, err := findSOARJobInstance(raw, selector)
+					if err != nil {
+						return err
+					}
+					if row.ID == "" {
+						return fmt.Errorf("instance %q carries no numeric id; cannot delete by id", selector)
+					}
+					action := fmt.Sprintf("job instance delete %s", jobInstanceSelectorLabel(row))
+					dr, ay := soarGuard(action, dryRun, yes)
+					if err := emitSOARJobInstanceMutationPreview("DELETE SOAR job instance", row, dr, ay); err != nil {
+						return err
+					}
+					if dr || !ay {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
+					}
+					resp, err := lc.DeleteJobInstance(baseContext(), row.ID)
+					if err != nil {
+						return err
+					}
+					if jsonOut {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp)
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance deleted.")
+					return nil
+				},
+			)
 		},
 	}
 	f := cmd.Flags()
@@ -403,26 +444,111 @@ func newSOARJobInstanceListCmd() *cobra.Command {
 		Short: "List configured SOAR job instances",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lc, err := newSOARLegacyClient()
+			return preferModern("soar jobs instance list",
+				func() error {
+					sc, err := newSOARClient()
+					if err != nil {
+						return err
+					}
+					instances, err := sc.ListAllJobInstances(baseContext())
+					if err != nil {
+						return err
+					}
+					rows := make([]soarJobInstanceRow, 0, len(instances))
+					for _, ji := range instances {
+						row := soarJobInstanceRowFromModern(ji)
+						if matchesAny(grep, row.ID, row.UniqueIdentifier, row.Name, row.Category, row.Integration, row.DefinitionName, row.LastRunStatus) {
+							rows = append(rows, row)
+						}
+					}
+					sort.Slice(rows, func(i, j int) bool {
+						return strings.ToLower(rows[i].Name) < strings.ToLower(rows[j].Name)
+					})
+					if jsonOut {
+						return emitJSON(rows)
+					}
+					printSOARJobInstanceRows(cmd.OutOrStdout(), rows)
+					return nil
+				},
+				func() error {
+					lc, err := newSOARLegacyClient()
+					if err != nil {
+						return err
+					}
+					raw, err := lc.ListJobInstances(baseContext())
+					if err != nil {
+						return err
+					}
+					rows, err := summarizeSOARJobInstances(raw, grep)
+					if err != nil {
+						return err
+					}
+					if jsonOut {
+						return emitJSON(rows)
+					}
+					printSOARJobInstanceRows(cmd.OutOrStdout(), rows)
+					return nil
+				},
+			)
+		},
+	}
+	cmd.Flags().StringVar(&grep, "grep", "", "case-insensitive filter over id/name/integration/status")
+	return markJSON(cmd)
+}
+
+func newSOARJobInstanceGetCmd() *cobra.Command {
+	var selector string
+	cmd := &cobra.Command{
+		Use:   "get --instance <name|id|uniqueIdentifier>",
+		Short: "Show details of a single job instance",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			sc, err := newSOARClient()
 			if err != nil {
 				return err
 			}
-			raw, err := lc.ListJobInstances(baseContext())
+			instances, err := sc.ListAllJobInstances(baseContext())
 			if err != nil {
 				return err
 			}
-			rows, err := summarizeSOARJobInstances(raw, grep)
+			ji, err := findModernJobInstance(instances, selector)
 			if err != nil {
 				return err
 			}
 			if jsonOut {
-				return emitJSON(rows)
+				return writeRawJSON(os.Stdout, ji.Raw)
 			}
-			printSOARJobInstanceRows(cmd.OutOrStdout(), rows)
+			w := cmd.OutOrStdout()
+			fmt.Fprintf(w, "Name:                  %s\n", ji.Name)
+			fmt.Fprintf(w, "DisplayName:           %s\n", ji.DisplayName)
+			fmt.Fprintf(w, "Integration:           %s\n", defaultString(ji.Integration, "-"))
+			fmt.Fprintf(w, "Job:                   %s\n", defaultString(ji.Job, "-"))
+			fmt.Fprintf(w, "Enabled:               %v\n", ji.Enabled)
+			fmt.Fprintf(w, "IntervalSeconds:       %d\n", ji.IntervalSeconds)
+			fmt.Fprintf(w, "Advanced:              %v\n", ji.Advanced)
+			fmt.Fprintf(w, "Custom:                %v\n", ji.Custom)
+			fmt.Fprintf(w, "Author:                %s\n", defaultString(ji.Author, "-"))
+			fmt.Fprintf(w, "Description:           %s\n", defaultString(ji.Description, "-"))
+			fmt.Fprintf(w, "LastRunStatus:          %s\n", defaultString(ji.LastRunStatus, "-"))
+			fmt.Fprintf(w, "LastRunTime:            %s\n", defaultString(ji.LastRunTime.String(), "-"))
+			fmt.Fprintf(w, "CreateTime:            %s\n", defaultString(ji.CreateTime.String(), "-"))
+			fmt.Fprintf(w, "UpdateTime:            %s\n", defaultString(ji.UpdateTime.String(), "-"))
+			fmt.Fprintf(w, "UniqueIdentifier:      %s\n", defaultString(ji.UniqueIdentifier, "-"))
+			fmt.Fprintf(w, "Agent:                 %s\n", defaultString(ji.Agent, "-"))
+			fmt.Fprintf(w, "DocumentationLink:     %s\n", defaultString(ji.DocumentationLink, "-"))
+			fmt.Fprintf(w, "NextScheduledRunTime:  %s\n", defaultString(ji.NextScheduledRunTime.String(), "-"))
+			if len(ji.Parameters) > 0 {
+				fmt.Fprintf(w, "\nParameters (%d):\n", len(ji.Parameters))
+				fmt.Fprintln(w, "MANDATORY\tTYPE\tDISPLAY_NAME\tVALUE")
+				for _, p := range ji.Parameters {
+					fmt.Fprintf(w, "%v\t%s\t%s\t%s\n", p.Mandatory, p.Type, p.DisplayName, p.Value)
+				}
+			}
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&grep, "grep", "", "case-insensitive filter over id/name/category")
+	cmd.Flags().StringVar(&selector, "instance", "", "job instance displayName, id, uniqueIdentifier, or resource name (required)")
+	_ = cmd.MarkFlagRequired("instance")
 	return markJSON(cmd)
 }
 
@@ -436,42 +562,80 @@ func newSOARJobInstanceRunCmd() *cobra.Command {
 		Short: "GUARDED: run one SOAR job instance now",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
-			}
-			raw, err := lc.ListJobInstances(baseContext())
-			if err != nil {
-				return err
-			}
-			instRaw, row, err := findSOARJobInstance(raw, selector)
-			if err != nil {
-				return err
-			}
-			action := fmt.Sprintf("job instance run %s", jobInstanceSelectorLabel(row))
-			dr, ay := soarGuard(action, dryRun, yes)
-			if err := emitSOARJobInstanceMutationPreview("RUN SOAR job instance", row, dr, ay); err != nil {
-				return err
-			}
-			if dr || !ay {
-				return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
-			}
-			resp, err := lc.RunJobInstance(baseContext(), instRaw)
-			if err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp)
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance run requested.")
-			return nil
+			return preferModern("soar jobs instance run",
+				func() error {
+					sc, err := newSOARClient()
+					if err != nil {
+						return err
+					}
+					instances, err := sc.ListAllJobInstances(baseContext())
+					if err != nil {
+						return err
+					}
+					ji, err := findModernJobInstance(instances, selector)
+					if err != nil {
+						return err
+					}
+					row := soarJobInstanceRowFromModern(*ji)
+					integration, jobID, instanceID, ok := parseJobInstanceName(ji.Name)
+					if !ok {
+						return fmt.Errorf("cannot parse resource name %q", ji.Name)
+					}
+					action := fmt.Sprintf("job instance run %s", jobInstanceSelectorLabel(row))
+					dr, ay := soarGuard(action, dryRun, yes)
+					if err := emitSOARJobInstanceMutationPreview("RUN SOAR job instance", row, dr, ay); err != nil {
+						return err
+					}
+					if dr || !ay {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
+					}
+					resp, err := sc.RunJobInstanceOnDemand(baseContext(), integration, jobID, instanceID)
+					if err != nil {
+						return err
+					}
+					if jsonOut {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp)
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance run requested.")
+					return nil
+				},
+				func() error {
+					lc, err := newSOARLegacyClient()
+					if err != nil {
+						return err
+					}
+					raw, err := lc.ListJobInstances(baseContext())
+					if err != nil {
+						return err
+					}
+					instRaw, row, err := findSOARJobInstance(raw, selector)
+					if err != nil {
+						return err
+					}
+					action := fmt.Sprintf("job instance run %s", jobInstanceSelectorLabel(row))
+					dr, ay := soarGuard(action, dryRun, yes)
+					if err := emitSOARJobInstanceMutationPreview("RUN SOAR job instance", row, dr, ay); err != nil {
+						return err
+					}
+					if dr || !ay {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, false, nil)
+					}
+					resp, err := lc.RunJobInstance(baseContext(), instRaw)
+					if err != nil {
+						return err
+					}
+					if jsonOut {
+						return emitSOARJobInstanceMutationJSON(action, row, dr, true, resp)
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), "Done. Job instance run requested.")
+					return nil
+				},
+			)
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&selector, "instance", "", "job instance id, uniqueIdentifier, or name (required)")
-	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
-	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
-	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
+	guardRunFlags(cmd, &dryRun, &yes)
 	_ = cmd.MarkFlagRequired("instance")
 	return markJSON(cmd)
 }

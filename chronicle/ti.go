@@ -293,3 +293,289 @@ func (c *Client) tiResourceName(kind, id string, numeric bool) string {
 	}
 	return c.resourcePath(kind+"/"+url.PathEscape(lastSegment(id)), numeric)
 }
+
+// ---------------------------------------------------------------------------
+// IoC associations — malware families and threat actors linked to IoCs.
+// ---------------------------------------------------------------------------
+
+// AssociationType is the IoC-association type selector (malware family or threat
+// actor). The set is open; these are the documented values.
+type AssociationType string
+
+const (
+	AssociationMalwareFamily AssociationType = "MALWARE_FAMILY"
+	AssociationThreatActor   AssociationType = "THREAT_ACTOR"
+)
+
+// IocAssociation is one malware-family or threat-actor IoC association.
+type IocAssociation struct {
+	Name              string          `json:"name"`
+	ID                string          `json:"-"` // short id, e.g. "malware--<uuid>"
+	AssociationType   string          `json:"associationType"`
+	ThreatDisplayName string          `json:"threatDisplayName"`
+	Description       string          `json:"description"`
+	LastReferenceTime string          `json:"lastReferenceTime"`
+	Iocs              []string        `json:"iocs,omitempty"`
+	Raw               json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes the typed fields, derives the short ID, and preserves
+// the full server payload in Raw.
+func (a *IocAssociation) UnmarshalJSON(data []byte) error {
+	type alias IocAssociation
+	var v alias
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	*a = IocAssociation(v)
+	a.ID = lastSegment(a.Name)
+	a.Raw = append(json.RawMessage(nil), data...)
+	return nil
+}
+
+// iocAssociationsBatchGetResponse is the batchGet envelope.
+type iocAssociationsBatchGetResponse struct {
+	Items []IocAssociation `json:"iocAssociations"`
+}
+
+// batchGetIocAssociationsChunkSize is the maximum number of resource names per
+// batchGet request. The console sends up to ~100 in a POST with
+// x-http-method-override; we use plain GET and stay within URL-length limits.
+const batchGetIocAssociationsChunkSize = 80
+
+// BatchGetIocAssociations fetches IoC associations by their short ids or full
+// resource names. The input is automatically chunked to avoid exceeding
+// URL-length limits. Read-only.
+func (c *Client) BatchGetIocAssociations(ctx context.Context, ids ...string) ([]IocAssociation, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	// Deduplicate and build full resource names.
+	seen := make(map[string]bool, len(ids))
+	var names []string
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		full := c.iocAssociationResourceName(id)
+		if seen[full] {
+			continue
+		}
+		seen[full] = true
+		names = append(names, full)
+	}
+	if len(names) == 0 {
+		return nil, nil
+	}
+
+	var all []IocAssociation
+	for lo := 0; lo < len(names); lo += batchGetIocAssociationsChunkSize {
+		hi := min(lo+batchGetIocAssociationsChunkSize, len(names))
+		chunk := names[lo:hi]
+		q := url.Values{}
+		for _, n := range chunk {
+			q.Add("names", n)
+		}
+		var resp iocAssociationsBatchGetResponse
+		if err := c.get(ctx, c.resourcePath("iocAssociations:batchGet", true), &resp, withQuery(q), withVersion(tiAPIVersion)); err != nil {
+			return nil, err
+		}
+		all = append(all, resp.Items...)
+	}
+	return all, nil
+}
+
+// GetIocAssociation fetches one IoC association by short id or full resource
+// name. Read-only.
+func (c *Client) GetIocAssociation(ctx context.Context, id string) (*IocAssociation, error) {
+	sub := "iocAssociations/" + url.PathEscape(lastSegment(id))
+	var out IocAssociation
+	if err := c.get(ctx, c.resourcePath(sub, true), &out, withVersion(tiAPIVersion)); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// RelatedAssociationQuery are the options for fetching IoC associations related
+// to a given threat resource. Exactly one of Ioc, IocAssociation, or
+// ThreatCollection must be set. OrderBy is a server-side sort key; PageSize
+// bounds each page; MaxPages caps local sweeping.
+type RelatedAssociationQuery struct {
+	Type             AssociationType
+	Ioc              string
+	IocAssociation   string
+	ThreatCollection string
+	OrderBy          string
+	PageSize         int
+	MaxPages         int
+}
+
+type iocAssociationsRelatedList struct {
+	Items         []IocAssociation `json:"iocAssociations"`
+	NextPageToken string           `json:"nextPageToken"`
+	TotalSize     int64            `json:"totalSize"`
+}
+
+// FetchRelatedAssociations lists IoC associations related to one threat
+// resource (an IoC, another IoC association, or a threat collection). Read-only.
+func (c *Client) FetchRelatedAssociations(ctx context.Context, q RelatedAssociationQuery) ([]IocAssociation, error) {
+	if countNonEmpty(q.Ioc, q.IocAssociation, q.ThreatCollection) != 1 {
+		return nil, fmt.Errorf("chronicle: set exactly one of Ioc, IocAssociation, or ThreatCollection")
+	}
+	maxPages := q.MaxPages
+	if maxPages <= 0 {
+		maxPages = 50
+	}
+	var all []IocAssociation
+	err := paginate(maxPages, func(token string) (string, error) {
+		vals := url.Values{}
+		if q.Type != "" {
+			vals.Set("associationType", string(q.Type))
+		}
+		if q.Ioc != "" {
+			vals.Set("ioc", c.iocResourceName(q.Ioc))
+		}
+		if q.IocAssociation != "" {
+			vals.Set("iocAssociation", c.iocAssociationResourceName(q.IocAssociation))
+		}
+		if q.ThreatCollection != "" {
+			vals.Set("threatCollection", c.threatCollectionResourceName(q.ThreatCollection))
+		}
+		if q.OrderBy != "" {
+			vals.Set("orderBy", q.OrderBy)
+		}
+		if q.PageSize > 0 {
+			vals.Set("pageSize", fmt.Sprintf("%d", q.PageSize))
+		}
+		if token != "" {
+			vals.Set("pageToken", token)
+		}
+		var page iocAssociationsRelatedList
+		if err := c.get(ctx, c.resourcePath("iocAssociations:fetchRelated", true), &page, withQuery(vals), withVersion(tiAPIVersion)); err != nil {
+			return "", err
+		}
+		all = append(all, page.Items...)
+		return page.NextPageToken, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return all, nil
+}
+
+// ---------------------------------------------------------------------------
+// Coverage details — rule × threat-collection coverage with filter support.
+// ---------------------------------------------------------------------------
+
+// CoverageDetail is one rule × threat-collection mapping from the
+// coverageDetails surface.
+type CoverageDetail struct {
+	Name             string          `json:"name"`
+	ThreatCollection string          `json:"threatCollection"`
+	Rule             string          `json:"rule"`
+	Raw              json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes the typed fields and preserves the full server object.
+func (d *CoverageDetail) UnmarshalJSON(data []byte) error {
+	type alias CoverageDetail
+	var v alias
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	*d = CoverageDetail(v)
+	d.Raw = append(json.RawMessage(nil), data...)
+	return nil
+}
+
+type coverageDetailsList struct {
+	Items         []CoverageDetail `json:"coverageDetails"`
+	NextPageToken string           `json:"nextPageToken"`
+	TotalSize     int64            `json:"totalSize"`
+}
+
+// coverageFilterChunkSize is the maximum number of threat-collection ids per
+// coverageDetails filter clause. The console sends ~40 per POST; plain GET must
+// stay within URL-length limits.
+const coverageFilterChunkSize = 40
+
+// CoverageFilter builds the filter string for ListCoverageDetailsFiltered from
+// a set of threat-collection ids (short form like "campaign--<uuid>" or full
+// resource names). Returns "" for an empty set.
+func CoverageFilter(collectionIDs []string) string {
+	if len(collectionIDs) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(collectionIDs))
+	for _, id := range collectionIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		parts = append(parts, `threat_collection:"`+lastSegment(id)+`"`)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " OR ")
+}
+
+// ListCoverageDetailsFiltered returns coverage details for the given
+// threat-collection ids. IDs are chunked to coverageFilterChunkSize per call.
+// Uses project NUMBER (numeric=true) in the resource path. Read-only.
+func (c *Client) ListCoverageDetailsFiltered(ctx context.Context, collectionIDs []string, pageSize int) ([]CoverageDetail, error) {
+	if len(collectionIDs) == 0 {
+		return nil, nil
+	}
+	var all []CoverageDetail
+	for lo := 0; lo < len(collectionIDs); lo += coverageFilterChunkSize {
+		hi := min(lo+coverageFilterChunkSize, len(collectionIDs))
+		filter := CoverageFilter(collectionIDs[lo:hi])
+		if filter == "" {
+			continue
+		}
+		err := paginate(50, func(token string) (string, error) {
+			q := url.Values{}
+			q.Set("filter", filter)
+			if pageSize > 0 {
+				q.Set("pageSize", fmt.Sprintf("%d", pageSize))
+			}
+			if token != "" {
+				q.Set("pageToken", token)
+			}
+			var page coverageDetailsList
+			if err := c.get(ctx, c.resourcePath("coverageDetails", true), &page, withQuery(q), withVersion(coverageAPIVersion)); err != nil {
+				return "", err
+			}
+			all = append(all, page.Items...)
+			return page.NextPageToken, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return all, nil
+}
+
+// ---------------------------------------------------------------------------
+// Threat-collection filter set — the filter/facet metadata for the Emerging
+// Threats UI.
+// ---------------------------------------------------------------------------
+
+// GetThreatCollectionFilterSet returns the threat-collection filter-set metadata
+// (the set of available facets the Emerging Threats console uses to populate its
+// filter sidebar). The response shape is not fully documented; it is returned as
+// raw JSON.
+//
+// DEVIATION: the official docs describe this as an instance-level custom method
+// `:getThreatCollectionFilterSet`; the console fetches the plain subresource
+// `threatCollectionFilterSet`. Both forms are probed by the live version test;
+// the SDK defaults to the subresource form (console-observed).
+func (c *Client) GetThreatCollectionFilterSet(ctx context.Context) (json.RawMessage, error) {
+	var raw json.RawMessage
+	if err := c.get(ctx, c.resourcePath("threatCollectionFilterSet", true), &raw, withVersion(tiAPIVersion)); err != nil {
+		return nil, err
+	}
+	return raw, nil
+}

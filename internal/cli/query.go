@@ -12,6 +12,19 @@ import (
 	"danny.vn/secops/chronicle"
 )
 
+// isAggregationQuery reports whether a UDM query contains a match: or outcome:
+// section header, which makes it an aggregation query that the stats engine
+// handles (the plain event-search engine rejects these with a 400).
+func isAggregationQuery(query string) bool {
+	for line := range strings.SplitSeq(query, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "match:") || strings.HasPrefix(trimmed, "outcome:") {
+			return true
+		}
+	}
+	return false
+}
+
 // parseQueryTS coerces an ISO-8601 / RFC3339 timestamp into a UTC time. A
 // trailing "Z" (or "z") is honored by RFC3339; a value carrying no zone is
 // assumed UTC. This mirrors query.py's _parse_ts.
@@ -131,6 +144,11 @@ func init() {
 			"      --fields principal.user.userid,metadata.event_timestamp --enrich-ip --format csv",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			query := strings.TrimSpace(args[0])
+			if isAggregationQuery(query) {
+				fmt.Fprintln(os.Stderr, "note: aggregation query (match:/outcome:) — routing to `search stats`.")
+				return runStatsFromUDM(query, w.hours, w.fromTS, w.toTS)
+			}
 			return runUDMQuery(args[0], w, cmd.Flags().Changed("limit"))
 		},
 	}

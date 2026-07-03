@@ -71,7 +71,7 @@ ritual.
 | `curated` | **Google-managed PREDEFINED detections** — `categories` · `rule-sets` (default enabled, `--all`/`--search`/`--category`) · `search` (unified across sets+rules, `--installed`/`--tactic`/`--severity`) · `rules --set <id>` · `rule <id>` · `detections` · `events` · `trends` · `set` (toggle enable/alerting) | SIEM | read + guarded (`set`) |
 | `exclusions` | findings refinements (apply to **custom + curated**): `list` · `get` · `deploy` | SIEM | read + guarded (`deploy`) |
 | `mitre` | ATT&CK coverage across custom + curated (`--type custom\|curated\|all`) | SIEM | read |
-| `ti` | threat intel & IOCs: `find` · `get` · `related` · `collections` · `collection` · `collection-matches` | SIEM | read |
+| `ti` | threat intel & IOCs: `find` · `get` · `related` · `collections` · `collection` · `collection-matches` · `coverage` (rule↔collection mapping) · `associations` · `related-associations` · `filters` | SIEM | read |
 | `lists` | `empty` (reference list) · `watchlists …` | SIEM | read + guarded |
 | `dashboards` | `create` · `list` · `get` · `edit` · `charts` (list/get/add/batch/edit/remove/run) · `markdown` (add/edit/remove) · `button` (add/edit/remove) · `layout` (show/move) · `filters` (show/set) · verify · lint/fix/inspect · export/import · duplicate · delete | SIEM | read + guarded |
 | `entities` | `summarize` · `graph` · `risk-scores` · `audit` | SIEM | read |
@@ -84,7 +84,7 @@ ritual.
 | `status` | `capabilities` · `coverage` · `surfaces` (read-only diagnostics) · `enums [--live] [--json]` (SOAR integer-to-name enum mappings; `--live` adds instance-specific values) | both/offline | read |
 | `playbooks` | `list` · `get` · `lint` · `health` · `diff` · `duplicate` · `deploy` · `delete` · `move` · `categories` · `validate` · `run` · `debug` · `export` · `import` · `generate` · … | SOAR | read + guarded |
 | `integrations` | `list [--instances]` · `get` · `test` · `create` · `delete` · `configure` · `rename` · `install` · `uninstall` · `instances` · `connector` · `scaffold` · `action` · `job` | SOAR | read + guarded |
-| `soar` | `pull` · `push` · `jobs` · `ide` · `settings` · `connector` · `audit` · `legacy` · `users` | SOAR | read + guarded |
+| `soar` | `pull` · `push` · `jobs` (instance list/get/history/create/set/run/delete · revision list/create/rollback/delete) · `ide` · `settings` · `connector` · `audit` · `legacy` · `users` | SOAR | read + guarded |
 | `pull` / `drift` | snapshot live state / report drift (the as-code loop) | SIEM | read |
 | `push` | deploy config-as-code (rules-create/update/deploy/disable, reconcile surfaces) | SIEM | guarded |
 
@@ -284,6 +284,7 @@ secopsctl ingest parsers upgrade FORTINET_FIREWALL              # preview releas
 secopsctl ingest parsers upgrade FORTINET_FIREWALL --yes        # activate it
 secopsctl ingest parsers rollback FORTINET_FIREWALL             # preview rollback candidate
 secopsctl ingest parsers rollback FORTINET_FIREWALL --yes       # apply rollback
+secopsctl ingest parsers delete GCP_DNS <parser-id> --yes       # delete an INACTIVE version (ACTIVE needs --force)
 
 secopsctl ingest parsers extension extract GCP_DNS              # discover extractable raw log fields
 secopsctl ingest parsers extension extract GCP_DNS --all --yes  # create extractor extension for all fields
@@ -301,8 +302,16 @@ secopsctl ingest log-types create MY_LOG "My Log" --yes         # create custom 
 
 ### Aggregate (stats) — the YARA-L a dashboard chart uses
 
-`search udm` rejects an aggregation; `search stats` runs it. `match:` declares the
-group-by, `outcome:` the measures, `order:` the sort:
+`search stats` runs aggregations; `search udm`/`search run` auto-route to it when the
+query carries a `match:`/`outcome:` section (a one-line stderr notice says so).
+`match:` declares the group-by, `outcome:` the measures, `order:` the sort. The full
+section set is filter → `match:` (supports time-bucket grouping: `match: $x by 2h`,
+`over every day`, optional `first`; granularities MINUTE/HOUR/DAY/WEEK/MONTH) →
+`outcome:` (aggregates: `array`, `array_distinct`, `avg`, `count`, `count_distinct`,
+`earliest`, `latest`, `max`, `min`, `stddev`, `sum`) → optional `dedup:` →
+`order: $var asc|desc` → `limit: N`. Search does NOT take rules-only syntax (`over`
+event windows, `condition:`, `options:`); server caps: 90-day lookback, 10 000 rows.
+Full reference: `search stats --help` and docs/tips/14-stats-queries.md.
 
 ```bash
 secopsctl search stats --hours 24 'metadata.log_type != ""
@@ -440,6 +449,23 @@ secopsctl content-hub browse                                       # integration
 secopsctl content-hub list                                         # the catalog + identifiers (--installed for installed only)
 secopsctl content-hub install --identifier <id> --dry-run          # → --yes to apply
 ```
+
+### Schedule a custom Python job (SOAR Jobs Scheduler)
+
+A job definition is a Python script (`SiemplifyJob` SDK) inside an integration; a job
+instance is its scheduled run. Full recipe: docs/tips/13-scheduled-jobs.md.
+
+```bash
+secopsctl integrations job-def create --integration <key> --name "My Job" --script job.py --yes
+secopsctl soar jobs instance create --integration <key> --job "My Job" \
+  --display-name "My Job" --interval 300 --param 'Key=value' --enable --yes   # every 5 min
+secopsctl soar jobs instance run --instance "My Job" --yes      # fire once now
+secopsctl soar jobs instance history --instance "My Job"        # per-run status + logs (--status ERROR)
+secopsctl soar jobs revision create --integration <key> --job <id> --comment "pre-change" --yes
+```
+
+Never disable/edit the auto-provisioned system jobs (Cases Collector DB, Logs
+Collector); `instance set/delete` warn when the target is not a custom job.
 
 ### Reconcile any surface (generic)
 

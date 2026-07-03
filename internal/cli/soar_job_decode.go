@@ -9,6 +9,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"danny.vn/secops/soar"
 )
 
 func summarizeSOARJobs(raw json.RawMessage, grep string) ([]soarJobRow, error) {
@@ -41,7 +43,7 @@ func summarizeSOARJobInstances(raw json.RawMessage, grep string) ([]soarJobInsta
 		if !ok {
 			continue
 		}
-		if matchesAny(grep, row.ID, row.UniqueIdentifier, row.Name, row.Category) {
+		if matchesAny(grep, row.ID, row.UniqueIdentifier, row.Name, row.Category, row.Integration, row.DefinitionName, row.LastRunStatus) {
 			rows = append(rows, row)
 		}
 	}
@@ -184,13 +186,25 @@ func soarJobInstanceRowFromRaw(raw json.RawMessage) (soarJobInstanceRow, bool) {
 	if !ok {
 		return soarJobInstanceRow{}, false
 	}
+	// Accept both legacy keys (isEnabled/isCustom) and modern keys (enabled/custom).
 	enabled, hasEnabled := rawBoolField(m, "isEnabled")
+	if !hasEnabled {
+		enabled, hasEnabled = rawBoolField(m, "enabled")
+	}
 	custom, hasCustom := rawBoolField(m, "isCustom")
+	if !hasCustom {
+		custom, hasCustom = rawBoolField(m, "custom")
+	}
 	row := soarJobInstanceRow{
 		ID:               rawScalarString(m["id"]),
 		UniqueIdentifier: rawScalarString(m["uniqueIdentifier"]),
-		Name:             rawScalarString(m["name"]),
+		Name:             firstNonEmpty(rawScalarString(m["displayName"]), rawScalarString(m["name"])),
 		Category:         rawScalarString(m["category"]),
+		Integration:      firstNonEmpty(rawScalarString(m["integration"]), integrationFromResourceName(rawScalarString(m["name"]))),
+		DefinitionName:   firstNonEmpty(rawScalarString(m["job"]), rawScalarString(m["jobDefinitionName"])),
+		LastRunStatus:    rawScalarString(m["lastRunStatus"]),
+		LastRunTime:      rawScalarString(m["lastRunTime"]),
+		IntervalSeconds:  rawScalarString(m["intervalSeconds"]),
 		ParameterCount:   jsonArrayLen(m["parameters"]),
 	}
 	if hasEnabled {
@@ -202,6 +216,43 @@ func soarJobInstanceRowFromRaw(raw json.RawMessage) (soarJobInstanceRow, bool) {
 	return row, row.ID != "" || row.UniqueIdentifier != "" || row.Name != ""
 }
 
+// soarJobInstanceRowFromModern converts a typed modern JobInstance to a row.
+func soarJobInstanceRowFromModern(ji soar.JobInstance) soarJobInstanceRow {
+	enabled := ji.Enabled
+	custom := ji.Custom
+	var intervalStr string
+	if ji.IntervalSeconds > 0 {
+		intervalStr = fmt.Sprintf("%d", ji.IntervalSeconds)
+	}
+	return soarJobInstanceRow{
+		ID:               ji.ID.String(),
+		UniqueIdentifier: ji.UniqueIdentifier,
+		Name:             ji.DisplayName,
+		Integration:      firstNonEmpty(ji.Integration, integrationFromResourceName(ji.Name)),
+		DefinitionName:   ji.Job,
+		Enabled:          &enabled,
+		Custom:           &custom,
+		LastRunStatus:    ji.LastRunStatus,
+		LastRunTime:      ji.LastRunTime.String(),
+		IntervalSeconds:  intervalStr,
+		ParameterCount:   len(ji.Parameters),
+	}
+}
+
+// integrationFromResourceName extracts the integration identifier from a
+// resource name like "projects/.../integrations/{id}/jobs/{j}/jobInstances/{i}".
+func integrationFromResourceName(name string) string {
+	parts := strings.Split(name, "/")
+	for i, p := range parts {
+		if p == "integrations" && i+1 < len(parts) {
+			return parts[i+1]
+		}
+	}
+	return ""
+}
+
+// firstNonEmpty is defined in query.go.
+
 func jobRowMatches(row soarJobRow, selector string) bool {
 	selector = strings.TrimSpace(selector)
 	return selector != "" && (row.ID == selector || row.UniqueIdentifier == selector || row.Name == selector || row.DefinitionName == selector)
@@ -209,7 +260,8 @@ func jobRowMatches(row soarJobRow, selector string) bool {
 
 func jobInstanceRowMatches(row soarJobInstanceRow, selector string) bool {
 	selector = strings.TrimSpace(selector)
-	return selector != "" && (row.ID == selector || row.UniqueIdentifier == selector || row.Name == selector)
+	return selector != "" && (row.ID == selector || row.UniqueIdentifier == selector ||
+		row.Name == selector || row.DefinitionName == selector || row.Integration == selector)
 }
 
 func printSOARJobRows(w io.Writer, rows []soarJobRow) {
@@ -222,10 +274,15 @@ func printSOARJobRows(w io.Writer, rows []soarJobRow) {
 }
 
 func printSOARJobInstanceRows(w io.Writer, rows []soarJobInstanceRow) {
-	fmt.Fprintln(w, "ENABLED\tID\tUNIQUE_IDENTIFIER\tNAME\tCATEGORY\tPARAMS")
+	fmt.Fprintln(w, "ENABLED\tID\tNAME\tINTEGRATION\tLAST_RUN_STATUS\tLAST_RUN\tINTERVAL_S\tPARAMS")
 	for _, row := range rows {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\n",
-			boolPtrString(row.Enabled), row.ID, row.UniqueIdentifier, row.Name, row.Category, row.ParameterCount)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\n",
+			boolPtrString(row.Enabled), row.ID, row.Name,
+			defaultString(row.Integration, "-"),
+			defaultString(row.LastRunStatus, "-"),
+			defaultString(row.LastRunTime, "-"),
+			defaultString(row.IntervalSeconds, "-"),
+			row.ParameterCount)
 	}
 	fmt.Fprintf(w, "\n%d job instance(s)\n", len(rows))
 }
@@ -279,8 +336,14 @@ func emitSOARJobInstanceMutationPreview(action string, row soarJobInstanceRow, d
 	fmt.Fprintln(w, "!! LIVE SOAR job-instance action against a PRODUCTION tenant !!")
 	fmt.Fprintf(w, "!! Action: %s\n", action)
 	fmt.Fprintln(w, bar)
-	fmt.Fprintf(w, "Job instance: %s\n", jobInstanceSelectorLabel(row))
+	fmt.Fprintf(w, "Job instance: %s\n", jobInstanceSelectorLabelFull(row))
 	fmt.Fprintf(w, "Enabled: %s\n", boolPtrString(row.Enabled))
+	if row.Integration != "" {
+		fmt.Fprintf(w, "Integration: %s\n", row.Integration)
+	}
+	if row.Custom != nil {
+		fmt.Fprintf(w, "Custom: %s\n", boolPtrString(row.Custom))
+	}
 	if dryRun {
 		fmt.Fprintln(w, "\nDRY RUN — no mutation sent (the target was resolved with a live read). Re-run with --yes to apply.")
 		return nil
@@ -335,6 +398,55 @@ func jobInstanceSelectorLabel(row soarJobInstanceRow) string {
 		}
 	}
 	return "(unknown job instance)"
+}
+
+// jobInstanceSelectorLabelFull returns a detailed label for mutation previews,
+// including integration info when available.
+func jobInstanceSelectorLabelFull(row soarJobInstanceRow) string {
+	label := jobInstanceSelectorLabel(row)
+	if row.Integration != "" {
+		return fmt.Sprintf("%s [integration=%s]", label, row.Integration)
+	}
+	return label
+}
+
+// parseJobInstanceName parses a v1alpha resource name of the form
+// "projects/.../integrations/{i}/jobs/{j}/jobInstances/{inst}" into its
+// integration, jobID, and instanceID segments.
+func parseJobInstanceName(name string) (string, string, string, bool) {
+	parts := strings.Split(name, "/")
+	m := make(map[string]string)
+	for i := 0; i+1 < len(parts); i += 2 {
+		m[parts[i]] = parts[i+1]
+	}
+	integration := m["integrations"]
+	jobID := m["jobs"]
+	instanceID := m["jobInstances"]
+	return integration, jobID, instanceID, integration != "" && jobID != "" && instanceID != ""
+}
+
+// findModernJobInstance searches the modern ListAllJobInstances result for a
+// match by displayName, id, or uniqueIdentifier.
+func findModernJobInstance(instances []soar.JobInstance, selector string) (*soar.JobInstance, error) {
+	selector = strings.TrimSpace(selector)
+	if selector == "" {
+		return nil, fmt.Errorf("empty instance selector")
+	}
+	var matches []*soar.JobInstance
+	for i := range instances {
+		ji := &instances[i]
+		if ji.DisplayName == selector || ji.ID.String() == selector ||
+			ji.UniqueIdentifier == selector || ji.Name == selector {
+			matches = append(matches, ji)
+		}
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no job instance matches %q (try `soar jobs instance list`)", selector)
+	}
+	if len(matches) > 1 {
+		return nil, fmt.Errorf("%q matches %d job instances; use a unique id or uniqueIdentifier", selector, len(matches))
+	}
+	return matches[0], nil
 }
 
 func rawBoolField(m map[string]json.RawMessage, key string) (bool, bool) {

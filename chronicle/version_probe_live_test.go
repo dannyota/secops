@@ -63,4 +63,25 @@ func TestProbeVersions(t *testing.T) {
 		_, e := c.FindIoCs(ctx, chronicle.FieldAndValue{Value: "example.com", ValueType: chronicle.IoCValueDomain})
 		return e
 	})
+	probe("threatCollectionFilterSet", func(c *chronicle.Client) error {
+		_, e := c.GetThreatCollectionFilterSet(ctx)
+		return e
+	})
+	probe("iocAssociations:batchGet", func(c *chronicle.Client) error {
+		// Zero ids is a no-op (returns nil, nil); pass a dummy to test the endpoint.
+		_, e := c.BatchGetIocAssociations(ctx, "malware--00000000-0000-0000-0000-000000000000")
+		return e
+	})
+	probe("coverageDetails(filtered)", func(c *chronicle.Client) error {
+		_, e := c.ListCoverageDetailsFiltered(ctx, []string{"campaign--00000000-0000-0000-0000-000000000000"}, 1)
+		return e
+	})
+	probe("iocAssociations:fetchRelated", func(c *chronicle.Client) error {
+		_, e := c.FetchRelatedAssociations(ctx, chronicle.RelatedAssociationQuery{
+			ThreatCollection: "campaign--00000000-0000-0000-0000-000000000000",
+			PageSize:         1,
+			MaxPages:         1,
+		})
+		return e
+	})
 }

@@ -115,14 +115,23 @@ func parsersList(c *chronicle.Client) func(context.Context) (reconcile.ListResul
 	}
 }
 
-// activeParser returns the first ACTIVE parser, or nil.
+// activeParser returns the ACTIVE parser to use as the canonical version.
+// When multiple parsers are active (e.g. a PREBUILT and a CUSTOM), the CUSTOM
+// version is preferred — it supersedes the prebuilt one.
 func activeParser(parsers []chronicle.Parser) *chronicle.Parser {
+	var first *chronicle.Parser
 	for i := range parsers {
-		if parsers[i].State == "ACTIVE" {
+		if parsers[i].State != "ACTIVE" {
+			continue
+		}
+		if parsers[i].Type == "CUSTOM" {
 			return &parsers[i]
 		}
+		if first == nil {
+			first = &parsers[i]
+		}
 	}
-	return nil
+	return first
 }
 
 // parserLiveObject builds the engine object for a live active parser.

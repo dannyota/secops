@@ -76,6 +76,73 @@ func TestParserCanonicalExcludesID(t *testing.T) {
 	}
 }
 
+// TestActiveParserPrefersCustom verifies active-parser selection: the custom
+// version is preferred over prebuilt when both are active.
+func TestActiveParserPrefersCustom(t *testing.T) {
+	mk := func(name, typ, state string) chronicle.Parser {
+		return chronicle.Parser{Name: name, State: state, Type: typ}
+	}
+	tests := []struct {
+		name  string
+		input []chronicle.Parser
+		want  string // expected Name, or "" for nil
+	}{
+		{
+			"prebuilt+custom active, prebuilt first",
+			[]chronicle.Parser{
+				mk("prebuilt-1", "PREBUILT", "ACTIVE"),
+				mk("custom-1", "CUSTOM", "ACTIVE"),
+			},
+			"custom-1",
+		},
+		{
+			"prebuilt+custom active, custom first",
+			[]chronicle.Parser{
+				mk("custom-1", "CUSTOM", "ACTIVE"),
+				mk("prebuilt-1", "PREBUILT", "ACTIVE"),
+			},
+			"custom-1",
+		},
+		{
+			"only prebuilt active",
+			[]chronicle.Parser{
+				mk("prebuilt-1", "PREBUILT", "ACTIVE"),
+			},
+			"prebuilt-1",
+		},
+		{
+			"prebuilt inactive, custom active",
+			[]chronicle.Parser{
+				mk("prebuilt-1", "PREBUILT", "INACTIVE"),
+				mk("custom-1", "CUSTOM", "ACTIVE"),
+			},
+			"custom-1",
+		},
+		{
+			"empty list",
+			nil,
+			"",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := activeParser(tt.input)
+			if tt.want == "" {
+				if got != nil {
+					t.Errorf("activeParser() = %q, want nil", got.Name)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("activeParser() = nil, want %q", tt.want)
+			}
+			if got.Name != tt.want {
+				t.Errorf("activeParser() = %q, want %q", got.Name, tt.want)
+			}
+		})
+	}
+}
+
 // TestParserCBNRoundTripExact: CBN bytes survive the write→read cycle exactly
 // (the .conf is the human diff surface; any munging would phantom-diff).
 func TestParserCBNRoundTripExact(t *testing.T) {

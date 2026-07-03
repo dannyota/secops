@@ -46,12 +46,10 @@ func PullParsers(ctx context.Context, c *chronicle.Client, outDir string, logTyp
 			continue
 		}
 
-		var active *chronicle.Parser
+		active := activeParser(parsers)
 		inactive := 0
 		for i := range parsers {
-			if parsers[i].State == "ACTIVE" && active == nil {
-				active = &parsers[i]
-			} else if parsers[i].State != "ACTIVE" {
+			if parsers[i].State != "ACTIVE" {
 				inactive++
 			}
 		}

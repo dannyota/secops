@@ -34,6 +34,8 @@
   - [10 · LLM & automation](tips/10-llm-and-automation.md)
   - [11 · Gemini & AI](tips/11-gemini-and-ai.md)
   - [12 · Parser extensions](tips/12-parser-extensions.md)
+  - [13 · Scheduled jobs](tips/13-scheduled-jobs.md)
+  - [14 · Stats queries](tips/14-stats-queries.md)
 
 <!-- commands:start -->
 - **Command reference**

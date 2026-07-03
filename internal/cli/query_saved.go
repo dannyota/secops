@@ -66,6 +66,9 @@ func runUDMQuery(filter string, q queryWindowFlags, limitChanged bool) error {
 		}
 		return printCountOnly(total, counts)
 	}
+	if q.raw && q.all {
+		return runUDMQueryRawAll(ctx, c, filter, chunks, limit, limitChanged)
+	}
 	if q.raw {
 		return runUDMQueryRaw(ctx, c, filter, chunks, limit)
 	}
@@ -108,6 +111,34 @@ func runUDMQuery(filter string, q queryWindowFlags, limitChanged bool) error {
 		return writeMetaSidecar(q.out, buildEvidenceMeta(filter, start, end, len(events), counts, total))
 	}
 	return nil
+}
+
+// runUDMQueryRawAll runs the complete-results engine (--all) and then hydrates
+// raw logs from the matched events — combining --raw and --all so the total
+// match count is reported alongside the raw output.
+func runUDMQueryRawAll(ctx context.Context, c *chronicle.Client, filter string, chunks []searchWindow, limit int, limitChanged bool) error {
+	maxEvents := limit
+	if !limitChanged {
+		maxEvents = 10000
+	}
+	events, _, total, err := fetchEventsComplete(ctx, c, filter, chunks, maxEvents)
+	if err != nil {
+		return err
+	}
+	if total > len(events) {
+		fmt.Fprintf(os.Stderr, "note: %d total match(es); returned %d — raise --limit or narrow the window for more.\n",
+			total, len(events))
+	}
+	ids := chronicle.RawLogIDsFromUDMEvents(events)
+	if len(ids) == 0 {
+		fmt.Fprintln(os.Stderr, "no raw logs: the matched events carry no raw-log id (or none matched)")
+		return nil
+	}
+	lines, err := fetchRawLinesProgress(ctx, c, ids)
+	if err != nil {
+		return err
+	}
+	return emitRawLines(lines)
 }
 
 // runUDMQueryRaw downloads each matched event's FULL raw log and prints one per
@@ -259,6 +290,10 @@ func newQueryRunCmd() *cobra.Command {
 			filter, err = applyParams(filter, params)
 			if err != nil {
 				return err
+			}
+			if isAggregationQuery(filter) {
+				fmt.Fprintln(os.Stderr, "note: aggregation query (match:/outcome:) — routing to `search stats`.")
+				return runStatsFromUDM(filter, w.hours, w.fromTS, w.toTS)
 			}
 			return runUDMQuery(filter, w, cmd.Flags().Changed("limit"))
 		},

@@ -81,9 +81,16 @@ func fetchEventsPaged(ctx context.Context, c *chronicle.Client, filter string, c
 			truncated = true
 			break
 		}
+		if len(chunks) == 1 {
+			printProgress("events", 0, 0)
+		}
 		evs, more, err := c.SearchUDMPage(ctx, filter, w.start, w.end, remaining)
 		if err != nil {
+			clearProgress()
 			return nil, nil, false, wrapChunkErr(err, i, chunks)
+		}
+		if len(chunks) == 1 {
+			clearProgress()
 		}
 		truncated = truncated || more
 		events = append(events, evs...)
@@ -108,6 +115,9 @@ func fetchEventsComplete(ctx context.Context, c *chronicle.Client, filter string
 	counts = make([]chunkCount, 0, len(chunks))
 	for i, w := range chunks {
 		remaining := maxEvents - len(events)
+		if len(chunks) == 1 {
+			printProgress("events", 0, 0)
+		}
 		view, err := c.FetchUDMSearchView(ctx, filter, w.start, w.end, chronicle.UDMSearchViewOptions{
 			// The baseline count is computed server-side regardless of how many
 			// events are returned, so a spent limit still counts the chunk.
@@ -115,7 +125,11 @@ func fetchEventsComplete(ctx context.Context, c *chronicle.Client, filter string
 			CaseInsensitive: true,
 		})
 		if err != nil {
+			clearProgress()
 			return nil, nil, 0, wrapChunkErr(err, i, chunks)
+		}
+		if len(chunks) == 1 {
+			clearProgress()
 		}
 		returned := 0
 		if remaining > 0 {
