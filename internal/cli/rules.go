@@ -53,6 +53,7 @@ func newRulesCmd() *cobra.Command {
 		newRulesPromoteCmd(),
 		newRulesDuplicateCmd(), // clone a rule's YARA-L under a new name (guarded)
 		newRulesHealthCmd(),    // per-rule health roll-up
+		newRulesReviewCmd(),    // monitor-mode promotion report
 	)
 	return cmd
 }

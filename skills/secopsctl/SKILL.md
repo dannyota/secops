@@ -67,7 +67,7 @@ ritual.
 |---|---|---|---|
 | `search` | deterministic SIEM search: `udm` · `raw` · `stats` · `event <id>` · `export` · `validate` · `run` · `saved` | SIEM | read (`saved save/share/delete` guarded) |
 | `gemini` | AI hub: `generate-query` (NL→UDM) · `search` (NL→UDM + run) · `ask` (assistant) · `investigate` · `summarize` · `generate` (playbook) | SIEM+SOAR | read |
-| `rules` | **your CUSTOM detections** — inspect (`list` · `get` (current state + YARA-L) · `detections` · `test` (streams) · `validate` · `trends` · `errors` · `alerts` · `versions`+`diff` · `health`) + lifecycle (`promote`, `duplicate`, `versions restore`, `retrohunt`) | SIEM | read + guarded (`promote`, `duplicate`, `versions restore`, `retrohunt create`) |
+| `rules` | **your CUSTOM detections** — inspect (`list` · `get` (current state + YARA-L) · `detections` · `test` (streams) · `validate` · `trends` · `errors` · `alerts` · `versions`+`diff` · `health` · `review` (monitor-mode promotion report)) + lifecycle (`promote`, `duplicate`, `versions restore`, `retrohunt`) | SIEM | read + guarded (`promote`, `duplicate`, `versions restore`, `retrohunt create`) |
 | `curated` | **Google-managed PREDEFINED detections** — `categories` · `rule-sets` (default enabled, `--all`/`--search`/`--category`) · `search` (unified across sets+rules, `--installed`/`--tactic`/`--severity`) · `rules --set <id>` · `rule <id>` · `detections` · `events` · `trends` · `set` (toggle enable/alerting) | SIEM | read + guarded (`set`) |
 | `exclusions` | findings refinements (apply to **custom + curated**): `list` · `get` · `deploy` | SIEM | read + guarded (`deploy`) |
 | `mitre` | ATT&CK coverage across custom + curated (`--type custom\|curated\|all`) | SIEM | read |
@@ -79,6 +79,7 @@ ritual.
 | `cases` | SOAR case triage: list/get/close/assign/tag/stage/comment/run-action/incident/report/alert… | SOAR | read + guarded |
 | `content-hub` | `browse` · `list` · `get` · `contentpacks` · `featured` · `diff` · `install` · `uninstall` | SOAR | read + guarded (`install`/`uninstall`) |
 | `ingest` | `feeds` · `forwarders` · `parsers` · `log-types` · `pipeline` · `health` | SIEM | read + guarded |
+| `data-tables` | `import` (bulk CSV into data tables; append/replace) | SIEM | guarded |
 | `data-access` | RBAC: `labels …` · `scopes …` | SIEM | read + guarded |
 | `status` | `capabilities` · `coverage` · `surfaces` (read-only diagnostics) · `enums [--live] [--json]` (SOAR integer-to-name enum mappings; `--live` adds instance-specific values) | both/offline | read |
 | `playbooks` | `list` · `get` · `lint` · `health` · `diff` · `duplicate` · `deploy` · `delete` · `move` · `categories` · `validate` · `run` · `debug` · `export` · `import` · `generate` · … | SOAR | read + guarded |
@@ -146,6 +147,15 @@ silently clobbers them on push. The same loop applies to every reconcile surface
 **These pull/push target names are snake_case and unchanged** — only the imperative
 command *groups* (`ingest`, `curated`, …) were renamed. `secopsctl status surfaces`
 lists each surface's lane and `--prune` eligibility.
+
+**Bulk CSV import** into data tables (outside the reconcile loop):
+
+```bash
+secopsctl data-tables import --table my_table data.csv --dry-run       # preview (append mode)
+secopsctl data-tables import --table my_table data.csv --yes           # append rows
+secopsctl data-tables import --table my_table data.csv --replace --yes # replace all rows
+secopsctl data-tables import --table my_table data.csv --skip-header=false --yes  # keep header row
+```
 
 ## Command self-discovery
 
@@ -278,6 +288,8 @@ secopsctl ingest parsers extension extract GCP_DNS --fields insertId,logName --y
 secopsctl ingest parsers extension setting GCP_DNS              # show current extraction type
 secopsctl ingest parsers extension setting GCP_DNS all --yes    # extract all fields (up to 100)
 secopsctl ingest parsers extension tips                         # print the CBN authoring guide (offline)
+secopsctl ingest parsers extension update --log-type GCP_DNS --cbn ext.cbn --dry-run  # replace in-place (delete→create→validate→activate)
+secopsctl ingest parsers extension update --log-type GCP_DNS --cbn ext.cbn --ext <id> --yes  # explicit ID
 
 secopsctl ingest log-types list                                 # active log types (feedCount > 0)
 secopsctl ingest log-types list --all --sort feeds              # full catalog, sorted by feed count
@@ -391,6 +403,8 @@ secopsctl rules duplicate <rule> --name <new> --dry-run            # clone YARA-
 secopsctl pull rules && git diff && secopsctl push rules-deploy --dry-run   # tune tracked rules
 secopsctl rules trends --hours 168                                 # noisiest rules, to drive tuning
 secopsctl rules health --only silent                               # which rules compile but never fire / error
+secopsctl rules review                                             # monitor-mode rules: promotion candidates, sorted by detections
+secopsctl rules review --min-detections 5 --format csv --out review.csv  # only active monitors → CSV
 secopsctl mitre --type all --format json                     # MITRE ATT&CK coverage (technique × rule count)
 secopsctl rules versions <rule>                                    # revision history; `diff <rule> 1 2`; guarded `restore <rule> <v>`
 secopsctl curated categories                                       # 12-row overview: category names + set/enabled counts

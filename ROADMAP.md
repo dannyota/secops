@@ -75,7 +75,7 @@ flowchart LR
 
 ## Completed waves (1–120)
 
-**131 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
+**132 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
 Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 ---
@@ -280,6 +280,26 @@ Reusable query templates, feed observability, and codebase health.
   action context (e.g. "Refusing to close case 123", "Refusing to deploy").
 
 **Docs:** catalog (feeds/events rows), SKILL (--param, audit templates), this wave.
+
+### Wave 132 — extension update-in-place, rules review, data-table CSV import *(built)*
+
+Backlog clearout: compound operations, promotion reporting, and bulk data import.
+
+- **`parsers extension update`.** Compound delete → create → poll validation
+  → activate in one guarded command. Auto-resolves the extension when only one
+  exists for the log type; explicit `--ext` when multiple are present.
+  Reuses the exponential-backoff validation poll pattern (2 s → 30 s, 5 min cap).
+- **`rules review`.** Read-only promotion report for monitor-mode rules
+  (enabled + not alerting). Shows detection counts over a configurable
+  look-back window (`--hours`, default 7 d), sorted by detections descending
+  (best promotion candidates first). `--min-detections` filters out silent
+  monitors. Table / JSON / CSV output.
+- **`data-tables import`.** Bulk-imports rows from a CSV file into a data
+  table (`--table`). Appends by default; `--replace` clears the table first.
+  Skips CSV header by default (`--skip-header`). Guarded mutation with
+  dry-run preview.
+
+**Docs:** catalog (parsers/rules/data-tables rows), SKILL (new commands), this wave.
 
 ---
 
