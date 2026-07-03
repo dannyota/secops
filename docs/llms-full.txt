@@ -5550,11 +5550,11 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 
 | Function (CLI) | Lane | Status (marker · domain · version) | Notes |
 |---|---|---|---|
-| `rules` | bespoke | ✅ chronicle · v1alpha | YARA-L source + deployment state machine; multiple CLI verbs + rule-tuning reads + batch update. `push rules-create` retries deploy with backoff (W118). `rules validate` prints every diagnostic with line/col and hints the `#`-in-outcome fix (W129). |
+| `rules` | bespoke | ✅ chronicle · v1alpha | YARA-L source + deployment state machine; multiple CLI verbs + rule-tuning reads + batch update. `push rules-create` retries deploy with backoff (W118). `rules validate` prints every diagnostic with line/col and hints the `#`-in-outcome fix (W129). `rules review` monitor-mode promotion report (enabled+not-alerting, detection-sorted, table/json/csv; W132). |
 | `reference_lists` | reconcile + imperative | ✅ chronicle · v1alpha | Typed `.txt`+`.yaml`; NoDelete; resource-name normalization; empty-list canonical fix. |
-| `data_tables` | reconcile | ✅ chronicle · v1alpha | `.csv`+`.yaml`; columns immutable after create; rows wholesale destroy-and-replace. |
-| `feeds` | reconcile | ✅ chronicle · v1alpha | `.yaml`; secrets redacted on pull, overlaid on update; `secret_ref` env/Secret Manager; not prune-eligible. |
-| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate (push waits for the async validation to settle before activating; on FAILED it reports the parsing errors); parser-dev loop (`run` with per-event error/parsedFields/failedFieldsAndErrors diagnostic output, `--cbn` required, `validate`); extensions (list/get/create/activate/delete + extract discover/create + setting read/update + `tips` embedded authoring guide); conf-only create; custom-parser discovery on pull; `upgrade` (preview + activate release candidate); `rollback` (revert to last used version). |
+| `data_tables` | reconcile | ✅ chronicle · v1alpha | `.csv`+`.yaml`; columns immutable after create; rows wholesale destroy-and-replace; `data-tables import` bulk CSV import with append/replace modes (W132). |
+| `feeds` | reconcile | ✅ chronicle · v1alpha | `.yaml`; secrets redacted on pull, overlaid on update; `secret_ref` env/Secret Manager; not prune-eligible; `feeds list` shows last-activity + `--failed` filter (W131). |
+| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate (push waits for the async validation to settle before activating; on FAILED it reports the parsing errors); parser-dev loop (`run` with per-event error/parsedFields/failedFieldsAndErrors diagnostic output, `--cbn` required, `validate`); extensions (list/get/create/activate/delete/update-in-place + extract discover/create + setting read/update + `tips` embedded authoring guide); `update` compound delete→create→validate→activate (W132); conf-only create; custom-parser discovery on pull; `upgrade` (preview + activate release candidate); `rollback` (revert to last used version). |
 | `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards; `create`/`get`/`edit` (metadata + access); `charts` (list/get/add/batch/edit/remove/run — 9 chart types, reserved-word help in `charts add`; `run --table` tabular output; `add` auto-binds GlobalTimeFilter; `edit --title`/`--filters`; `list`/`get` show filtersIds+chartLayout; stacked-bar viz fix); `markdown` (add/edit/remove); `button` (add/edit/remove); `layout` (show/move); `filters` (show/set global time range); `lint`/`fix`/`inspect` quality (lint also flags reserved variable names statically); `verify` (single + fleet; reserved-word queries flagged as errors before execution); `charts get` merges filtersIds (`[]` when unbound) + chartLayout, `--dashboard` for charts whose name carries no parent, lookup failures surfaced on stderr; `duplicate` + deep-copy; export↔import. |
 | `curated` / `curated_rules` | reconcile + imperative | ✅ chronicle · v1alpha | Google-managed; batch enable/alerting reconcile; curated tuning reads; v1alpha only. |
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
@@ -5584,12 +5584,12 @@ Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.
 
 | Function (CLI) | Lane | Status (marker · domain · version) | Notes |
 |---|---|---|---|
-| **events (UDM)** | operational (read) | 🔨 chronicle · v1alpha · REST | `search udm`, `search stats`; `search run`/`saved` library; NL→UDM is `gemini search` (W75, W81, v0.6.0); >90-day windows auto-chunk + merge, `--count-only` total-only probe (W128) |
+| **events (UDM)** | operational (read) | 🔨 chronicle · v1alpha · REST | `search udm`, `search stats`; `search run`/`saved` library; NL→UDM is `gemini search` (W75, W81, v0.6.0); >90-day windows auto-chunk + merge, `--count-only` total-only probe, `--enrich-ip` geo columns (W128/130); `search run --param` query templates (W131) |
 | **raw logs** | operational (read) | ✅ chronicle · v1alpha | Two paths: `search udm --raw` (UDM-scoped) and `search raw '<regex>'` (content-scoped, reaches unparsed logs) |
 | **search output contract** | operational (read) | ✅ chronicle · v1alpha | v0.6.0: `--format jsonl\|json\|csv\|table`, `--fields` dotted UDM-path projection, `--out <file>`, `--all` (complete result set + total match count); `search event <id>`/`export`/`validate`; W128: `--out --meta` provenance sidecar, `event --extract` raw-JSON field projection, 10m bulk deadline + raw-fetch progress |
 | **saved & shared searches** | operational + guarded | ✅ chronicle · v1alpha | v0.6.0: server-side `search saved list/get/run/save/share/unshare/delete`; `save`/`share`/`delete` guarded |
 | **alerts** | operational | ✅ read · 🔨 act (CLI wired) | Read + act wired (W52); bulk disposition (W76); alert→case bridge read-validated |
-| **entities** | operational (read) | 🔨 chronicle · v1alpha | `entities summarize`/`risk-scores`; enrichment read-only; tolerant `flexInt` for proto3 string-encoded counters |
+| **entities** | operational (read) | 🔨 chronicle · v1alpha | `entities summarize`/`risk-scores`/`audit` (W133); enrichment read-only; tolerant `flexInt` for proto3 string-encoded counters; `audit` cross-refs risk scores with watchlist coverage (health, gaps, `--min-risk`, `--json`). |
 | **watchlists** (`lists watchlists`) | operational (read) | ✅ chronicle · v1 | `lists watchlists list`/`get`; pinned v1 (`watchlistsAPIVersion`) |
 | **analytics & AI reads** | operational (read) | ✅ chronicle (W17, `chronicle/analytics.go`) | Investigations + steps + risk scores + MITRE coverage + BigQuery export; writes gated |
 | **alert AI investigation** (`gemini investigate`) | operational | ✅ chronicle · v1alpha | Per-alert Gemini TIN triage (W57); default shows existing result (no re-trigger), `--rerun` forces new, `--latest` read-only; v0.7.2: moved to `gemini` group (hidden alias at `alerts investigate`) |
@@ -5707,6 +5707,7 @@ Installing content (integration packages and the connector/job/action definition
 | `docs generate` (hidden) | offline utility | — | — | W127; generates the per-group command-reference pages (`docs/commands/`) + index from the command tree and syncs the sidebar block; `--check` is the CI freshness gate. |
 | structured `--json` errors + dry-run plan | output contract | — | — | W73 verified; stderr structured error envelope + stdout dry-run change plan. |
 | global `--output table\|json\|csv` | output contract | — | — | W127; `--output json` ≡ `--json` everywhere; table/csv on the format-aware commands (`query udm`, `mitre`, `rules health`), where a local `--format` overrides it. |
+| global `--no-progress` | output contract | — | — | W133; suppresses carriage-return streaming progress on stderr (also suppressed by `--json` or non-TTY stderr). Wired into `pull all`, `search udm --raw`, `rules run-test`. |
 | `integrations list` / `uninstall` / `rename` | imperative | ✅ siemplify · v1alpha | — | Lists installed packs (`--instances` nests configured instances, tags `[renamable]`); uninstalls custom-only; `rename` patches a non-system instance's displayName via v1alpha PATCH + updateMask. |
 | `integrations connector list` / `delete` | imperative | ✅ siemplify · v1alpha | — | Connector definitions inside a pack; delete custom-only; built. |
 | `integrations get` | operational read | ✅ siemplify · v1alpha + legacy | — | W118; rich detail: version, instances across envs, playbook usage. |
@@ -7171,15 +7172,16 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [curated](curated.md) | 9 | Google SecOps PREDEFINED detections: browse, search, and toggle Google-managed curated rule sets |
 | [dashboards](dashboards.md) | 29 | Dashboard ops: create, get, edit, charts, markdown, button, layout, filters |
 | [data-access](data-access.md) | 8 | Manage data-access RBAC: labels (tag data) and scopes (grant access) |
-| [entities](entities.md) | 4 | Entity operational reads (summarize, findings-graph pivot) |
+| [data-tables](data-tables.md) | 1 | Manage data tables (import rows from CSV) |
+| [entities](entities.md) | 5 | Entity operational reads (summarize, findings-graph pivot) |
 | [exclusions](exclusions.md) | 3 | Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is `pull/push rule_exclusions` |
 | [gemini](gemini.md) | 6 | AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks |
 | [info](info.md) | 4 | Show the resolved instance configuration (no API call) |
-| [ingest](ingest.md) | 31 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
+| [ingest](ingest.md) | 32 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
 | [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Lists: reference lists (empty) and watchlists |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |
-| [rules](rules.md) | 19 | Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`) |
+| [rules](rules.md) | 20 | Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`) |
 | [search](search.md) | 16 | Search the SIEM (read-only): udm events, raw logs, stats, saved searches |
 | [skill](skill.md) | 2 | Print the agent operating guide embedded in the binary (offline) |
 | [soar](soar.md) | 52 | Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC) |

@@ -141,6 +141,10 @@ Run a UDM event search whose predicate is read from a file (--file <path>)
 or stdin (--file -), so a tracked .udm file is a runnable, reviewable query.
 Blank and #-comment lines in the file are ignored. Same window/--limit/--raw
 semantics as `query udm`.
+
+Use --param key=value (repeatable) to substitute $key placeholders in the
+query text. This turns a .udm file into a reusable template — see
+examples/queries/ for parameterised audit queries.
 ```
 
 **Flags**
@@ -149,6 +153,7 @@ semantics as `query udm`.
 |---|---|---|---|
 | `--all` | bool | false | return the complete result set via the search-view engine (reports the total match count; per-request deadline defaults to 10m unless --timeout is set) |
 | `--count-only` | bool | false | print only the TOTAL match count, no event data (complete-results engine; far cheaper than fetching events to count them) |
+| `--enrich-ip` | bool | false | append IP geolocation columns (country, state, ASN, carrier) to the --fields projection — works with table, csv, and jsonl output |
 | `--fields` | string | - | comma-separated UDM field paths to project (e.g. metadata.event_type,principal.hostname) |
 | `--file` | string | - | path to a UDM query file, or - to read from stdin |
 | `--format` | string | - | output format: table\|json\|jsonl\|csv (default: table on a terminal, jsonl when piped) |
@@ -157,13 +162,15 @@ semantics as `query udm`.
 | `--limit` | int | 10000 | maximum number of events to return |
 | `--meta` | bool | false | with --out: also write a <file>.meta.json sidecar recording the query, window, counts, save time, and tool version (evidence provenance) |
 | `--out` | string | - | write results to a file instead of stdout |
+| `--param` | stringArray | - | substitute $key in the query with value (repeatable, key=value) |
 | `--raw` | bool | false | print each matched event's FULL raw log line instead of the event summary |
 | `--to` | string | - | explicit end time (RFC3339 / ISO-8601); default: now |
 
 **Examples**
 
 ```bash
-secopsctl search run --file detections/failed-logins.udm --hours 24
+secopsctl search run --file examples/queries/login-success.udm --hours 24
+  secopsctl search run --file examples/queries/user-login.udm --param email=alice@example.com --from 2026-01-01 --to 2026-07-01
   echo 'metadata.event_type = "NETWORK_CONNECTION"' | secopsctl search run --file -
 ```
 
@@ -228,6 +235,7 @@ secopsctl search saved run <id> [flags]
 |---|---|---|---|
 | `--all` | bool | false | return the complete result set via the search-view engine (reports the total match count; per-request deadline defaults to 10m unless --timeout is set) |
 | `--count-only` | bool | false | print only the TOTAL match count, no event data (complete-results engine; far cheaper than fetching events to count them) |
+| `--enrich-ip` | bool | false | append IP geolocation columns (country, state, ASN, carrier) to the --fields projection — works with table, csv, and jsonl output |
 | `--fields` | string | - | comma-separated UDM field paths to project (e.g. metadata.event_type,principal.hostname) |
 | `--format` | string | - | output format: table\|json\|jsonl\|csv (default: table on a terminal, jsonl when piped) |
 | `--from` | string | - | explicit start time (RFC3339 / ISO-8601); overrides --hours |
@@ -358,6 +366,9 @@ With --raw, --limit defaults to 100 (one raw fetch per matched event).
 --count-only answers "how many events match?" without downloading them;
 --out + --meta save results with a .meta.json provenance sidecar (query,
 window, counts, tool version) for evidence trails.
+
+--enrich-ip appends IP geolocation columns (country, state, ASN, carrier)
+to the field projection — combine with --fields for a login-audit table.
 ```
 
 **Flags**
@@ -366,6 +377,7 @@ window, counts, tool version) for evidence trails.
 |---|---|---|---|
 | `--all` | bool | false | return the complete result set via the search-view engine (reports the total match count; per-request deadline defaults to 10m unless --timeout is set) |
 | `--count-only` | bool | false | print only the TOTAL match count, no event data (complete-results engine; far cheaper than fetching events to count them) |
+| `--enrich-ip` | bool | false | append IP geolocation columns (country, state, ASN, carrier) to the --fields projection — works with table, csv, and jsonl output |
 | `--fields` | string | - | comma-separated UDM field paths to project (e.g. metadata.event_type,principal.hostname) |
 | `--format` | string | - | output format: table\|json\|jsonl\|csv (default: table on a terminal, jsonl when piped) |
 | `--from` | string | - | explicit start time (RFC3339 / ISO-8601); overrides --hours |
@@ -390,6 +402,10 @@ window, counts, tool version) for evidence trails.
   secopsctl search udm '<filter>' --from 2025-01-01 --to 2026-01-01 --count-only
   secopsctl search udm '<filter>' --from 2025-01-01 --to 2026-01-01 --all \
       --format jsonl --out evidence/events.jsonl --meta
+
+  # login audit with IP geo enrichment
+  secopsctl search udm 'metadata.event_type = "USER_LOGIN"' --hours 72 \
+      --fields principal.user.userid,metadata.event_timestamp --enrich-ip --format csv
 ```
 
 ## search validate

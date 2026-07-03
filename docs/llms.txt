@@ -55,6 +55,7 @@
 - [curated](https://secops.danny.vn/#/commands/curated): Google SecOps PREDEFINED detections: browse, search, and toggle Google-managed curated rule sets
 - [dashboards](https://secops.danny.vn/#/commands/dashboards): Dashboard ops: create, get, edit, charts, markdown, button, layout, filters
 - [data-access](https://secops.danny.vn/#/commands/data-access): Manage data-access RBAC: labels (tag data) and scopes (grant access)
+- [data-tables](https://secops.danny.vn/#/commands/data-tables): Manage data tables (import rows from CSV)
 - [entities](https://secops.danny.vn/#/commands/entities): Entity operational reads (summarize, findings-graph pivot)
 - [exclusions](https://secops.danny.vn/#/commands/exclusions): Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is pull/push rule_exclusions
 - [gemini](https://secops.danny.vn/#/commands/gemini): AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks

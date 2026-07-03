@@ -45,6 +45,7 @@
   - [curated](commands/curated.md)
   - [dashboards](commands/dashboards.md)
   - [data-access](commands/data-access.md)
+  - [data-tables](commands/data-tables.md)
   - [entities](commands/entities.md)
   - [exclusions](commands/exclusions.md)
   - [gemini](commands/gemini.md)

@@ -4,6 +4,29 @@
 
 Entity operational reads (summarize, findings-graph pivot)
 
+## entities audit
+
+Read-only: cross-reference entity risk scores with watchlist coverage
+
+```text
+secopsctl entities audit [--min-risk N] [--limit N] [flags]
+```
+
+```text
+Audit detection maturity by cross-referencing entity risk scores with
+watchlist membership. Reports: watchlist inventory + health, high-risk
+entities not on any watchlist (coverage gaps), and risk-score distribution.
+
+All reads are API-only — no mutations.
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--limit` | int | 200 | max risk-score rows to fetch |
+| `--min-risk` | int | 500 | minimum risk score to flag as high-risk (0-1000) |
+
 ## entities graph
 
 Read-only: seed a findings graph from a detection (entities, edges, lateral movement)

@@ -38,17 +38,24 @@ secopsctl ingest feeds get <feed-id>
 
 ## ingest feeds list
 
-Read-only: list live feeds with state (and failure message if failed)
+Read-only: list live feeds with state, last activity, and failure detail
 
 ```text
-secopsctl ingest feeds list
+secopsctl ingest feeds list [flags]
 ```
 
 ```text
 List the instance's feeds with their runtime state — a quick imperative read
 of what is ingesting and what has failed (the config-as-code snapshot is
-`pull feeds`). JSON or table.
+`pull feeds`). Use --failed to show only feeds in a non-ACTIVE state.
+JSON or table.
 ```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--failed` | bool | false | show only feeds not in ACTIVE state |
 
 ## ingest feeds schemas
 
@@ -338,6 +345,27 @@ grok's named-capture requirement, JSON-escaped quote matching, event_type
 override merge semantics, validator-rejected field mappings, and multi-format
 gating. Offline; no API calls. Same content as docs/tips/12-parser-extensions.md.
 ```
+
+## ingest parsers extension update
+
+MUTATING (guarded): replace a parser extension (delete → create → validate → activate)
+
+> Guarded mutation — dry-run by default; apply with `--yes`.
+
+```text
+secopsctl ingest parsers extension update --log-type <type> --cbn <file> [--log <file>] [--ext <id>] [flags]
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--cbn` | string | - | CBN extension snippet file (required) |
+| `--dry-run` | bool | false | preview only (default behavior) |
+| `--ext` | string | - | extension ID to replace (auto-detected if only one exists) |
+| `--log` | string | - | sample log file (optional, for validation) |
+| `--log-type` | string | - | log type (required) |
+| `--yes` | bool | false | apply for real / skip confirmation |
 
 ## ingest parsers rollback
 

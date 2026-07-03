@@ -181,6 +181,11 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
+    <loc>https://secops.danny.vn/#/commands/data-tables</loc>
+    <lastmod>2026-07-03</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
     <loc>https://secops.danny.vn/#/commands/entities</loc>
     <lastmod>2026-07-03</lastmod>
     <changefreq>monthly</changefreq>

@@ -251,6 +251,30 @@ Read-only: list a rule's retrohunts (accepts id, display name, or slug)
 secopsctl rules retrohunt list <rule>
 ```
 
+## rules review
+
+Read-only: promotion report for monitor-mode rules (enabled, not alerting)
+
+```text
+secopsctl rules review [flags]
+```
+
+```text
+Identify rules that are enabled but NOT alerting (monitor mode) and show
+their detection activity over the last --hours. Rules with the most
+detections appear first — the best promotion candidates. Use --min-detections
+to filter out silent monitors.
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--format` | string | - | output: table \| json \| csv (default table; overrides the global --output/--json) |
+| `--hours` | int | 168 | detection-trend look-back window in hours (default 7d) |
+| `--min-detections` | int | 0 | only show rules with at least N detections |
+| `--out` | string | - | write to a file instead of stdout |
+
 ## rules test
 
 Read-only: dry-run a YARA-L rule against historical data (streams detections, no deploy)

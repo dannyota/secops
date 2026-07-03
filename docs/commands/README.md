@@ -15,15 +15,16 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [curated](curated.md) | 9 | Google SecOps PREDEFINED detections: browse, search, and toggle Google-managed curated rule sets |
 | [dashboards](dashboards.md) | 29 | Dashboard ops: create, get, edit, charts, markdown, button, layout, filters |
 | [data-access](data-access.md) | 8 | Manage data-access RBAC: labels (tag data) and scopes (grant access) |
-| [entities](entities.md) | 4 | Entity operational reads (summarize, findings-graph pivot) |
+| [data-tables](data-tables.md) | 1 | Manage data tables (import rows from CSV) |
+| [entities](entities.md) | 5 | Entity operational reads (summarize, findings-graph pivot) |
 | [exclusions](exclusions.md) | 3 | Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is `pull/push rule_exclusions` |
 | [gemini](gemini.md) | 6 | AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks |
 | [info](info.md) | 4 | Show the resolved instance configuration (no API call) |
-| [ingest](ingest.md) | 31 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
+| [ingest](ingest.md) | 32 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
 | [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Lists: reference lists (empty) and watchlists |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |
-| [rules](rules.md) | 19 | Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`) |
+| [rules](rules.md) | 20 | Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`) |
 | [search](search.md) | 16 | Search the SIEM (read-only): udm events, raw logs, stats, saved searches |
 | [skill](skill.md) | 2 | Print the agent operating guide embedded in the binary (offline) |
 | [soar](soar.md) | 52 | Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC) |
