@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -105,7 +106,11 @@ func newEntitiesRiskScoresCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return emitJSON(rows)
+			raw := make([]json.RawMessage, len(rows))
+			for i := range rows {
+				raw[i] = rows[i].Raw
+			}
+			return emitJSON(raw)
 		},
 	}
 	cmd.Flags().StringVar(&filter, "filter", "", "server-side filter expression")

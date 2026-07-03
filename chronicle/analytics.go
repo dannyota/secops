@@ -76,11 +76,55 @@ func (c *Client) ListInvestigationComments(ctx context.Context, investigationID 
 	return c.listRawCollection(ctx, sub, "investigationComments", pageSize, "", nil)
 }
 
+// EntityRiskScore is a per-entity behavioral risk score with detection context.
+type EntityRiskScore struct {
+	Entity             EntityIndicatorWrap `json:"entity"`
+	RiskWindow         TimeWindow          `json:"riskWindow"`
+	RiskScore          int                 `json:"riskScore"`
+	RiskDelta          RiskDelta           `json:"riskDelta"`
+	DetectionsCount    int                 `json:"detectionsCount"`
+	FirstDetectionTime string              `json:"firstDetectionTime"`
+	LastDetectionTime  string              `json:"lastDetectionTime"`
+	EntityIndicator    map[string]string   `json:"entityIndicator"`
+	RawRiskScore       int                 `json:"rawRiskScore"`
+	RawRiskDelta       RiskDelta           `json:"rawRiskDelta"`
+	EntityID           string              `json:"entityId"`
+	Raw                json.RawMessage     `json:"-"`
+}
+
+// UnmarshalJSON preserves the raw bytes alongside the typed fields.
+func (e *EntityRiskScore) UnmarshalJSON(b []byte) error {
+	type alias EntityRiskScore
+	if err := json.Unmarshal(b, (*alias)(e)); err != nil {
+		return err
+	}
+	e.Raw = append(e.Raw[:0:0], b...)
+	return nil
+}
+
+// EntityIndicatorWrap is the entity wrapper in a risk-score record.
+type EntityIndicatorWrap struct {
+	Metadata struct {
+		EntityType string `json:"entityType"`
+	} `json:"metadata"`
+}
+
+// TimeWindow is a half-open [start, end) time interval.
+type TimeWindow struct {
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+}
+
+// RiskDelta holds the percentage delta of a risk score.
+type RiskDelta struct {
+	RiskScoreDelta int `json:"riskScoreDelta"`
+}
+
 // QueryEntityRiskScores returns entity risk scores (normalized 0–1000) for the
 // instance, optionally filtered/ordered. filter uses the documented expression
 // syntax (e.g. `riskScore>=50`); orderBy e.g. "detectionsCount". Issues
 // GET {instance}/entityRiskScores:query with an empty body. Read-only (v1alpha).
-func (c *Client) QueryEntityRiskScores(ctx context.Context, filter, orderBy string, pageSize int) ([]json.RawMessage, error) {
+func (c *Client) QueryEntityRiskScores(ctx context.Context, filter, orderBy string, pageSize int) ([]EntityRiskScore, error) {
 	extra := url.Values{}
 	if filter != "" {
 		extra.Set("filter", filter)
@@ -88,7 +132,17 @@ func (c *Client) QueryEntityRiskScores(ctx context.Context, filter, orderBy stri
 	if orderBy != "" {
 		extra.Set("orderBy", orderBy)
 	}
-	return c.listRawCollection(ctx, "entityRiskScores:query", "entityRiskScores", pageSize, "", extra)
+	raw, err := c.listRawCollection(ctx, "entityRiskScores:query", "entityRiskScores", pageSize, "", extra)
+	if err != nil {
+		return nil, err
+	}
+	scores := make([]EntityRiskScore, len(raw))
+	for i, r := range raw {
+		if err := json.Unmarshal(r, &scores[i]); err != nil {
+			return nil, err
+		}
+	}
+	return scores, nil
 }
 
 // GetBigQueryExport returns the Advanced BigQuery Export configuration singleton
