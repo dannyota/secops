@@ -6,7 +6,7 @@ Search the SIEM (read-only): udm events, raw logs, stats, saved searches
 
 ## search event
 
-Inspect one event by id: enriched UDM (default), --udm, or --raw log
+Inspect one event by id: enriched UDM (default), --udm, --raw log, or --extract raw fields
 
 ```text
 secopsctl search event <id> [flags]
@@ -18,12 +18,18 @@ result). Default prints the ENRICHED UDM event (geo / threat-intel / entity
 overlays). --udm prints the unenriched UDM event; --raw prints the original
 raw log line(s). --token treats the argument as a search token instead of an id
 (for --udm).
+
+--extract pulls specific dotted paths out of the raw log's JSON instead of
+printing the whole blob — for fields UDM does not carry (OAuth scopes, IAM
+binding deltas, request parameters). A numeric segment indexes into an array;
+output is one JSON object per raw log. Non-JSON raw logs yield empty values.
 ```
 
 **Flags**
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
+| `--extract` | string | - | comma-separated dotted paths to pull from the raw log's JSON (a numeric segment indexes an array); prints one JSON object per raw log |
 | `--raw` | bool | false | print the original raw log line(s) for the event |
 | `--token` | bool | false | treat the argument as a search token instead of an event id (with --udm) |
 | `--udm` | bool | false | print the unenriched UDM event(s) |
@@ -33,6 +39,7 @@ raw log line(s). --token treats the argument as a search token instead of an id
 ```bash
 secopsctl search event 'AAAA…=' --json
   secopsctl search event 'AAAA…=' --raw
+  secopsctl search event 'AAAA…=' --extract 'protoPayload.metadata.event.0.parameter'
 ```
 
 ## search export
@@ -140,13 +147,15 @@ semantics as `query udm`.
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
-| `--all` | bool | false | return the complete result set via the search-view engine (reports the total match count) |
+| `--all` | bool | false | return the complete result set via the search-view engine (reports the total match count; per-request deadline defaults to 10m unless --timeout is set) |
+| `--count-only` | bool | false | print only the TOTAL match count, no event data (complete-results engine; far cheaper than fetching events to count them) |
 | `--fields` | string | - | comma-separated UDM field paths to project (e.g. metadata.event_type,principal.hostname) |
 | `--file` | string | - | path to a UDM query file, or - to read from stdin |
 | `--format` | string | - | output format: table\|json\|jsonl\|csv (default: table on a terminal, jsonl when piped) |
 | `--from` | string | - | explicit start time (RFC3339 / ISO-8601); overrides --hours |
 | `--hours` | int | 24 | look-back window in hours when --from is not given |
 | `--limit` | int | 10000 | maximum number of events to return |
+| `--meta` | bool | false | with --out: also write a <file>.meta.json sidecar recording the query, window, counts, save time, and tool version (evidence provenance) |
 | `--out` | string | - | write results to a file instead of stdout |
 | `--raw` | bool | false | print each matched event's FULL raw log line instead of the event summary |
 | `--to` | string | - | explicit end time (RFC3339 / ISO-8601); default: now |
@@ -217,12 +226,14 @@ secopsctl search saved run <id> [flags]
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
-| `--all` | bool | false | return the complete result set via the search-view engine (reports the total match count) |
+| `--all` | bool | false | return the complete result set via the search-view engine (reports the total match count; per-request deadline defaults to 10m unless --timeout is set) |
+| `--count-only` | bool | false | print only the TOTAL match count, no event data (complete-results engine; far cheaper than fetching events to count them) |
 | `--fields` | string | - | comma-separated UDM field paths to project (e.g. metadata.event_type,principal.hostname) |
 | `--format` | string | - | output format: table\|json\|jsonl\|csv (default: table on a terminal, jsonl when piped) |
 | `--from` | string | - | explicit start time (RFC3339 / ISO-8601); overrides --hours |
 | `--hours` | int | 24 | look-back window in hours when --from is not given |
 | `--limit` | int | 10000 | maximum number of events to return |
+| `--meta` | bool | false | with --out: also write a <file>.meta.json sidecar recording the query, window, counts, save time, and tool version (evidence provenance) |
 | `--out` | string | - | write results to a file instead of stdout |
 | `--raw` | bool | false | print each matched event's FULL raw log line instead of the event summary |
 | `--to` | string | - | explicit end time (RFC3339 / ISO-8601); default: now |
@@ -329,7 +340,9 @@ secopsctl search udm <filter> [flags]
 
 ```text
 Run a UDM event search over [start, end]. The window defaults to the last
---hours; --from/--to (RFC3339 / ISO-8601) override it.
+--hours; --from/--to (RFC3339 / ISO-8601) override it. A window wider than the
+90-day API cap is searched automatically in sequential ≤90-day chunks and the
+results merged (per-chunk counts on stderr) — a year-long window just works.
 
 --raw prints each matched event's FULL raw (ingested) log line instead of the
 event summary — one per line, to pipe into a parser test. This is how to pull
@@ -341,18 +354,24 @@ GENERIC_EVENT):
     secopsctl parsers run KONG_GATEWAY --cbn parser.conf --logs -
 
 With --raw, --limit defaults to 100 (one raw fetch per matched event).
+
+--count-only answers "how many events match?" without downloading them;
+--out + --meta save results with a .meta.json provenance sidecar (query,
+window, counts, tool version) for evidence trails.
 ```
 
 **Flags**
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
-| `--all` | bool | false | return the complete result set via the search-view engine (reports the total match count) |
+| `--all` | bool | false | return the complete result set via the search-view engine (reports the total match count; per-request deadline defaults to 10m unless --timeout is set) |
+| `--count-only` | bool | false | print only the TOTAL match count, no event data (complete-results engine; far cheaper than fetching events to count them) |
 | `--fields` | string | - | comma-separated UDM field paths to project (e.g. metadata.event_type,principal.hostname) |
 | `--format` | string | - | output format: table\|json\|jsonl\|csv (default: table on a terminal, jsonl when piped) |
 | `--from` | string | - | explicit start time (RFC3339 / ISO-8601); overrides --hours |
 | `--hours` | int | 24 | look-back window in hours when --from is not given |
 | `--limit` | int | 10000 | maximum number of events to return |
+| `--meta` | bool | false | with --out: also write a <file>.meta.json sidecar recording the query, window, counts, save time, and tool version (evidence provenance) |
 | `--out` | string | - | write results to a file instead of stdout |
 | `--raw` | bool | false | print each matched event's FULL raw log line instead of the event summary |
 | `--to` | string | - | explicit end time (RFC3339 / ISO-8601); default: now |
@@ -366,6 +385,11 @@ With --raw, --limit defaults to 100 (one raw fetch per matched event).
   # a fixed window, machine-readable
   secopsctl search udm 'principal.hostname = "host-01"' \
       --from 2024-01-02T00:00:00Z --to 2024-01-03T00:00:00Z --json
+
+  # a year-long window: auto-chunked; count first, then save with provenance
+  secopsctl search udm '<filter>' --from 2025-01-01 --to 2026-01-01 --count-only
+  secopsctl search udm '<filter>' --from 2025-01-01 --to 2026-01-01 --all \
+      --format jsonl --out evidence/events.jsonl --meta
 ```
 
 ## search validate

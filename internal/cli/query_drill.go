@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"danny.vn/secops/chronicle"
 )
 
 // query_drill.go adds the per-result agent surfaces: export a full result set to
@@ -93,23 +96,30 @@ func newQueryExportCmd() *cobra.Command {
 }
 
 // newQueryEventCmd drills into one event by id: the enriched UDM (default), the
-// unenriched UDM (--udm), or the original raw log line(s) (--raw).
+// unenriched UDM (--udm), the original raw log line(s) (--raw), or specific
+// fields extracted from the raw log's JSON (--extract).
 func newQueryEventCmd() *cobra.Command {
 	var (
 		raw     bool
 		udmOnly bool
 		token   bool
+		extract string
 	)
 	cmd := &cobra.Command{
 		Use:   "event <id>",
-		Short: "Inspect one event by id: enriched UDM (default), --udm, or --raw log",
+		Short: "Inspect one event by id: enriched UDM (default), --udm, --raw log, or --extract raw fields",
 		Long: "Fetch one event's detail by id (the base64 udm.metadata.id from a search\n" +
 			"result). Default prints the ENRICHED UDM event (geo / threat-intel / entity\n" +
 			"overlays). --udm prints the unenriched UDM event; --raw prints the original\n" +
 			"raw log line(s). --token treats the argument as a search token instead of an id\n" +
-			"(for --udm).",
+			"(for --udm).\n\n" +
+			"--extract pulls specific dotted paths out of the raw log's JSON instead of\n" +
+			"printing the whole blob — for fields UDM does not carry (OAuth scopes, IAM\n" +
+			"binding deltas, request parameters). A numeric segment indexes into an array;\n" +
+			"output is one JSON object per raw log. Non-JSON raw logs yield empty values.",
 		Example: "  secopsctl search event 'AAAA…=' --json\n" +
-			"  secopsctl search event 'AAAA…=' --raw",
+			"  secopsctl search event 'AAAA…=' --raw\n" +
+			"  secopsctl search event 'AAAA…=' --extract 'protoPayload.metadata.event.0.parameter'",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := strings.TrimSpace(args[0])
@@ -122,6 +132,12 @@ func newQueryEventCmd() *cobra.Command {
 			}
 			ctx := baseContext()
 			switch {
+			case extract != "":
+				lines, err := c.FindRawLogLines(ctx, []string{id})
+				if err != nil {
+					return err
+				}
+				return emitRawExtract(lines, splitFields(extract))
 			case raw:
 				lines, err := c.FindRawLogLines(ctx, []string{id})
 				if err != nil {
@@ -156,8 +172,43 @@ func newQueryEventCmd() *cobra.Command {
 	f.BoolVar(&raw, "raw", false, "print the original raw log line(s) for the event")
 	f.BoolVar(&udmOnly, "udm", false, "print the unenriched UDM event(s)")
 	f.BoolVar(&token, "token", false, "treat the argument as a search token instead of an event id (with --udm)")
-	cmd.MarkFlagsMutuallyExclusive("raw", "udm")
+	f.StringVar(&extract, "extract", "", "comma-separated dotted paths to pull from the raw log's JSON "+
+		"(a numeric segment indexes an array); prints one JSON object per raw log")
+	cmd.MarkFlagsMutuallyExclusive("raw", "udm", "extract")
 	return markJSON(cmd)
+}
+
+// emitRawExtract prints, per raw log line, a JSON object projecting the
+// requested dotted paths out of the log's JSON body. Logs that are not JSON
+// (syslog, CEF, …) yield an empty object and a stderr warning — extraction
+// needs a structured raw log.
+func emitRawExtract(lines []chronicle.RawLogLine, paths []string) error {
+	if len(paths) == 0 {
+		return fmt.Errorf("--extract needs at least one dotted path")
+	}
+	enc := json.NewEncoder(os.Stdout)
+	nonJSON := 0
+	for _, l := range lines {
+		var doc any
+		if err := json.Unmarshal([]byte(l.Text), &doc); err != nil {
+			nonJSON++
+			if err := enc.Encode(map[string]string{}); err != nil {
+				return err
+			}
+			continue
+		}
+		row := make(map[string]string, len(paths))
+		for _, p := range paths {
+			row[p] = extractJSONPath(doc, p)
+		}
+		if err := enc.Encode(row); err != nil {
+			return err
+		}
+	}
+	if nonJSON > 0 {
+		fmt.Fprintf(os.Stderr, "warning: %d raw log(s) are not JSON — --extract needs a JSON raw log; use --raw to see the bytes\n", nonJSON)
+	}
+	return nil
 }
 
 // newQueryValidateCmd validates a UDM query's syntax without running it — an

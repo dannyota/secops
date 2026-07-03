@@ -28,6 +28,14 @@ import (
 // (0 disables). Generous enough not to cut a normal single request.
 const defaultRequestTimeout = 60 * time.Second
 
+// bulkRequestTimeout is the per-request timeout for known long-running bulk
+// search fetches (`search udm --all` / `--raw` / `--count-only`): the search
+// runs server-side and streams the complete result in ONE request, so the
+// 60-second default would cut large result sets mid-download. Applied only when
+// the operator did not set --timeout explicitly; large but finite so a genuinely
+// hung call still fails.
+const bulkRequestTimeout = 10 * time.Minute
+
 // Global persistent-flag values, shared across subcommands.
 var (
 	cfgFile        string        // --config
@@ -83,8 +91,10 @@ func Execute() int {
 	if err != nil {
 		// A hit per-request timeout is far more actionable with the knob that
 		// controls it. http.Client.Timeout surfaces as a deadline/timeout error.
+		// (The bulk search paths may run on bulkRequestTimeout rather than
+		// --timeout, so the hint names the knob, not a value.)
 		if requestTimeout > 0 && (errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err)) {
-			err = fmt.Errorf("%w (a request exceeded --timeout=%s; raise --timeout or set it to 0 to disable)", err, requestTimeout)
+			err = fmt.Errorf("%w (a request exceeded its per-request deadline; raise --timeout or set it to 0 to disable)", err)
 		}
 		// A 429 that survived the transport's hint-honoring retries means the quota
 		// is genuinely exhausted — point at the actionable knobs rather than the raw
@@ -269,13 +279,30 @@ func loadInstance() (*config.Instance, error) {
 // Credentials are OAuth/ADC, minted in-process by the Google auth library and
 // resolved lazily on the first request.
 func newChronicleClient() (*chronicle.Client, error) {
+	return newChronicleClientTimeout(requestTimeout)
+}
+
+// newChronicleClientTimeout is newChronicleClient with an explicit per-request
+// timeout — for bulk single-request fetches whose default deadline differs from
+// --timeout (see effectiveSearchTimeout).
+func newChronicleClientTimeout(timeout time.Duration) (*chronicle.Client, error) {
 	inst, err := loadInstance()
 	if err != nil {
 		return nil, err
 	}
 	creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
 	return chronicle.NewClient(inst.Settings(), creds,
-		chronicle.WithHTTPClient(timedHTTPClient(creds, inst.ForceIPv4)))
+		chronicle.WithHTTPClient(timeoutHTTPClient(creds, inst.ForceIPv4, timeout)))
+}
+
+// effectiveSearchTimeout picks the per-request deadline for a bulk search fetch:
+// an explicit --timeout always wins; otherwise the bulk default replaces the
+// 60-second general default (one streamed request must carry the whole result).
+func effectiveSearchTimeout() time.Duration {
+	if rootCmd.PersistentFlags().Changed("timeout") {
+		return requestTimeout
+	}
+	return bulkRequestTimeout
 }
 
 // timedHTTPClient builds the outbound *http.Client the CLI hands to every SDK
@@ -286,8 +313,13 @@ func newChronicleClient() (*chronicle.Client, error) {
 // deliberate: it fails a hung call fast without spanning a confirm prompt or
 // capping a multi-call command (pull all, paginated reads) in aggregate.
 func timedHTTPClient(creds auth.Credentials, forceIPv4 bool) *http.Client {
+	return timeoutHTTPClient(creds, forceIPv4, requestTimeout)
+}
+
+// timeoutHTTPClient is timedHTTPClient with an explicit timeout.
+func timeoutHTTPClient(creds auth.Credentials, forceIPv4 bool, timeout time.Duration) *http.Client {
 	return &http.Client{
-		Timeout:   requestTimeout,
+		Timeout:   timeout,
 		Transport: auth.RoundTripper(creds, auth.HTTPTransport(forceIPv4)),
 	}
 }

@@ -172,9 +172,18 @@ secopsctl search udm 'principal.hostname = "host-01"' --from 2024-01-02T00:00:00
   `--limit` caps results (the simple path silently truncates past it — a stderr warning fires).
   **`--all`** switches to the complete-results engine: it returns the full set up to the
   limit AND reports the **total match count** (so you know how much you didn't get).
+  A window **wider than the 90-day API cap auto-chunks** into sequential ≤90-day searches,
+  merged and deduplicated, with per-chunk counts on stderr — a year-long `--from`/`--to`
+  just works. **`--count-only`** prints only the total match count (no event download;
+  `--json` gives `{total, chunks[]}`) — ask "how many?" before fetching. The bulk paths
+  (`--all`/`--raw`/`--count-only`) default to a **10m per-request deadline** (an explicit
+  `--timeout` overrides); large `--raw` hydrations print `fetched N/M raw logs…` progress.
 - **`raw <pattern>`** — content regex over the raw ingested bytes (reaches logs with no parser).
 - **`stats <agg>`** — aggregation query (`match:`/`outcome:`/`order:`); see the recipe below.
-- **`event <id>`** — drill into ONE event by id: enriched UDM (default), `--udm` (unenriched), `--raw` (original log line).
+- **`event <id>`** — drill into ONE event by id: enriched UDM (default), `--udm` (unenriched), `--raw` (original log line),
+  or **`--extract '<dotted.path,…>'`** — pull specific fields out of the raw log's JSON without the full blob
+  (a numeric segment indexes arrays: `protoPayload.metadata.event.0.parameter`; one JSON object per raw log;
+  for fields UDM doesn't carry — OAuth scopes, IAM binding deltas, request parameters).
 - **`export <filter>`** — server-side CSV of **all** matches (not capped at `--limit`) over the window (`--hours` default 24, or `--from`/`--to`); `--fields` (column labels), `--out <file>`.
 - **`validate <query>`** — syntax-check a UDM query without running it; exits non-zero on an invalid query (gate on it).
 - **`run --file <f>`** — run a UDM predicate from a tracked `.udm` file (or stdin).
@@ -189,7 +198,9 @@ secopsctl search udm 'principal.hostname = "host-01"' --from 2024-01-02T00:00:00
   (one event per line → stream/grep/`jq` per record). `json` is the full indented array.
 - `--fields a,b,c` — project dotted UDM paths (e.g. `metadata.event_type,principal.hostname`);
   tolerant of camelCase/snake_case and the `{udm}` vs `{event}` result shapes.
-- `--out <file>` — write results to a file instead of stdout.
+- `--out <file>` — write results to a file instead of stdout. Add `--meta` to also write a
+  `<file>.meta.json` **provenance sidecar** — query, window, per-chunk + total counts, save
+  time, tool version — so a saved result set documents itself (evidence trails).
 - The global `--json` still works (= `--format json`).
 
 ## AI search — `gemini`

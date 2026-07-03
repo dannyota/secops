@@ -125,9 +125,9 @@ Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.
 
 | Function (CLI) | Lane | Status (marker · domain · version) | Notes |
 |---|---|---|---|
-| **events (UDM)** | operational (read) | 🔨 chronicle · v1alpha · REST | `search udm`, `search stats`; `search run`/`saved` library; NL→UDM is `gemini search` (W75, W81, v0.6.0) |
+| **events (UDM)** | operational (read) | 🔨 chronicle · v1alpha · REST | `search udm`, `search stats`; `search run`/`saved` library; NL→UDM is `gemini search` (W75, W81, v0.6.0); >90-day windows auto-chunk + merge, `--count-only` total-only probe (W128) |
 | **raw logs** | operational (read) | ✅ chronicle · v1alpha | Two paths: `search udm --raw` (UDM-scoped) and `search raw '<regex>'` (content-scoped, reaches unparsed logs) |
-| **search output contract** | operational (read) | ✅ chronicle · v1alpha | v0.6.0: `--format jsonl\|json\|csv\|table`, `--fields` dotted UDM-path projection, `--out <file>`, `--all` (complete result set + total match count); `search event <id>`/`export`/`validate` |
+| **search output contract** | operational (read) | ✅ chronicle · v1alpha | v0.6.0: `--format jsonl\|json\|csv\|table`, `--fields` dotted UDM-path projection, `--out <file>`, `--all` (complete result set + total match count); `search event <id>`/`export`/`validate`; W128: `--out --meta` provenance sidecar, `event --extract` raw-JSON field projection, 10m bulk deadline + raw-fetch progress |
 | **saved & shared searches** | operational + guarded | ✅ chronicle · v1alpha | v0.6.0: server-side `search saved list/get/run/save/share/unshare/delete`; `save`/`share`/`delete` guarded |
 | **alerts** | operational | ✅ read · 🔨 act (CLI wired) | Read + act wired (W52); bulk disposition (W76); alert→case bridge read-validated |
 | **entities** | operational (read) | 🔨 chronicle · v1alpha | `entities summarize`/`risk-scores`; enrichment read-only; tolerant `flexInt` for proto3 string-encoded counters |

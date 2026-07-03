@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +16,8 @@ import (
 // runUDMQuery runs a UDM event search and emits the result — the shared core of
 // `query udm`, `query run`, and `query saved <name>`. limitChanged reports
 // whether the operator set --limit explicitly (so --raw can apply its smaller
-// default only when they did not).
+// default only when they did not). A window wider than searchWindowCap is
+// searched in sequential chunks and the results merged (see query_window.go).
 func runUDMQuery(filter string, q queryWindowFlags, limitChanged bool) error {
 	filter = strings.TrimSpace(filter)
 	if filter == "" {
@@ -28,6 +30,9 @@ func runUDMQuery(filter string, q queryWindowFlags, limitChanged bool) error {
 			return err
 		}
 	}
+	if q.meta && q.out == "" {
+		return fmt.Errorf("--meta needs --out (the sidecar describes the saved file)")
+	}
 	limit := q.limit
 	// --raw fetches a raw log per matched event, so cap conservatively unless the
 	// operator set --limit explicitly (the event-only default is 10000).
@@ -39,67 +44,93 @@ func runUDMQuery(filter string, q queryWindowFlags, limitChanged bool) error {
 	if err != nil {
 		return err
 	}
+	chunks := chunkWindow(start, end, searchWindowCap)
+	announceChunks(chunks)
 
-	c, err := newChronicleClient()
+	// Bulk fetches stream the whole result in one request per chunk; give them a
+	// wider default deadline than the 60s general --timeout (explicit wins).
+	timeout := requestTimeout
+	if q.all || q.raw || q.countOnly {
+		timeout = effectiveSearchTimeout()
+	}
+	c, err := newChronicleClientTimeout(timeout)
 	if err != nil {
 		return err
 	}
 	ctx := baseContext()
 
-	// --raw: download each matched event's FULL raw log and print one per line
-	// (for `parsers run --logs -`). Lift each raw-log id (udm.metadata.id) and
-	// fetch the complete bytes.
+	if q.countOnly {
+		_, counts, total, err := fetchEventsComplete(ctx, c, filter, chunks, 0)
+		if err != nil {
+			return err
+		}
+		return printCountOnly(total, counts)
+	}
 	if q.raw {
-		events, more, err := c.SearchUDMPage(ctx, filter, start, end, limit)
-		if err != nil {
-			return err
-		}
-		if more {
-			fmt.Fprintf(os.Stderr, "warning: result truncated at --limit=%d; more events match — raise --limit or narrow the time range.\n", limit)
-		}
-		ids := chronicle.RawLogIDsFromUDMEvents(events)
-		if len(ids) == 0 {
-			fmt.Fprintln(os.Stderr, "no raw logs: the matched events carry no raw-log id (or none matched)")
-			return nil
-		}
-		lines, err := c.FindRawLogLines(ctx, ids)
-		if err != nil {
-			return err
-		}
-		return emitRawLines(lines)
+		return runUDMQueryRaw(ctx, c, filter, chunks, limit)
 	}
 
-	var events []json.RawMessage
+	var (
+		events []json.RawMessage
+		counts []chunkCount
+		total  *int
+	)
 	if q.all {
-		// Complete-results engine: returns the full set plus the headline match count.
+		// Complete-results engine: the full set plus the headline match count.
 		maxEvents := limit
 		if !limitChanged {
 			maxEvents = 10000
 		}
-		view, err := c.FetchUDMSearchView(ctx, filter, start, end, chronicle.UDMSearchViewOptions{
-			MaxEvents:       maxEvents,
-			CaseInsensitive: true,
-		})
+		evs, cc, t, err := fetchEventsComplete(ctx, c, filter, chunks, maxEvents)
 		if err != nil {
 			return err
 		}
-		events = view.Events
-		if view.BaselineEventsCount > len(events) {
+		events, counts, total = evs, cc, &t
+		if t > len(events) {
 			fmt.Fprintf(os.Stderr, "note: %d total match(es); returned %d — raise --limit or narrow the window for more.\n",
-				view.BaselineEventsCount, len(events))
+				t, len(events))
 		}
 	} else {
-		evs, more, err := c.SearchUDMPage(ctx, filter, start, end, limit)
+		evs, cc, truncated, err := fetchEventsPaged(ctx, c, filter, chunks, limit)
 		if err != nil {
 			return err
 		}
+		events, counts = evs, cc
 		// Warn (to stderr, so piped output stays clean) when more matched than --limit.
-		if more {
+		if truncated {
 			fmt.Fprintf(os.Stderr, "warning: result truncated at --limit=%d; more events match — raise --limit, narrow the window, or use --all.\n", limit)
 		}
-		events = evs
 	}
-	return renderEvents(events, q.output())
+	if err := renderEvents(events, q.output()); err != nil {
+		return err
+	}
+	if q.meta {
+		return writeMetaSidecar(q.out, buildEvidenceMeta(filter, start, end, len(events), counts, total))
+	}
+	return nil
+}
+
+// runUDMQueryRaw downloads each matched event's FULL raw log and prints one per
+// line (for `parsers run --logs -`). Lifts each raw-log id (udm.metadata.id)
+// and fetches the complete bytes, with stderr progress on large sets.
+func runUDMQueryRaw(ctx context.Context, c *chronicle.Client, filter string, chunks []searchWindow, limit int) error {
+	events, _, truncated, err := fetchEventsPaged(ctx, c, filter, chunks, limit)
+	if err != nil {
+		return err
+	}
+	if truncated {
+		fmt.Fprintf(os.Stderr, "warning: result truncated at --limit=%d; more events match — raise --limit or narrow the time range.\n", limit)
+	}
+	ids := chronicle.RawLogIDsFromUDMEvents(events)
+	if len(ids) == 0 {
+		fmt.Fprintln(os.Stderr, "no raw logs: the matched events carry no raw-log id (or none matched)")
+		return nil
+	}
+	lines, err := fetchRawLinesProgress(ctx, c, ids)
+	if err != nil {
+		return err
+	}
+	return emitRawLines(lines)
 }
 
 // readQueryText loads a UDM predicate from a file path, or from stdin when path
@@ -129,15 +160,17 @@ func readQueryText(path string) (string, error) {
 
 // queryWindowFlags are the shared time-window/limit/raw + output flags of a UDM run.
 type queryWindowFlags struct {
-	hours  int
-	fromTS string
-	toTS   string
-	limit  int
-	raw    bool
-	all    bool
-	format string
-	fields string
-	out    string
+	hours     int
+	fromTS    string
+	toTS      string
+	limit     int
+	raw       bool
+	all       bool
+	countOnly bool
+	meta      bool
+	format    string
+	fields    string
+	out       string
 }
 
 func (q *queryWindowFlags) bind(f *cobra.Command) {
@@ -147,10 +180,17 @@ func (q *queryWindowFlags) bind(f *cobra.Command) {
 	fl.StringVar(&q.toTS, "to", "", "explicit end time (RFC3339 / ISO-8601); default: now")
 	fl.IntVar(&q.limit, "limit", 10000, "maximum number of events to return")
 	fl.BoolVar(&q.raw, "raw", false, "print each matched event's FULL raw log line instead of the event summary")
-	fl.BoolVar(&q.all, "all", false, "return the complete result set via the search-view engine (reports the total match count)")
+	fl.BoolVar(&q.all, "all", false, "return the complete result set via the search-view engine "+
+		"(reports the total match count; per-request deadline defaults to 10m unless --timeout is set)")
+	fl.BoolVar(&q.countOnly, "count-only", false, "print only the TOTAL match count, no event data "+
+		"(complete-results engine; far cheaper than fetching events to count them)")
+	fl.BoolVar(&q.meta, "meta", false, "with --out: also write a <file>.meta.json sidecar recording the "+
+		"query, window, counts, save time, and tool version (evidence provenance)")
 	fl.StringVar(&q.format, "format", "", "output format: table|json|jsonl|csv (default: table on a terminal, jsonl when piped)")
 	fl.StringVar(&q.fields, "fields", "", "comma-separated UDM field paths to project (e.g. metadata.event_type,principal.hostname)")
 	fl.StringVar(&q.out, "out", "", "write results to a file instead of stdout")
+	f.MarkFlagsMutuallyExclusive("count-only", "raw")
+	f.MarkFlagsMutuallyExclusive("count-only", "all")
 }
 
 // output builds the result-rendering choice from the flags.

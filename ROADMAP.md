@@ -203,6 +203,38 @@ Docs-toolchain and output-contract improvements.
 **Docs:** catalog (`docs generate` + `--output` rows), SKILL (global flags +
 self-discovery), this wave.
 
+### Wave 128 — long-window search, count probe, evidence sidecar, raw-field extraction *(built — offline-tested)*
+
+Search-workflow improvements for long look-backs and evidence collection.
+
+- **Auto-chunked wide windows.** The UDM search API caps one request at 90 days;
+  `search udm` (and `run`/`saved`) now split a wider `--from`/`--to` window into
+  sequential ≤90-day half-open chunks, merge the results, deduplicate events that
+  fall on a chunk boundary (by `udm.metadata.id`), and report per-chunk counts on
+  stderr. A year-long window is a single command. Applies to the plain, `--all`,
+  `--raw`, and `--count-only` paths; a failed chunk is labeled with its position
+  and window.
+- **`search udm --count-only`.** Prints only the TOTAL match count — the
+  complete-results engine computes the baseline count server-side, so no event
+  data is downloaded. `--json` returns `{total, chunks[]}` with per-chunk
+  subtotals on chunked windows.
+- **`--out` + `--meta` evidence sidecar.** `--meta` writes a `<file>.meta.json`
+  next to the `--out` file recording the query, window, per-chunk and total
+  counts, save time, and tool version — a saved result set carries its own
+  provenance.
+- **`search event --extract`.** Projects dotted paths out of the raw log's JSON
+  (numeric segments index arrays) instead of printing the whole blob — for
+  fields UDM does not carry (OAuth scopes, IAM binding deltas, request
+  parameters). One JSON object per raw log; non-JSON raw logs yield empty values
+  with a stderr warning.
+- **Bulk-fetch deadline + progress.** `--all`/`--raw`/`--count-only` default to a
+  10-minute per-request deadline (the general 60s `--timeout` default cut large
+  single-request result streams mid-download; an explicit `--timeout` still
+  wins), and large `--raw` hydrations print `fetched N/M raw logs…` progress on
+  stderr instead of staying silent for the whole fetch.
+
+**Docs:** catalog (events/output-contract rows), SKILL (search section), this wave.
+
 ---
 
 ## Non-goals

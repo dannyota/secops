@@ -101,7 +101,9 @@ func init() {
 		Use:   "udm <filter>",
 		Short: "Run a UDM event search over a time window",
 		Long: "Run a UDM event search over [start, end]. The window defaults to the last\n" +
-			"--hours; --from/--to (RFC3339 / ISO-8601) override it.\n\n" +
+			"--hours; --from/--to (RFC3339 / ISO-8601) override it. A window wider than the\n" +
+			"90-day API cap is searched automatically in sequential ≤90-day chunks and the\n" +
+			"results merged (per-chunk counts on stderr) — a year-long window just works.\n\n" +
 			"--raw prints each matched event's FULL raw (ingested) log line instead of the\n" +
 			"event summary — one per line, to pipe into a parser test. This is how to pull\n" +
 			"the raw logs for a log type whose parser is missing/broken (they normalize to\n" +
@@ -109,12 +111,19 @@ func init() {
 			"  secopsctl search udm 'metadata.log_type = \"KONG_GATEWAY\" AND \\\n" +
 			"      metadata.event_type = \"GENERIC_EVENT\"' --raw --limit 50 | \\\n" +
 			"    secopsctl parsers run KONG_GATEWAY --cbn parser.conf --logs -\n\n" +
-			"With --raw, --limit defaults to 100 (one raw fetch per matched event).",
+			"With --raw, --limit defaults to 100 (one raw fetch per matched event).\n\n" +
+			"--count-only answers \"how many events match?\" without downloading them;\n" +
+			"--out + --meta save results with a .meta.json provenance sidecar (query,\n" +
+			"window, counts, tool version) for evidence trails.",
 		Example: "  # network connections in the last 6 hours\n" +
 			"  secopsctl search udm 'metadata.event_type = \"NETWORK_CONNECTION\"' --hours 6\n\n" +
 			"  # a fixed window, machine-readable\n" +
 			"  secopsctl search udm 'principal.hostname = \"host-01\"' \\\n" +
-			"      --from 2024-01-02T00:00:00Z --to 2024-01-03T00:00:00Z --json",
+			"      --from 2024-01-02T00:00:00Z --to 2024-01-03T00:00:00Z --json\n\n" +
+			"  # a year-long window: auto-chunked; count first, then save with provenance\n" +
+			"  secopsctl search udm '<filter>' --from 2025-01-01 --to 2026-01-01 --count-only\n" +
+			"  secopsctl search udm '<filter>' --from 2025-01-01 --to 2026-01-01 --all \\\n" +
+			"      --format jsonl --out evidence/events.jsonl --meta",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUDMQuery(args[0], w, cmd.Flags().Changed("limit"))

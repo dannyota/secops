@@ -185,6 +185,34 @@ func extractUDMField(ev json.RawMessage, path string) string {
 	return flattenValue(cur)
 }
 
+// extractJSONPath navigates a dotted path into decoded JSON and returns a flat
+// string. Unlike extractUDMField it walks ARRAYS too — a numeric segment indexes
+// into one (protoPayload.metadata.event.0.parameter) — so it suits raw-log JSON,
+// whose nesting is arbitrary. Map segments match camelCase/snake_case like
+// --fields. Missing paths render as "".
+func extractJSONPath(doc any, path string) string {
+	cur := doc
+	for seg := range strings.SplitSeq(path, ".") {
+		switch t := cur.(type) {
+		case map[string]any:
+			v, ok := lookupKey(t, seg)
+			if !ok {
+				return ""
+			}
+			cur = v
+		case []any:
+			i, err := strconv.Atoi(seg)
+			if err != nil || i < 0 || i >= len(t) {
+				return ""
+			}
+			cur = t[i]
+		default:
+			return ""
+		}
+	}
+	return flattenValue(cur)
+}
+
 // lookupKey finds seg in m, trying the literal key then its camelCase/snake_case
 // variants (UDM JSON arrives in either serialization).
 func lookupKey(m map[string]any, seg string) (any, bool) {
