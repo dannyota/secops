@@ -97,3 +97,31 @@ func TestClassifyHealth(t *testing.T) {
 		}
 	}
 }
+
+func TestReframeRuleErr(t *testing.T) {
+	hinted := reframeRuleErr(`parsing: error with token: "#"`)
+	if !strings.Contains(hinted, "count($e.metadata.id)") || !strings.Contains(hinted, "condition:") {
+		t.Errorf("missing #-token hint: %q", hinted)
+	}
+	plain := "unknown field: principal.bogus"
+	if got := reframeRuleErr(plain); got != plain {
+		t.Errorf("unrelated message must pass through verbatim, got %q", got)
+	}
+}
+
+func TestDiagPosition(t *testing.T) {
+	cases := []struct {
+		name string
+		d    chronicle.RuleDiagnostic
+		want string
+	}{
+		{"none", chronicle.RuleDiagnostic{}, ""},
+		{"line only", chronicle.RuleDiagnostic{Position: map[string]int{"startLine": 12}}, " (line 12)"},
+		{"line and col", chronicle.RuleDiagnostic{Position: map[string]int{"startLine": 12, "startColumn": 5}}, " (line 12, col 5)"},
+	}
+	for _, tc := range cases {
+		if got := diagPosition(tc.d); got != tc.want {
+			t.Errorf("%s: diagPosition = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

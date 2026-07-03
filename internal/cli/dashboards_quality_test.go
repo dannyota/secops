@@ -111,3 +111,30 @@ func TestBuildVisualizationNewTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestFindReservedVariables(t *testing.T) {
+	cases := []struct {
+		name  string
+		query string
+		want  []string
+	}{
+		{"binding via field = $var", `metadata.product_event_type = $rule`, []string{"$rule"}},
+		{"outcome assignment", `outcome: $events = count(metadata.id)`, []string{"$events"}},
+		{"several, deduped, first-use order", `$entity = principal.ip $rule = metadata.id $entity = x`, []string{"$entity", "$rule"}},
+		{"prefix does not false-positive", `$rulename = metadata.id AND $eventful = x`, nil},
+		{"safe names", `$actor = principal.user.userid $count = count(metadata.id)`, nil},
+		{"plural forms", `$rules = a $alerts = b $detections = c`, []string{"$rules", "$alerts", "$detections"}},
+	}
+	for _, tc := range cases {
+		got := findReservedVariables(tc.query)
+		if len(got) != len(tc.want) {
+			t.Errorf("%s: findReservedVariables = %v, want %v", tc.name, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Errorf("%s: [%d] = %q, want %q", tc.name, i, got[i], tc.want[i])
+			}
+		}
+	}
+}

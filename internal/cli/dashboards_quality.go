@@ -135,6 +135,27 @@ func newDashboardsInspectCmd() *cobra.Command {
 
 // ── lint ─────────────────────────────────────────────────────────────
 
+// reservedVarRe matches the $variable names the dashboard query engine
+// reserves. A chart whose query binds one SAVES fine but fails at execute time
+// (HTTP 400, or executes yet renders blank in the console) — so the collision
+// must be caught statically.
+var reservedVarRe = regexp.MustCompile(`\$(?:rules?|events?|entity|entities|detections?|alerts?)\b`)
+
+// findReservedVariables returns the distinct reserved variable names a chart
+// query uses, in first-use order.
+func findReservedVariables(query string) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	for _, m := range reservedVarRe.FindAllString(query, -1) {
+		if _, dup := seen[m]; dup {
+			continue
+		}
+		seen[m] = struct{}{}
+		out = append(out, m)
+	}
+	return out
+}
+
 // lintFinding is one issue found on a chart.
 type lintFinding struct {
 	ChartID string `json:"chartId"`
@@ -157,6 +178,8 @@ func newDashboardsLintCmd() *cobra.Command {
 			"     from the dashboard's global time filter (fixable: --sync-time).\n" +
 			"  4. Missing chart title — untitled charts are hard to identify.\n" +
 			"  5. Overlapping grid positions — two charts occupying the same cells.\n" +
+			"  6. Reserved variable names ($rule, $events, $entity, …) — the chart\n" +
+			"     saves but fails at execute time and renders blank (rename the variable).\n" +
 			"Read-only — no API writes.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -229,6 +252,16 @@ func newDashboardsLintCmd() *cobra.Command {
 					findings = append(findings, lintFinding{
 						ChartID: cid, Title: "(untitled)", Check: "missing-title",
 						Message: "chart has no display name",
+						Fixable: false,
+					})
+				}
+
+				// Check 6: reserved variable names — save clean, fail at execute time.
+				if rv := findReservedVariables(query); len(rv) > 0 {
+					findings = append(findings, lintFinding{
+						ChartID: cid, Title: title, Check: "reserved-variable",
+						Message: fmt.Sprintf("query uses reserved variable name(s) %s — the chart saves but fails at execute time (blank chart); rename (e.g. %s → %s_v)",
+							strings.Join(rv, ", "), rv[0], rv[0]),
 						Fixable: false,
 					})
 				}

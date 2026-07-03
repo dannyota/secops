@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"danny.vn/secops/chronicle"
 	"danny.vn/secops/internal/mirror/reconcile"
@@ -245,6 +246,10 @@ func writeParserObject(dir string, o reconcile.Object) error {
 // parserCreateActivate creates a new parser version from the local CBN and
 // activates it (the load-bearing step — a created-but-inactive parser is not
 // live), then re-reads it so the on-disk identity matches the new active version.
+//
+// The activate must WAIT for the server's async validation of the fresh
+// version: activating immediately after create fails with a bare
+// FAILED_PRECONDITION even when the validation is about to pass.
 func parserCreateActivate(ctx context.Context, c *chronicle.Client, local reconcile.Object) (reconcile.Object, error) {
 	spec, err := decodeParserSpec(local.Canonical)
 	if err != nil {
@@ -255,6 +260,9 @@ func parserCreateActivate(ctx context.Context, c *chronicle.Client, local reconc
 		return reconcile.Object{}, err
 	}
 	id := lastSegment(created.Name)
+	if err := waitParserValidated(ctx, c, spec.LogType, id); err != nil {
+		return reconcile.Object{}, err
+	}
 	if err := c.ActivateParser(ctx, spec.LogType, id); err != nil {
 		return reconcile.Object{}, err
 	}
@@ -263,6 +271,43 @@ func parserCreateActivate(ctx context.Context, c *chronicle.Client, local reconc
 		return reconcile.Object{}, err
 	}
 	return parserLiveObject(spec.LogType, *active)
+}
+
+// parserValidateTimeout bounds the wait for a fresh parser version's async
+// server-side validation before activating it.
+const parserValidateTimeout = 5 * time.Minute
+
+// waitParserValidated polls a fresh parser version until its validation
+// settles. On FAILED it reports the parsing errors from the validation report;
+// on timeout it says how to finish by hand (the version is created, only the
+// activation is pending).
+func waitParserValidated(ctx context.Context, c *chronicle.Client, logType, id string) error {
+	deadline := time.Now().Add(parserValidateTimeout)
+	wait := 2 * time.Second
+	for {
+		p, err := c.GetParser(ctx, logType, id)
+		if err != nil {
+			return err
+		}
+		switch stage := strings.ToUpper(p.ValidationStage); {
+		case strings.Contains(stage, "PASSED"):
+			return nil
+		case strings.Contains(stage, "FAILED"):
+			msg := fmt.Sprintf("parser %s validation FAILED", id)
+			if p.ValidationReport != "" {
+				if errs, lerr := c.ListParsingErrors(ctx, p.ValidationReport, 5); lerr == nil && len(errs) > 0 {
+					msg += ": " + string(errs[0].Error)
+				}
+			}
+			return fmt.Errorf("%s", msg)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("parser %s created but validation did not settle within %s (stage %q) — activate it once validated: `ingest parsers activate %s %s --yes`",
+				id, parserValidateTimeout, p.ValidationStage, logType, id)
+		}
+		time.Sleep(wait)
+		wait = min(wait*2, 30*time.Second)
+	}
 }
 
 // --- helpers ----------------------------------------------------------------

@@ -19,7 +19,7 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [exclusions](exclusions.md) | 3 | Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is `pull/push rule_exclusions` |
 | [gemini](gemini.md) | 6 | AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks |
 | [info](info.md) | 4 | Show the resolved instance configuration (no API call) |
-| [ingest](ingest.md) | 30 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
+| [ingest](ingest.md) | 31 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
 | [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Lists: reference lists (empty) and watchlists |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |

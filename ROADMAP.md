@@ -235,6 +235,41 @@ Search-workflow improvements for long look-backs and evidence collection.
 
 **Docs:** catalog (events/output-contract rows), SKILL (search section), this wave.
 
+### Wave 129 — parser push activation wait, dashboard reserved-word lint, validate diagnostics, extension tips *(built — offline-tested)*
+
+Authoring-loop fixes across parsers, dashboards, and rules.
+
+- **`push parsers` waits for validation before activating.** A freshly created
+  parser version validates asynchronously; activating immediately returns a bare
+  FAILED_PRECONDITION even when the validation is about to pass. The push path
+  now polls the version's validation stage (backoff, 5-minute budget), activates
+  on PASSED, reports the validation report's parsing errors on FAILED, and on
+  timeout names the exact `parsers activate` command that finishes the job.
+- **Reserved-variable lint for dashboard charts.** A chart query binding a
+  reserved variable name (`$rule`, `$rules`, `$event`, `$events`, `$entity`,
+  `$entities`, `$detection`, `$alert`) saves cleanly but fails at execute time —
+  the chart just renders blank. `dashboards lint` flags it as a sixth static
+  check, and `dashboards verify` reports it as an error before trusting the
+  execute result. Non-zero exit on findings, as before.
+- **`rules validate` diagnostics.** Prints every compilation diagnostic with its
+  line/column position (previously only the first message, position discarded),
+  includes the full diagnostics list under `--json`, and appends a fix hint to
+  the opaque `token: "#"` error (the `#event` count operator is condition-only;
+  outcome sections use `count(...)`). SDK: `RuleDiagnostic` exported,
+  `RuleValidation.Diagnostics` added.
+- **`charts get` definition-fields resolution.** `filtersIds` is emitted as `[]`
+  (not null) for an unbound chart; a failed or empty dashboard-definition lookup
+  is surfaced on stderr instead of silently omitting the fields; `--dashboard`
+  supplies the parent when the chart's resource name carries none.
+- **`ingest parsers extension tips`.** Prints the parser-extension authoring
+  guide embedded in the binary (grok named-capture requirement, JSON-escaped
+  quote matching, event_type override merge semantics, extension-specific
+  validator rejections, statedump debugging) — offline, no API calls. The guide
+  (docs/tips/12) gains the named-capture and validator-rejection patterns and is
+  now linked from the tips index.
+
+**Docs:** catalog (parsers/dashboards/rules rows), SKILL (extension verbs), tips 12 + index, this wave.
+
 ---
 
 ## Non-goals

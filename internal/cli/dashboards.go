@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -374,10 +375,15 @@ func lookupChartDefinition(ctx context.Context, c *chronicle.Client, dashboardID
 
 // newDashboardsChartGetCmd shows a single chart's full detail.
 func newDashboardsChartGetCmd() *cobra.Command {
+	var dashboardID string
 	cmd := &cobra.Command{
 		Use:   "get <chart-id>",
 		Short: "Show a single chart's full detail: visualization, query, layout, filters (read-only)",
-		Args:  cobra.ExactArgs(1),
+		Long: "Show one chart's full detail: visualization, resolved query, and the\n" +
+			"definition-level fields (filtersIds, chartLayout) merged in from the parent\n" +
+			"dashboard. The parent is derived from the chart's resource name when it\n" +
+			"carries one; pass --dashboard when it does not.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newChronicleClient()
 			if err != nil {
@@ -392,11 +398,25 @@ func newDashboardsChartGetCmd() *cobra.Command {
 			chartName := nestedString(raw, "name")
 			cid := lastSegment(chartName)
 
-			// Look up definition-level fields (filtersIds, chartLayout) from
-			// the parent dashboard.
+			// Look up definition-level fields (filtersIds, chartLayout) from the
+			// parent dashboard — and say WHY when they can't be resolved, so a
+			// missing filtersIds is never silent.
 			var defEntry *chartDefinitionEntry
-			if dashID := extractDashboardID(chartName); dashID != "" {
-				defEntry, _ = lookupChartDefinition(ctx, c, dashID, cid)
+			dashID := dashboardID
+			if dashID == "" {
+				dashID = extractDashboardID(chartName)
+			}
+			if dashID == "" {
+				fmt.Fprintln(os.Stderr, "note: the chart name carries no parent dashboard — pass --dashboard <id> to include filtersIds/chartLayout")
+			} else {
+				var lookupErr error
+				defEntry, lookupErr = lookupChartDefinition(ctx, c, dashID, cid)
+				switch {
+				case lookupErr != nil:
+					fmt.Fprintf(os.Stderr, "warning: filtersIds/chartLayout unavailable — dashboard %s read failed: %v\n", dashID, lookupErr)
+				case defEntry == nil:
+					fmt.Fprintf(os.Stderr, "warning: chart %s is not referenced in dashboard %s's definition\n", cid, dashID)
+				}
 			}
 
 			if jsonOut {
@@ -405,6 +425,11 @@ func newDashboardsChartGetCmd() *cobra.Command {
 					return emitJSON(raw)
 				}
 				if defEntry != nil {
+					// An unbound chart has nil filtersIds — emit [] (an explicit
+					// "no filter bindings"), never null.
+					if defEntry.FiltersIds == nil {
+						defEntry.FiltersIds = []string{}
+					}
 					if b, err := json.Marshal(defEntry.FiltersIds); err == nil {
 						merged["filtersIds"] = b
 					}
@@ -448,6 +473,8 @@ func newDashboardsChartGetCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&dashboardID, "dashboard", "",
+		"parent dashboard id for the definition-level fields (filtersIds, chartLayout) when the chart name carries none")
 	return markJSON(cmd)
 }
 

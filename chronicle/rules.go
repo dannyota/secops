@@ -182,8 +182,10 @@ func (c *Client) CreateRule(ctx context.Context, text string) (*Rule, error) {
 	return &r, nil
 }
 
-// ruleDiagnostic is one compilation diagnostic from verifyRuleText.
-type ruleDiagnostic struct {
+// RuleDiagnostic is one compilation diagnostic from verifyRuleText. Position
+// carries the server's source coordinates when present (startLine, startColumn,
+// endLine, endColumn).
+type RuleDiagnostic struct {
 	Message  string         `json:"message,omitempty"`
 	Severity string         `json:"severity,omitempty"`
 	Position map[string]int `json:"position,omitempty"`
@@ -191,8 +193,9 @@ type ruleDiagnostic struct {
 
 // RuleValidation is the distilled result of a verifyRuleText call.
 type RuleValidation struct {
-	Success bool   // true when the rule compiles (no ERROR diagnostics)
-	Message string // first error message, empty on success
+	Success     bool             // true when the rule compiles (no ERROR diagnostics)
+	Message     string           // first error message, empty on success
+	Diagnostics []RuleDiagnostic // every compilation diagnostic, positions included
 }
 
 // ValidateRule checks YARA-L source against the API's verifyRuleText endpoint
@@ -212,7 +215,7 @@ func (c *Client) ValidateRule(ctx context.Context, text string) (*RuleValidation
 
 	var resp struct {
 		Success                bool             `json:"success"`
-		CompilationDiagnostics []ruleDiagnostic `json:"compilationDiagnostics"`
+		CompilationDiagnostics []RuleDiagnostic `json:"compilationDiagnostics"`
 		CompatibilityVersions  []string         `json:"compatibilityVersions"`
 	}
 	if err := c.post(ctx, path, body, &resp); err != nil {
@@ -222,14 +225,14 @@ func (c *Client) ValidateRule(ctx context.Context, text string) (*RuleValidation
 	// An error-severity diagnostic means the rule does not compile.
 	for _, d := range resp.CompilationDiagnostics {
 		if strings.EqualFold(d.Severity, "ERROR") {
-			return &RuleValidation{Success: false, Message: d.Message}, nil
+			return &RuleValidation{Success: false, Message: d.Message, Diagnostics: resp.CompilationDiagnostics}, nil
 		}
 	}
 	if !resp.Success && len(resp.CompilationDiagnostics) > 0 {
 		// No ERROR severity but the server flagged failure: surface the first.
-		return &RuleValidation{Success: false, Message: resp.CompilationDiagnostics[0].Message}, nil
+		return &RuleValidation{Success: false, Message: resp.CompilationDiagnostics[0].Message, Diagnostics: resp.CompilationDiagnostics}, nil
 	}
-	return &RuleValidation{Success: true}, nil
+	return &RuleValidation{Success: true, Diagnostics: resp.CompilationDiagnostics}, nil
 }
 
 // RuleDeployment is the deployment (run/alert) state of a rule.

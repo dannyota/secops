@@ -105,6 +105,20 @@ if [_try_reverse] {
 }
 ```
 
+### Grok always needs a named capture — even for presence checks
+
+A grok block with **no named capture** (`%{PATTERN:name}`) sets its `on_error`
+flag even when the regex matches. A detection-only grok used as a presence
+check — `match => { "field" => "SSL handshaking" }` — therefore always reads as
+a miss. Add a dummy named capture to make the match register:
+
+```ruby
+grok {
+  match => { "field" => "%{GREEDYDATA:_pre}SSL handshaking%{GREEDYDATA}" }
+  on_error => "not_ssl"
+}
+```
+
 ### Separate mutate blocks for nullable fields
 
 Extracting multiple fields in one `mutate` block with a single `on_error` means
@@ -218,6 +232,26 @@ See the
 for the full matrix. When upgrading `GENERIC_EVENT` to a specific type, add the
 required fields **before** setting `event_type`, or guard both in the same
 conditional block.
+
+### Extension-specific validation rejections
+
+The server-side extension validator is stricter than `parsers run` — a CBN that
+tests clean can still land in `state: REJECTED`, often with **no error
+message**. Two known cases:
+
+- **Some field merges are rejected in extensions.** A
+  `mutate { merge => { "event.idm.read_only_udm.target.ip" => … } }` is
+  rejected while the same merge into `principal.ip` — or a `replace` into
+  `target.hostname` — validates. When a repeated-field merge is rejected,
+  map the value to a hostname-style field via `replace` instead.
+- **The `event_type` override is rejected on some log types.** The same
+  override that validates on log types with custom or simple base parsers is
+  rejected on some Google-managed (prebuilt) base parsers. Fall back to
+  `additional.fields` labels for rule/dashboard filtering and keep the base
+  parser's event type.
+
+Because rejections carry no message, deploy incrementally: validate after each
+added field block and bisect on `REJECTED` to isolate the offending mapping.
 
 ## Error handling
 

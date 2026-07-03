@@ -323,6 +323,22 @@ ALL_FIELDS, or DISABLED). With a setting, updates it (guarded).
 | `--dry-run` | bool | false | preview only (default behavior) |
 | `--yes` | bool | false | apply the change |
 
+## ingest parsers extension tips
+
+Print the parser-extension authoring guide (proven CBN patterns, offline)
+
+```text
+secopsctl ingest parsers extension tips
+```
+
+```text
+Print the parser-extension authoring guide embedded in the binary: extension
+lifecycle, testing with `parsers run`, and the non-obvious CBN patterns —
+grok's named-capture requirement, JSON-escaped quote matching, event_type
+override merge semantics, validator-rejected field mappings, and multi-format
+gating. Offline; no API calls. Same content as docs/tips/12-parser-extensions.md.
+```
+
 ## ingest parsers rollback
 
 Revert a parser to its previous version (opt out of preview / rollback)

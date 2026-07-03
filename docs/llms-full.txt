@@ -2932,6 +2932,7 @@ Start with [01](01-secops-as-code.md) (the loop) and [02](02-architecture-client
 | [09 · SOAR operations](09-soar-operations.md) | The two SOAR API surfaces, the playbook-versioning gotcha, case hygiene as detection-as-code on cron, and the SOAR command groups (`soar playbooks`/`integrations`/`jobs`/`ide`) plus installing vendor content from the Content Hub (`content-hub`). |
 | [10 · LLM & automation](10-llm-and-automation.md) | How an LLM agent drives the CLI (deterministic flags, `--json`/`--format`, dry-run-first) and detection-as-code automation patterns. |
 | [11 · Gemini & AI](11-gemini-and-ai.md) | Natural-language → UDM (`gemini generate`/`search`), the assistant (`gemini ask`), the model-inferred time window, one-time opt-in, and driving it safely as an agent. |
+| [12 · Parser extensions](12-parser-extensions.md) | CBN authoring patterns for extensions: lifecycle (immutable, delete→create→validate→activate), merge semantics, grok named-capture requirement, JSON-escaped quotes, validator rejections, statedump debugging. Also printable offline: `ingest parsers extension tips`. |
 
 ---
 
@@ -4788,6 +4789,20 @@ if [_try_reverse] {
 }
 ```
 
+### Grok always needs a named capture — even for presence checks
+
+A grok block with **no named capture** (`%{PATTERN:name}`) sets its `on_error`
+flag even when the regex matches. A detection-only grok used as a presence
+check — `match => { "field" => "SSL handshaking" }` — therefore always reads as
+a miss. Add a dummy named capture to make the match register:
+
+```ruby
+grok {
+  match => { "field" => "%{GREEDYDATA:_pre}SSL handshaking%{GREEDYDATA}" }
+  on_error => "not_ssl"
+}
+```
+
 ### Separate mutate blocks for nullable fields
 
 Extracting multiple fields in one `mutate` block with a single `on_error` means
@@ -4901,6 +4916,26 @@ See the
 for the full matrix. When upgrading `GENERIC_EVENT` to a specific type, add the
 required fields **before** setting `event_type`, or guard both in the same
 conditional block.
+
+### Extension-specific validation rejections
+
+The server-side extension validator is stricter than `parsers run` — a CBN that
+tests clean can still land in `state: REJECTED`, often with **no error
+message**. Two known cases:
+
+- **Some field merges are rejected in extensions.** A
+  `mutate { merge => { "event.idm.read_only_udm.target.ip" => … } }` is
+  rejected while the same merge into `principal.ip` — or a `replace` into
+  `target.hostname` — validates. When a repeated-field merge is rejected,
+  map the value to a hostname-style field via `replace` instead.
+- **The `event_type` override is rejected on some log types.** The same
+  override that validates on log types with custom or simple base parsers is
+  rejected on some Google-managed (prebuilt) base parsers. Fall back to
+  `additional.fields` labels for rule/dashboard filtering and keep the base
+  parser's event type.
+
+Because rejections carry no message, deploy incrementally: validate after each
+added field block and bisect on `REJECTED` to isolate the offending mapping.
 
 ## Error handling
 
@@ -5515,12 +5550,12 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 
 | Function (CLI) | Lane | Status (marker · domain · version) | Notes |
 |---|---|---|---|
-| `rules` | bespoke | ✅ chronicle · v1alpha | YARA-L source + deployment state machine; multiple CLI verbs + rule-tuning reads + batch update. `push rules-create` retries deploy with backoff (W118). |
+| `rules` | bespoke | ✅ chronicle · v1alpha | YARA-L source + deployment state machine; multiple CLI verbs + rule-tuning reads + batch update. `push rules-create` retries deploy with backoff (W118). `rules validate` prints every diagnostic with line/col and hints the `#`-in-outcome fix (W129). |
 | `reference_lists` | reconcile + imperative | ✅ chronicle · v1alpha | Typed `.txt`+`.yaml`; NoDelete; resource-name normalization; empty-list canonical fix. |
 | `data_tables` | reconcile | ✅ chronicle · v1alpha | `.csv`+`.yaml`; columns immutable after create; rows wholesale destroy-and-replace. |
 | `feeds` | reconcile | ✅ chronicle · v1alpha | `.yaml`; secrets redacted on pull, overlaid on update; `secret_ref` env/Secret Manager; not prune-eligible. |
-| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate; parser-dev loop (`run` with per-event error/parsedFields/failedFieldsAndErrors diagnostic output, `--cbn` required, `validate`); extensions (list/get/create/activate/delete + extract discover/create + setting read/update); conf-only create; custom-parser discovery on pull; `upgrade` (preview + activate release candidate); `rollback` (revert to last used version). |
-| `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards; `create`/`get`/`edit` (metadata + access); `charts` (list/get/add/batch/edit/remove/run — 9 chart types, reserved-word help in `charts add`; `run --table` tabular output; `add` auto-binds GlobalTimeFilter; `edit --title`/`--filters`; `list`/`get` show filtersIds+chartLayout; stacked-bar viz fix); `markdown` (add/edit/remove); `button` (add/edit/remove); `layout` (show/move); `filters` (show/set global time range); `lint`/`fix`/`inspect` quality; `verify` (single + fleet, reserved-word error reframe); `duplicate` + deep-copy; export↔import. |
+| `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate (push waits for the async validation to settle before activating; on FAILED it reports the parsing errors); parser-dev loop (`run` with per-event error/parsedFields/failedFieldsAndErrors diagnostic output, `--cbn` required, `validate`); extensions (list/get/create/activate/delete + extract discover/create + setting read/update + `tips` embedded authoring guide); conf-only create; custom-parser discovery on pull; `upgrade` (preview + activate release candidate); `rollback` (revert to last used version). |
+| `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards; `create`/`get`/`edit` (metadata + access); `charts` (list/get/add/batch/edit/remove/run — 9 chart types, reserved-word help in `charts add`; `run --table` tabular output; `add` auto-binds GlobalTimeFilter; `edit --title`/`--filters`; `list`/`get` show filtersIds+chartLayout; stacked-bar viz fix); `markdown` (add/edit/remove); `button` (add/edit/remove); `layout` (show/move); `filters` (show/set global time range); `lint`/`fix`/`inspect` quality (lint also flags reserved variable names statically); `verify` (single + fleet; reserved-word queries flagged as errors before execution); `charts get` merges filtersIds (`[]` when unbound) + chartLayout, `--dashboard` for charts whose name carries no parent, lookup failures surfaced on stderr; `duplicate` + deep-copy; export↔import. |
 | `curated` / `curated_rules` | reconcile + imperative | ✅ chronicle · v1alpha | Google-managed; batch enable/alerting reconcile; curated tuning reads; v1alpha only. |
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
 | `forwarders` | reconcile | ✅ chronicle · v1beta | `.yaml`; prune-eligible; collectors separate nested resource; SDK pinned v1beta (v1 404s). |
@@ -7140,7 +7175,7 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [exclusions](exclusions.md) | 3 | Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is `pull/push rule_exclusions` |
 | [gemini](gemini.md) | 6 | AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks |
 | [info](info.md) | 4 | Show the resolved instance configuration (no API call) |
-| [ingest](ingest.md) | 30 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
+| [ingest](ingest.md) | 31 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
 | [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Lists: reference lists (empty) and watchlists |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |

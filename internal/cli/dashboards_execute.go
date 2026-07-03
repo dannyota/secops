@@ -316,6 +316,18 @@ func verifyOneChart(ctx context.Context, c *chronicle.Client, ref string, clearC
 	}
 	v.Title = nestedString(chartRaw, "displayName")
 	queryRef := nestedString(chartRaw, "chartDatasource", "dashboardQuery")
+	// Reserved variable names can execute clean here yet fail when the console
+	// renders the chart — catch them statically before trusting the execute.
+	if queryRef != "" {
+		if qraw, qerr := c.GetQuery(ctx, queryRef); qerr == nil {
+			if rv := findReservedVariables(nestedString(qraw, "query")); len(rv) > 0 {
+				v.Status = "error"
+				v.Error = fmt.Sprintf("reserved variable name(s) %s — the chart renders blank; rename (e.g. %s → %s_v)",
+					strings.Join(rv, ", "), rv[0], rv[0])
+				return v
+			}
+		}
+	}
 	res, eerr := execChartQuery(ctx, c, queryRef, clearCache)
 	if eerr != nil {
 		v.Status, v.Error = classifyChartErr(eerr)
@@ -448,7 +460,9 @@ func newDashboardsVerifyCmd() *cobra.Command {
 		Short: "Execute every chart and flag the ones returning no rows or an error (read-only)",
 		Long: "A dashboard health check: execute each chart's query (`dashboardQueries:execute`)\n" +
 			"and report which charts return an ERROR or 0 rows (EMPTY) vs OK — so a blank or\n" +
-			"broken chart is caught headless / in CI without opening the UI. Charts run in\n" +
+			"broken chart is caught headless / in CI without opening the UI. Queries using a\n" +
+			"reserved variable name ($rule, $events, $entity, …) are flagged as errors\n" +
+			"statically — they can execute clean yet render blank in the console. Charts run in\n" +
 			"parallel (--concurrency, default 8) so a many-chart dashboard verifies in\n" +
 			"seconds. Pass --all to health-check every dashboard in the instance (a fleet\n" +
 			"rollup; one row per dashboard). Read-only; exits non-zero (2) when any chart is\n" +

@@ -218,8 +218,21 @@ At least one is required. Guarded: dry-run by default, --yes to apply.
 Show a single chart's full detail: visualization, query, layout, filters (read-only)
 
 ```text
-secopsctl dashboards charts get <chart-id>
+secopsctl dashboards charts get <chart-id> [flags]
 ```
+
+```text
+Show one chart's full detail: visualization, resolved query, and the
+definition-level fields (filtersIds, chartLayout) merged in from the parent
+dashboard. The parent is derived from the chart's resource name when it
+carries one; pass --dashboard when it does not.
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--dashboard` | string | - | parent dashboard id for the definition-level fields (filtersIds, chartLayout) when the chart name carries none |
 
 ## dashboards charts list
 
@@ -603,6 +616,8 @@ Checks every chart for:
      from the dashboard's global time filter (fixable: --sync-time).
   4. Missing chart title — untitled charts are hard to identify.
   5. Overlapping grid positions — two charts occupying the same cells.
+  6. Reserved variable names ($rule, $events, $entity, …) — the chart
+     saves but fails at execute time and renders blank (rename the variable).
 Read-only — no API writes.
 ```
 
@@ -717,7 +732,9 @@ secopsctl dashboards verify [<dashboard-id>] [flags]
 ```text
 A dashboard health check: execute each chart's query (`dashboardQueries:execute`)
 and report which charts return an ERROR or 0 rows (EMPTY) vs OK — so a blank or
-broken chart is caught headless / in CI without opening the UI. Charts run in
+broken chart is caught headless / in CI without opening the UI. Queries using a
+reserved variable name ($rule, $events, $entity, …) are flagged as errors
+statically — they can execute clean yet render blank in the console. Charts run in
 parallel (--concurrency, default 8) so a many-chart dashboard verifies in
 seconds. Pass --all to health-check every dashboard in the instance (a fleet
 rollup; one row per dashboard). Read-only; exits non-zero (2) when any chart is

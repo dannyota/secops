@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"danny.vn/secops/chronicle"
+	"danny.vn/secops/docs/tips"
 
 	"github.com/spf13/cobra"
 )
@@ -23,8 +24,29 @@ func newParsersExtensionCmd() *cobra.Command {
 		newExtDeleteCmd(),
 		newExtExtractCmd(),
 		newExtSettingCmd(),
+		newExtTipsCmd(),
 	)
 	return cmd
+}
+
+// newExtTipsCmd prints the embedded parser-extension authoring guide — the
+// non-obvious CBN patterns (grok named-capture requirement, JSON-escaped
+// quotes, event_type override merge semantics, fields the validator rejects)
+// that cost debugging time when learned from the error messages alone.
+func newExtTipsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "tips",
+		Short: "Print the parser-extension authoring guide (proven CBN patterns, offline)",
+		Long: "Print the parser-extension authoring guide embedded in the binary: extension\n" +
+			"lifecycle, testing with `parsers run`, and the non-obvious CBN patterns —\n" +
+			"grok's named-capture requirement, JSON-escaped quote matching, event_type\n" +
+			"override merge semantics, validator-rejected field mappings, and multi-format\n" +
+			"gating. Offline; no API calls. Same content as docs/tips/12-parser-extensions.md.",
+		Args: cobra.NoArgs,
+		Run: func(cmd *cobra.Command, _ []string) {
+			fmt.Fprint(cmd.OutOrStdout(), tips.ParserExtensions())
+		},
+	}
 }
 
 func newExtListCmd() *cobra.Command {

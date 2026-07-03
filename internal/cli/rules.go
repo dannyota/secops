@@ -124,16 +124,19 @@ func newRulesValidateCmd() *cobra.Command {
 				return err
 			}
 			ok := res != nil && res.Success
-			msg := ""
+			var msg string
+			var diags []chronicle.RuleDiagnostic
 			if res != nil {
-				msg = res.Message
+				msg = reframeRuleErr(res.Message)
+				diags = res.Diagnostics
 			}
 			if jsonOut {
 				if jerr := emitJSON(struct {
-					File    string `json:"file"`
-					Valid   bool   `json:"valid"`
-					Message string `json:"message,omitempty"`
-				}{File: args[0], Valid: ok, Message: msg}); jerr != nil {
+					File        string                     `json:"file"`
+					Valid       bool                       `json:"valid"`
+					Message     string                     `json:"message,omitempty"`
+					Diagnostics []chronicle.RuleDiagnostic `json:"diagnostics,omitempty"`
+				}{File: args[0], Valid: ok, Message: msg, Diagnostics: diags}); jerr != nil {
 					return jerr
 				}
 				if !ok {
@@ -145,10 +148,53 @@ func newRulesValidateCmd() *cobra.Command {
 				fmt.Printf("OK: %s is valid YARA-L.\n", args[0])
 				return nil
 			}
-			return fmt.Errorf("invalid: %s", msg)
+			// Print every diagnostic with its position; the first drives the exit error.
+			for _, d := range diags {
+				fmt.Printf("%s%s: %s\n", strings.ToLower(firstNonEmpty(d.Severity, "error")),
+					diagPosition(d), reframeRuleErr(d.Message))
+			}
+			return fmt.Errorf("invalid: %s%s", msg, diagPosition(firstErrDiag(diags)))
 		},
 	}
 	return markJSON(cmd)
+}
+
+// reframeRuleErr appends a fix hint to a YARA-L compilation message when the
+// raw server text is known to under-explain the fix.
+func reframeRuleErr(msg string) string {
+	if strings.Contains(msg, `token: "#"`) {
+		return msg + ` — the #event count operator is only valid in the condition: section; ` +
+			`in outcome:, use count($e.metadata.id) (or count_distinct) and reference that variable`
+	}
+	return msg
+}
+
+// diagPosition renders a diagnostic's source position (" (line N, col M)"), or
+// "" when the server sent none.
+func diagPosition(d chronicle.RuleDiagnostic) string {
+	line, col := d.Position["startLine"], d.Position["startColumn"]
+	switch {
+	case line == 0:
+		return ""
+	case col > 0:
+		return fmt.Sprintf(" (line %d, col %d)", line, col)
+	default:
+		return fmt.Sprintf(" (line %d)", line)
+	}
+}
+
+// firstErrDiag picks the first ERROR-severity diagnostic (else the first of
+// any severity) — the one whose position belongs on the headline error.
+func firstErrDiag(diags []chronicle.RuleDiagnostic) chronicle.RuleDiagnostic {
+	for _, d := range diags {
+		if strings.EqualFold(d.Severity, "ERROR") {
+			return d
+		}
+	}
+	if len(diags) > 0 {
+		return diags[0]
+	}
+	return chronicle.RuleDiagnostic{}
 }
 
 // timeWindow returns [now-hours, now] in UTC (default 24h when hours <= 0).

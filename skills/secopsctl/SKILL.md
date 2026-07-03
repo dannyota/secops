@@ -269,6 +269,7 @@ secopsctl ingest parsers extension extract GCP_DNS --all --yes  # create extract
 secopsctl ingest parsers extension extract GCP_DNS --fields insertId,logName --yes  # specific fields
 secopsctl ingest parsers extension setting GCP_DNS              # show current extraction type
 secopsctl ingest parsers extension setting GCP_DNS all --yes    # extract all fields (up to 100)
+secopsctl ingest parsers extension tips                         # print the CBN authoring guide (offline)
 
 secopsctl ingest log-types list                                 # active log types (feedCount > 0)
 secopsctl ingest log-types list --all --sort feeds              # full catalog, sorted by feed count
