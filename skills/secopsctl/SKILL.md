@@ -74,7 +74,7 @@ ritual.
 | `ti` | threat intel & IOCs: `find` · `get` · `related` · `collections` · `collection` · `collection-matches` | SIEM | read |
 | `lists` | `empty` (reference list) · `watchlists …` | SIEM | read + guarded |
 | `dashboards` | `create` · `list` · `get` · `edit` · `charts` (list/get/add/batch/edit/remove/run) · `markdown` (add/edit/remove) · `button` (add/edit/remove) · `layout` (show/move) · `filters` (show/set) · verify · lint/fix/inspect · export/import · duplicate · delete | SIEM | read + guarded |
-| `entities` | `summarize` · `graph` · `risk-scores` | SIEM | read |
+| `entities` | `summarize` · `graph` · `risk-scores` · `audit` | SIEM | read |
 | `alerts` | `list` · `get` · `update` (feedback) | SIEM | read + guarded (`update`) |
 | `cases` | SOAR case triage: list/get/close/assign/tag/stage/comment/run-action/incident/report/alert… | SOAR | read + guarded |
 | `content-hub` | `browse` · `list` · `get` · `contentpacks` · `featured` · `diff` · `install` · `uninstall` | SOAR | read + guarded (`install`/`uninstall`) |
@@ -251,6 +251,9 @@ retryable, status, request_id}` envelope on **stderr** while stdout stays clean 
 payload — so branch on exit code, parse stdout, surface stderr. For bulk event work
 prefer `--format jsonl` (per-line) or `search export` (server-side CSV, uncapped).
 
+`--no-progress` suppresses carriage-return streaming progress on stderr (auto-suppressed
+by `--json` or non-TTY stderr). Affects `pull all`, `search udm --raw`, `rules run-test`.
+
 ## Common recipes
 
 End-to-end, copy-pasteable. Replace placeholders; preview before `--yes`.
@@ -421,6 +424,15 @@ secopsctl curated set --category <cat> --ruleset <rs> --precision broad --alerti
 Investigate: `secopsctl entities graph <detection-id>` walks the findings-graph pivot;
 `secopsctl entities risk-scores --order-by 'riskScore desc'` ranks hosts/users.
 
+Entity maturity audit (cross-ref risk scores vs watchlist coverage):
+
+```bash
+secopsctl entities audit                  # high-risk entities vs watchlist gaps (default --min-risk 500)
+secopsctl entities audit --min-risk 200   # lower threshold
+secopsctl entities audit --limit 50       # cap results
+secopsctl entities audit --json           # structured output
+```
+
 ### Install Content Hub content
 
 ```bash
@@ -586,6 +598,7 @@ names (e.g. `secopsctl-smoke-<nanos>`) and **delete by exact id**, never a list 
 | Toggle curated rules | `secopsctl curated set --category <c> --ruleset <r> --precision broad --dry-run` |
 | Install Content Hub content | `secopsctl content-hub install --identifier <id> --dry-run` |
 | Pivot an investigation | `secopsctl entities graph <detection-id>` · `secopsctl entities risk-scores` |
+| Audit entity/watchlist maturity | `secopsctl entities audit [--min-risk N] [--json]` |
 | Recover from ADC lapse | `gcloud auth login` then `secopsctl doctor` |
 | Force legacy SOAR path | add `--legacy` |
 | Hard read-only for an agent | `SECOPS_READONLY=1 secopsctl ...` |

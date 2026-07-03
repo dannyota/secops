@@ -21,7 +21,7 @@ func newEntityCmd() *cobra.Command {
 			"related entities, and prevalence over a time window; `graph` seeds the\n" +
 			"findings-graph pivot from a detection and walks connected entities.",
 	}
-	cmd.AddCommand(newEntitySummarizeCmd(), newEntitiesGraphCmd(), newEntitiesRiskScoresCmd())
+	cmd.AddCommand(newEntitySummarizeCmd(), newEntitiesGraphCmd(), newEntitiesRiskScoresCmd(), newEntitiesAuditCmd())
 	return cmd
 }
 

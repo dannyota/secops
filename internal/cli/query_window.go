@@ -189,11 +189,13 @@ func fetchRawLinesProgress(ctx context.Context, c *chronicle.Client, ids []strin
 		end := min(start+slice, len(ids))
 		lines, err := c.FindRawLogLines(ctx, ids[start:end])
 		if err != nil {
+			clearProgress()
 			return nil, err
 		}
 		out = append(out, lines...)
-		fmt.Fprintf(os.Stderr, "fetched %d/%d raw logs…\n", end, len(ids))
+		printProgress("raw log", end, len(ids))
 	}
+	clearProgress()
 	return out, nil
 }
 

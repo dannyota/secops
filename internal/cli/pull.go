@@ -193,14 +193,19 @@ func init() {
 			root := mirror.DataRoot(outDir)
 
 			total := 0
-			for _, t := range todo {
+			for i, t := range todo {
+				if len(todo) > 1 {
+					printProgress(t.name, i+1, len(todo))
+				}
 				dest := filepath.Join(root, t.subdir)
 				n, err := t.run(c, dest, filterExpr)
 				if err != nil {
+					clearProgress()
 					return fmt.Errorf("pull %s: %w", t.name, err)
 				}
 				total += n
 			}
+			clearProgress()
 
 			fmt.Printf("\nPull complete: %d item(s) across %d target(s).\n",
 				total, len(todo))

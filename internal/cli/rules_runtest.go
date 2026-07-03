@@ -85,8 +85,7 @@ func newRulesTestCmd() *cobra.Command {
 					compileErrs = append(compileErrs, ch.CompilationError)
 				case len(ch.RuntimeError) > 0:
 					runtimeErrs = append(runtimeErrs, ch.RuntimeError)
-				case ch.ProgressPercent >= 0 && !jsonOut:
-					// Report progress at ~20% steps (and 100%) to avoid spam.
+				case ch.ProgressPercent >= 0 && !jsonOut && !noProgress:
 					if ch.ProgressPercent >= lastPct+20 || ch.ProgressPercent == 100 {
 						fmt.Fprintf(os.Stderr, "scanning… %d%%\n", ch.ProgressPercent)
 						lastPct = ch.ProgressPercent

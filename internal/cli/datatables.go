@@ -109,7 +109,7 @@ func readCSV(path string, skipHeader bool) ([][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open csv: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	all, err := csv.NewReader(file).ReadAll()
 	if err != nil {

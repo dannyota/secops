@@ -248,6 +248,8 @@ func init() {
 	pf.BoolVar(&readOnlyFlag, "read-only", false,
 		"hard read-only session: every guarded mutation degrades to a dry-run preview even with --yes "+
 			"(also enabled by SECOPS_READONLY=1 — set it in the environment that launches an agent)")
+	pf.BoolVar(&noProgress, "no-progress", false,
+		"disable progress spinners and counters on stderr (implied by --json and non-TTY stderr)")
 	pf.DurationVar(&requestTimeout, "timeout", defaultRequestTimeout,
 		"per-request HTTP timeout for API calls; a slow/blocked endpoint fails fast instead of hanging. "+
 			"Per request, not per command — it never spans a confirm prompt or caps a multi-call command in "+

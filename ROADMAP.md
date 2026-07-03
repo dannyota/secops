@@ -42,7 +42,8 @@ P5 (21–24) finishing · 25–51 operability/UX · 52–72 triage-loop + AI + d
 125 v0.7.6 (parser extension docs + test refactor) ·
 126 v0.7.7 (dashboard chart improvements for agent authoring) ·
 127 v0.7.7+ (command reference + SEO + global --output) ·
-128–131 search + field-report closeout + repo health + query packs.
+128–131 search + field-report closeout + repo health + query packs ·
+132–133 extension update + rules review + data-table import + progress + entity audit.
 
 ```mermaid
 flowchart LR
@@ -75,7 +76,7 @@ flowchart LR
 
 ## Completed waves (1–120)
 
-**132 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
+**133 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
 Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 ---
@@ -300,6 +301,10 @@ Backlog clearout: compound operations, promotion reporting, and bulk data import
   dry-run preview.
 
 **Docs:** catalog (parsers/rules/data-tables rows), SKILL (new commands), this wave.
+
+### Wave 133 — global `--no-progress` flag, entity risk/watchlist maturity audit *(built)*
+
+Global `--no-progress` flag for streaming-progress control (s1ctl-inspired); `entities audit` cross-references entity risk scores with watchlist coverage (empty/default-factor health, coverage gaps, `--min-risk`, `--json`).
 
 ---
 
