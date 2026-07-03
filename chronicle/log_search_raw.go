@@ -70,22 +70,31 @@ func (c *Client) FindRawLogLines(ctx context.Context, ids []string) ([]RawLogLin
 	return out, nil
 }
 
-// RawLogIDsFromUDMEvents lifts each event's raw-log id (udm.metadata.id) — the
+// RawLogIDsFromUDMEvents lifts each event's raw-log id (metadata.id) — the
 // handle FindRawLogLines / legacyFindRawLogs takes to download the full raw bytes.
-// Events with no metadata.id are skipped. The events are the raw element shape
-// :udmSearch returns ({"name":…,"udm":{"metadata":{…}}}).
+// Events with no metadata.id are skipped. Both event envelopes are accepted:
+// {"udm":{"metadata":{…}}} from :udmSearch and {"event":{"metadata":{…}}} from
+// the search-view engine (UdmEventInfo).
 func RawLogIDsFromUDMEvents(events []json.RawMessage) []string {
+	type udmMeta struct {
+		Metadata struct {
+			ID string `json:"id"`
+		} `json:"metadata"`
+	}
 	ids := make([]string, 0, len(events))
 	for _, e := range events {
 		var d struct {
-			UDM struct {
-				Metadata struct {
-					ID string `json:"id"`
-				} `json:"metadata"`
-			} `json:"udm"`
+			UDM   udmMeta `json:"udm"`
+			Event udmMeta `json:"event"`
 		}
-		if json.Unmarshal(e, &d) == nil && d.UDM.Metadata.ID != "" {
+		if json.Unmarshal(e, &d) != nil {
+			continue
+		}
+		switch {
+		case d.UDM.Metadata.ID != "":
 			ids = append(ids, d.UDM.Metadata.ID)
+		case d.Event.Metadata.ID != "":
+			ids = append(ids, d.Event.Metadata.ID)
 		}
 	}
 	return ids

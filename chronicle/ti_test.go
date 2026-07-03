@@ -9,11 +9,12 @@ import (
 func TestIocAssociationDecode(t *testing.T) {
 	raw := `{
 		"name":"projects/000000000000/locations/us/instances/00000000-0000-0000-0000-000000000000/iocAssociations/malware--aabbccdd-1234-5678-9abc-def012345678",
-		"associationType":"MALWARE_FAMILY",
+		"type":"MALWARE",
 		"threatDisplayName":"Test Malware",
 		"description":"A test description.",
-		"lastReferenceTime":"2026-07-01T00:00:00Z",
-		"iocs":["ioc1","ioc2"]
+		"firstReferenceTime":"2026-07-01T00:00:00Z",
+		"roles":["Downloader"],
+		"operatingSystems":["Windows"]
 	}`
 	var a IocAssociation
 	if err := json.Unmarshal([]byte(raw), &a); err != nil {
@@ -22,14 +23,14 @@ func TestIocAssociationDecode(t *testing.T) {
 	if a.ID != "malware--aabbccdd-1234-5678-9abc-def012345678" {
 		t.Errorf("ID = %q, want derived from name", a.ID)
 	}
-	if a.AssociationType != "MALWARE_FAMILY" {
+	if a.AssociationType != "MALWARE" {
 		t.Errorf("AssociationType = %q", a.AssociationType)
 	}
 	if a.ThreatDisplayName != "Test Malware" {
 		t.Errorf("ThreatDisplayName = %q", a.ThreatDisplayName)
 	}
-	if len(a.Iocs) != 2 {
-		t.Errorf("Iocs len = %d, want 2", len(a.Iocs))
+	if len(a.Roles) != 1 || a.Roles[0] != "Downloader" {
+		t.Errorf("Roles = %v, want [Downloader]", a.Roles)
 	}
 	if len(a.Raw) == 0 {
 		t.Error("Raw is empty")

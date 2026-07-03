@@ -298,25 +298,32 @@ func (c *Client) tiResourceName(kind, id string, numeric bool) string {
 // IoC associations — malware families and threat actors linked to IoCs.
 // ---------------------------------------------------------------------------
 
-// AssociationType is the IoC-association type selector (malware family or threat
-// actor). The set is open; these are the documented values.
+// AssociationType is the IoC-association type selector. The set is open; these
+// are the server's tokens. DEVIATION: the REST reference documents
+// MALWARE_FAMILY, but the server rejects it and returns/accepts MALWARE.
 type AssociationType string
 
 const (
-	AssociationMalwareFamily AssociationType = "MALWARE_FAMILY"
-	AssociationThreatActor   AssociationType = "THREAT_ACTOR"
+	AssociationMalware         AssociationType = "MALWARE"
+	AssociationThreatActor     AssociationType = "THREAT_ACTOR"
+	AssociationSoftwareToolkit AssociationType = "SOFTWARE_TOOLKIT"
 )
 
-// IocAssociation is one malware-family or threat-actor IoC association.
+// IocAssociation is one malware / threat-actor / software-toolkit IoC
+// association record.
 type IocAssociation struct {
-	Name              string          `json:"name"`
-	ID                string          `json:"-"` // short id, e.g. "malware--<uuid>"
-	AssociationType   string          `json:"associationType"`
-	ThreatDisplayName string          `json:"threatDisplayName"`
-	Description       string          `json:"description"`
-	LastReferenceTime string          `json:"lastReferenceTime"`
-	Iocs              []string        `json:"iocs,omitempty"`
-	Raw               json.RawMessage `json:"-"`
+	Name               string          `json:"name"`
+	ID                 string          `json:"id"` // short id, e.g. "malware--<uuid>"
+	AssociationType    string          `json:"type"`
+	ThreatDisplayName  string          `json:"threatDisplayName"`
+	Description        string          `json:"description"`
+	FirstReferenceTime string          `json:"firstReferenceTime"`
+	LastReferenceTime  string          `json:"lastReferenceTime"`
+	Roles              []string        `json:"roles,omitempty"`
+	OperatingSystems   []string        `json:"operatingSystems,omitempty"`
+	IndustriesAffected []string        `json:"industriesAffected,omitempty"`
+	Iocs               []string        `json:"iocs,omitempty"`
+	Raw                json.RawMessage `json:"-"`
 }
 
 // UnmarshalJSON decodes the typed fields, derives the short ID, and preserves
@@ -328,14 +335,16 @@ func (a *IocAssociation) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*a = IocAssociation(v)
-	a.ID = lastSegment(a.Name)
+	if a.ID == "" {
+		a.ID = lastSegment(a.Name)
+	}
 	a.Raw = append(json.RawMessage(nil), data...)
 	return nil
 }
 
 // iocAssociationsBatchGetResponse is the batchGet envelope.
 type iocAssociationsBatchGetResponse struct {
-	Items []IocAssociation `json:"iocAssociations"`
+	Items []IocAssociation `json:"associations"`
 }
 
 // batchGetIocAssociationsChunkSize is the maximum number of resource names per
@@ -412,7 +421,7 @@ type RelatedAssociationQuery struct {
 }
 
 type iocAssociationsRelatedList struct {
-	Items         []IocAssociation `json:"iocAssociations"`
+	Items         []IocAssociation `json:"associations"`
 	NextPageToken string           `json:"nextPageToken"`
 	TotalSize     int64            `json:"totalSize"`
 }

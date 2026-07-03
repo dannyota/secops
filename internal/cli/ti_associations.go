@@ -96,7 +96,7 @@ func newTIRelatedAssociationsCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&assocType, "type", "", "filter by type: malware, threat-actor, or all (default: all)")
+	f.StringVar(&assocType, "type", "", "filter by type: malware, threat-actor, or toolkit (default: all)")
 	f.IntVar(&limit, "limit", 25, "maximum associations to return")
 	return markJSON(cmd)
 }
@@ -110,9 +110,11 @@ func relatedAssociationQuery(id, assocType string, limit int) chronicle.RelatedA
 	}
 	switch strings.ToLower(assocType) {
 	case "malware", "malware_family":
-		q.Type = chronicle.AssociationMalwareFamily
+		q.Type = chronicle.AssociationMalware
 	case "threat-actor", "threat_actor":
 		q.Type = chronicle.AssociationThreatActor
+	case "toolkit", "software-toolkit", "software_toolkit":
+		q.Type = chronicle.AssociationSoftwareToolkit
 	}
 	// Route id to the right field based on prefix.
 	lower := strings.ToLower(id)

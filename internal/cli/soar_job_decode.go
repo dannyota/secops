@@ -233,7 +233,7 @@ func soarJobInstanceRowFromModern(ji soar.JobInstance) soarJobInstanceRow {
 		Enabled:          &enabled,
 		Custom:           &custom,
 		LastRunStatus:    ji.LastRunStatus,
-		LastRunTime:      ji.LastRunTime.String(),
+		LastRunTime:      epochNumberToString(ji.LastRunTime),
 		IntervalSeconds:  intervalStr,
 		ParameterCount:   len(ji.Parameters),
 	}

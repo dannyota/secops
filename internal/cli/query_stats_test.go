@@ -70,7 +70,8 @@ func TestIsAggregationQuery(t *testing.T) {
 		{"match only", "metadata.log_type != \"\"\nmatch: metadata.log_type", true},
 		{"match in value", `metadata.log_type = "match: foo"`, false},
 		{"indented match", "  match: metadata.log_type", true},
-		{"no newline", `metadata.log_type != "" match: x`, false},
+		{"single-line aggregation", `metadata.log_type != "" match: metadata.log_type outcome: $c = count(metadata.id)`, true},
+		{"no-space prefix not a section", `metadata.log_type = /rematch:x/`, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

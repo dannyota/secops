@@ -13,13 +13,39 @@ import (
 )
 
 // isAggregationQuery reports whether a UDM query contains a match: or outcome:
-// section header, which makes it an aggregation query that the stats engine
-// handles (the plain event-search engine rejects these with a 400).
+// section header, which makes it an aggregation query for the stats engine (the
+// plain event-search engine rejects or empty-answers it). Section headers are
+// valid mid-line too (single-line stats queries), so the check strips quoted
+// string contents first, then looks for a token preceded by whitespace or the
+// start of the query.
 func isAggregationQuery(query string) bool {
-	for line := range strings.SplitSeq(query, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "match:") || strings.HasPrefix(trimmed, "outcome:") {
-			return true
+	var b strings.Builder
+	inStr := false
+	for i := 0; i < len(query); i++ {
+		c := query[i]
+		switch {
+		case inStr && c == '\\' && i+1 < len(query):
+			i++ // skip the escaped character inside a string
+		case c == '"':
+			inStr = !inStr
+			b.WriteByte(' ')
+		case inStr:
+			// drop string contents
+		default:
+			b.WriteByte(c)
+		}
+	}
+	stripped := b.String()
+	for _, section := range []string{"match:", "outcome:"} {
+		for idx := strings.Index(stripped, section); idx >= 0; {
+			if idx == 0 || stripped[idx-1] == ' ' || stripped[idx-1] == '\t' || stripped[idx-1] == '\n' {
+				return true
+			}
+			rest := strings.Index(stripped[idx+len(section):], section)
+			if rest < 0 {
+				break
+			}
+			idx += len(section) + rest
 		}
 	}
 	return false
