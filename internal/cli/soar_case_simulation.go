@@ -186,7 +186,7 @@ func newSimCreateCmd() *cobra.Command {
 				return nil
 			}
 			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to apply without confirmation (pass --yes). Aborted.")
+				fmt.Fprintln(os.Stdout, "Refusing to create without confirmation (pass --yes). Aborted.")
 				return nil
 			}
 			return preferModern("soar case simulation create",
@@ -265,7 +265,7 @@ func newSimGenerateCmd() *cobra.Command {
 				return nil
 			}
 			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to apply without confirmation (pass --yes). Aborted.")
+				fmt.Fprintln(os.Stdout, "Refusing to generate without confirmation (pass --yes). Aborted.")
 				return nil
 			}
 			return preferModern("soar case simulation generate",
@@ -347,7 +347,7 @@ func newSimAlertCmd() *cobra.Command {
 				return nil
 			}
 			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to apply without confirmation (pass --yes). Aborted.")
+				fmt.Fprintln(os.Stdout, "Refusing to simulate without confirmation (pass --yes). Aborted.")
 				return nil
 			}
 			return preferModern("soar case simulation alert",
@@ -432,7 +432,7 @@ func newSimDeleteCmd() *cobra.Command {
 				return nil
 			}
 			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to apply without confirmation (pass --yes). Aborted.")
+				fmt.Fprintln(os.Stdout, "Refusing to delete without confirmation (pass --yes). Aborted.")
 				return nil
 			}
 			return preferModern("soar case simulation delete",

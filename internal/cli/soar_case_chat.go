@@ -90,7 +90,7 @@ func newCaseChatSendCmd() *cobra.Command {
 				return nil
 			}
 			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to apply without confirmation (pass --yes). Aborted.")
+				fmt.Fprintln(os.Stdout, "Refusing to send without confirmation (pass --yes). Aborted.")
 				return nil
 			}
 			body := map[string]any{"text": message}

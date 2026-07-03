@@ -228,7 +228,7 @@ func newCaseContextSetCmd() *cobra.Command {
 				return nil
 			}
 			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to apply without confirmation (pass --yes). Aborted.")
+				fmt.Fprintln(os.Stdout, "Refusing to set without confirmation (pass --yes). Aborted.")
 				return nil
 			}
 			mc, err := newSOARClient()

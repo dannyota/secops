@@ -141,7 +141,7 @@ func newCaseRunActionCmd() *cobra.Command {
 				if jsonOut {
 					return emitGuardedResult("soar case run-action", false, false)
 				}
-				fmt.Fprintln(os.Stdout, "Refusing to apply without confirmation (pass --yes). Aborted.")
+				fmt.Fprintln(os.Stdout, "Refusing to execute without confirmation (pass --yes). Aborted.")
 				return nil
 			}
 

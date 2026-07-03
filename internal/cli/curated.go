@@ -331,7 +331,7 @@ func guardedSIEMMutation(action string, dryRunFlag, yesFlag bool, do func() erro
 		return nil
 	}
 	if !assumeYes {
-		fmt.Fprintln(w, "Refusing to act without confirmation (pass --yes). Aborted.")
+		fmt.Fprintf(w, "Refusing to %s without confirmation (pass --yes). Aborted.\n", strings.ToLower(action))
 		return nil
 	}
 	if err := do(); err != nil {

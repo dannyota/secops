@@ -264,7 +264,7 @@ func emitSOARJobMutationPreview(action string, row soarJobRow, dryRun, assumeYes
 		return nil
 	}
 	if !assumeYes {
-		fmt.Fprintln(w, "\nRefusing to act without confirmation (pass --yes). Aborted.")
+		fmt.Fprintf(w, "\nRefusing to %s without confirmation (pass --yes). Aborted.\n", strings.ToLower(strings.SplitN(action, " ", 2)[0]))
 	}
 	return nil
 }
@@ -286,7 +286,7 @@ func emitSOARJobInstanceMutationPreview(action string, row soarJobInstanceRow, d
 		return nil
 	}
 	if !assumeYes {
-		fmt.Fprintln(w, "\nRefusing to act without confirmation (pass --yes). Aborted.")
+		fmt.Fprintf(w, "\nRefusing to %s without confirmation (pass --yes). Aborted.\n", strings.ToLower(strings.SplitN(action, " ", 2)[0]))
 	}
 	return nil
 }

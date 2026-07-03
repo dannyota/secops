@@ -74,7 +74,7 @@ func newSimImportCmd() *cobra.Command {
 				return nil
 			}
 			if !ay {
-				fmt.Fprintln(cmd.OutOrStdout(), "Refusing to apply without confirmation (pass --yes). Aborted.")
+				fmt.Fprintln(cmd.OutOrStdout(), "Refusing to import without confirmation (pass --yes). Aborted.")
 				return nil
 			}
 			lc, err := newSOARLegacyClient()
