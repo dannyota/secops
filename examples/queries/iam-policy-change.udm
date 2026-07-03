@@ -8,7 +8,7 @@
 # Tenant-neutral: no real projects, users, domains, or IPs.
 #
 # Run with:
-#   secopstips query udm "$(cat examples/queries/iam-policy-change.udm)" --hours 72 --json
+#   secopsctl query udm "$(cat examples/queries/iam-policy-change.udm)" --hours 72 --json
 
 metadata.event_type = "USER_RESOURCE_UPDATE_PERMISSIONS"
 AND metadata.product_event_type = "SetIamPolicy"

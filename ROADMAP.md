@@ -42,7 +42,7 @@ P5 (21–24) finishing · 25–51 operability/UX · 52–72 triage-loop + AI + d
 125 v0.7.6 (parser extension docs + test refactor) ·
 126 v0.7.7 (dashboard chart improvements for agent authoring) ·
 127 v0.7.7+ (command reference + SEO + global --output) ·
-128–130 search + field-report closeout + repo health.
+128–131 search + field-report closeout + repo health + query packs.
 
 ```mermaid
 flowchart LR
@@ -75,7 +75,7 @@ flowchart LR
 
 ## Completed waves (1–120)
 
-**130 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
+**131 waves shipped.** Full per-wave history in git (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
 Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 ---
@@ -84,23 +84,6 @@ Per-surface status is in [docs/design/catalog.md](docs/design/catalog.md).
 
 > Only the most recent waves are detailed below; older completed waves are in git
 > history (`git log -p -- ROADMAP.md docs/design/roadmap.md`).
-
-### Wave 121 — v0.7.2 case improvements, Gemini reorg, operational fixes *(built)*
-
-Case operational verbs, AI command consolidation, and operational fixes.
-
-- **`playbooks summary` rewrite.** Switch from the broken `GetWorkflowInstanceSummary` to the two-call pattern (`GetWorkflowInstancesCards` → `GetWorkflowInstance`). Fixes 500 on multi-alert/closed cases.
-- **`cases list --filter` syntax validation.** Client-side validation rejects OData-style operators (`eq`, `ne`) with guidance on the SQL-style syntax the v1alpha API uses.
-- **`WorkflowsStatus` enum.** Added to `status enums` (SDK type + CLI display, values 0–7) and the `WorkflowStatus` typed enum to the SDK.
-- **`alerts list --json` fix.** Switched to streaming per-alert output to avoid large-buffer truncation.
-- **Gemini command reorg.** All AI features under the `gemini` group: `generate-query` (was `generate`), `search`, `ask`, `investigate`, `summarize`, `generate` (playbook). Hidden backward-compat aliases at old locations. `search generate-query` alias added.
-- **`cases incident`** — mark/unmark a case as incident (`--unset` to clear).
-- **`cases report`** — export a case report (PDF/DOC/DOCX/XLSX/CSV/HTML; `--out` saves to file).
-- **Version "unknown" fix.** `version`/`doctor` omit commit info for non-git installs.
-- **Internal: `redact.go` → `secret_strip.go`.** Renamed credential-scrubbing helper to `stripSecrets()`.
-- **Transport: `ExternalBytes`** — raw-bytes response path for binary endpoints (reports).
-
-- **Docs overhaul.** Fixed `gemini generate` → `gemini generate-query` across 7 files; shortened verbose headings in surfaces/cli-naming/soar design docs; expanded rules/playbooks/soar-cases guides with missing commands (15+ rule verbs, 17 case verbs, playbook inspect/folder sections); fixed stale status rows (data-access, alert act verbs); cleaned docsify layout (removed Jekyll, streamlined CSS).
 
 ### Wave 122 — v0.7.3 parser dev-loop + content-hub + operational polish *(built)*
 
@@ -273,6 +256,30 @@ Search usability and repo health.
   switch sites).
 
 **Docs:** catalog (UDM events row), SKILL (--enrich-ip, singleton auto-enter), this wave.
+
+### Wave 131 — query packs, feeds health, file splits, verb-specific guards *(built)*
+
+Reusable query templates, feed observability, and codebase health.
+
+- **`search run --param key=value`.** Substitutes `$key` placeholders in a
+  `.udm` query file before execution — turns tracked query files into reusable
+  templates with bind parameters. Errors on missing placeholders.
+- **Parameterised audit query templates.** `examples/queries/user-login.udm`,
+  `user-admin.udm`, `user-resource.udm` — per-user activity queries accepting
+  `--param email=...`. Existing query files updated to current binary name.
+- **`ingest feeds list` last-activity column + `--failed` filter.** The fleet
+  table now shows a friendly relative timestamp ("3m ago", "2d ago") from
+  `LastFeedInitiationTime`; `--failed` shows only non-healthy feeds.
+- **`EntityRiskScore` typed struct** in `chronicle/analytics.go` (was
+  `json.RawMessage`); CLI emits `Raw` bytes for lossless JSON output.
+- **Chore: file splits.** `soar_case.go` (645→154+503),
+  `soar_playbook.go` (662→364+309), `soar_playbook_run.go` (678→451+235)
+  split into focused siblings, all well under the 700-line cap.
+- **Chore: verb-specific refusal messages.** All 17 generic "Refusing to
+  act/apply" sites replaced with verb-specific wording derived from the
+  action context (e.g. "Refusing to close case 123", "Refusing to deploy").
+
+**Docs:** catalog (feeds/events rows), SKILL (--param, audit templates), this wave.
 
 ---
 

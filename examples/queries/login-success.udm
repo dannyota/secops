@@ -7,8 +7,8 @@
 # filter (e.g. principal.user.userid) to scope to a specific account.
 #
 # Run with:
-#   secopstips query udm "$(cat examples/queries/login-success.udm)" --hours 24
-#   secopstips query udm "$(cat examples/queries/login-success.udm)" --from 2026-01-01T00:00:00Z --to 2026-01-02T00:00:00Z --json
+#   secopsctl query udm "$(cat examples/queries/login-success.udm)" --hours 24
+#   secopsctl query udm "$(cat examples/queries/login-success.udm)" --from 2026-01-01T00:00:00Z --to 2026-01-02T00:00:00Z --json
 
 metadata.event_type = "USER_LOGIN"
 AND security_result.action = "ALLOW"

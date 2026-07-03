@@ -1,0 +1,11 @@
+# User login activity (parameterised)
+#
+# All login attempts (success + failure) for a specific user account.
+# Pass the account email via --param.
+#
+# Run with:
+#   secopsctl search run --file examples/queries/user-login.udm \
+#     --param email=alice@example.com --from 2026-01-01 --to 2026-07-01
+
+metadata.event_type = "USER_LOGIN"
+AND principal.user.emailAddresses = "$email"

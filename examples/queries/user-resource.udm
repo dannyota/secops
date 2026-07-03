@@ -1,0 +1,17 @@
+# Resource access by a user (parameterised)
+#
+# Cloud resource reads and modifications (storage, compute, database)
+# attributed to a specific principal. Useful for verifying what data or
+# infrastructure a user account touched during a review period.
+#
+# Run with:
+#   secopsctl search run --file examples/queries/user-resource.udm \
+#     --param email=alice@example.com --from 2026-01-01 --to 2026-07-01
+
+(
+  metadata.event_type = "RESOURCE_READ"
+  OR metadata.event_type = "RESOURCE_WRITTEN"
+  OR metadata.event_type = "RESOURCE_CREATION"
+  OR metadata.event_type = "RESOURCE_DELETION"
+)
+AND principal.user.emailAddresses = "$email"

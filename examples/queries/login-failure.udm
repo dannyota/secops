@@ -8,7 +8,7 @@
 # account add:  AND principal.user.userid = "someuser"
 #
 # Run with:
-#   secopstips query udm "$(cat examples/queries/login-failure.udm)" --hours 48
+#   secopsctl query udm "$(cat examples/queries/login-failure.udm)" --hours 48
 
 metadata.event_type = "USER_LOGIN"
 AND security_result.action = "BLOCK"

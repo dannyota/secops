@@ -31,3 +31,51 @@ func TestReadQueryTextMissing(t *testing.T) {
 		t.Errorf("want not-exist error, got %v", err)
 	}
 }
+
+func TestApplyParams(t *testing.T) {
+	tests := []struct {
+		name    string
+		filter  string
+		params  []string
+		want    string
+		wantErr bool
+	}{
+		{
+			"no params",
+			`event_type = "USER_LOGIN"`, nil,
+			`event_type = "USER_LOGIN"`, false,
+		},
+		{
+			"single",
+			`principal.user.emailAddresses = "$email"`,
+			[]string{"email=alice@example.com"},
+			`principal.user.emailAddresses = "alice@example.com"`, false,
+		},
+		{
+			"multiple",
+			`$type AND $user`,
+			[]string{"type=USER_LOGIN", "user=bob"},
+			`USER_LOGIN AND bob`, false,
+		},
+		{"missing placeholder", `event_type = "X"`, []string{"nope=val"}, "", true},
+		{"bad format", `$x`, []string{"noequals"}, "", true},
+		{"empty key", `$x`, []string{"=val"}, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := applyParams(tt.filter, tt.params)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

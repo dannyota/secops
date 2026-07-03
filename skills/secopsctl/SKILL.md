@@ -186,7 +186,11 @@ secopsctl search udm 'principal.hostname = "host-01"' --from 2024-01-02T00:00:00
   for fields UDM doesn't carry — OAuth scopes, IAM binding deltas, request parameters).
 - **`export <filter>`** — server-side CSV of **all** matches (not capped at `--limit`) over the window (`--hours` default 24, or `--from`/`--to`); `--fields` (column labels), `--out <file>`.
 - **`validate <query>`** — syntax-check a UDM query without running it; exits non-zero on an invalid query (gate on it).
-- **`run --file <f>`** — run a UDM predicate from a tracked `.udm` file (or stdin).
+- **`run --file <f> [--param key=value …]`** — run a UDM predicate from a tracked
+  `.udm` file (or stdin). `--param` substitutes `$key` placeholders in the query
+  text, turning a query file into a reusable template. Parameterised audit query
+  templates ship in `examples/queries/` (`user-login.udm`, `user-admin.udm`,
+  `user-resource.udm` — pass `--param email=...`).
 - **`saved`** — server-side saved & shared searches (the console's Search Manager):
   `saved list/get/run <id>`, and the guarded `saved save --name … (--query|--file) [--share]`,
   `saved share/unshare <id>`, `saved delete <id>`. `--share` makes a search org-wide. The

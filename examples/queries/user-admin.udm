@@ -1,0 +1,18 @@
+# Admin console activity for a user (parameterised)
+#
+# Administrative actions (permission changes, password resets, account
+# creation) attributed to a specific principal. Covers the high-signal
+# admin verbs auditors review for privileged-account monitoring.
+#
+# Run with:
+#   secopsctl search run --file examples/queries/user-admin.udm \
+#     --param email=alice@example.com --from 2026-01-01 --to 2026-07-01
+
+(
+  metadata.event_type = "USER_CHANGE_PERMISSIONS"
+  OR metadata.event_type = "USER_CHANGE_PASSWORD"
+  OR metadata.event_type = "USER_CREATION"
+  OR metadata.event_type = "USER_DELETION"
+  OR metadata.event_type = "GROUP_MODIFICATION"
+)
+AND principal.user.emailAddresses = "$email"

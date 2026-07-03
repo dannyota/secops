@@ -230,8 +230,9 @@ func init() {
 // version-controlled `.udm` file is a runnable query, not just shell history.
 func newQueryRunCmd() *cobra.Command {
 	var (
-		w    queryWindowFlags
-		file string
+		w      queryWindowFlags
+		file   string
+		params []string
 	)
 	cmd := &cobra.Command{
 		Use:   "run (--file <path> | --file -)",
@@ -239,8 +240,12 @@ func newQueryRunCmd() *cobra.Command {
 		Long: "Run a UDM event search whose predicate is read from a file (--file <path>)\n" +
 			"or stdin (--file -), so a tracked .udm file is a runnable, reviewable query.\n" +
 			"Blank and #-comment lines in the file are ignored. Same window/--limit/--raw\n" +
-			"semantics as `query udm`.",
-		Example: "  secopsctl search run --file detections/failed-logins.udm --hours 24\n" +
+			"semantics as `query udm`.\n\n" +
+			"Use --param key=value (repeatable) to substitute $key placeholders in the\n" +
+			"query text. This turns a .udm file into a reusable template — see\n" +
+			"examples/queries/ for parameterised audit queries.",
+		Example: "  secopsctl search run --file examples/queries/login-success.udm --hours 24\n" +
+			"  secopsctl search run --file examples/queries/user-login.udm --param email=alice@example.com --from 2026-01-01 --to 2026-07-01\n" +
 			"  echo 'metadata.event_type = \"NETWORK_CONNECTION\"' | secopsctl search run --file -",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -251,12 +256,36 @@ func newQueryRunCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("read query --file %q: %w", file, err)
 			}
+			filter, err = applyParams(filter, params)
+			if err != nil {
+				return err
+			}
 			return runUDMQuery(filter, w, cmd.Flags().Changed("limit"))
 		},
 	}
 	w.bind(cmd)
 	cmd.Flags().StringVar(&file, "file", "", "path to a UDM query file, or - to read from stdin")
+	cmd.Flags().StringArrayVar(&params, "param", nil, "substitute $key in the query with value (repeatable, key=value)")
 	return markJSON(cmd)
+}
+
+func applyParams(filter string, params []string) (string, error) {
+	for _, p := range params {
+		k, v, ok := strings.Cut(p, "=")
+		if !ok {
+			return "", fmt.Errorf("--param must be key=value, got %q", p)
+		}
+		k = strings.TrimSpace(k)
+		if k == "" {
+			return "", fmt.Errorf("--param key must not be empty")
+		}
+		placeholder := "$" + k
+		if !strings.Contains(filter, placeholder) {
+			return "", fmt.Errorf("placeholder %s not found in query text", placeholder)
+		}
+		filter = strings.ReplaceAll(filter, placeholder, v)
+	}
+	return filter, nil
 }
 
 // The `query saved` command is server-side (chronicle users/me/searchQueries) and

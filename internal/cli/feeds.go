@@ -29,12 +29,14 @@ func newFeedsCmd() *cobra.Command {
 }
 
 func newFeedsListCmd() *cobra.Command {
+	var failedOnly bool
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Read-only: list live feeds with state (and failure message if failed)",
+		Short: "Read-only: list live feeds with state, last activity, and failure detail",
 		Long: "List the instance's feeds with their runtime state — a quick imperative read\n" +
 			"of what is ingesting and what has failed (the config-as-code snapshot is\n" +
-			"`pull feeds`). JSON or table.",
+			"`pull feeds`). Use --failed to show only feeds in a non-ACTIVE state.\n" +
+			"JSON or table.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()
@@ -45,18 +47,28 @@ func newFeedsListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if failedOnly {
+				filtered := feeds[:0]
+				for _, f := range feeds {
+					if f.State != "SUCCEEDED" && f.State != "ACTIVE" {
+						filtered = append(filtered, f)
+					}
+				}
+				feeds = filtered
+			}
 			if jsonOut {
 				return emitJSON(feeds)
 			}
 			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-			fmt.Fprintln(tw, "UID\tSTATE\tDISPLAY NAME\tNOTE")
+			fmt.Fprintln(tw, "UID\tSTATE\tDISPLAY NAME\tLAST ACTIVITY\tNOTE")
 			for i := range feeds {
 				f := &feeds[i]
 				uid := f.UID
 				if uid == "" {
 					uid = lastSegment(f.Name)
 				}
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", uid, orDash(f.State), orDash(f.DisplayName), truncate(f.FailureMsg, 48))
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", uid, orDash(f.State), orDash(f.DisplayName),
+					friendlyTS(f.LastFeedInitiationTime), truncate(f.FailureMsg, 48))
 			}
 			if err := tw.Flush(); err != nil {
 				return err
@@ -65,6 +77,7 @@ func newFeedsListCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&failedOnly, "failed", false, "show only feeds not in ACTIVE state")
 	return markJSON(cmd)
 }
 
