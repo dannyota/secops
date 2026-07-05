@@ -25,11 +25,11 @@ func TestLiveJobRevisionRoundTrip(t *testing.T) {
 	}
 	var integration, jobID string
 	for _, in := range ints {
-		jobs, err := c.ListJobs(ctx, in.Identifier)
-		if err != nil {
+		if !in.Custom {
 			continue
 		}
-		if len(jobs) == 0 {
+		jobs, err := c.ListJobs(ctx, in.Identifier)
+		if err != nil || len(jobs) == 0 {
 			continue
 		}
 		integration = in.Identifier

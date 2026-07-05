@@ -101,7 +101,7 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
 | `forwarders` | reconcile | ✅ chronicle · v1beta | `.yaml`; prune-eligible; collectors separate nested resource; SDK pinned v1beta (v1 404s). |
 | `metric_definitions` | reconcile | 🔨 chronicle · v1alpha | Custom SOC metrics; textDefinition immutable; NoDelete; feature-gated 403 (Pre-GA). |
-| `scheduled_reports` | reconcile | 🔨 chronicle · v1alpha | Scheduled dashboard reports; reads verified; create 500s server-side (write-smoke skips). |
+| `scheduled_reports` | reconcile | ✅ chronicle · v1alpha | Scheduled dashboard reports; full CUD; create sends bare dashboard UUID (server rejects full resource names); write-smoke validates shape (400 = domain whitelist, not the old 500). |
 | `datataps` | reconcile | ✅ chronicle · v1alpha | Stream UDM events to Pub/Sub; prune-eligible; PATCH 501 so update = delete+create. |
 | `error_notifications` | reconcile | 🔨 chronicle · v1alpha | Ingestion-health alerts to Cloud Monitoring channels; feature-gated 403, not verified. |
 | `enrichment_controls` | imperative | 🔨 chronicle · v1alpha | Turn off UDM enrichment per log type; no patch, imperative only; feature-gated 403. |
@@ -226,8 +226,8 @@ Grouped by feature, not by domain. The New-API cell names the domain because the
 |---|---|---|---|---|
 | `ti collections` / `collection <id>` / `collection-matches` / `related` | operational read | ✅ chronicle · v1 | — | Mandiant `threatCollections`; list/get read-validated; related pivots built + offline-tested; pinned v1; uses project number. |
 | IoCs — `ti find` / `ti get` / `ti related` | operational read | ✅ chronicle · v1 | — | Modern IoC lookup, read-validated; type auto-detected; SDK in `chronicle/ti.go`; related pivots built + offline-tested. |
-| `ti associations` / `related-associations` | operational read | 🔨 chronicle · v1 | — | IoC associations (malware families / threat actors): batchGet by id (chunked ≤80 names/call), get, fetchRelated pivots from an IoC/collection/association. |
-| `ti coverage` / `ti filters` | operational read | 🔨 chronicle · v1 | — | `coverageDetails` rule↔threat-collection coverage mapping (filtered by collection ids, chunked ≤40/call) + the threat-collection filter-set metadata (JSON-only; path form carries a DEVIATION note pending a live probe). |
+| `ti associations` / `related-associations` | operational read | ✅ chronicle · v1 | — | IoC associations (malware families / threat actors): batchGet by id (chunked ≤80 names/call), get, fetchRelated pivots from an IoC/collection/association; resource names use numeric project. |
+| `ti coverage` / `ti filters` | operational read | ✅ chronicle · v1 | — | `coverageDetails` rule↔threat-collection coverage mapping (filtered by collection ids, chunked ≤40/call) + the threat-collection filter-set metadata (JSON-only; path form carries a DEVIATION note pending a live probe). |
 
 #### Surface details
 

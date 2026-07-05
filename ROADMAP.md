@@ -317,7 +317,7 @@ spec; `instance history` per-run execution logs with status filter; job-definiti
 payload shape (typed parameter array, advanced-schedule config, epoch-millis
 timestamps). Recipe page: docs/tips/13-scheduled-jobs.md.
 
-### Wave 135 — Emerging Threats coverage & IoC associations *(built — offline-tested)*
+### Wave 135 — Emerging Threats coverage & IoC associations *(built)*
 
 `ti coverage` (rule↔threat-collection coverage mapping, filtered by collection ids),
 `ti associations` / `ti related-associations` (malware-family / threat-actor
@@ -325,7 +325,7 @@ association records via batchGet + related pivots), `ti filters` (threat-collect
 filter-set metadata). SDK chunks long id lists (80 names / 40 collection ids per
 call); licensed-add-on 403s surface cleanly.
 
-### Wave 136 — search ergonomics, stats syntax reference, parser lifecycle *(built — offline-tested)*
+### Wave 136 — search ergonomics, stats syntax reference, parser lifecycle *(built)*
 
 `search udm --raw --all` runs the complete-results engine before raw hydration
 (total match count reported); single-chunk searches show indeterminate stderr
@@ -335,6 +335,22 @@ documented in `search stats --help` and docs/tips/14-stats-queries.md; stats tab
 render array outcomes comma-joined. Parser lifecycle: pull/reconcile prefer the
 CUSTOM parser version when a prebuilt is also active; new guarded `ingest parsers
 delete` refuses an ACTIVE version without `--force`.
+
+### Wave 137 — TI associations fix, scheduled-reports fix, jobs revision test *(built)*
+
+- **TI associations/coverage numeric project.** `iocResourceName` and
+  `iocAssociationResourceName` now use the numeric project number (matching the
+  console); fixes 400 INVALID_ARGUMENT on `fetchRelated` and `batchGet`. The
+  `--type` flag on `ti related-associations` defaults to `malware` (server
+  requires `associationType`). Response decoding handles both `iocAssociations`
+  and `associations` envelope keys.
+- **Scheduled-reports dashboard reference.** `reduceDashboardRef` extracts the
+  bare dashboard UUID via `lastSegment` — the create backend rejects full
+  resource names ("failed to fetch native dashboard details"); the console sends
+  just the UUID. Write-smoke now validates body shape (400 domain-whitelist ≠
+  old 500).
+- **Jobs revision test.** Filters for custom integrations only (`Custom=true`)
+  — non-custom items cannot be versioned (server returns 400).
 
 ---
 
