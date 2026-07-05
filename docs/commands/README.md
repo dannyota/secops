@@ -20,14 +20,14 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [exclusions](exclusions.md) | 3 | Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is `pull/push rule_exclusions` |
 | [gemini](gemini.md) | 6 | AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks |
 | [info](info.md) | 4 | Show the resolved instance configuration (no API call) |
-| [ingest](ingest.md) | 32 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
+| [ingest](ingest.md) | 33 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
 | [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Lists: reference lists (empty) and watchlists |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |
 | [rules](rules.md) | 20 | Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`) |
 | [search](search.md) | 16 | Search the SIEM (read-only): udm events, raw logs, stats, saved searches |
 | [skill](skill.md) | 2 | Print the agent operating guide embedded in the binary (offline) |
-| [soar](soar.md) | 52 | Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC) |
+| [soar](soar.md) | 58 | Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC) |
 | [status](status.md) | 4 | Read-only diagnostics: capabilities, coverage, surfaces |
-| [ti](ti.md) | 6 | Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections |
+| [ti](ti.md) | 10 | Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections |
 | [global](global.md) | 8 | Top-level commands |

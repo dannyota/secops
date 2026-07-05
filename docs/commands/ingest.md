@@ -206,6 +206,31 @@ versions` to find a prior version's id to roll back to.
 | `--dry-run` | bool | false | preview only (default behavior) |
 | `--yes` | bool | false | apply for real / skip confirmation |
 
+## ingest parsers delete
+
+MUTATING (guarded): delete a parser version
+
+> Guarded mutation — dry-run by default; apply with `--yes`.
+
+```text
+secopsctl ingest parsers delete <log-type> <parser-id> [flags]
+```
+
+```text
+Delete a specific parser version by log type and parser id. An ACTIVE parser
+is refused unless --force is set — this is a safeguard against accidentally
+removing the live parser. Use `parsers versions` to list a log type's versions
+and find the parser-id to delete (e.g. an old inactive version).
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--dry-run` | bool | false | preview only (default behavior) |
+| `--force` | bool | false | force-delete even if the parser is ACTIVE |
+| `--yes` | bool | false | apply for real / skip confirmation |
+
 ## ingest parsers extension activate
 
 MUTATING (guarded): activate a parser extension (make it live)

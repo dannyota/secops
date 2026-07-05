@@ -150,20 +150,43 @@ validate against the tenant and does not mutate SOAR.
 
 ## soar jobs instance create
 
-GUARDED: create a scheduled job instance from a JSON body
+GUARDED: create a scheduled job instance
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
 ```text
-secopsctl soar jobs instance create --file <instance.json> [flags]
+secopsctl soar jobs instance create (--file <instance.json> | --integration I --job J --display-name N ...) [flags]
+```
+
+```text
+Create a scheduled job instance. Two modes:
+
+  --file <path>    Raw JSON body sent via the legacy API (escape hatch).
+  --integration + --job + --display-name + schedule flags: resolved and
+  sent via the modern v1alpha API.
 ```
 
 **Flags**
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
+| `--advanced` | bool | false | use advanced (calendar-based) scheduling |
+| `--day-of-month` | int | 0 | monthly schedule: day of month (1-31) |
+| `--days` | stringSlice | - | weekly schedule: days (MONDAY,TUESDAY,...) |
+| `--disable` | bool | false | create the instance in disabled state |
+| `--display-name` | string | - | display name for the new instance |
 | `--dry-run` | bool | false | preview only (default behavior) |
-| `--file` | string | - | job instance JSON body (required) |
+| `--enable` | bool | false | enable the instance on creation (default) |
+| `--file` | string | - | raw JSON body file (legacy escape hatch) |
+| `--integration` | string | - | integration identifier (flag-based create) |
+| `--interval` | int | 0 | run interval in seconds (min 60, simple schedule) |
+| `--job` | string | - | job name or numeric id (flag-based create) |
+| `--param` | stringArray | - | parameter KEY=VALUE (repeatable) |
+| `--schedule-interval` | int | 1 | schedule recurrence interval (every N days/weeks/months) |
+| `--schedule-type` | string | - | advanced schedule type: ONCE\|DAILY\|WEEKLY\|MONTHLY |
+| `--start-date` | string | - | schedule start date YYYY-MM-DD |
+| `--time` | string | - | schedule time HH:MM |
+| `--timezone` | string | - | advanced schedule timezone (e.g. UTC, America/New_York) |
 | `--yes` | bool | false | apply for real / skip confirmation |
 
 ## soar jobs instance delete
@@ -184,6 +207,42 @@ secopsctl soar jobs instance delete --instance <id|uniqueIdentifier|name> [flags
 | `--instance` | string | - | job instance id, uniqueIdentifier, or name (required) |
 | `--yes` | bool | false | apply for real / skip confirmation |
 
+## soar jobs instance get
+
+Show details of a single job instance
+
+```text
+secopsctl soar jobs instance get --instance <name|id|uniqueIdentifier> [flags]
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--instance` | string | - | job instance displayName, id, uniqueIdentifier, or resource name (required) |
+
+## soar jobs instance history
+
+Show run history for a job instance
+
+```text
+secopsctl soar jobs instance history --instance <name|id|uniqueIdentifier> [flags]
+```
+
+```text
+Run history of a scheduled job instance (start/end/status/message).
+For CloudLogging-based logs, use `soar jobs logs`.
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--instance` | string | - | job instance displayName, id, uniqueIdentifier, or resource name (required) |
+| `--page-size` | int | 20 | max log entries per page |
+| `--page-token` | string | - | page token from a previous response |
+| `--status` | string | - | filter by status: SUCCESS or ERROR |
+
 ## soar jobs instance list
 
 List configured SOAR job instances
@@ -196,7 +255,7 @@ secopsctl soar jobs instance list [flags]
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
-| `--grep` | string | - | case-insensitive filter over id/name/category |
+| `--grep` | string | - | case-insensitive filter over id/name/integration/status |
 
 ## soar jobs instance run
 
@@ -273,6 +332,81 @@ Human output prints counts only; --json emits the raw payload.
 | `--page-size` | int | 50 | maximum records to request |
 | `--page-token` | string | - | page token from a previous response |
 | `--sort-order` | string | - | SecOps sort order |
+
+## soar jobs revision create
+
+GUARDED: snapshot the current job definition as a revision
+
+> Guarded mutation — dry-run by default; apply with `--yes`.
+
+```text
+secopsctl soar jobs revision create --integration I --job J --comment '...' [flags]
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--comment` | string | - | revision comment |
+| `--dry-run` | bool | false | preview only (default behavior) |
+| `--integration` | string | - | integration identifier (required) |
+| `--job` | string | - | job id or name (required) |
+| `--yes` | bool | false | apply for real / skip confirmation |
+
+## soar jobs revision delete
+
+GUARDED: delete a job definition revision
+
+> Guarded mutation — dry-run by default; apply with `--yes`.
+
+```text
+secopsctl soar jobs revision delete --integration I --job J --revision R [flags]
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--dry-run` | bool | false | preview only (default behavior) |
+| `--integration` | string | - | integration identifier (required) |
+| `--job` | string | - | job id or name (required) |
+| `--revision` | string | - | revision id to delete (required) |
+| `--yes` | bool | false | apply for real / skip confirmation |
+
+## soar jobs revision list
+
+List revisions of a job definition
+
+```text
+secopsctl soar jobs revision list --integration I --job J [flags]
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--integration` | string | - | integration identifier (required) |
+| `--job` | string | - | job id or name (required) |
+
+## soar jobs revision rollback
+
+GUARDED: restore a job definition to a previous revision
+
+> Guarded mutation — dry-run by default; apply with `--yes`.
+
+```text
+secopsctl soar jobs revision rollback --integration I --job J --revision R [flags]
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--dry-run` | bool | false | preview only (default behavior) |
+| `--integration` | string | - | integration identifier (required) |
+| `--job` | string | - | job id or name (required) |
+| `--revision` | string | - | revision id to roll back to (required) |
+| `--yes` | bool | false | apply for real / skip confirmation |
 
 ## soar jobs run
 

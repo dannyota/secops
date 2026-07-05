@@ -312,11 +312,32 @@ secopsctl search stats <aggregation-query> [flags]
 
 ```text
 Run an AGGREGATION UDM query — one carrying a `match:`/`outcome:` projection,
-the exact YARA-L a dashboard chart uses. `query udm` runs an event search and
-rejects an aggregation with a 400; this executes it over the same
-`dashboardQueries:execute` path dashboard charts use and prints the computed
-columns and rows (`--json` for the raw result), so a chart query can be
-validated end to end from the CLI before `dashboards add-chart`.
+the exact YARA-L a dashboard chart uses. `search udm` auto-routes queries
+containing `match:` or `outcome:` here, so either verb works.
+
+SECTIONS (in order; only a filter predicate is required):
+
+  filter      bare predicate lines before the first section header
+  match:      group-by variables ($var); time-granularity grouping:
+                match: $x by 2h        (bucket by duration)
+                match: $x over every day  (calendar periods)
+              granularities: MINUTE, HOUR, DAY, WEEK, MONTH
+              optional `first` keyword: `match: $x by 2h first`
+  outcome:    computed columns with aggregate functions:
+                $alias = function(expression)
+              functions: array, array_distinct, avg, count,
+              count_distinct, earliest, latest, max, min, stddev, sum
+  dedup:      deduplicate by variable (dedup: $var)
+  order:      sort results (order: $var asc|desc)
+  limit:      cap rows returned (limit: 100)
+
+SEARCH-VS-RULES DIFFERENCES: aggregation queries in search do NOT
+support `over` event windows, `condition:`, or `options:` sections
+(those are rules-only constructs).
+
+SERVER LIMITS: 90-day maximum lookback; 10 000 rows max per query.
+
+See `docs/tips/stats-queries.md` for a full syntax reference with examples.
 ```
 
 **Flags**

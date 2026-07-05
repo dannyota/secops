@@ -4,6 +4,20 @@
 
 Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections
 
+## ti associations
+
+Show IoC associations (malware families, threat actors) by id
+
+```text
+secopsctl ti associations <id>...
+```
+
+```text
+Fetch one or more IoC associations by short id (e.g.
+malware--<uuid>, threat-actor--<uuid>) or full resource name.
+Ids are chunked automatically to stay within URL-length limits.
+```
+
 ## ti collection
 
 Show one threat collection by id (e.g. report--26-10031441)
@@ -41,6 +55,41 @@ secopsctl ti collections [flags]
 | `--limit` | int | 25 | maximum number of collections to return |
 | `--order` | string | last_modification_date- | server order key (trailing - sorts descending) |
 | `--types` | stringSlice | [campaign,report] | collection types to include (campaign,report,actor,malware,vulnerability); empty for all |
+
+## ti coverage
+
+Show rule coverage for threat collections
+
+```text
+secopsctl ti coverage [<collection-id>...] [flags]
+```
+
+```text
+List detection rule coverage for the given threat-collection ids
+(e.g. campaign--<uuid>, report--26-NNNNN). If no ids are given,
+lists all coverage details (unfiltered). Each row maps a threat
+collection to a rule.
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--limit` | int | 1000 | page size per request |
+
+## ti filters
+
+Show threat-collection filter set (JSON-only)
+
+```text
+secopsctl ti filters
+```
+
+```text
+Fetch the threat-collection filter-set metadata — the facets the
+Emerging Threats console uses. JSON-only (the response shape is
+not fully documented).
+```
 
 ## ti find
 
@@ -92,3 +141,26 @@ resource id from `ti find --json`, not the raw indicator value.
 | `--collection-type` | string | all | related threat collection type: campaign\|report\|all |
 | `--limit` | int | 25 | maximum related collections per type (API max 40) |
 | `--order` | string | last_modification_date- | server order key |
+
+## ti related-associations
+
+List IoC associations related to a threat resource
+
+```text
+secopsctl ti related-associations <id> [flags]
+```
+
+```text
+Fetch IoC associations related to an IoC, another IoC association,
+or a threat collection. The id is resolved to the appropriate resource
+type based on its prefix (iocs/, iocAssociations/, threatCollections/,
+or short forms like malware--<uuid>, threat-actor--<uuid>,
+campaign--<uuid>, report--<uuid>).
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--limit` | int | 25 | maximum associations to return |
+| `--type` | string | malware | association type to return: malware, threat-actor, or toolkit |
