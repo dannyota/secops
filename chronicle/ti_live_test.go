@@ -186,6 +186,7 @@ func TestLiveFetchRelatedAssociations(t *testing.T) {
 	t.Logf("fetching related associations for %s", id)
 
 	assocs, err := c.FetchRelatedAssociations(ctx, chronicle.RelatedAssociationQuery{
+		Type:             chronicle.AssociationMalware,
 		ThreatCollection: id,
 		PageSize:         10,
 		MaxPages:         1,

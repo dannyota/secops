@@ -66,7 +66,7 @@ func TestFetchRelatedThreatCollections(t *testing.T) {
 	if q.Get("threatCollectionType") != "REPORT" {
 		t.Errorf("threatCollectionType = %q", q.Get("threatCollectionType"))
 	}
-	wantIoc := "projects/pid/locations/us/instances/cust/iocs/ioc_1"
+	wantIoc := "projects/000000000000/locations/us/instances/cust/iocs/ioc_1"
 	if q.Get("ioc") != wantIoc {
 		t.Errorf("ioc = %q, want %q", q.Get("ioc"), wantIoc)
 	}

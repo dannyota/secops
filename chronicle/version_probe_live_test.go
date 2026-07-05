@@ -78,6 +78,7 @@ func TestProbeVersions(t *testing.T) {
 	})
 	probe("iocAssociations:fetchRelated", func(c *chronicle.Client) error {
 		_, e := c.FetchRelatedAssociations(ctx, chronicle.RelatedAssociationQuery{
+			Type:             chronicle.AssociationMalware,
 			ThreatCollection: "campaign--00000000-0000-0000-0000-000000000000",
 			PageSize:         1,
 			MaxPages:         1,

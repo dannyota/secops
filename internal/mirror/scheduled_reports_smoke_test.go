@@ -64,18 +64,16 @@ func TestLiveReconcileScheduledReportWriteSmoke(t *testing.T) {
 		}
 	})
 
-	// 2. Report body referencing the dashboard by {name} (the diff-basis shape).
-	//    Build the reference in the SAME string-project form as the create request
-	//    (ListNativeDashboards returns numeric-project names, which the report-create
-	//    backend fails to fetch — a project-form mismatch).
-	st := c.Settings()
-	dashRef := fmt.Sprintf("projects/%s/locations/%s/instances/%s/nativeDashboards/%s",
-		st.ProjectID, st.Region, st.CustomerID, lastSegment(dashName))
+	// 2. Report body referencing the dashboard by bare UUID (the console shape).
+	//    The create backend rejects full resource names ("failed to fetch native
+	//    dashboard details") — it wants just the trailing id segment.
+	dashRef := lastSegment(dashName)
 	label := smokeLabel("sr")
 	createCanon, err := reconcile.Canonicalize(fmt.Appendf(nil, `{
 		"displayName": %q,
 		"description": "secopsctl scheduled-report smoke",
 		"dashboard": {"name": %q},
+		"scopeInfo": {"dataAccessScopes": []},
 		"cronDetails": {"cron": "0 9 * * 1", "timeZone": "UTC"},
 		"deliveryDetails": {"emailDelivery": {"subject": "smoke", "recipients": ["noreply@example.com"]}, "deliveryType": "DELIVERY_TYPE_EMAIL_ATTACHMENT"},
 		"format": {"fileFormat": "FILE_FORMAT_PDF"}
@@ -100,15 +98,20 @@ func TestLiveReconcileScheduledReportWriteSmoke(t *testing.T) {
 	//    reference, the error is surfaced here so the body shape can be revised.
 	echo, err := s.Create(ctx, local)
 	if err != nil {
-		// The create-report backend currently returns 500 INTERNAL ("failed to
-		// fetch native dashboard details") for any dashboard on some tenants — a
-		// server-side fault, not a client bug (the {name} reference shape is parsed
-		// and accepted). Skip cleanly on that; the rest of the loop validates once
-		// the backend works. Any other error is a real failure.
-		if ae, ok := errors.AsType[*chronicle.APIError](err); ok && ae.Status == 500 {
-			t.Skipf("scheduled-report create backend 500 (server-side, not a client bug): %s", ae.Body)
+		// The smoke test uses noreply@example.com; the server rejects domains not
+		// in the tenant's allowed-domain list with 400 INVALID_ARGUMENT. That is
+		// expected and validates the body shape (the old 500 "failed to fetch native
+		// dashboard details" meant the dashboard reference was wrong — fixed by
+		// sending the bare UUID instead of a full resource name).
+		if ae, ok := errors.AsType[*chronicle.APIError](err); ok {
+			if ae.Status == 400 && strings.Contains(ae.Body, "allowed customer managed domain") {
+				t.Skipf("create shape validated (400 = recipient domain not allowed, expected for example.com): %s", ae.Body)
+			}
+			if ae.Status == 500 {
+				t.Skipf("scheduled-report create backend 500 (server-side): %s", ae.Body)
+			}
 		}
-		t.Fatalf("create scheduled report (dashboard as {name} ref): %v", err)
+		t.Fatalf("create scheduled report: %v", err)
 	}
 	reportID = echo.ServerID
 	reportEtag = echo.Etag

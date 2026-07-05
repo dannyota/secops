@@ -279,11 +279,11 @@ func (c *Client) threatCollectionResourceName(id string) string {
 }
 
 func (c *Client) iocResourceName(id string) string {
-	return c.tiResourceName("iocs", id, false)
+	return c.tiResourceName("iocs", id, true)
 }
 
 func (c *Client) iocAssociationResourceName(id string) string {
-	return c.tiResourceName("iocAssociations", id, false)
+	return c.tiResourceName("iocAssociations", id, true)
 }
 
 func (c *Client) tiResourceName(kind, id string, numeric bool) string {
@@ -421,14 +421,27 @@ type RelatedAssociationQuery struct {
 }
 
 type iocAssociationsRelatedList struct {
-	Items         []IocAssociation `json:"associations"`
-	NextPageToken string           `json:"nextPageToken"`
-	TotalSize     int64            `json:"totalSize"`
+	// Docs say "iocAssociations"; live API may return "associations" — decode both.
+	IocAssociations []IocAssociation `json:"iocAssociations"`
+	Associations    []IocAssociation `json:"associations"`
+	NextPageToken   string           `json:"nextPageToken"`
+	TotalSize       int64            `json:"totalSize"`
+}
+
+func (r *iocAssociationsRelatedList) items() []IocAssociation {
+	if len(r.IocAssociations) > 0 {
+		return r.IocAssociations
+	}
+	return r.Associations
 }
 
 // FetchRelatedAssociations lists IoC associations related to one threat
-// resource (an IoC, another IoC association, or a threat collection). Read-only.
+// resource (an IoC, another IoC association, or a threat collection).
+// Type (associationType) is required by the server. Read-only.
 func (c *Client) FetchRelatedAssociations(ctx context.Context, q RelatedAssociationQuery) ([]IocAssociation, error) {
+	if q.Type == "" {
+		return nil, fmt.Errorf("chronicle: RelatedAssociationQuery.Type is required (MALWARE, THREAT_ACTOR, or SOFTWARE_TOOLKIT)")
+	}
 	if countNonEmpty(q.Ioc, q.IocAssociation, q.ThreatCollection) != 1 {
 		return nil, fmt.Errorf("chronicle: set exactly one of Ioc, IocAssociation, or ThreatCollection")
 	}
@@ -464,7 +477,7 @@ func (c *Client) FetchRelatedAssociations(ctx context.Context, q RelatedAssociat
 		if err := c.get(ctx, c.resourcePath("iocAssociations:fetchRelated", true), &page, withQuery(vals), withVersion(tiAPIVersion)); err != nil {
 			return "", err
 		}
-		all = append(all, page.Items...)
+		all = append(all, page.items()...)
 		return page.NextPageToken, nil
 	})
 	if err != nil {

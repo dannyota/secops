@@ -96,7 +96,7 @@ func newTIRelatedAssociationsCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&assocType, "type", "", "filter by type: malware, threat-actor, or toolkit (default: all)")
+	f.StringVar(&assocType, "type", "malware", "association type to return: malware, threat-actor, or toolkit")
 	f.IntVar(&limit, "limit", 25, "maximum associations to return")
 	return markJSON(cmd)
 }

@@ -111,15 +111,16 @@ func reportCanonical(raw json.RawMessage) ([]byte, error) {
 
 // reduceDashboardRef collapses a report's `dashboard` object to just its {name}
 // reference (the read returns the full NativeDashboard; only the reference is
-// config for the report). A dashboard already given as a bare reference is left
-// as-is; a missing/!object dashboard is left untouched.
+// config for the report). The name is reduced to the bare dashboard UUID — the
+// create backend rejects full resource names ("failed to fetch native dashboard
+// details"); the console sends just the UUID.
 func reduceDashboardRef(m map[string]any) {
 	d, ok := m["dashboard"].(map[string]any)
 	if !ok {
 		return
 	}
 	if name, ok := d["name"].(string); ok && name != "" {
-		m["dashboard"] = map[string]any{"name": name}
+		m["dashboard"] = map[string]any{"name": lastSegment(name)}
 	}
 }
 
