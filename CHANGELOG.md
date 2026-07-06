@@ -3,6 +3,21 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.8.3 — 2026-07-06
+
+Progressive tool disclosure for the MCP server — reduces the initial tool
+listing from 361 tools / 207K chars to 36 tools / 41K chars.
+
+### Changed
+
+- **MCP progressive disclosure.** `mcp serve` now declares `listChanged`
+  capability and uses a three-tier tool hierarchy. Tier 0: standalone commands
+  and promoted high-use tools (search_udm, gemini_ask, etc). Tier 1: category
+  routers — one tool per top-level group whose description summarizes available
+  subcommands. Tier 2: sub-tools registered on demand when a category is first
+  called, via MCP `notifications/tools/list_changed`. Calling a category with
+  `action="help"` returns the full subcommand listing.
+
 ## v0.8.1 — 2026-07-06
 
 MCP-first agent integration. The `skill` command is removed; agent integration

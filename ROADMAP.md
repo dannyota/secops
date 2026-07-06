@@ -366,6 +366,18 @@ resources from embedded `docs/tips/*.md`. The `status capabilities` JSON field
 changes from `skill_command` to `mcp_command`. Docs, README, catalog, and SEO
 artifacts updated to reflect the MCP-first model.
 
+### Wave 141 — MCP progressive tool disclosure via `listChanged` *(built)*
+
+Reduces the initial `tools/list` from 361 tools / 207K chars to ~36 tools / 44K
+chars using a three-tier hierarchy. Tier 0: standalone commands and promoted
+high-use tools (search_udm, gemini_ask, etc). Tier 1: category routers — one
+tool per top-level group (cases, rules, dashboards, …) whose description lists
+available subcommands. Tier 2: sub-tools registered on demand when a category
+is first called, via MCP `notifications/tools/list_changed`. The server
+declares `"tools": {"listChanged": true}` in its initialize capabilities.
+Calling a category router with `action="help"` returns the subcommand listing;
+calling with a specific action routes to the sub-tool and expands the category.
+
 ---
 
 ## Non-goals

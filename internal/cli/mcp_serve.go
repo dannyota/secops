@@ -66,16 +66,49 @@ func newMCPServeCmd() *cobra.Command {
 	}
 }
 
+// mcpSession holds the runtime state for one MCP server session, including
+// the progressive tool-disclosure state (which categories have been expanded).
+type mcpSession struct {
+	allTools   []mcpTool            // every tool from the cobra tree
+	toolIndex  map[string]mcpTool   // name → tool (all tools, for execution)
+	categories map[string]*mcpGroup // top-level group → category info
+	expanded   map[string]bool      // which categories have been expanded
+	resources  []mcpResource
+	resCont    map[string]string // resource URI → content
+	enc        *json.Encoder
+}
+
+// mcpGroup represents a top-level command group exposed as a single category
+// tool in the initial tools/list.
+type mcpGroup struct {
+	router   mcpTool   // the category router tool
+	children []mcpTool // the sub-tools (tier 2), registered on first use
+}
+
+// standaloneGroups are top-level groups with ≤1 command — they stay as flat
+// tools in the initial listing (tier 0). Groups not in this set become
+// category routers.
+var standaloneGroups = map[string]bool{
+	"audit": true, "cleanup": true, "commands": true, "config": true,
+	"data-tables": true, "doctor": true, "drift": true, "mitre": true,
+	"pull": true, "push": true, "version": true,
+}
+
+// promotedTools are specific tools from multi-command groups that are useful
+// enough to appear in the initial listing alongside standalone groups and
+// category routers (tier 0 promoted).
+var promotedTools = map[string]bool{
+	"search_udm":          true,
+	"search_stats":        true,
+	"search_raw":          true,
+	"gemini_ask":          true,
+	"gemini_search":       true,
+	"status_capabilities": true,
+}
+
 func runMCPServe() error {
-	mcpTools := mcpToolsFromCobra()
-	mcpResources, resourceContent := mcpResourcesFromTips()
+	s := newMCPSession()
 
-	toolIndex := make(map[string]mcpTool, len(mcpTools))
-	for _, t := range mcpTools {
-		toolIndex[t.Name] = t
-	}
-
-	enc := json.NewEncoder(os.Stdout)
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 1<<20), 1<<20)
 
@@ -91,18 +124,149 @@ func runMCPServe() error {
 		if req.ID == nil {
 			continue
 		}
-		resp := mcpDispatch(req, mcpTools, toolIndex, mcpResources, resourceContent)
-		if err := enc.Encode(resp); err != nil {
+		resp := s.dispatch(req)
+		if err := s.enc.Encode(resp); err != nil {
 			return err
 		}
 	}
 	return scanner.Err()
 }
 
-func mcpDispatch(
-	req jrpcRequest, tools []mcpTool, toolIndex map[string]mcpTool,
-	resources []mcpResource, resourceContent map[string]string,
-) jrpcResponse {
+func newMCPSession() *mcpSession {
+	allTools := mcpToolsFromCobra()
+	resources, resCont := mcpResourcesFromTips()
+
+	toolIndex := make(map[string]mcpTool, len(allTools))
+	for _, t := range allTools {
+		toolIndex[t.Name] = t
+	}
+
+	s := &mcpSession{
+		allTools:   allTools,
+		toolIndex:  toolIndex,
+		categories: make(map[string]*mcpGroup),
+		expanded:   make(map[string]bool),
+		resources:  resources,
+		resCont:    resCont,
+		enc:        json.NewEncoder(os.Stdout),
+	}
+	s.buildCategories()
+	return s
+}
+
+// mcpToolGroup returns the top-level group from a tool name by splitting on
+// the first underscore. Hyphenated cobra names (content-hub, data-access) are
+// preserved as-is because cobraToMCPTool only replaces spaces with underscores.
+func mcpToolGroup(name string) string {
+	if i := strings.Index(name, "_"); i > 0 {
+		return name[:i]
+	}
+	return name
+}
+
+// buildCategories partitions the flat tool list into standalone (tier 0),
+// promoted (tier 0), and category groups (tier 1 router + tier 2 children).
+func (s *mcpSession) buildCategories() {
+	grouped := map[string][]mcpTool{} // top-level group → tools
+	for _, t := range s.allTools {
+		grouped[mcpToolGroup(t.Name)] = append(grouped[mcpToolGroup(t.Name)], t)
+	}
+
+	for group, tools := range grouped {
+		cobraGroup := strings.ReplaceAll(group, "_", "-")
+		if standaloneGroups[cobraGroup] {
+			continue // stays flat
+		}
+		if len(tools) <= 1 {
+			continue // single tool, stays flat
+		}
+
+		// Separate promoted tools from children.
+		var children []mcpTool
+		for _, t := range tools {
+			if !promotedTools[t.Name] {
+				children = append(children, t)
+			}
+		}
+		if len(children) == 0 {
+			continue // all promoted, no category needed
+		}
+
+		s.categories[group] = &mcpGroup{
+			router:   buildCategoryRouter(group, cobraGroup, children),
+			children: children,
+		}
+	}
+}
+
+// buildCategoryRouter creates the tier-1 category tool that summarizes
+// available subcommands.
+func buildCategoryRouter(group, cobraGroup string, children []mcpTool) mcpTool {
+	subs := make([]string, 0, len(children))
+	for _, c := range children {
+		sub := strings.TrimPrefix(c.Name, group+"_")
+		short := c.Description
+		if i := strings.Index(short, " [guarded:"); i > 0 {
+			short = short[:i]
+		}
+		if len(short) > 60 {
+			short = short[:57] + "..."
+		}
+		subs = append(subs, sub+": "+short)
+	}
+
+	desc := fmt.Sprintf("%s operations (%d subcommands). "+
+		"Call with an action, or action=\"help\" for full details",
+		cobraGroup, len(children))
+
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"action": map[string]any{
+				"type":        "string",
+				"description": "Subcommand: " + strings.Join(subs, "; "),
+			},
+			"args": map[string]any{
+				"type":        "string",
+				"description": "positional arguments for the subcommand",
+			},
+		},
+		"required": []string{"action"},
+	}
+
+	return mcpTool{Name: group, Description: desc, InputSchema: schema}
+}
+
+// visibleTools returns the tools that should appear in the current tools/list.
+func (s *mcpSession) visibleTools() []mcpTool {
+	var out []mcpTool
+
+	// Tier 0: standalone groups and promoted tools (always visible).
+	for _, t := range s.allTools {
+		group := mcpToolGroup(t.Name)
+		cobraGroup := strings.ReplaceAll(group, "_", "-")
+		if standaloneGroups[cobraGroup] || promotedTools[t.Name] {
+			out = append(out, t)
+		}
+	}
+
+	// Tier 1: category routers.
+	for _, cat := range s.categories {
+		out = append(out, cat.router)
+	}
+
+	// Tier 2: expanded category children.
+	for group := range s.expanded {
+		if cat, ok := s.categories[group]; ok {
+			out = append(out, cat.children...)
+		}
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+func (s *mcpSession) dispatch(req jrpcRequest) jrpcResponse {
 	ok := func(result any) jrpcResponse {
 		return jrpcResponse{JSONRPC: "2.0", ID: req.ID, Result: result}
 	}
@@ -112,7 +276,7 @@ func mcpDispatch(
 		return ok(map[string]any{
 			"protocolVersion": "2024-11-05",
 			"capabilities": map[string]any{
-				"tools":     map[string]any{},
+				"tools":     map[string]any{"listChanged": true},
 				"resources": map[string]any{},
 			},
 			"serverInfo": map[string]any{
@@ -125,16 +289,16 @@ func mcpDispatch(
 		return ok(map[string]any{})
 
 	case "tools/list":
-		return ok(map[string]any{"tools": tools})
+		return ok(map[string]any{"tools": s.visibleTools()})
 
 	case "tools/call":
-		return mcpHandleToolCall(req, toolIndex)
+		return s.handleToolCall(req)
 
 	case "resources/list":
-		return ok(map[string]any{"resources": resources})
+		return ok(map[string]any{"resources": s.resources})
 
 	case "resources/read":
-		return mcpHandleResourceRead(req, resourceContent)
+		return s.handleResourceRead(req)
 
 	default:
 		return jrpcResponse{
@@ -144,21 +308,27 @@ func mcpDispatch(
 	}
 }
 
-func mcpHandleToolCall(req jrpcRequest, toolIndex map[string]mcpTool) jrpcResponse {
+func (s *mcpSession) handleToolCall(req jrpcRequest) jrpcResponse {
 	var params struct {
 		Name      string         `json:"name"`
 		Arguments map[string]any `json:"arguments"`
 	}
 	_ = json.Unmarshal(req.Params, &params)
 
-	text := func(s string, isErr bool) jrpcResponse {
+	text := func(str string, isErr bool) jrpcResponse {
 		return jrpcResponse{JSONRPC: "2.0", ID: req.ID, Result: map[string]any{
-			"content": []map[string]string{{"type": "text", "text": s}},
+			"content": []map[string]string{{"type": "text", "text": str}},
 			"isError": isErr,
 		}}
 	}
 
-	if _, ok := toolIndex[params.Name]; !ok {
+	// Check if this is a category router call.
+	if cat, ok := s.categories[params.Name]; ok {
+		return s.handleCategoryCall(req.ID, params.Name, cat, params.Arguments)
+	}
+
+	// Direct tool call (standalone, promoted, or expanded tier-2).
+	if _, ok := s.toolIndex[params.Name]; !ok {
 		return text("unknown tool: "+params.Name, true)
 	}
 
@@ -169,24 +339,64 @@ func mcpHandleToolCall(req jrpcRequest, toolIndex map[string]mcpTool) jrpcRespon
 	return text(out, false)
 }
 
-func mcpHandleResourceRead(req jrpcRequest, content map[string]string) jrpcResponse {
-	var params struct {
-		URI string `json:"uri"`
+// handleCategoryCall routes a category tool invocation to the right sub-tool.
+func (s *mcpSession) handleCategoryCall(
+	id json.RawMessage, group string, cat *mcpGroup, args map[string]any,
+) jrpcResponse {
+	text := func(str string, isErr bool) jrpcResponse {
+		return jrpcResponse{JSONRPC: "2.0", ID: id, Result: map[string]any{
+			"content": []map[string]string{{"type": "text", "text": str}},
+			"isError": isErr,
+		}}
 	}
-	_ = json.Unmarshal(req.Params, &params)
 
-	body, ok := content[params.URI]
-	if !ok {
-		return jrpcResponse{
-			JSONRPC: "2.0", ID: req.ID,
-			Error: &jrpcError{Code: -32602, Message: "unknown resource: " + params.URI},
+	action, _ := args["action"].(string)
+	if action == "" || action == "help" {
+		// Return subcommand listing.
+		lines := make([]string, 0, len(cat.children))
+		for _, c := range cat.children {
+			sub := strings.TrimPrefix(c.Name, group+"_")
+			lines = append(lines, fmt.Sprintf("  %-30s %s", sub, c.Description))
+		}
+		s.expandCategory(group)
+		return text("Available subcommands for "+group+":\n"+strings.Join(lines, "\n"), false)
+	}
+
+	// Resolve the sub-tool name.
+	toolName := group + "_" + action
+	if _, ok := s.toolIndex[toolName]; !ok {
+		return text("unknown action: "+action+". Call with action=\"help\" to list available subcommands.", true)
+	}
+
+	// Forward all args except "action" to the sub-tool.
+	subArgs := make(map[string]any, len(args))
+	for k, v := range args {
+		if k != "action" {
+			subArgs[k] = v
 		}
 	}
-	return jrpcResponse{JSONRPC: "2.0", ID: req.ID, Result: map[string]any{
-		"contents": []map[string]string{
-			{"uri": params.URI, "mimeType": "text/markdown", "text": body},
-		},
-	}}
+
+	s.expandCategory(group)
+
+	out, err := mcpExecTool(toolName, subArgs)
+	if err != nil {
+		return text(err.Error(), true)
+	}
+	return text(out, false)
+}
+
+// expandCategory marks a category as expanded and sends a listChanged
+// notification so the client re-fetches tools/list with the sub-tools.
+func (s *mcpSession) expandCategory(group string) {
+	if s.expanded[group] {
+		return
+	}
+	s.expanded[group] = true
+	// Send listChanged notification (JSON-RPC notification: no id).
+	_ = s.enc.Encode(map[string]string{
+		"jsonrpc": "2.0",
+		"method":  "notifications/tools/list_changed",
+	})
 }
 
 // --- Tool generation from the cobra command tree ---
@@ -369,6 +579,26 @@ func mcpHasFlag(args map[string]any, name string) bool {
 	}
 	_, ok := args[strings.ReplaceAll(name, "-", "_")]
 	return ok
+}
+
+func (s *mcpSession) handleResourceRead(req jrpcRequest) jrpcResponse {
+	var params struct {
+		URI string `json:"uri"`
+	}
+	_ = json.Unmarshal(req.Params, &params)
+
+	body, ok := s.resCont[params.URI]
+	if !ok {
+		return jrpcResponse{
+			JSONRPC: "2.0", ID: req.ID,
+			Error: &jrpcError{Code: -32602, Message: "unknown resource: " + params.URI},
+		}
+	}
+	return jrpcResponse{JSONRPC: "2.0", ID: req.ID, Result: map[string]any{
+		"contents": []map[string]string{
+			{"uri": params.URI, "mimeType": "text/markdown", "text": body},
+		},
+	}}
 }
 
 // --- Resources from embedded docs/tips ---
