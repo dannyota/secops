@@ -314,7 +314,7 @@ func (s *mcpSession) handleRun(id json.RawMessage, args map[string]any) jrpcResp
 		return mcpText(id, "missing required parameter: command", true)
 	}
 
-	argv := strings.Fields(cmd)
+	argv := mcpSplitArgs(cmd)
 	if len(argv) == 0 {
 		return mcpText(id, "empty command", true)
 	}
@@ -630,6 +630,35 @@ func mcpResolveCommandPath(segments []string) []string {
 		}
 	}
 	return resolved
+}
+
+// mcpSplitArgs splits a command string into tokens, respecting double and
+// single quotes (like a minimal POSIX shell). Unquoted tokens split on
+// whitespace; quoted spans preserve interior whitespace and are stripped
+// of the outer quotes.
+func mcpSplitArgs(s string) []string {
+	var args []string
+	var cur []byte
+	inSingle, inDouble := false, false
+	for _, c := range []byte(s) {
+		switch {
+		case c == '\'' && !inDouble:
+			inSingle = !inSingle
+		case c == '"' && !inSingle:
+			inDouble = !inDouble
+		case (c == ' ' || c == '\t') && !inSingle && !inDouble:
+			if len(cur) > 0 {
+				args = append(args, string(cur))
+				cur = cur[:0]
+			}
+		default:
+			cur = append(cur, c)
+		}
+	}
+	if len(cur) > 0 {
+		args = append(args, string(cur))
+	}
+	return args
 }
 
 // mcpGlobalFlags returns the global flags that should be forwarded from the

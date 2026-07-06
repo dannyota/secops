@@ -215,6 +215,33 @@ func TestStripFlagHints(t *testing.T) {
 	}
 }
 
+func TestMCPSplitArgs(t *testing.T) {
+	tests := []struct {
+		input string
+		want  []string
+	}{
+		{`cases list --limit 5`, []string{"cases", "list", "--limit", "5"}},
+		{`playbooks rerun --case-id 6145 --name "SOC Agents - Auto-Trigger"`, []string{"playbooks", "rerun", "--case-id", "6145", "--name", "SOC Agents - Auto-Trigger"}},
+		{`playbooks rerun --name 'SOC Agents - Auto-Trigger' --yes`, []string{"playbooks", "rerun", "--name", "SOC Agents - Auto-Trigger", "--yes"}},
+		{`query udm 'ip = "10.0.0.1"'`, []string{"query", "udm", `ip = "10.0.0.1"`}},
+		{`  spaces   between  `, []string{"spaces", "between"}},
+		{`single`, []string{"single"}},
+		{``, nil},
+	}
+	for _, tt := range tests {
+		got := mcpSplitArgs(tt.input)
+		if len(got) != len(tt.want) {
+			t.Errorf("mcpSplitArgs(%q) = %v, want %v", tt.input, got, tt.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tt.want[i] {
+				t.Errorf("mcpSplitArgs(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
+			}
+		}
+	}
+}
+
 func TestFlagSchemaProperty(t *testing.T) {
 	tests := []struct {
 		flag flagInfo

@@ -3,6 +3,15 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.2 — 2026-07-06
+
+### Fixed
+
+- **MCP: `run` respects quoted arguments.** The `run` meta-tool split on
+  whitespace, breaking flag values with spaces (e.g.
+  `--name "SOC Agents - Auto-Trigger"`). Now uses a shell-style tokenizer
+  that respects single and double quotes.
+
 ## v0.9.1 — 2026-07-06
 
 ### Fixed
