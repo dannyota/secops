@@ -277,7 +277,7 @@ Machine-readable registries (no API call, no credentials, except `status capabil
 
 ### `mcp serve` / `mcp install`
 
-W139–140. MCP server over stdio JSON-RPC — auto-generates 361 tools from the cobra command tree (each leaf command becomes an MCP tool with typed InputSchema from its flags), plus serves all `docs/tips/*.md` as MCP resources. `mcp install [--global]` registers `secopsctl` in `.claude/settings.json` so every Claude Code session gets all tools automatically. Zero external dependencies. Replaces the former `skill` / `skill install` commands (W84, removed in W140).
+W139–140. MCP server over stdio JSON-RPC — auto-generates 361 tools from the cobra command tree (each leaf command becomes an MCP tool with typed InputSchema from its flags), plus serves all `docs/tips/*.md` as MCP resources. `mcp install` registers `secopsctl` in the project-level `.mcp.json` so every Claude Code session in that directory gets all tools automatically. Zero external dependencies. Replaces the former `skill` / `skill install` commands (W84, removed in W140).
 
 ### structured `--json` errors + dry-run plan
 
