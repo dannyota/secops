@@ -30,7 +30,6 @@ type AddChartInput struct {
 	DrillDownConfig json.RawMessage // optional
 	Query           string          // optional UDM query; paired with Interval
 	Interval        json.RawMessage // optional input interval; paired with Query
-	FiltersIds      []string        // optional; e.g. ["GlobalTimeFilter"]
 }
 
 // dashboardChartBody is the "dashboardChart" sub-object of an addChart request.
@@ -52,7 +51,6 @@ func (c *Client) AddChart(ctx context.Context, dashboardID string, in AddChartIn
 	body := struct {
 		DashboardChart dashboardChartBody `json:"dashboardChart"`
 		ChartLayout    json.RawMessage    `json:"chartLayout,omitempty"`
-		FiltersIds     []string           `json:"filtersIds,omitempty"`
 		DashboardQuery *struct {
 			Query string          `json:"query"`
 			Input json.RawMessage `json:"input"`
@@ -67,7 +65,6 @@ func (c *Client) AddChart(ctx context.Context, dashboardID string, in AddChartIn
 			DrillDownConfig: in.DrillDownConfig,
 		},
 		ChartLayout: in.ChartLayout,
-		FiltersIds:  in.FiltersIds,
 	}
 	if in.Query != "" && in.Interval != nil {
 		body.DashboardQuery = &struct {

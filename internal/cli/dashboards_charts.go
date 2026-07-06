@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -216,10 +217,6 @@ func newDashboardsAddChartCmd() *cobra.Command {
 					return nil
 				}
 			}
-			var filters []string
-			if !noFilters {
-				filters = []string{"GlobalTimeFilter"}
-			}
 			resp, err := c.AddChart(ctx, id, chronicle.AddChartInput{
 				DisplayName:     title,
 				TileType:        tile,
@@ -228,15 +225,26 @@ func newDashboardsAddChartCmd() *cobra.Command {
 				Visualization:   vis,
 				Query:           q,
 				Interval:        iv,
-				FiltersIds:      filters,
 			})
 			if err != nil {
 				return err
 			}
+			chartID := lastSegment(nestedString(resp, "dashboardChart", "name"))
+
+			// Bind the new chart to GlobalTimeFilter via a dashboard
+			// definition PATCH — filtersIds is a definition-level property,
+			// not accepted in the :addChart request body.
+			if !noFilters && chartID != "" {
+				if ferr := bindChartFilter(ctx, c, id, chartID); ferr != nil {
+					fmt.Fprintf(os.Stderr, "warning: chart added but filter binding failed: %v\n"+
+						"  bind manually: dashboards filters set %s --apply-to %s --yes\n", ferr, id, chartID)
+				}
+			}
+
 			if jsonOut {
 				return emitJSON(resp)
 			}
-			if chartID := lastSegment(nestedString(resp, "dashboardChart", "name")); chartID != "" {
+			if chartID != "" {
 				fmt.Printf("Added chart %q (id %s) to dashboard %s. Re-pull to mirror it locally.\n", title, chartID, id)
 			} else {
 				fmt.Printf("Added chart %q to dashboard %s. Re-pull to mirror it locally.\n", title, id)
@@ -394,6 +402,31 @@ func newDashboardsChartsCmd() *cobra.Command {
 		},
 	}
 	return markJSON(cmd)
+}
+
+// bindChartFilter reads the dashboard definition, sets filtersIds on the
+// targeted chart entry, and PATCHes the definition.charts array. This is the
+// only way to bind a filter to a chart — the :addChart endpoint does not
+// accept filtersIds in its request body.
+func bindChartFilter(ctx context.Context, c *chronicle.Client, dashboardID, chartID string) error {
+	d, err := c.GetDashboard(ctx, dashboardID, true)
+	if err != nil {
+		return err
+	}
+	var def struct {
+		Definition struct {
+			Charts []json.RawMessage `json:"charts"`
+		} `json:"definition"`
+	}
+	if err := json.Unmarshal(d.Raw, &def); err != nil {
+		return err
+	}
+	charts, err := applyFilterToCharts(def.Definition.Charts, chartID)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateDashboard(ctx, dashboardID, chronicle.DashboardUpdate{Charts: charts})
+	return err
 }
 
 // indentLines prefixes every line of s with prefix.
