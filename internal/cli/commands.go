@@ -62,42 +62,212 @@ type flagInfo struct {
 
 func newCommandsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "commands",
-		Short: "Read-only: list every command with its kind (read vs guarded-mutation), offline",
+		Use:   "commands [group]",
+		Short: "Read-only: list every command with its kind (read vs guarded-mutation), offline. Pass a group name to drill in for flags and args",
 		Long: "Walk the command tree and list every runnable command: its path, one-line\n" +
 			"description, local flags, and KIND — `guarded-mutation` for commands that\n" +
-			"carry the standard --dry-run/--yes live-mutation gate, `read` otherwise.\n" +
+			"carry the standard --dry-run/--yes live-mutation gate, `read` otherwise.\n\n" +
+			"Without arguments: grouped catalog (compact). With a group name: detail\n" +
+			"for that group's commands (flags, args).\n\n" +
 			"Offline (no API call, no credentials) — the verb-level companion to\n" +
 			"`secopsctl surfaces`, and the input for building per-command allowlists\n" +
 			"for automation/agents.",
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			rows := collectCommands(rootCmd)
 			sort.Slice(rows, func(i, j int) bool { return rows[i].Path < rows[j].Path })
-			if jsonOut {
-				return emitJSON(rows)
+
+			// Drill into one group: commands <group>
+			if len(args) == 1 {
+				return commandsGroup(args[0], rows)
 			}
-			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-			fmt.Fprintln(tw, "KIND\tJSON\tCOMMAND\tDESCRIPTION")
-			for _, r := range rows {
-				kind := ""
-				if r.Kind == "guarded-mutation" {
-					kind = "guarded"
-				}
-				js := "-"
-				if r.JSON {
-					js = "y"
-				}
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", kind, js, r.Path, truncate(r.Short, 80))
-			}
-			if err := tw.Flush(); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stdout, "\n%d command(s). `guarded` = live mutation behind --dry-run/--yes; blank = read.\n", len(rows))
-			return nil
+			// Default: grouped catalog
+			groups := collectGroups(rootCmd)
+			return commandsGrouped(groups, rows)
 		},
 	}
 	return markJSON(cmd)
+}
+
+// commandGroup holds a top-level group parent's metadata.
+type commandGroup struct {
+	Name  string `json:"name"`
+	Short string `json:"short"`
+}
+
+// collectGroups returns the top-level group parents (alerts, cases, …) with
+// their Short descriptions. Standalone root commands (doctor, pull, …) are
+// included as single-command groups.
+func collectGroups(root *cobra.Command) []commandGroup {
+	var groups []commandGroup
+	for _, c := range root.Commands() {
+		if c.Hidden || c.Name() == "help" || c.Name() == "completion" {
+			continue
+		}
+		groups = append(groups, commandGroup{Name: c.Name(), Short: c.Short})
+	}
+	sort.Slice(groups, func(i, j int) bool { return groups[i].Name < groups[j].Name })
+	return groups
+}
+
+// commandsGrouped prints the compact grouped catalog.
+func commandsGrouped(groups []commandGroup, rows []commandRow) error {
+	// Index rows by top-level group.
+	byGroup := map[string][]commandRow{}
+	for _, r := range rows {
+		top, _, _ := strings.Cut(r.Path, " ")
+		byGroup[top] = append(byGroup[top], r)
+	}
+
+	type groupEntry struct {
+		Name    string   `json:"name"`
+		Short   string   `json:"short"`
+		Total   int      `json:"total"`
+		Guarded int      `json:"guarded"`
+		Cmds    []string `json:"commands"`
+	}
+
+	var entries []groupEntry
+	for _, g := range groups {
+		gRows := byGroup[g.Name]
+		if len(gRows) == 0 {
+			continue
+		}
+		var cmds []string
+		guarded := 0
+		for _, r := range gRows {
+			// Strip the group prefix to show just the subcommand name.
+			sub := strings.TrimPrefix(r.Path, g.Name)
+			sub = strings.TrimSpace(sub)
+			if sub == "" {
+				sub = "(root)"
+			}
+			sub = strings.ReplaceAll(sub, " ", "-")
+			if r.Kind == "guarded-mutation" {
+				sub += "*"
+				guarded++
+			}
+			cmds = append(cmds, sub)
+		}
+		entries = append(entries, groupEntry{
+			Name:    g.Name,
+			Short:   g.Short,
+			Total:   len(gRows),
+			Guarded: guarded,
+			Cmds:    cmds,
+		})
+	}
+
+	if jsonOut {
+		return emitJSON(entries)
+	}
+
+	fmt.Fprintf(os.Stdout, "secopsctl (%d commands, * = guarded mutation)\n\n", len(rows))
+	for _, e := range entries {
+		fmt.Fprintf(os.Stdout, "%-16s (%d) — %s\n", e.Name, e.Total, truncate(e.Short, 72))
+		fmt.Fprintf(os.Stdout, "  %s\n\n", strings.Join(e.Cmds, ", "))
+	}
+	return nil
+}
+
+// commandsGroup prints detail for one group's commands.
+func commandsGroup(group string, rows []commandRow) error {
+	var filtered []commandRow
+	for _, r := range rows {
+		top, _, _ := strings.Cut(r.Path, " ")
+		if top == group {
+			filtered = append(filtered, r)
+		}
+	}
+	if len(filtered) == 0 {
+		var names []string
+		for _, c := range rootCmd.Commands() {
+			if !c.Hidden && c.Name() != "help" && c.Name() != "completion" {
+				names = append(names, c.Name())
+			}
+		}
+		return fmt.Errorf("no commands found in group %q; valid groups: %s", group, strings.Join(names, ", "))
+	}
+	if jsonOut {
+		return emitJSON(compactRows(filtered))
+	}
+	return commandsFlat(filtered)
+}
+
+// compactRow is a lighter commandRow for drill-down JSON: flags carry
+// name/type/enum but drop the verbose usage text that bloats large groups.
+type compactRow struct {
+	Path  string        `json:"path"`
+	Kind  string        `json:"kind"`
+	JSON  bool          `json:"json"`
+	Short string        `json:"short"`
+	Args  string        `json:"args,omitempty"`
+	Flags []compactFlag `json:"flags,omitempty"`
+}
+
+type compactFlag struct {
+	Name     string   `json:"name"`
+	Type     string   `json:"type"`
+	Default  string   `json:"default,omitempty"`
+	Required bool     `json:"required,omitempty"`
+	Enum     []string `json:"enum,omitempty"`
+}
+
+// guardFlags are the standard dry-run/yes/out/prune flags present on every
+// guarded-mutation command. They are documented once in the catalog header
+// and stripped from individual command entries to save space.
+var guardFlags = map[string]bool{
+	"dry-run": true, "yes": true, "out": true, "prune": true,
+}
+
+func compactRows(rows []commandRow) []compactRow {
+	out := make([]compactRow, len(rows))
+	for i, r := range rows {
+		var flags []compactFlag
+		for _, f := range r.Flags {
+			if guardFlags[f.Name] {
+				continue
+			}
+			flags = append(flags, compactFlag{
+				Name:     f.Name,
+				Type:     f.Type,
+				Default:  f.Default,
+				Required: f.Required,
+				Enum:     f.Enum,
+			})
+		}
+		out[i] = compactRow{
+			Path:  r.Path,
+			Kind:  r.Kind,
+			JSON:  r.JSON,
+			Short: r.Short,
+			Args:  r.Args,
+			Flags: flags,
+		}
+	}
+	return out
+}
+
+// commandsFlat prints the tabular per-command listing (the legacy format).
+func commandsFlat(rows []commandRow) error {
+	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintln(tw, "KIND\tJSON\tCOMMAND\tDESCRIPTION")
+	for _, r := range rows {
+		kind := ""
+		if r.Kind == "guarded-mutation" {
+			kind = "guarded"
+		}
+		js := "-"
+		if r.JSON {
+			js = "y"
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", kind, js, r.Path, truncate(r.Short, 80))
+	}
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stdout, "\n%d command(s). `guarded` = live mutation behind --dry-run/--yes; blank = read.\n", len(rows))
+	return nil
 }
 
 // walkRunnable walks the tree depth-first and visits every runnable, visible

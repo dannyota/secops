@@ -125,7 +125,6 @@ func TestMCPNoArgsCommandsLackArgsProperty(t *testing.T) {
 	noArgTools := []string{
 		"doctor",
 		"version",
-		"commands",
 		"status_capabilities",
 		"mcp_install", // excluded, but if present must not have args
 	}
