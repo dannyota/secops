@@ -115,8 +115,11 @@ func fetchEventsComplete(ctx context.Context, c *chronicle.Client, filter string
 	counts = make([]chunkCount, 0, len(chunks))
 	for i, w := range chunks {
 		remaining := maxEvents - len(events)
+		// Single-chunk searches block in one long HTTP request; show elapsed
+		// time so it doesn't read as a hang.
+		var stopTicker func()
 		if len(chunks) == 1 {
-			printProgress("events", 0, 0)
+			stopTicker = progressTicker("events")
 		}
 		view, err := c.FetchUDMSearchView(ctx, filter, w.start, w.end, chronicle.UDMSearchViewOptions{
 			// The baseline count is computed server-side regardless of how many
@@ -124,12 +127,11 @@ func fetchEventsComplete(ctx context.Context, c *chronicle.Client, filter string
 			MaxEvents:       max(remaining, 1),
 			CaseInsensitive: true,
 		})
-		if err != nil {
-			clearProgress()
-			return nil, nil, 0, wrapChunkErr(err, i, chunks)
+		if stopTicker != nil {
+			stopTicker()
 		}
-		if len(chunks) == 1 {
-			clearProgress()
+		if err != nil {
+			return nil, nil, 0, wrapChunkErr(err, i, chunks)
 		}
 		returned := 0
 		if remaining > 0 {
