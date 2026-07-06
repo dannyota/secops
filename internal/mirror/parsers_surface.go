@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -272,7 +273,7 @@ func parserCreateActivate(ctx context.Context, c *chronicle.Client, local reconc
 	if err := waitParserValidated(ctx, c, spec.LogType, id); err != nil {
 		return reconcile.Object{}, err
 	}
-	if err := c.ActivateParser(ctx, spec.LogType, id); err != nil {
+	if err := retryActivateParser(ctx, c, spec.LogType, id); err != nil {
 		return reconcile.Object{}, err
 	}
 	active, err := c.GetParser(ctx, spec.LogType, id)
@@ -280,6 +281,29 @@ func parserCreateActivate(ctx context.Context, c *chronicle.Client, local reconc
 		return reconcile.Object{}, err
 	}
 	return parserLiveObject(spec.LogType, *active)
+}
+
+// retryActivateParser retries activation on FAILED_PRECONDITION (HTTP 400).
+// Even after validation passes, the server may not accept the activate call
+// immediately — especially for log types with an existing prebuilt parser.
+// A brief retry bridges the gap that manual `parsers activate` crosses naturally.
+func retryActivateParser(ctx context.Context, c *chronicle.Client, logType, id string) error {
+	const maxAttempts = 4
+	wait := 3 * time.Second
+	for attempt := range maxAttempts {
+		err := c.ActivateParser(ctx, logType, id)
+		if err == nil {
+			return nil
+		}
+		var apiErr *chronicle.APIError
+		if !errors.As(err, &apiErr) || apiErr.Status != 400 || attempt == maxAttempts-1 {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "  (retry) activate %s: %v — retrying in %s\n", id, err, wait)
+		time.Sleep(wait)
+		wait = min(wait*2, 15*time.Second)
+	}
+	return nil // unreachable
 }
 
 // parserValidateTimeout bounds the wait for a fresh parser version's async
