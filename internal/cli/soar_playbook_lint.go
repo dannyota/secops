@@ -28,6 +28,7 @@ func newSOARPlaybookLintCmd() *cobra.Command {
 		Use:   "lint (--name <playbook> | --all)",
 		Short: "Static analysis: detect broken block refs, missing integrations, bad triggers",
 		Long: "Analyze playbook definitions for common problems:\n" +
+			"  - dangling step relations (stepsRelations references a deleted step — causes console 500 on edit)\n" +
 			"  - broken block refs (step references a nested playbook that doesn't exist)\n" +
 			"  - missing integration instances (step uses an unconfigured integration)\n" +
 			"  - raw placeholders in JSON action params\n" +
@@ -118,8 +119,9 @@ func newSOARPlaybookLintCmd() *cobra.Command {
 
 func lintPlaybook(pbName string, raw json.RawMessage, knownPlaybooks map[string]string, knownIntegrations map[string]bool) []playbookLintFinding {
 	var doc struct {
-		Steps   []json.RawMessage `json:"steps"`
-		Trigger json.RawMessage   `json:"trigger"`
+		Steps          []json.RawMessage `json:"steps"`
+		StepsRelations []json.RawMessage `json:"stepsRelations"`
+		Trigger        json.RawMessage   `json:"trigger"`
 	}
 	if json.Unmarshal(raw, &doc) != nil {
 		return nil
@@ -137,17 +139,33 @@ func lintPlaybook(pbName string, raw json.RawMessage, knownPlaybooks map[string]
 
 	findings = append(findings, lintTrigger(pbName, doc.Trigger)...)
 
+	stepIDs := map[string]bool{}
+	idToName := map[string]string{}
 	for _, stepRaw := range doc.Steps {
 		var step struct {
-			Name              string          `json:"name"`
-			Type              any             `json:"type"`
-			Integration       string          `json:"integration"`
-			ActionName        string          `json:"actionName"`
-			AutoSkipOnFailure *bool           `json:"autoSkipOnFailure"`
-			Parameters        json.RawMessage `json:"parameters"`
+			Identifier             string          `json:"identifier"`
+			OriginalStepIdentifier string          `json:"originalStepIdentifier"`
+			InstanceName           string          `json:"instanceName"`
+			Name                   string          `json:"name"`
+			Type                   any             `json:"type"`
+			Integration            string          `json:"integration"`
+			ActionName             string          `json:"actionName"`
+			AutoSkipOnFailure      *bool           `json:"autoSkipOnFailure"`
+			Parameters             json.RawMessage `json:"parameters"`
 		}
 		if json.Unmarshal(stepRaw, &step) != nil {
 			continue
+		}
+		label := step.InstanceName
+		if label == "" {
+			label = step.Name
+		}
+		if step.Identifier != "" {
+			stepIDs[step.Identifier] = true
+			idToName[step.Identifier] = label
+		}
+		if step.OriginalStepIdentifier != "" {
+			stepIDs[step.OriginalStepIdentifier] = true
 		}
 
 		stepType := displayJSONScalar(step.Type)
@@ -172,6 +190,95 @@ func lintPlaybook(pbName string, raw json.RawMessage, knownPlaybooks map[string]
 		}
 
 		findings = append(findings, lintStepParams(pbName, step.Name, step.Parameters)...)
+	}
+
+	// Also accept the trigger identifier as a valid relation endpoint.
+	if len(doc.Trigger) > 0 && string(doc.Trigger) != "null" {
+		var trig struct {
+			Identifier string `json:"identifier"`
+		}
+		if json.Unmarshal(doc.Trigger, &trig) == nil && trig.Identifier != "" {
+			stepIDs[trig.Identifier] = true
+			idToName[trig.Identifier] = "TRIGGER"
+		}
+	}
+
+	findings = append(findings, lintRelations(pbName, doc.StepsRelations, stepIDs, idToName)...)
+
+	return findings
+}
+
+func lintRelations(pbName string, relations []json.RawMessage, stepIDs map[string]bool, idToName map[string]string) []playbookLintFinding {
+	if len(relations) == 0 {
+		return nil
+	}
+
+	var findings []playbookLintFinding
+	add := func(sev, check, msg string) {
+		findings = append(findings, playbookLintFinding{
+			Playbook: pbName,
+			Severity: sev,
+			Check:    check,
+			Message:  msg,
+		})
+	}
+	nameOf := func(id string) string {
+		if n, ok := idToName[id]; ok {
+			return n
+		}
+		return id[:min(12, len(id))] + "…"
+	}
+
+	hasIncoming := map[string]bool{}
+	var danglingIndices []int
+	var orphanTargets []string
+
+	for i, rawRel := range relations {
+		var rel playbookRelationDoc
+		if json.Unmarshal(rawRel, &rel) != nil {
+			continue
+		}
+		fromBad := rel.FromStep != "" && !stepIDs[rel.FromStep]
+		toBad := rel.ToStep != "" && !stepIDs[rel.ToStep]
+
+		if fromBad || toBad {
+			danglingIndices = append(danglingIndices, i)
+		}
+		if fromBad {
+			add("error", "dangling-relation",
+				fmt.Sprintf("stepsRelations[%d] fromStep %q → %s — fromStep does not exist (deleted step); causes console 500 on edit",
+					i, rel.FromStep, nameOf(rel.ToStep)))
+			if rel.ToStep != "" && stepIDs[rel.ToStep] {
+				orphanTargets = append(orphanTargets, nameOf(rel.ToStep))
+			}
+		}
+		if toBad {
+			add("error", "dangling-relation",
+				fmt.Sprintf("stepsRelations[%d] %s → toStep %q — toStep does not exist (deleted step); causes console 500 on edit",
+					i, nameOf(rel.FromStep), rel.ToStep))
+		}
+
+		if !toBad && rel.ToStep != "" {
+			hasIncoming[rel.ToStep] = true
+		}
+	}
+
+	// Detect orphan steps: no incoming relation and not the trigger.
+	for id, name := range idToName {
+		if name == "TRIGGER" {
+			continue
+		}
+		if !hasIncoming[id] {
+			add("warning", "orphan-step",
+				fmt.Sprintf("step %q has no incoming relation — it is disconnected from the flow", name))
+		}
+	}
+
+	if len(danglingIndices) > 0 {
+		fix := fmt.Sprintf("fix: pull the playbook, delete stepsRelations entries %v from the JSON, "+
+			"then reconnect orphan step(s) %s in the console editor, and push back (soar push playbook --file <file> --yes)",
+			danglingIndices, strings.Join(orphanTargets, ", "))
+		add("info", "dangling-relation-fix", fix)
 	}
 
 	return findings

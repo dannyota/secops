@@ -3,6 +3,18 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.3 — 2026-07-06
+
+### Added
+
+- **Playbook lint: detect dangling step relations and orphan steps.**
+  `playbooks lint` now flags orphaned `stepsRelations` entries whose
+  `fromStep` or `toStep` references a step that no longer exists
+  (`[error] dangling-relation` — causes console 500 on edit), and steps
+  with no incoming relation (`[warning] orphan-step` — disconnected from
+  the flow). When dangling relations are found, the fix instructions name
+  the affected indices and orphan steps to reconnect.
+
 ## v0.9.2 — 2026-07-06
 
 ### Fixed

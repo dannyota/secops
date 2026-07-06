@@ -479,6 +479,7 @@ secopsctl playbooks lint (--name <playbook> | --all) [flags]
 
 ```text
 Analyze playbook definitions for common problems:
+  - dangling step relations (stepsRelations references a deleted step — causes console 500 on edit)
   - broken block refs (step references a nested playbook that doesn't exist)
   - missing integration instances (step uses an unconfigured integration)
   - raw placeholders in JSON action params
