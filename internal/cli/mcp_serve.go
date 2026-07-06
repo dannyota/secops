@@ -209,8 +209,8 @@ func buildCategoryRouter(group, cobraGroup string, children []mcpTool) mcpTool {
 		if i := strings.Index(short, " [guarded:"); i > 0 {
 			short = short[:i]
 		}
-		if len(short) > 60 {
-			short = short[:57] + "..."
+		if len(short) > 80 {
+			short = short[:77] + "..."
 		}
 		subs = append(subs, sub+": "+short)
 	}
@@ -523,6 +523,10 @@ func mcpExecTool(name string, args map[string]any) (string, error) {
 		argv = append(argv, "--json")
 	}
 
+	// Forward global flags from the parent MCP session so the subprocess
+	// inherits --read-only, --config, --timeout, etc.
+	argv = append(argv, mcpGlobalFlags(args)...)
+
 	self, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("cannot find secopsctl binary: %w", err)
@@ -571,6 +575,29 @@ func mcpResolveCommandPath(segments []string) []string {
 		}
 	}
 	return resolved
+}
+
+// mcpGlobalFlags returns the global flags that should be forwarded from the
+// parent MCP serve process to a tool subprocess, skipping any the caller
+// already set explicitly.
+func mcpGlobalFlags(callerArgs map[string]any) []string {
+	var flags []string
+	fwd := func(name string, val bool) {
+		if val && !mcpHasFlag(callerArgs, name) {
+			flags = append(flags, "--"+name)
+		}
+	}
+	fwd("read-only", readOnlyMode())
+	fwd("legacy", forceLegacy)
+	fwd("non-interactive", true) // subprocesses should never prompt
+	fwd("no-progress", true)     // no TTY inside MCP
+	if cfgFile != "" && !mcpHasFlag(callerArgs, "config") {
+		flags = append(flags, "--config", cfgFile)
+	}
+	if rootCmd.PersistentFlags().Changed("timeout") && !mcpHasFlag(callerArgs, "timeout") {
+		flags = append(flags, "--timeout", requestTimeout.String())
+	}
+	return flags
 }
 
 func mcpHasFlag(args map[string]any, name string) bool {

@@ -177,13 +177,156 @@ func localFlagInfos(c *cobra.Command) []flagInfo {
 // positionalSpec returns the positional-argument portion of a command's Use
 // string (everything after the verb name), e.g. "update <alert-id> [<id>...]"
 // → "<alert-id> [<id>...]". Empty when the command takes no positionals.
+//
+// Flag-like tokens (--flag, [--flag ...], (--a | --b)) are stripped because
+// cobra Use strings often document both positional args and required flags in
+// the same line — the flags are already exposed as individual schema properties
+// via localFlagInfos. After stripping, if nothing remains the command is
+// flag-only and callers should not emit a positional-args field.
 func positionalSpec(c *cobra.Command) string {
 	use := strings.TrimSpace(c.Use)
-	if i := strings.IndexAny(use, " \t"); i >= 0 {
-		return strings.TrimSpace(use[i+1:])
+	i := strings.IndexAny(use, " \t")
+	if i < 0 {
+		return ""
 	}
-	return ""
+	return stripFlagHints(strings.TrimSpace(use[i+1:]))
 }
+
+// stripFlagHints removes flag-like patterns from a Use-string tail, keeping
+// only genuine positional-arg tokens (<placeholder>, bare-word args, ...).
+//
+// Patterns removed:
+//   - Bracketed/parenthesized groups containing "--": [--flag ...], (--a | --b)
+//   - Bare --flag tokens and their inline values
+//   - Residual pipes, ellipses, and bracket-only tokens like [flags]
+func stripFlagHints(spec string) string {
+	// Pass 1: remove balanced [...] and (...) groups that contain "--".
+	spec = stripFlagGroups(spec)
+
+	// Pass 2: remove bare --flag tokens and their values.
+	spec = bareFlagRE.ReplaceAllString(spec, "")
+
+	// Pass 3: clean residue — [flags], empty brackets.
+	spec = residueRE.ReplaceAllString(spec, "")
+
+	// Pass 4: remove stray pipes and ellipses that are NOT inside <...>.
+	spec = stripStrayPunctuation(spec)
+
+	return strings.TrimSpace(strings.Join(strings.Fields(spec), " "))
+}
+
+// stripStrayPunctuation removes bare |, ..., and … that sit outside angle
+// brackets and square brackets (inside those they are part of the grammar).
+func stripStrayPunctuation(s string) string {
+	var out []byte
+	inAngle, inBracket := 0, 0
+	i := 0
+	for i < len(s) {
+		protected := inAngle > 0 || inBracket > 0
+		switch {
+		case s[i] == '<':
+			inAngle++
+			out = append(out, s[i])
+		case s[i] == '>':
+			if inAngle > 0 {
+				inAngle--
+			}
+			out = append(out, s[i])
+		case s[i] == '[':
+			inBracket++
+			out = append(out, s[i])
+		case s[i] == ']':
+			if inBracket > 0 {
+				inBracket--
+			}
+			out = append(out, s[i])
+		case protected:
+			out = append(out, s[i])
+		case s[i] == '|':
+			// skip stray pipe
+		case s[i] == '.' && i+2 < len(s) && s[i+1] == '.' && s[i+2] == '.':
+			// keep ... only after ] or > (variadic marker)
+			if len(out) > 0 && (out[len(out)-1] == ']' || out[len(out)-1] == '>') {
+				out = append(out, s[i:i+3]...)
+			}
+			i += 3
+			continue
+		case s[i] == '\xe2' && i+2 < len(s) && s[i+1] == '\x80' && s[i+2] == '\xa6':
+			i += 3
+			continue
+		default:
+			out = append(out, s[i])
+		}
+		i++
+	}
+	return string(out)
+}
+
+// stripFlagGroups removes balanced [...] and (...) groups that contain "--".
+func stripFlagGroups(s string) string {
+	var out []byte
+	i := 0
+	for i < len(s) {
+		if s[i] == '[' || s[i] == '(' {
+			close := closerFor(s[i])
+			end := findBalancedClose(s, i, s[i], close)
+			group := s[i : end+1]
+			// Also consume trailing dots/ellipsis.
+			trail := end + 1
+			for trail < len(s) && (s[trail] == '.' || s[trail] == '\xe2') { // \xe2 = start of … (U+2026)
+				if s[trail] == '\xe2' && trail+2 < len(s) {
+					trail += 3 // UTF-8 three-byte sequence
+				} else {
+					trail++
+				}
+			}
+			if strings.Contains(group, "--") {
+				i = trail
+				continue
+			}
+			// Non-flag group: keep it including any trailing dots.
+			out = append(out, s[i:trail]...)
+			i = trail
+		} else {
+			out = append(out, s[i])
+			i++
+		}
+	}
+	return string(out)
+}
+
+func closerFor(open byte) byte {
+	if open == '[' {
+		return ']'
+	}
+	return ')'
+}
+
+func findBalancedClose(s string, start int, open, close byte) int {
+	depth := 0
+	for i := start; i < len(s); i++ {
+		switch s[i] {
+		case open:
+			depth++
+		case close:
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return len(s) - 1
+}
+
+// bareFlagRE matches a --flag token, optional |alt or =val suffix, and any
+// inline flag-value arguments (bare words, <placeholders>, key=value, or
+// pipe-separated alternatives like precise|broad).
+var bareFlagRE = regexp.MustCompile(`--[\w-]+(?:[|=]\S+)?(?:\s+(?:<[^>]+>(?:=<[^>]+>|=\S+)?|[A-Za-z0-9_.,']+(?:[|][A-Za-z0-9_.]+)*(?:=<[^>]+>|=\S+)?))*`)
+
+// residueRE cleans up leftover noise: bracket-only tokens like [flags] and
+// empty bracket/paren pairs. Stray pipes and ellipses outside angle brackets
+// are handled by stripResidue.
+var residueRE = regexp.MustCompile(`\[flags\]|\[\s*\]|\(\s*\)`)
 
 // enumPattern matches a run of pipe-separated tokens, each ≥2 chars (so an "a|b"
 // prose pipe never matches) — the idiomatic way these commands document an

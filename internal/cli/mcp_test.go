@@ -112,6 +112,110 @@ func TestMCPResourcesFromTips(t *testing.T) {
 	}
 }
 
+func TestMCPNoArgsCommandsLackArgsProperty(t *testing.T) {
+	tools := mcpToolsFromCobra()
+	index := map[string]mcpTool{}
+	for _, tool := range tools {
+		index[tool.Name] = tool
+	}
+
+	// Commands with cobra.NoArgs must NOT have an "args" property — their Use
+	// string may contain flag hints (e.g. "close --id N --reason <enum>") that
+	// positionalSpec must strip completely.
+	noArgTools := []string{
+		"doctor",
+		"version",
+		"commands",
+		"status_capabilities",
+		"mcp_install", // excluded, but if present must not have args
+	}
+	for _, name := range noArgTools {
+		tool, ok := index[name]
+		if !ok {
+			continue // excluded from MCP or doesn't exist
+		}
+		props, _ := tool.InputSchema["properties"].(map[string]any)
+		if props == nil {
+			continue
+		}
+		if _, hasArgs := props["args"]; hasArgs {
+			t.Errorf("tool %q has cobra.NoArgs but got an 'args' schema property", name)
+		}
+	}
+}
+
+func TestMCPPositionalArgsPresent(t *testing.T) {
+	tools := mcpToolsFromCobra()
+	index := map[string]mcpTool{}
+	for _, tool := range tools {
+		index[tool.Name] = tool
+	}
+
+	// Commands with genuine positional args must have an "args" property.
+	tests := []struct {
+		name    string
+		wantSub string // substring in the args description
+	}{
+		{"search_udm", "<filter>"},
+		{"audit_user", "<email>"},
+		{"search_raw", "<pattern>"},
+	}
+	for _, tt := range tests {
+		tool, ok := index[tt.name]
+		if !ok {
+			t.Errorf("tool %q not found", tt.name)
+			continue
+		}
+		props, _ := tool.InputSchema["properties"].(map[string]any)
+		if props == nil {
+			t.Errorf("tool %q has no properties", tt.name)
+			continue
+		}
+		argsProp, ok := props["args"]
+		if !ok {
+			t.Errorf("tool %q should have an 'args' property", tt.name)
+			continue
+		}
+		desc, _ := argsProp.(map[string]any)["description"].(string)
+		if !strings.Contains(desc, tt.wantSub) {
+			t.Errorf("tool %q args description = %q, want substring %q", tt.name, desc, tt.wantSub)
+		}
+	}
+}
+
+func TestStripFlagHints(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		// Pure flags → empty.
+		{"--id <alert-id> --reason <enum>", ""},
+		{"[--enabled[=bool]] [--alerting[=bool]]", ""},
+		{"(--a | --b)", ""},
+		// Positional only.
+		{"<filter>", "<filter>"},
+		{"<email>", "<email>"},
+		// Mixed: positional + flags.
+		{"<alert-id> [--verbose]", "<alert-id>"},
+		// Bare flag with pipe-separated values.
+		{"--precision precise|broad", ""},
+		// Flag with key=value placeholder.
+		{"--property <name>=<value>", ""},
+		// [flags] residue.
+		{"<query> [flags]", "<query>"},
+		// Variadic positional.
+		{"<id> [<id>...]", "<id> [<id>...]"},
+		// Real-world: search_raw.
+		{"<pattern>", "<pattern>"},
+	}
+	for _, tt := range tests {
+		got := stripFlagHints(tt.input)
+		if got != tt.want {
+			t.Errorf("stripFlagHints(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
 func TestFlagSchemaProperty(t *testing.T) {
 	tests := []struct {
 		flag flagInfo
