@@ -161,12 +161,17 @@ func commandsGrouped(groups []commandGroup, rows []commandRow) error {
 	return nil
 }
 
-// commandsGroup prints detail for one group's commands.
+// commandsGroup prints detail for one group's commands. The group arg can be
+// a top-level name ("soar") or a dotted sub-group ("soar.push") for nested
+// drill-down. Groups with sub-groups automatically show a sub-group catalog
+// instead of a flat command list.
 func commandsGroup(group string, rows []commandRow) error {
+	// Normalize "soar.push" → prefix "soar push ".
+	prefix := strings.ReplaceAll(group, ".", " ")
+
 	var filtered []commandRow
 	for _, r := range rows {
-		top, _, _ := strings.Cut(r.Path, " ")
-		if top == group {
+		if r.Path == prefix || strings.HasPrefix(r.Path, prefix+" ") {
 			filtered = append(filtered, r)
 		}
 	}
@@ -179,10 +184,152 @@ func commandsGroup(group string, rows []commandRow) error {
 		}
 		return fmt.Errorf("no commands found in group %q; valid groups: %s", group, strings.Join(names, ", "))
 	}
+
+	// Check if this group has sub-groups (commands with further nesting).
+	depth := len(strings.Fields(prefix))
+	subs := subGroups(filtered, depth)
+	if len(subs) > 1 {
+		if jsonOut {
+			return emitJSON(subs)
+		}
+		return subGroupsTable(prefix, subs)
+	}
+
 	if jsonOut {
 		return emitJSON(compactRows(filtered))
 	}
 	return commandsFlat(filtered)
+}
+
+// subGroupEntry is a mini-catalog entry for a nested sub-group.
+type subGroupEntry struct {
+	Name    string `json:"name"`
+	Short   string `json:"short"`
+	Total   int    `json:"total"`
+	Guarded int    `json:"guarded"`
+}
+
+// subGroups detects whether commands at the given depth have a shared
+// sub-prefix (e.g. "soar push *", "soar jobs *") and returns sub-group
+// entries. Returns nil if all commands are at the same depth (no nesting).
+func subGroups(rows []commandRow, depth int) []subGroupEntry {
+	type info struct {
+		total, guarded int
+	}
+	groups := map[string]*info{}
+	var order []string
+
+	for _, r := range rows {
+		parts := strings.Fields(r.Path)
+		if len(parts) <= depth {
+			continue // root-level command in this group (e.g. "soar pull")
+		}
+		sub := parts[depth]
+		if len(parts) == depth+1 {
+			// Leaf at this depth — not a sub-group, just a command.
+			// Use empty-string key to count ungrouped leaves.
+			sub = ""
+		}
+		g, ok := groups[sub]
+		if !ok {
+			g = &info{}
+			groups[sub] = g
+			order = append(order, sub)
+		}
+		g.total++
+		if r.Kind == "guarded-mutation" {
+			g.guarded++
+		}
+	}
+
+	// If there's only one sub-group (or none), don't nest — show flat.
+	realGroups := 0
+	for k, g := range groups {
+		if k != "" && g.total > 1 {
+			realGroups++
+		}
+	}
+	if realGroups <= 1 {
+		return nil
+	}
+
+	// Resolve Short descriptions from the cobra tree.
+	prefix := strings.Join(strings.Fields(rows[0].Path)[:depth], " ")
+	parentCmd := findCobraCommand(prefix)
+
+	var entries []subGroupEntry
+	for _, sub := range order {
+		g := groups[sub]
+		if sub == "" {
+			// Ungrouped leaf commands — list each individually.
+			for _, r := range rows {
+				parts := strings.Fields(r.Path)
+				if len(parts) == depth+1 {
+					guarded := 0
+					if r.Kind == "guarded-mutation" {
+						guarded = 1
+					}
+					entries = append(entries, subGroupEntry{
+						Name:    parts[depth],
+						Short:   r.Short,
+						Total:   1,
+						Guarded: guarded,
+					})
+				}
+			}
+			continue
+		}
+		short := ""
+		if parentCmd != nil {
+			for _, ch := range parentCmd.Commands() {
+				if ch.Name() == sub {
+					short = ch.Short
+					break
+				}
+			}
+		}
+		entries = append(entries, subGroupEntry{
+			Name:    sub,
+			Short:   short,
+			Total:   g.total,
+			Guarded: g.guarded,
+		})
+	}
+	return entries
+}
+
+// findCobraCommand resolves a space-separated command path to its cobra node.
+func findCobraCommand(path string) *cobra.Command {
+	cmd := rootCmd
+	for seg := range strings.FieldsSeq(path) {
+		found := false
+		for _, ch := range cmd.Commands() {
+			if ch.Name() == seg {
+				cmd = ch
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil
+		}
+	}
+	return cmd
+}
+
+// subGroupsTable prints a sub-group catalog in table form.
+func subGroupsTable(prefix string, entries []subGroupEntry) error {
+	fmt.Fprintf(os.Stdout, "%s (use `commands %s.<sub>` for detail)\n\n",
+		prefix, strings.ReplaceAll(prefix, " ", "."))
+	for _, e := range entries {
+		guarded := ""
+		if e.Guarded > 0 {
+			guarded = fmt.Sprintf(", %d guarded", e.Guarded)
+		}
+		fmt.Fprintf(os.Stdout, "%-16s %2d cmds%-16s %s\n",
+			e.Name, e.Total, guarded, truncate(e.Short, 60))
+	}
+	return nil
 }
 
 // compactRow is the drill-down JSON shape: path, kind, description, and
