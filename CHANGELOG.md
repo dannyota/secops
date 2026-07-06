@@ -3,6 +3,29 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.0 — 2026-07-06
+
+### Changed
+
+- **MCP: progressive discovery replaces flat tool list.** Initial `tools/list`
+  now returns 5 meta-tools (`run`, `help`, `usage`, `focus`, `unfocus`) instead
+  of ~50+ individual tools. Agents discover commands via `help`, inspect one
+  command's schema via `usage`, execute via `run`, or load a full group's typed
+  tools via `focus`/`unfocus` (dynamic `listChanged` notifications).
+- **MCP: grouped command catalog.** `help` returns a compact catalog (~4.5K
+  chars) with group name, description, and command counts. Groups with
+  sub-commands (soar, ingest, playbooks, cases, dashboards, integrations,
+  rules, data-access) auto-show a sub-group catalog; drill deeper with
+  dotted notation (e.g. `help group=soar.push`).
+- **MCP: server instructions.** The `initialize` response includes instructions
+  guiding agents through the help → usage → run discovery flow.
+
+### Improved
+
+- **`commands` accepts a group argument.** `commands <group>` drills into one
+  group; `commands` (no arg) shows the grouped catalog. Drill-down JSON drops
+  flags (agents use `usage` instead) — worst case 21K → 4.7K chars.
+
 ## v0.8.6 — 2026-07-06
 
 ### Improved
