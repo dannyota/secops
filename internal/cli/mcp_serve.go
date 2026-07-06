@@ -431,7 +431,7 @@ func (s *mcpSession) handleFocus(id json.RawMessage, args map[string]any) jrpcRe
 	for i, t := range tools {
 		names[i] = t.Name
 	}
-	return mcpText(id, fmt.Sprintf("focused %s: loaded %d tools\n%s",
+	return mcpText(id, fmt.Sprintf("focused %s: loaded %d tools (callable as mcp__<server>__<name>)\n%s",
 		group, len(tools), strings.Join(names, "\n")), false)
 }
 

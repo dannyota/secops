@@ -3,6 +3,14 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.5 — 2026-07-07
+
+### Fixed
+
+- **MCP: focus output hints the callable tool name prefix.** The focused
+  tool list now shows `(callable as mcp__<server>__<name>)` so agents
+  know the full tool name to use.
+
 ## v0.9.4 — 2026-07-07
 
 ### Added
