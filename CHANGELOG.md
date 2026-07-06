@@ -3,6 +3,16 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.8.4 — 2026-07-06
+
+### Fixed
+
+- **`playbooks rerun` 500 fix.** The rerun command was sending `wfName`
+  (display name) but the API requires `originalWorkflowDefinitionIdentifier`
+  (the immutable original playbook uuid). `--name` now auto-resolves via
+  list → get → extract `originalPlaybookIdentifier`. Dropped the unused
+  `shouldRunAutomatic` field and `--automatic` flag from the rerun body.
+
 ## v0.8.3 — 2026-07-06
 
 Progressive tool disclosure for the MCP server — reduces the initial tool

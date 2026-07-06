@@ -347,7 +347,6 @@ func newSOARPlaybookRerunCmd() *cobra.Command {
 		identifier  string
 		alert       string
 		alertGroup  string
-		automatic   bool
 		dryRun, yes bool
 	)
 	cmd := &cobra.Command{
@@ -355,7 +354,11 @@ func newSOARPlaybookRerunCmd() *cobra.Command {
 		Short: "GUARDED: rerun a playbook on an explicit case/alert",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := playbookRunBody(caseID, name, identifier, alertGroup, alert, automatic)
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			body, err := playbookRerunBody(lc, caseID, name, identifier, alertGroup, alert)
 			if err != nil {
 				return err
 			}
@@ -365,10 +368,6 @@ func newSOARPlaybookRerunCmd() *cobra.Command {
 			}
 			if dr || !ay {
 				return emitPlaybookMutationJSON("playbook rerun", body, dr, false, nil)
-			}
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
 			}
 			raw, err := lc.PlaybookXRerun(baseContext(), body)
 			if err != nil {
@@ -383,11 +382,10 @@ func newSOARPlaybookRerunCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.IntVar(&caseID, "case-id", 0, "SOAR case id to rerun against (required)")
-	f.StringVar(&name, "name", "", "playbook name")
-	f.StringVar(&identifier, "identifier", "", "original workflow definition identifier")
+	f.StringVar(&name, "name", "", "playbook display name (resolved to identifier automatically)")
+	f.StringVar(&identifier, "identifier", "", "original workflow definition identifier (uuid)")
 	f.StringVar(&alertGroup, "alert-group", "", "optional alert group identifier")
 	f.StringVar(&alert, "alert", "", "optional alert identifier")
-	f.BoolVar(&automatic, "automatic", true, "allow automatic playbook actions to run")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")

@@ -11,6 +11,72 @@ import (
 	"danny.vn/secops/soar/legacy"
 )
 
+// playbookRerunBody builds the request for RerunPlaybook. Unlike run/attach,
+// rerun requires originalWorkflowDefinitionIdentifier (the immutable original
+// playbook uuid, NOT the current-version identifier). When --name is given
+// without --identifier, the playbook is fetched to resolve the original uuid.
+func playbookRerunBody(lc *legacy.Client, caseID int, name, identifier, alertGroup, alert string) (map[string]any, error) {
+	if caseID <= 0 {
+		return nil, fmt.Errorf("--case-id is required")
+	}
+	name = strings.TrimSpace(name)
+	identifier = strings.TrimSpace(identifier)
+	if name == "" && identifier == "" {
+		return nil, fmt.Errorf("--name or --identifier is required")
+	}
+	if identifier == "" {
+		resolved, err := resolveOriginalPlaybookID(lc, name)
+		if err != nil {
+			return nil, err
+		}
+		identifier = resolved
+	}
+	body := map[string]any{
+		"cyberCaseId":                          caseID,
+		"originalWorkflowDefinitionIdentifier": identifier,
+	}
+	if alertGroup = strings.TrimSpace(alertGroup); alertGroup != "" {
+		body["alertGroupIdentifier"] = alertGroup
+	}
+	if alert = strings.TrimSpace(alert); alert != "" {
+		body["alertIdentifier"] = alert
+	}
+	return body, nil
+}
+
+// resolveOriginalPlaybookID looks up a playbook by display name and returns
+// its originalPlaybookIdentifier (the immutable uuid the rerun API requires).
+func resolveOriginalPlaybookID(lc *legacy.Client, name string) (string, error) {
+	cards, err := lc.ListPlaybooks(baseContext(), nil)
+	if err != nil {
+		return "", fmt.Errorf("resolve playbook name: %w", err)
+	}
+	var cardID string
+	for _, c := range cards {
+		if c.Name == name {
+			cardID = c.Identifier
+			break
+		}
+	}
+	if cardID == "" {
+		return "", fmt.Errorf("playbook %q not found", name)
+	}
+	pb, err := lc.GetPlaybook(baseContext(), cardID)
+	if err != nil {
+		return "", fmt.Errorf("resolve playbook identifier: %w", err)
+	}
+	var def struct {
+		OriginalPlaybookIdentifier string `json:"originalPlaybookIdentifier"`
+	}
+	if err := json.Unmarshal(pb, &def); err != nil {
+		return "", fmt.Errorf("decode playbook definition: %w", err)
+	}
+	if def.OriginalPlaybookIdentifier == "" {
+		return cardID, nil
+	}
+	return def.OriginalPlaybookIdentifier, nil
+}
+
 func playbookRunBody(caseID int, name, identifier, alertGroup, alert string, automatic bool) (map[string]any, error) {
 	if caseID <= 0 {
 		return nil, fmt.Errorf("--case-id is required")
