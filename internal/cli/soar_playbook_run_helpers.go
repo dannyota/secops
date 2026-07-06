@@ -15,6 +15,11 @@ import (
 // rerun requires originalWorkflowDefinitionIdentifier (the immutable original
 // playbook uuid, NOT the current-version identifier). When --name is given
 // without --identifier, the playbook is fetched to resolve the original uuid.
+//
+// When --alert-group is omitted, the alertGroupIdentifier is auto-resolved
+// from the case's first alert (the opaque value from
+// alerts[].additionalProperties.alertGroupIdentifier, NOT the human-readable
+// alert.identifier printed by `cases get`).
 func playbookRerunBody(lc *legacy.Client, caseID int, name, identifier, alertGroup, alert string) (map[string]any, error) {
 	if caseID <= 0 {
 		return nil, fmt.Errorf("--case-id is required")
@@ -31,12 +36,18 @@ func playbookRerunBody(lc *legacy.Client, caseID int, name, identifier, alertGro
 		}
 		identifier = resolved
 	}
+	alertGroup = strings.TrimSpace(alertGroup)
+	if alertGroup == "" {
+		resolved, err := resolveAlertGroupFromCase(lc, caseID)
+		if err != nil {
+			return nil, err
+		}
+		alertGroup = resolved
+	}
 	body := map[string]any{
 		"cyberCaseId":                          caseID,
 		"originalWorkflowDefinitionIdentifier": identifier,
-	}
-	if alertGroup = strings.TrimSpace(alertGroup); alertGroup != "" {
-		body["alertGroupIdentifier"] = alertGroup
+		"alertGroupIdentifier":                 alertGroup,
 	}
 	if alert = strings.TrimSpace(alert); alert != "" {
 		body["alertIdentifier"] = alert
@@ -93,21 +104,54 @@ func playbookRunBody(lc *legacy.Client, caseID int, name, identifier, alertGroup
 		}
 		identifier = resolved
 	}
+	alertGroup = strings.TrimSpace(alertGroup)
+	if alertGroup == "" {
+		resolved, err := resolveAlertGroupFromCase(lc, caseID)
+		if err != nil {
+			return nil, err
+		}
+		alertGroup = resolved
+	}
 	body := map[string]any{
 		"cyberCaseId":                          caseID,
 		"originalWorkflowDefinitionIdentifier": identifier,
 		"inputParameters":                      []any{},
+		"alertGroupIdentifier":                 alertGroup,
 	}
 	if name != "" {
 		body["wfName"] = name
-	}
-	if alertGroup = strings.TrimSpace(alertGroup); alertGroup != "" {
-		body["alertGroupIdentifier"] = alertGroup
 	}
 	if alert = strings.TrimSpace(alert); alert != "" {
 		body["alertIdentifier"] = alert
 	}
 	return body, nil
+}
+
+// resolveAlertGroupFromCase fetches the case detail and returns the first
+// alert's alertGroupIdentifier (the opaque internal value the run/rerun APIs
+// require). This is NOT the same as alert.identifier (the human-readable name
+// printed by `cases get`).
+func resolveAlertGroupFromCase(lc *legacy.Client, caseID int) (string, error) {
+	raw, err := lc.GetCaseFullDetails(baseContext(), caseID)
+	if err != nil {
+		return "", fmt.Errorf("resolve alert group from case %d: %w", caseID, err)
+	}
+	var detail struct {
+		Alerts []struct {
+			AdditionalProperties struct {
+				AlertGroupIdentifier string `json:"alertGroupIdentifier"`
+			} `json:"additionalProperties"`
+		} `json:"alerts"`
+	}
+	if err := json.Unmarshal(raw, &detail); err != nil {
+		return "", fmt.Errorf("decode case %d alerts: %w", caseID, err)
+	}
+	for _, a := range detail.Alerts {
+		if g := strings.TrimSpace(a.AdditionalProperties.AlertGroupIdentifier); g != "" {
+			return g, nil
+		}
+	}
+	return "", fmt.Errorf("case %d has no alerts with an alertGroupIdentifier", caseID)
 }
 
 func playbookBlockRunBody(caseID int, name, identifier, alertGroup, alert, inputsFile string) (map[string]any, error) {

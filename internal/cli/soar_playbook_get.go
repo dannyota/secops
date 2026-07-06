@@ -446,21 +446,17 @@ func isEnumTypeMismatch(err error) bool {
 }
 
 // wrapPlaybookRunError translates opaque SOAR 500s from run/rerun into
-// actionable messages. A 500 on a COMPLETED case means the workflow
-// already finished.
+// actionable messages.
 func wrapPlaybookRunError(err error) error {
 	var apiErr *legacy.Error
 	if !errors.As(err, &apiErr) {
 		return err
 	}
 	if apiErr.Status == 500 {
-		bodyLower := strings.ToLower(apiErr.Body)
-		if strings.Contains(bodyLower, "completed") || strings.Contains(bodyLower, "workflow") {
-			return fmt.Errorf("playbook run/rerun failed (likely a completed case workflow):\n"+
-				"  the case workflow may have already completed — create a simulation\n"+
-				"  case (`cases simulation create`) or use a new case\n"+
-				"  (original: %w)", err)
-		}
+		return fmt.Errorf("playbook run/rerun failed (HTTP 500):\n"+
+			"  check that the alertGroupIdentifier and workflow identifier are\n"+
+			"  correct — a 500 usually means a wrong or missing identifier,\n"+
+			"  not a server error (original: %w)", err)
 	}
 	return err
 }

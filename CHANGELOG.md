@@ -3,6 +3,22 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.1 — 2026-07-06
+
+### Fixed
+
+- **MCP: hyphenated tool names now callable.** Focused tool names like
+  `playbooks_debug-step-data` contained hyphens that MCP clients normalize to
+  underscores — the server rejected the underscore form. Tool names are now
+  all-underscore (`playbooks_debug_step_data`); reverse resolution to cobra
+  commands already handled this.
+- **Playbook run/rerun: auto-resolve alertGroupIdentifier from the case.**
+  `playbooks run` and `playbooks rerun` now fetch the case detail and extract
+  the opaque `alertGroupIdentifier` when `--alert-group` is omitted. Previously
+  the API 500'd because the required identifier was missing or callers passed the
+  human-readable `alert.identifier` (from `cases get`) instead of the internal
+  value from `alerts[].additionalProperties.alertGroupIdentifier`.
+
 ## v0.9.0 — 2026-07-06
 
 ### Changed

@@ -471,7 +471,7 @@ func mcpToolsFromCobra() []mcpTool {
 }
 
 func cobraToMCPTool(path string, c *cobra.Command) mcpTool {
-	name := strings.ReplaceAll(path, " ", "_")
+	name := strings.ReplaceAll(strings.ReplaceAll(path, " ", "_"), "-", "_")
 
 	props := map[string]any{}
 	var required []string
