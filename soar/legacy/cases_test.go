@@ -72,3 +72,18 @@ func TestCreateManualCaseForcesEmptyCollections(t *testing.T) {
 		t.Errorf("assignedUser = %s, want \"@Tier1\"", sent["assignedUser"])
 	}
 }
+
+func TestCreateManualCaseRejectsEmptyAssignedUser(t *testing.T) {
+	c := newCaptureClient(&captureRT{resp: "99"})
+
+	_, err := c.CreateManualCase(context.Background(), ManualCaseRequest{
+		Title: "x", Environment: "Default Environment",
+		AlertName: "x", OccurenceTime: "2026-01-02T03:04:05Z",
+	})
+	if err == nil {
+		t.Fatal("CreateManualCase accepted empty assignedUser")
+	}
+	if !strings.Contains(err.Error(), "assignedUser is required") {
+		t.Errorf("error = %v, want assignedUser is required", err)
+	}
+}

@@ -3,6 +3,23 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.7 — 2026-07-07
+
+### Fixed
+
+- **Playbook save: detect server-side drift (steps/relations dropped).**
+  `soar push playbook` now compares the submitted playbook against the
+  server response by instanceName (stable across saves — identifiers are
+  reassigned). If the server silently drops steps or relations, the command
+  exits non-zero with the affected step names. Previously this was a
+  stderr warning that still printed "Done."
+
+- **`CreateManualCase`: reject empty `assignedUser`.**
+  The SOAR API requires `assignedUser` (a username or `@RoleName`) but
+  the swagger marks it nullable. An empty value causes a 400 with an
+  unclear validation error. The SDK now rejects it early with a clear
+  message before making the API call.
+
 ## v0.9.6 — 2026-07-07
 
 ### Added

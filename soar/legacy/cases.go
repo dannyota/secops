@@ -190,6 +190,9 @@ type ManualCaseRequest struct {
 // typed — the empty-collection contract is load-bearing (a null trips a server
 // NPE), so the request is modeled rather than left freeform.
 func (c *Client) CreateManualCase(ctx context.Context, req ManualCaseRequest) (int, error) {
+	if req.AssignedUser == "" {
+		return 0, fmt.Errorf("legacy: CreateManualCase: assignedUser is required (a username or @RoleName)")
+	}
 	if req.Entities == nil {
 		req.Entities = []any{}
 	}

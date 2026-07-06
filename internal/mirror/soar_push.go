@@ -71,75 +71,68 @@ func PushSOARPlaybookSave(ctx context.Context, lc *legacy.Client, file string, d
 	if err != nil {
 		return err
 	}
-	if dropped := detectDroppedSteps(json.RawMessage(data), resp); len(dropped) > 0 {
-		fmt.Fprintf(os.Stderr, "warning: server dropped %d step(s) — the following steps were not saved:\n", len(dropped))
-		for _, name := range dropped {
-			fmt.Fprintf(os.Stderr, "  - %s\n", name)
+	drift := detectSaveDrift(json.RawMessage(data), resp)
+	if len(drift) > 0 {
+		fmt.Fprintln(w, "ERROR: server silently modified the saved playbook:")
+		for _, msg := range drift {
+			fmt.Fprintf(w, "  - %s\n", msg)
 		}
-		fmt.Fprintln(os.Stderr, "This typically happens when a step has an identifier the server does not recognize (e.g. a new step added to a previously-saved playbook).")
+		fmt.Fprintln(w, "The save succeeded but the result differs from what was submitted. Re-pull to inspect.")
+		return fmt.Errorf("playbook saved with server-side drift (%d issue(s))", len(drift))
 	}
 	fmt.Fprintln(w, "Done. Playbook saved (re-pull to capture the new version identifier).")
 	return nil
 }
 
-// playbookSteps is the minimal step shape needed to compare submitted vs
-// response step sets. Only instanceName and identifier are read.
-type playbookSteps struct {
+// playbookShape is the minimal playbook shape for comparing submitted vs
+// response bodies: steps (by instanceName) and relation count.
+type playbookShape struct {
 	Steps []struct {
 		InstanceName string `json:"instanceName"`
 		Identifier   string `json:"identifier"`
 	} `json:"steps"`
+	Relations []json.RawMessage `json:"stepsRelations"`
 }
 
-// detectDroppedSteps compares the steps in submitted against those in response
-// (both are playbook JSON bodies) and returns the instanceNames of any steps
-// present in submitted but absent from response. Comparison is by identifier
-// (the server's key); when an identifier is empty (new step), instanceName is
-// used as fallback. Returns nil when no steps were dropped or when either body
-// cannot be parsed.
-func detectDroppedSteps(submitted, response json.RawMessage) []string {
-	var sub, resp playbookSteps
+// detectSaveDrift compares the submitted playbook body against the server's
+// response and returns human-readable descriptions of any drift. Checks:
+// (1) steps present in submitted but absent from response (by instanceName),
+// (2) relation count decrease. Returns nil when no drift is detected.
+func detectSaveDrift(submitted, response json.RawMessage) []string {
+	var sub, resp playbookShape
 	if err := json.Unmarshal(submitted, &sub); err != nil {
 		return nil
 	}
 	if err := json.Unmarshal(response, &resp); err != nil {
 		return nil
 	}
-	if len(sub.Steps) == 0 || len(resp.Steps) >= len(sub.Steps) {
-		return nil
-	}
 
-	// Build a set of identifiers (and instanceNames) present in the response.
-	respIDs := make(map[string]struct{}, len(resp.Steps))
-	respNames := make(map[string]struct{}, len(resp.Steps))
-	for _, s := range resp.Steps {
-		if s.Identifier != "" {
-			respIDs[s.Identifier] = struct{}{}
-		}
-		if s.InstanceName != "" {
-			respNames[s.InstanceName] = struct{}{}
-		}
-	}
+	var issues []string
 
-	var dropped []string
-	for _, s := range sub.Steps {
-		if s.Identifier != "" {
-			if _, ok := respIDs[s.Identifier]; ok {
-				continue
-			}
-		} else if s.InstanceName != "" {
-			if _, ok := respNames[s.InstanceName]; ok {
-				continue
+	if len(sub.Steps) > 0 {
+		respNames := make(map[string]struct{}, len(resp.Steps))
+		for _, s := range resp.Steps {
+			if s.InstanceName != "" {
+				respNames[s.InstanceName] = struct{}{}
 			}
 		}
-		label := s.InstanceName
-		if label == "" {
-			label = s.Identifier
+		for _, s := range sub.Steps {
+			label := s.InstanceName
+			if label == "" {
+				label = s.Identifier
+			}
+			if label == "" {
+				continue
+			}
+			if _, ok := respNames[label]; !ok {
+				issues = append(issues, fmt.Sprintf("step %q was dropped", label))
+			}
 		}
-		if label == "" {
-			label = "(unnamed step)"
-		}
-		dropped = append(dropped, label)
 	}
-	return dropped
+
+	if subRel, respRel := len(sub.Relations), len(resp.Relations); subRel > 0 && respRel < subRel {
+		issues = append(issues, fmt.Sprintf("%d of %d relation(s) were dropped", subRel-respRel, subRel))
+	}
+
+	return issues
 }
