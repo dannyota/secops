@@ -41,6 +41,19 @@ func canonicalPlaybook(raw json.RawMessage) ([]byte, error) {
 	return reconcile.Canonicalize(raw, playbookStripFields...)
 }
 
+// stripPlaybookIdentity removes identifier and originalPlaybookIdentifier from
+// a playbook body so SavePlaybook creates a genuinely new playbook instead of
+// overwriting an existing one that shares the same originalPlaybookIdentifier.
+func stripPlaybookIdentity(raw json.RawMessage) (json.RawMessage, error) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, fmt.Errorf("strip playbook identity: %w", err)
+	}
+	delete(m, "identifier")
+	delete(m, "originalPlaybookIdentifier")
+	return json.Marshal(m)
+}
+
 // playbookNameOf reads the "name" field from a playbook body.
 func playbookNameOf(raw json.RawMessage) string {
 	var m struct {
@@ -144,8 +157,17 @@ func playbooksSurface(lc *legacy.Client) reconcile.Surface {
 
 		// Create/Update are a whole-body save; SavePlaybook coerces int->str,
 		// validates the name, and mints a new uuid — so re-resolve by name after.
+		//
+		// Create strips identifier and originalPlaybookIdentifier so the server
+		// mints fresh identity. Without this, a body copied from an existing
+		// playbook would OVERWRITE the source (the server keys on
+		// originalPlaybookIdentifier, not the name).
 		Create: func(ctx context.Context, local reconcile.Object) (reconcile.Object, error) {
-			if err := save(ctx, local.Raw); err != nil {
+			cleaned, err := stripPlaybookIdentity(local.Raw)
+			if err != nil {
+				return reconcile.Object{}, err
+			}
+			if err := save(ctx, cleaned); err != nil {
 				return reconcile.Object{}, err
 			}
 			return resolveByName(ctx, playbookNameOf(local.Raw))
