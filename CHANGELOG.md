@@ -3,6 +3,43 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.8.6 — 2026-07-06
+
+### Improved
+
+- **MCP argument schemas.** Flag-only commands no longer emit a bogus `args`
+  property. The `stripFlagHints` pipeline (balanced-bracket scanner + bare-flag
+  regex + residue cleaner) correctly isolates genuine positional args from
+  flag documentation in cobra `Use` strings — fixes ~85 commands.
+- **Command descriptions.** All `Short` strings rewritten verb-first for
+  cleaner MCP tool descriptions, `commands --json` catalog, and auto-generated
+  docs. Normalized 16 `GUARDED:` prefixes to `MUTATING (guarded):`.
+
+### Added
+
+- **`parsers deactivate`** — revert a custom parser to the prebuilt version
+  (auto-selects the ACTIVE CUSTOM parser).
+- **`parsers activate`** — activate a parser by log-type alone (auto-selects
+  the latest INACTIVE CUSTOM version).
+- **`parsers versions`** — now shows validation stage, version, and release
+  stage columns.
+
+### Fixed
+
+- **Parser create** retries activation on `FAILED_PRECONDITION` and handles
+  `VALIDATION_SKIPPED` / `INTERNAL_ERROR` stages.
+- **Dashboard `charts add`** binds new charts to `GlobalTimeFilter` via
+  dashboard PATCH after creation.
+- **Playbook save** coerces integer step types to string enums and warns when
+  SOAR silently drops steps.
+- **Playbooks `create`** strips identity fields to prevent overwriting source.
+- **Search view** shows elapsed-time progress during blocking fetch.
+
+### Docs
+
+- Removed `catalog-siem.md` / `catalog-soar.md` detail files (duplicated
+  auto-generated command docs); compact status matrix in `catalog.md` stays.
+
 ## v0.8.5 — 2026-07-06
 
 ### Added
