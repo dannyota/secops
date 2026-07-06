@@ -71,8 +71,11 @@ including where to find your four identifiers and your SOAR host:
 - **Use it as a Go SDK** — three importable clients (pure API, no file I/O),
   split by surface and credential; constructing one never touches the network.
   See [Go SDK](guides/sdk.md).
-- **Built for agents** — a hard read-only mode (`SECOPS_READONLY=1` /
-  `--read-only`), `--non-interactive`, a machine-readable command catalog
+- **Built for agents** — `secopsctl mcp install` registers every command as an
+  [MCP](https://modelcontextprotocol.io) tool and serves the craft guides as
+  resources — one step, then every Claude Code session has all 361 tools. Also:
+  a hard read-only mode (`SECOPS_READONLY=1` / `--read-only`),
+  `--non-interactive`, a machine-readable command catalog
   (`secopsctl commands --json`), and a local mutation audit log, on top of the
   dry-run-first guard on every mutating verb. See
   [LLM & automation](tips/10-llm-and-automation.md).
@@ -129,7 +132,7 @@ flowchart LR
 | **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Surfaces](design/surfaces.md) · [Catalog (status)](design/catalog.md) |
 | **[tips/](tips/)** | the SecOps craft | [All tips](tips/README.md) — [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [dashboards](tips/06-dashboards.md) · [feeds & parsers](tips/08-feeds-parsers.md) · [SOAR ops](tips/09-soar-operations.md) |
 
-Unfamiliar term? [Glossary](GLOSSARY.md). Writing docs? [Style guide](STYLE.md). Running an AI agent? [`skills/secopsctl/SKILL.md`](../skills/secopsctl/SKILL.md) — the operating guide for agents driving this CLI.
+Unfamiliar term? [Glossary](GLOSSARY.md). Writing docs? [Style guide](STYLE.md). Running an AI agent? `secopsctl mcp install` registers every command as an MCP tool and serves the tips as resources.
 
 ## Documentation rules
 

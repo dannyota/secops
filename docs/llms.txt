@@ -46,11 +46,14 @@
 - [12 · Parser extensions](https://secops.danny.vn/#/tips/12-parser-extensions): Parser extensions add fields to or override behavior of a prebuilt (Google-managed) parser without replacing it. They use the same CBN...
 - [13 · Scheduled jobs](https://secops.danny.vn/#/tips/13-scheduled-jobs): SOAR jobs are scheduled Python scripts that run on a timer inside the platform. They range from built-in system housekeeping (sync,...
 - [14 · Stats queries](https://secops.danny.vn/#/tips/14-stats-queries): secopsctl search stats runs a YARA-L 2.0 aggregation query against the UDM search engine (the same dashboardQueries:execute path that...
+- [15 · Recipes](https://secops.danny.vn/#/tips/15-recipes): Copy-pasteable, end-to-end. Replace placeholders; preview before --yes. Each recipe chains commands that live in different topic-specific...
+- [16 · Gotchas](https://secops.danny.vn/#/tips/16-gotchas): Things the per-command --help cannot express. The CLI handles most of these transparently, but an agent or automation driving secopsctl...
 
 ## Command reference
 
 - [Overview](https://secops.danny.vn/#/commands/README): Generated from the command tree — run go run ./cmd/secopsctl docs generate after changing a command. "Guarded" commands are live mutations...
 - [alerts](https://secops.danny.vn/#/commands/alerts): SIEM detection alerts: list/get (read-only), AI investigate, guarded feedback update
+- [audit](https://secops.danny.vn/#/commands/audit): Audit commands: user activity summary
 - [cases](https://secops.danny.vn/#/commands/cases): Work SOAR cases: read (list, get) + guarded triage (assign, tag, close, ...)
 - [cleanup](https://secops.danny.vn/#/commands/cleanup): Guarded cleanup helpers for secopsctl-owned artifacts
 - [content-hub](https://secops.danny.vn/#/commands/content-hub): Content Hub: browse + install/uninstall marketplace integrations and content packs
@@ -66,10 +69,10 @@
 - [ingest](https://secops.danny.vn/#/commands/ingest): Data ingestion: feeds, forwarders, parsers, log types, pipeline, health
 - [integrations](https://secops.danny.vn/#/commands/integrations): Manage SOAR integration instances (imperative create/delete)
 - [lists](https://secops.danny.vn/#/commands/lists): Lists: reference lists (empty) and watchlists
+- [mcp](https://secops.danny.vn/#/commands/mcp): Model Context Protocol: serve secopsctl as an MCP server
 - [playbooks](https://secops.danny.vn/#/commands/playbooks): Discover and validate SOAR playbooks
 - [rules](https://secops.danny.vn/#/commands/rules): Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under curated)
 - [search](https://secops.danny.vn/#/commands/search): Search the SIEM (read-only): udm events, raw logs, stats, saved searches
-- [skill](https://secops.danny.vn/#/commands/skill): Print the agent operating guide embedded in the binary (offline)
 - [soar](https://secops.danny.vn/#/commands/soar): Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC)
 - [status](https://secops.danny.vn/#/commands/status): Read-only diagnostics: capabilities, coverage, surfaces
 - [ti](https://secops.danny.vn/#/commands/ti): Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections

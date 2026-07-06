@@ -15,10 +15,7 @@ cd "$(dirname "$0")/.."
 MD_MAX=450   # published Markdown docs (guides/design/tips/README/ROADMAP)
 GO_MAX=700   # Go source files (non-test); a bigger file should be split by topic
 
-# skills/**/*.md (the SKILL agent guide) are intentionally EXEMPT from MD_MAX:
-# they are detailed, single-file references read by a local agent in one shot, not
-# published prose to navigate — completeness beats brevity there.
-# docs/commands/*.md are EXEMPT too: generated verbatim from the command tree
+# docs/commands/*.md are EXEMPT: generated verbatim from the command tree
 # (`secopsctl docs generate`), so page size follows the CLI, not authored prose.
 
 # Known-oversize Go files — split-debt, not new bloat. SHRINK this list as the

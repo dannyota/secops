@@ -60,7 +60,7 @@ jobs:
       # Lint-only (no autoformat): enforces fenced-code languages (MD040) and the
       # kramdown blank-line rules (MD022/031/032) so the Jekyll/kramdown site never
       # silently mis-renders a table/list. Config: .markdownlint.jsonc.
-      - run: npx --yes markdownlint-cli2 "docs/**/*.md" "ROADMAP.md" "skills/**/*.md"
+      - run: npx --yes markdownlint-cli2 "docs/**/*.md" "ROADMAP.md"
       # File-length budget: Markdown docs <= 450, Go source <= 700 lines (CLAUDE.md §4).
       - run: ./scripts/check-lengths.sh
       # SEO/GEO freshness: sitemap.xml + llms.txt + llms-full.txt must match what

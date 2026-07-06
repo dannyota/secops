@@ -36,11 +36,14 @@
   - [12 · Parser extensions](tips/12-parser-extensions.md)
   - [13 · Scheduled jobs](tips/13-scheduled-jobs.md)
   - [14 · Stats queries](tips/14-stats-queries.md)
+  - [15 · Recipes](tips/15-recipes.md)
+  - [16 · Gotchas](tips/16-gotchas.md)
 
 <!-- commands:start -->
 - **Command reference**
   - [Overview](commands/README.md)
   - [alerts](commands/alerts.md)
+  - [audit](commands/audit.md)
   - [cases](commands/cases.md)
   - [cleanup](commands/cleanup.md)
   - [content-hub](commands/content-hub.md)
@@ -56,10 +59,10 @@
   - [ingest](commands/ingest.md)
   - [integrations](commands/integrations.md)
   - [lists](commands/lists.md)
+  - [mcp](commands/mcp.md)
   - [playbooks](commands/playbooks.md)
   - [rules](commands/rules.md)
   - [search](commands/search.md)
-  - [skill](commands/skill.md)
   - [soar](commands/soar.md)
   - [status](commands/status.md)
   - [ti](commands/ti.md)

@@ -111,6 +111,7 @@ func newDashboardsFiltersShowCmd() *cobra.Command {
 func newDashboardsFiltersSetCmd() *cobra.Command {
 	var timeVal int
 	var timeUnit string
+	var applyTo string
 	var dryRun, yes bool
 	cmd := &cobra.Command{
 		Use:   "set <dashboard-id> --time <N> --unit <UNIT>",
@@ -121,7 +122,11 @@ func newDashboardsFiltersSetCmd() *cobra.Command {
 			"  --time 24 --unit HOUR    (last 24 hours)\n" +
 			"  --time 7 --unit DAY      (last 7 days)\n" +
 			"  --time 14 --unit DAY     (last 14 days)\n" +
-			"  --time 30 --unit DAY     (last 30 days)\n" +
+			"  --time 30 --unit DAY     (last 30 days)\n\n" +
+			"Use --apply-to to bind the filter to charts in the same PATCH:\n" +
+			"  --apply-to all           bind GlobalTimeFilter to every chart\n" +
+			"  --apply-to id1,id2       bind to specific chart IDs (bare or full ref)\n" +
+			"Without --apply-to, only definition.filters is updated (chart bindings unchanged).\n" +
 			"Guarded: dry-run by default, --yes to apply.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -138,13 +143,20 @@ func newDashboardsFiltersSetCmd() *cobra.Command {
 
 			summary := fmt.Sprintf("%d %s", timeVal, unit)
 			target := fmt.Sprintf("set global time filter on dashboard %s to %s", id, summary)
+			if applyTo != "" {
+				target += fmt.Sprintf(" (apply-to: %s)", applyTo)
+			}
 			dr, ay := soarGuard(target, dryRun, yes)
 			if dr {
 				if jsonOut {
 					return emitGuardedResult(target, true, false)
 				}
-				fmt.Printf("DRY RUN — would set global time filter on dashboard %s to %s. Re-run with --yes.\n",
-					id, summary)
+				msg := fmt.Sprintf("DRY RUN — would set global time filter on dashboard %s to %s", id, summary)
+				if applyTo != "" {
+					msg += fmt.Sprintf(" and bind to charts: %s", applyTo)
+				}
+				msg += ". Re-run with --yes."
+				fmt.Println(msg)
 				return nil
 			}
 			if !ay {
@@ -168,6 +180,7 @@ func newDashboardsFiltersSetCmd() *cobra.Command {
 			var def struct {
 				Definition struct {
 					Filters []json.RawMessage `json:"filters"`
+					Charts  []json.RawMessage `json:"charts"`
 				} `json:"definition"`
 			}
 			_ = json.Unmarshal(d.Raw, &def)
@@ -196,22 +209,86 @@ func newDashboardsFiltersSetCmd() *cobra.Command {
 			}
 			newFilters = append([]json.RawMessage{timeFilter}, newFilters...)
 
-			if _, err := c.UpdateDashboard(ctx, id, chronicle.DashboardUpdate{Filters: newFilters}); err != nil {
+			upd := chronicle.DashboardUpdate{Filters: newFilters}
+
+			// --apply-to: bind GlobalTimeFilter to targeted charts in the same PATCH.
+			if applyTo != "" {
+				charts, err := applyFilterToCharts(def.Definition.Charts, applyTo)
+				if err != nil {
+					return err
+				}
+				upd.Charts = charts
+			}
+
+			if _, err := c.UpdateDashboard(ctx, id, upd); err != nil {
 				return err
 			}
 			if jsonOut {
 				return emitGuardedResult(target, false, true)
 			}
-			fmt.Printf("Set global time filter on dashboard %s to %s. Re-pull to mirror it locally.\n", id, summary)
+			msg := fmt.Sprintf("Set global time filter on dashboard %s to %s.", id, summary)
+			if applyTo != "" {
+				msg += fmt.Sprintf(" Bound to charts: %s.", applyTo)
+			}
+			msg += " Re-pull to mirror it locally."
+			fmt.Println(msg)
 			return nil
 		},
 	}
 	cmd.Flags().IntVar(&timeVal, "time", 0, "time range value (e.g. 24)")
 	cmd.Flags().StringVar(&timeUnit, "unit", "", "time range unit: HOUR | DAY | WEEK | MONTH")
+	cmd.Flags().StringVar(&applyTo, "apply-to", "", `bind the filter to charts: "all" or comma-separated chart IDs`)
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	_ = cmd.MarkFlagRequired("time")
 	_ = cmd.MarkFlagRequired("unit")
 	return markJSON(cmd)
+}
+
+// applyFilterToCharts sets filtersIds=["GlobalTimeFilter"] on the targeted
+// chart entries. target is "all" or a comma-separated list of chart IDs.
+func applyFilterToCharts(charts []json.RawMessage, target string) ([]json.RawMessage, error) {
+	filterIDs, _ := json.Marshal([]string{"GlobalTimeFilter"})
+	isAll := strings.EqualFold(target, "all")
+
+	var wanted map[string]bool
+	if !isAll {
+		wanted = make(map[string]bool)
+		for id := range strings.SplitSeq(target, ",") {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				wanted[lastSegment(id)] = true
+			}
+		}
+		if len(wanted) == 0 {
+			return nil, fmt.Errorf("--apply-to: no chart IDs provided")
+		}
+	}
+
+	matched := 0
+	out := make([]json.RawMessage, len(charts))
+	for i, raw := range charts {
+		ref := nestedString(raw, "dashboardChart")
+		seg := lastSegment(ref)
+		if isAll || wanted[seg] {
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return nil, err
+			}
+			m["filtersIds"] = filterIDs
+			nb, err := json.Marshal(m)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = nb
+			matched++
+		} else {
+			out[i] = raw
+		}
+	}
+	if !isAll && matched == 0 {
+		return nil, fmt.Errorf("--apply-to: none of the specified chart IDs found on the dashboard")
+	}
+	return out, nil
 }

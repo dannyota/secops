@@ -62,7 +62,7 @@ var rootCmd = &cobra.Command{
 		"hard read-only mode for automation (--read-only / SECOPS_READONLY=1).\n\n" +
 		"Getting started: first run `secopsctl config` then `secopsctl doctor`.\n" +
 		"Discover every command with `secopsctl commands`; every API surface with\n" +
-		"`secopsctl surfaces`; the agent operating guide with `secopsctl skill`.",
+		"`secopsctl surfaces`; register as an MCP server with `secopsctl mcp install`.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
@@ -176,14 +176,14 @@ var commandGroupByName = map[string]string{
 	"search": groupRead, "gemini": groupRead, "rules": groupRead, "curated": groupRead,
 	"exclusions": groupRead, "mitre": groupRead, "ti": groupRead, "alerts": groupRead,
 	"cases": groupRead, "lists": groupRead, "entities": groupRead,
-	"data-access": groupRead, "commands": groupRead,
+	"data-access": groupRead, "commands": groupRead, "audit": groupRead,
 	// Config as code.
 	"pull": groupAsCode, "push": groupAsCode, "drift": groupAsCode,
 	"dashboards": groupAsCode, "ingest": groupAsCode,
 	// SOAR.
 	"soar": groupSOAR, "content-hub": groupSOAR,
 	// Utilities.
-	"cleanup": groupUtilities,
+	"cleanup": groupUtilities, "mcp": groupUtilities,
 }
 
 // assignCommandGroups stamps a GroupID onto every top-level command so the root

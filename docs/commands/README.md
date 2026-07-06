@@ -9,6 +9,7 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | Group | Commands | Description |
 |---|---|---|
 | [alerts](alerts.md) | 4 | SIEM detection alerts: list/get (read-only), AI investigate, guarded feedback update |
+| [audit](audit.md) | 1 | Audit commands: user activity summary |
 | [cases](cases.md) | 51 | Work SOAR cases: read (list, get) + guarded triage (assign, tag, close, ...) |
 | [cleanup](cleanup.md) | 1 | Guarded cleanup helpers for secopsctl-owned artifacts |
 | [content-hub](content-hub.md) | 10 | Content Hub: browse + install/uninstall marketplace integrations and content packs |
@@ -23,10 +24,10 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [ingest](ingest.md) | 33 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
 | [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Lists: reference lists (empty) and watchlists |
+| [mcp](mcp.md) | 2 | Model Context Protocol: serve secopsctl as an MCP server |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |
 | [rules](rules.md) | 20 | Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`) |
 | [search](search.md) | 16 | Search the SIEM (read-only): udm events, raw logs, stats, saved searches |
-| [skill](skill.md) | 2 | Print the agent operating guide embedded in the binary (offline) |
 | [soar](soar.md) | 58 | Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC) |
 | [status](status.md) | 4 | Read-only diagnostics: capabilities, coverage, surfaces |
 | [ti](ti.md) | 10 | Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections |

@@ -155,7 +155,7 @@ These spellings are deliberately unchanged:
 - **`data-access`** stays top-level (labels + scopes RBAC), not under `ingest`.
 - **Literal commands** that were already clear: `commands`, `info`, `doctor`,
   `config`, `version`, `pull`, `push`, `dashboards`, `soar`, `cases`, `alerts`,
-  `entities`, `skill`, `cleanup`.
+  `entities`, `mcp`, `cleanup`.
 - **`soar legacy call`** — the raw passthrough escape hatch.
 - **Go SDK method names** — the rename is the CLI surface only; the importable
   `chronicle/` and `soar/` packages keep their method names.

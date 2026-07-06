@@ -448,6 +448,11 @@ controls the default time window for all charts. Common values:
   --time 7 --unit DAY      (last 7 days)
   --time 14 --unit DAY     (last 14 days)
   --time 30 --unit DAY     (last 30 days)
+
+Use --apply-to to bind the filter to charts in the same PATCH:
+  --apply-to all           bind GlobalTimeFilter to every chart
+  --apply-to id1,id2       bind to specific chart IDs (bare or full ref)
+Without --apply-to, only definition.filters is updated (chart bindings unchanged).
 Guarded: dry-run by default, --yes to apply.
 ```
 
@@ -455,6 +460,7 @@ Guarded: dry-run by default, --yes to apply.
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
+| `--apply-to` | string | - | bind the filter to charts: "all" or comma-separated chart IDs |
 | `--dry-run` | bool | false | preview only (default behavior) |
 | `--time` | int | 0 | time range value (e.g. 24) |
 | `--unit` | string | - | time range unit: HOUR \| DAY \| WEEK \| MONTH |

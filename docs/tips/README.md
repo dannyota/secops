@@ -32,3 +32,7 @@ Start with [01](01-secops-as-code.md) (the loop) and [02](02-architecture-client
 | [10 · LLM & automation](10-llm-and-automation.md) | How an LLM agent drives the CLI (deterministic flags, `--json`/`--format`, dry-run-first) and detection-as-code automation patterns. |
 | [11 · Gemini & AI](11-gemini-and-ai.md) | Natural-language → UDM (`gemini generate`/`search`), the assistant (`gemini ask`), the model-inferred time window, one-time opt-in, and driving it safely as an agent. |
 | [12 · Parser extensions](12-parser-extensions.md) | CBN authoring patterns for extensions: lifecycle (immutable, delete→create→validate→activate), merge semantics, grok named-capture requirement, JSON-escaped quotes, validator rejections, statedump debugging. Also printable offline: `ingest parsers extension tips`. |
+| [13 · Scheduled jobs](13-scheduled-jobs.md) | SOAR Jobs Scheduler: job definitions, instances, lifecycle, revisions, and the never-disable-system-jobs rule. |
+| [14 · Stats queries](14-stats-queries.md) | Aggregation queries: `match:`/`outcome:`/`order:` syntax, time-bucket grouping, reserved-word variables, server caps. |
+| [15 · Recipes](15-recipes.md) | Cross-cutting copy-pasteable workflows: SOC triage, parser debug pipeline, user audit, entity audit, rule lifecycle, dashboard authoring, reconcile, Content Hub, scheduled jobs. |
+| [16 · Gotchas](16-gotchas.md) | Non-obvious traps: wrong-host 500s, base64 event IDs, `--prune` semantics, playbook UUID rotation, write-then-list lag, never-retry-mutation. |

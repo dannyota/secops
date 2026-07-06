@@ -50,8 +50,8 @@ type capabilities struct {
 	HealthOK bool              `json:"health_ok"`
 	Probed   bool              `json:"probed"` // false when --offline
 	Surfaces capSurfaces       `json:"surfaces"`
-	Skill    string            `json:"skill_command"`             // run this for the agent operating guide
-	Aliases  map[string]string `json:"command_aliases,omitempty"` // back-compat: old command name → canonical name
+	MCP      string            `json:"mcp_command"`
+	Aliases  map[string]string `json:"command_aliases,omitempty"`
 }
 
 // collectCommandAliases maps every back-compat alias to its canonical command
@@ -83,7 +83,7 @@ func runCapabilities(cmd *cobra.Command, _ []string) error {
 		ReadOnly: readOnlyMode(),
 		Surfaces: rollupSurfaces(),
 		HealthOK: true,
-		Skill:    skillCommand,
+		MCP:      "secopsctl mcp install",
 		Aliases:  collectCommandAliases(rootCmd),
 	}
 	if !offline {
@@ -135,7 +135,7 @@ func runCapabilities(cmd *cobra.Command, _ []string) error {
 	if len(caps.Surfaces.Blocked) > 0 {
 		fmt.Printf("  blocked (avoid): %v\n", caps.Surfaces.Blocked)
 	}
-	fmt.Printf("  guide: `%s` (operating guide); `%s install` to register it\n", skillCommand, skillCommand)
+	fmt.Printf("  MCP: `secopsctl mcp install` to register as an MCP server\n")
 	return nil
 }
 

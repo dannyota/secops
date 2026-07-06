@@ -80,8 +80,11 @@ including where to find your four identifiers and your SOAR host:
 - **Use it as a Go SDK** — three importable clients (pure API, no file I/O),
   split by surface and credential; constructing one never touches the network.
   See [Go SDK](guides/sdk.md).
-- **Built for agents** — a hard read-only mode (`SECOPS_READONLY=1` /
-  `--read-only`), `--non-interactive`, a machine-readable command catalog
+- **Built for agents** — `secopsctl mcp install` registers every command as an
+  [MCP](https://modelcontextprotocol.io) tool and serves the craft guides as
+  resources — one step, then every Claude Code session has all 361 tools. Also:
+  a hard read-only mode (`SECOPS_READONLY=1` / `--read-only`),
+  `--non-interactive`, a machine-readable command catalog
   (`secopsctl commands --json`), and a local mutation audit log, on top of the
   dry-run-first guard on every mutating verb. See
   [LLM & automation](tips/10-llm-and-automation.md).
@@ -118,7 +121,7 @@ code) and **operational** (live data). One CLI; the two planes are two loops:
 | **[design/](design/)** | building `secopsctl` | [Architecture](design/architecture.md) · [Surfaces](design/surfaces.md) · [Catalog (status)](design/catalog.md) |
 | **[tips/](tips/)** | the SecOps craft | [All tips](tips/README.md) — [SecOps as code](tips/01-secops-as-code.md) · [YARA-L](tips/03-yara-l-rules.md) · [dashboards](tips/06-dashboards.md) · [feeds & parsers](tips/08-feeds-parsers.md) · [SOAR ops](tips/09-soar-operations.md) |
 
-Unfamiliar term? [Glossary](GLOSSARY.md). Writing docs? [Style guide](STYLE.md). Running an AI agent? [`skills/secopsctl/SKILL.md`](../skills/secopsctl/SKILL.md) — the operating guide for agents driving this CLI.
+Unfamiliar term? [Glossary](GLOSSARY.md). Writing docs? [Style guide](STYLE.md). Running an AI agent? `secopsctl mcp install` registers every command as an MCP tool and serves the tips as resources.
 
 ## Documentation rules
 
@@ -2404,7 +2407,7 @@ Offline or cross-plane helpers — no surface mutation.
 | `status capabilities [--json]` | Session bootstrap in one call: tool version + auth health + surface status + active read-only state. |
 | `status coverage [--limit N]` | MITRE ATT&CK detection coverage (threat-collection × rule) — the platform's coverage-posture view. JSON. |
 | `status surfaces [--json]` | List every API surface family — plane (host + auth), API version, lane (reconcile/imperative/raw/operational), status, and whether `--prune` can delete it. Reads nothing live; the map of reconcilable vs read-only. |
-| `skill` | Print the agent operating guide embedded in the binary (`--json` for `{name, description, body}`); `skill install [--dir <skills-dir>]` writes it into an agent skills directory (default `$CLAUDE_CONFIG_DIR/skills` or `~/.claude/skills`) so a harness detects it. Offline. |
+| `mcp serve` / `mcp install` | MCP server over stdio — auto-generates tools from the command tree + serves tips as resources. `mcp install` registers in `.claude/settings.json`. |
 | `doctor` | Live smoke test: config + auth + SIEM/SOAR reachability. |
 | `config` (alias `init`) | Set up / edit the config (`~/.secopsctl/instance.yaml`, `0600`). Single-screen form, or flags + `--non-interactive`. `config --show-path` prints the active config file. See [configure](configure.md). |
 | `completion` | Generate the shell autocompletion script. |
@@ -2933,6 +2936,10 @@ Start with [01](01-secops-as-code.md) (the loop) and [02](02-architecture-client
 | [10 · LLM & automation](10-llm-and-automation.md) | How an LLM agent drives the CLI (deterministic flags, `--json`/`--format`, dry-run-first) and detection-as-code automation patterns. |
 | [11 · Gemini & AI](11-gemini-and-ai.md) | Natural-language → UDM (`gemini generate`/`search`), the assistant (`gemini ask`), the model-inferred time window, one-time opt-in, and driving it safely as an agent. |
 | [12 · Parser extensions](12-parser-extensions.md) | CBN authoring patterns for extensions: lifecycle (immutable, delete→create→validate→activate), merge semantics, grok named-capture requirement, JSON-escaped quotes, validator rejections, statedump debugging. Also printable offline: `ingest parsers extension tips`. |
+| [13 · Scheduled jobs](13-scheduled-jobs.md) | SOAR Jobs Scheduler: job definitions, instances, lifecycle, revisions, and the never-disable-system-jobs rule. |
+| [14 · Stats queries](14-stats-queries.md) | Aggregation queries: `match:`/`outcome:`/`order:` syntax, time-bucket grouping, reserved-word variables, server caps. |
+| [15 · Recipes](15-recipes.md) | Cross-cutting copy-pasteable workflows: SOC triage, parser debug pipeline, user audit, entity audit, rule lifecycle, dashboard authoring, reconcile, Content Hub, scheduled jobs. |
+| [16 · Gotchas](16-gotchas.md) | Non-obvious traps: wrong-host 500s, base64 event IDs, `--prune` semantics, playbook UUID rotation, write-then-list lag, never-retry-mutation. |
 
 ---
 
@@ -5556,7 +5563,7 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `data_tables` | reconcile | ✅ chronicle · v1alpha | `.csv`+`.yaml`; columns immutable after create; rows wholesale destroy-and-replace; `data-tables import` bulk CSV import with append/replace modes (W132). |
 | `feeds` | reconcile | ✅ chronicle · v1alpha | `.yaml`; secrets redacted on pull, overlaid on update; `secret_ref` env/Secret Manager; not prune-eligible; `feeds list` shows last-activity + `--failed` filter (W131). |
 | `parsers` | reconcile | ✅ chronicle · v1alpha | Versioned/immutable; edit = create-new-version + activate (push waits for the async validation to settle before activating; on FAILED it reports the parsing errors); parser-dev loop (`run` with per-event error/parsedFields/failedFieldsAndErrors diagnostic output, `--cbn` required, `validate`); extensions (list/get/create/activate/delete/update-in-place + extract discover/create + setting read/update + `tips` embedded authoring guide); `update` compound delete→create→validate→activate (W132); conf-only create; custom-parser discovery on pull; `upgrade` (preview + activate release candidate); `rollback` (revert to last used version); `delete` per-version (guarded; refuses an ACTIVE version without `--force`); pull and reconcile prefer the CUSTOM parser version when a prebuilt is also active. |
-| `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards; `create`/`get`/`edit` (metadata + access); `charts` (list/get/add/batch/edit/remove/run — 9 chart types, reserved-word help in `charts add`; `run --table` tabular output; `add` auto-binds GlobalTimeFilter; `edit --title`/`--filters`; `list`/`get` show filtersIds+chartLayout; stacked-bar viz fix); `markdown` (add/edit/remove); `button` (add/edit/remove); `layout` (show/move); `filters` (show/set global time range); `lint`/`fix`/`inspect` quality (lint also flags reserved variable names statically); `verify` (single + fleet; reserved-word queries flagged as errors before execution); `charts get` merges filtersIds (`[]` when unbound) + chartLayout, `--dashboard` for charts whose name carries no parent, lookup failures surfaced on stderr; `duplicate` + deep-copy; export↔import. |
+| `dashboards` | reconcile | ✅ chronicle · v1alpha | Custom dashboards; `create`/`get`/`edit` (metadata + access); `charts` (list/get/add/batch/edit/remove/run — 9 chart types, reserved-word help in `charts add`; `run --table` tabular output; `add` auto-binds GlobalTimeFilter; `edit --title`/`--filters`; `list`/`get` show filtersIds+chartLayout; stacked-bar viz fix); `markdown` (add/edit/remove); `button` (add/edit/remove); `layout` (show/move); `filters` (show/set global time range; `set --apply-to all\|<ids>` binds GlobalTimeFilter to charts in one PATCH); `lint`/`fix`/`inspect` quality (lint also flags reserved variable names statically); `verify` (single + fleet; reserved-word queries flagged as errors before execution); `charts get` merges filtersIds (`[]` when unbound) + chartLayout, `--dashboard` for charts whose name carries no parent, lookup failures surfaced on stderr; `duplicate` + deep-copy; export↔import. |
 | `curated` / `curated_rules` | reconcile + imperative | ✅ chronicle · v1alpha | Google-managed; batch enable/alerting reconcile; curated tuning reads; v1alpha only. |
 | `rule_exclusions` | reconcile + imperative | ✅ chronicle · v1alpha | Findings refinements; NoDelete/NoEtag; guarded deploy toggle; write-validated. |
 | `forwarders` | reconcile | ✅ chronicle · v1beta | `.yaml`; prune-eligible; collectors separate nested resource; SDK pinned v1beta (v1 404s). |
@@ -5591,6 +5598,7 @@ Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.
 | **saved & shared searches** | operational + guarded | ✅ chronicle · v1alpha | v0.6.0: server-side `search saved list/get/run/save/share/unshare/delete`; `save`/`share`/`delete` guarded |
 | **alerts** | operational | ✅ read · 🔨 act (CLI wired) | Read + act wired (W52); bulk disposition (W76); alert→case bridge read-validated |
 | **entities** | operational (read) | 🔨 chronicle · v1alpha | `entities summarize`/`risk-scores`/`audit` (W133); enrichment read-only; tolerant `flexInt` for proto3 string-encoded counters; `audit` cross-refs risk scores with watchlist coverage (health, gaps, `--min-risk`, `--json`). |
+| **audit** | operational (read) | ✅ chronicle · v1alpha | `audit user <email>` runs 6 standard UDM activity queries (login, admin, password, oauth, iam, resource) grouped by category; `--categories` subset filter, `--from`/`--to`/`--hours` window, auto-chunks >90 days, `--format table\|json\|jsonl\|csv`. |
 | **watchlists** (`lists watchlists`) | operational (read) | ✅ chronicle · v1 | `lists watchlists list`/`get`; pinned v1 (`watchlistsAPIVersion`) |
 | **analytics & AI reads** | operational (read) | ✅ chronicle (W17, `chronicle/analytics.go`) | Investigations + steps + risk scores + MITRE coverage + BigQuery export; writes gated |
 | **alert AI investigation** (`gemini investigate`) | operational | ✅ chronicle · v1alpha | Per-alert Gemini TIN triage (W57); default shows existing result (no re-trigger), `--rerun` forces new, `--latest` read-only; v0.7.2: moved to `gemini` group (hidden alias at `alerts investigate`) |
@@ -5706,7 +5714,7 @@ Installing content (integration packages and the connector/job/action definition
 | `soar ide build-playbook` / `playbooks mold` / `playbooks trigger set` | offline utility | — | — | Composes save-ready playbook JSON from an exported base; offline-only; built + offline-tested. |
 | `integrations scaffold` / `soar ide package-integration` | offline utility | — | — | Scaffolds Python custom integration dirs; packages to ZIP for IDE import; no API call. |
 | `commands` / `status surfaces` / `status capabilities` / `status enums` | offline utility + live probe | — | — | Machine-readable registries; W73 rich flag schema + `status capabilities` live probe; `status enums` lists SOAR integer-to-name enum mappings (CasePriority, CloseReason, SLA types, BlockList types, WorkflowsStatus); `--live` fetches instance-specific values (case stages, playbook categories); `--json` for machine output; *(built — offline-tested)*. |
-| `skill` / `skill install` | offline utility | — | — | W84; the agent operating guide embedded in the binary (`go install` ships no docs); `--json` for metadata; `install` registers it in an agent skills dir. |
+| `mcp serve` / `mcp install` | offline utility | — | — | W139–140; MCP server over stdio — auto-generates 361 tools from cobra tree + serves docs/tips as resources. `install` registers in `.claude/settings.json`. No external deps; zero-config once `secopsctl config` is done. Replaces the former `skill` / `skill install` commands. |
 | `docs generate` (hidden) | offline utility | — | — | W127; generates the per-group command-reference pages (`docs/commands/`) + index from the command tree and syncs the sidebar block; `--check` is the CI freshness gate. |
 | structured `--json` errors + dry-run plan | output contract | — | — | W73 verified; stderr structured error envelope + stdout dry-run change plan. |
 | global `--output table\|json\|csv` | output contract | — | — | W127; `--output json` ≡ `--json` everywhere; table/csv on the format-aware commands (`query udm`, `mitre`, `rules health`), where a local `--format` overrides it. |
@@ -6403,11 +6411,11 @@ Machine-readable registries (no API call, no credentials, except `status capabil
 
 **Rich flag schema (W73):** each `commands --json` flag now carries `{type, default, required, enum, usage}` plus the command's positional-arg spec and an example — so an agent builds a correct invocation first time instead of inferring a flag. Enum values are parsed from each flag's help text (angle-bracket placeholders stripped, ≥2-char tokens) so the catalog stays in lock-step with the help.
 
-**`status capabilities [--json|--offline]` (W73):** one session-bootstrap call fusing version + per-plane auth health (reuses `doctor`'s checks) + read-only state + a surface-status rollup (validated vs blocked), so an agent self-configures and avoids dead paths up front. The `json` flag is set from a `markJSON` annotation; build-vs-docs invariants in `internal/cli/wave62_test.go` / `wave73_test.go`. Verified (`status capabilities --json` probes both planes + the surface rollup; `commands --json` carries the per-flag schema with enums). `status capabilities` also carries a `skill_command` pointer so an agent discovers the embedded guide.
+**`status capabilities [--json|--offline]` (W73):** one session-bootstrap call fusing version + per-plane auth health (reuses `doctor`'s checks) + read-only state + a surface-status rollup (validated vs blocked), so an agent self-configures and avoids dead paths up front. The `json` flag is set from a `markJSON` annotation; build-vs-docs invariants in `internal/cli/wave62_test.go` / `wave73_test.go`. Verified (`status capabilities --json` probes both planes + the surface rollup; `commands --json` carries the per-flag schema with enums). `status capabilities` carries an `mcp_command` pointer so an agent discovers MCP integration.
 
-### `skill` / `skill install`
+### `mcp serve` / `mcp install`
 
-W84. The agent operating guide (`SKILL.md`) embedded in the binary via `//go:embed`, served by `skill` — `go install danny.vn/secops/cmd/secopsctl@latest` ships only the binary, not the repo's `skills/` tree, so an install-only agent has no other way to obtain the guide. `secopsctl skill` prints it (`--json` wraps `{name, description, body}`, frontmatter parsed); `secopsctl skill install [--dir <skills-dir>]` writes it to `<skills-dir>/secopsctl/SKILL.md` (default `$CLAUDE_CONFIG_DIR/skills` or `~/.claude/skills`) so an agent harness detects it as a first-class skill. Install is idempotent (a no-op when the file already matches) and refuses to overwrite a differing existing file without `--force`, so a hand-tuned copy is never clobbered silently. The embed package (`skills/secopsctl/skill.go`, `package skill`) lives beside the canonical `SKILL.md` so there is a single source. Offline, no credentials.
+W139–140. MCP server over stdio JSON-RPC — auto-generates 361 tools from the cobra command tree (each leaf command becomes an MCP tool with typed InputSchema from its flags), plus serves all `docs/tips/*.md` as MCP resources. `mcp install [--global]` registers `secopsctl` in `.claude/settings.json` so every Claude Code session gets all tools automatically. Zero external dependencies. Replaces the former `skill` / `skill install` commands (W84, removed in W140).
 
 ### structured `--json` errors + dry-run plan
 
@@ -7127,7 +7135,7 @@ These spellings are deliberately unchanged:
 - **`data-access`** stays top-level (labels + scopes RBAC), not under `ingest`.
 - **Literal commands** that were already clear: `commands`, `info`, `doctor`,
   `config`, `version`, `pull`, `push`, `dashboards`, `soar`, `cases`, `alerts`,
-  `entities`, `skill`, `cleanup`.
+  `entities`, `mcp`, `cleanup`.
 - **`soar legacy call`** — the raw passthrough escape hatch.
 - **Go SDK method names** — the rename is the CLI surface only; the importable
   `chronicle/` and `soar/` packages keep their method names.
@@ -7169,6 +7177,7 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | Group | Commands | Description |
 |---|---|---|
 | [alerts](alerts.md) | 4 | SIEM detection alerts: list/get (read-only), AI investigate, guarded feedback update |
+| [audit](audit.md) | 1 | Audit commands: user activity summary |
 | [cases](cases.md) | 51 | Work SOAR cases: read (list, get) + guarded triage (assign, tag, close, ...) |
 | [cleanup](cleanup.md) | 1 | Guarded cleanup helpers for secopsctl-owned artifacts |
 | [content-hub](content-hub.md) | 10 | Content Hub: browse + install/uninstall marketplace integrations and content packs |
@@ -7183,10 +7192,10 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [ingest](ingest.md) | 33 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
 | [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Lists: reference lists (empty) and watchlists |
+| [mcp](mcp.md) | 2 | Model Context Protocol: serve secopsctl as an MCP server |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |
 | [rules](rules.md) | 20 | Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`) |
 | [search](search.md) | 16 | Search the SIEM (read-only): udm events, raw logs, stats, saved searches |
-| [skill](skill.md) | 2 | Print the agent operating guide embedded in the binary (offline) |
 | [soar](soar.md) | 58 | Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC) |
 | [status](status.md) | 4 | Read-only diagnostics: capabilities, coverage, surfaces |
 | [ti](ti.md) | 10 | Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections |

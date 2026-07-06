@@ -47,8 +47,11 @@ optional `--json`, clear `--help`.
   `gemini search` (NL → UDM, then run), and `gemini ask` (the SecOps assistant);
   the model's suggested time window is honored, generations respect read-only mode,
   and the AI path is one-time opt-in. See the [Gemini guide](docs/guides/gemini.md).
-- **Built for agents** — a hard read-only mode (`SECOPS_READONLY=1` /
-  `--read-only`), `--non-interactive`, a machine-readable command catalog
+- **Built for agents** — `secopsctl mcp install` registers every command as an
+  [MCP](https://modelcontextprotocol.io) tool and serves the craft guides as
+  resources — one step, then every Claude Code session has all 361 tools. Also:
+  a hard read-only mode (`SECOPS_READONLY=1` / `--read-only`),
+  `--non-interactive`, a machine-readable command catalog
   (`secopsctl commands --json`), and a local mutation audit log
   (`$SECOPSCTL_HOME/audit.jsonl`), on top of the dry-run-first guard on every
   mutating verb. The full recipe:
