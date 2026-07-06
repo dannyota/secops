@@ -3,6 +3,17 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.6 — 2026-07-07
+
+### Added
+
+- **`cases playbook-errors <id>`: inspect playbook execution errors.**
+  Walks every alert's playbook(s) in a case, fetches the workflow instance
+  summary, and shows faulted steps with full error messages. Recurses into
+  nested BLOCK playbooks. Embedded JSON in error messages is auto-detected
+  and pretty-printed. Handles both legacy integer and modern string status
+  enums. `--alert` scopes to one alert; `--json` emits structured output.
+
 ## v0.9.5 — 2026-07-07
 
 ### Fixed

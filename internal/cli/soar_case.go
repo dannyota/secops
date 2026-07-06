@@ -59,6 +59,7 @@ func caseVerbs() []*cobra.Command {
 		newCaseStatsCmd(),
 		newCaseTaskCmd(),
 		newCaseEvidenceCmd(),
+		newCasePlaybookErrorsCmd(),
 	}
 }
 

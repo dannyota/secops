@@ -378,6 +378,16 @@ declares `"tools": {"listChanged": true}` in its initialize capabilities.
 Calling a category router with `action="help"` returns the subcommand listing;
 calling with a specific action routes to the sub-tool and expands the category.
 
+### Wave 142 — playbook execution error inspector *(built)*
+
+`cases playbook-errors <id>`: walks every alert's playbook(s), fetches the
+workflow instance summary (GetWorkflowInstanceSummary), and shows faulted
+steps with full error messages. Recurses into nested BLOCK playbooks via
+NestedWorkflowIdentifier parameters. Handles both legacy integer and modern
+string status enums (flexibleString decoder). Embedded JSON in error
+messages is auto-detected and pretty-printed. `--alert` scopes to one
+alert; `--json` emits structured output.
+
 ---
 
 ## Non-goals
