@@ -77,7 +77,7 @@ func resolveOriginalPlaybookID(lc *legacy.Client, name string) (string, error) {
 	return def.OriginalPlaybookIdentifier, nil
 }
 
-func playbookRunBody(caseID int, name, identifier, alertGroup, alert string, automatic bool) (map[string]any, error) {
+func playbookRunBody(lc *legacy.Client, caseID int, name, identifier, alertGroup, alert string) (map[string]any, error) {
 	if caseID <= 0 {
 		return nil, fmt.Errorf("--case-id is required")
 	}
@@ -86,15 +86,20 @@ func playbookRunBody(caseID int, name, identifier, alertGroup, alert string, aut
 	if name == "" && identifier == "" {
 		return nil, fmt.Errorf("--name or --identifier is required")
 	}
+	if identifier == "" {
+		resolved, err := resolveOriginalPlaybookID(lc, name)
+		if err != nil {
+			return nil, err
+		}
+		identifier = resolved
+	}
 	body := map[string]any{
-		"cyberCaseId":        caseID,
-		"shouldRunAutomatic": automatic,
+		"cyberCaseId":                          caseID,
+		"originalWorkflowDefinitionIdentifier": identifier,
+		"inputParameters":                      []any{},
 	}
 	if name != "" {
 		body["wfName"] = name
-	}
-	if identifier != "" {
-		body["originalWorkflowDefinitionIdentifier"] = identifier
 	}
 	if alertGroup = strings.TrimSpace(alertGroup); alertGroup != "" {
 		body["alertGroupIdentifier"] = alertGroup

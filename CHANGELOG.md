@@ -3,6 +3,18 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.8.5 — 2026-07-06
+
+### Added
+
+- **`playbooks attach` alias.** `playbooks attach` is now an alias for
+  `playbooks run`, matching the console's "Attach playbooks manually" action.
+- **`playbooks run/attach` name→UUID auto-resolution.** `--name` now
+  auto-resolves the `originalWorkflowDefinitionIdentifier` (same two-step
+  resolution as `rerun`), sends both `wfName` and the uuid, and includes
+  `inputParameters: []` — matching the console's request shape exactly.
+  The `--automatic` flag is removed (console does not use it).
+
 ## v0.8.4 — 2026-07-06
 
 ### Fixed

@@ -52,18 +52,23 @@ func newSOARPlaybookRunCmd() *cobra.Command {
 		identifier  string
 		alert       string
 		alertGroup  string
-		automatic   bool
 		dryRun, yes bool
 	)
 	cmd := &cobra.Command{
-		Use:   "run --case-id N (--name <playbook> | --identifier <uuid>)",
-		Short: "GUARDED: attach and run a playbook on an explicit case/alert",
+		Use:     "run --case-id N (--name <playbook> | --identifier <uuid>)",
+		Aliases: []string{"attach"},
+		Short:   "GUARDED: attach and run a playbook on an explicit case/alert",
 		Long: "Attach a live SOAR playbook to one explicit case, optionally scoped to\n" +
-			"one alert. Dry-run is the default and prints the SecOps request body;\n" +
-			"pass --yes to ask SecOps to attach/run it.",
+			"one alert. When --name is used, the playbook's original workflow uuid is\n" +
+			"resolved automatically. Dry-run is the default and prints the SecOps\n" +
+			"request body; pass --yes to ask SecOps to attach/run it.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := playbookRunBody(caseID, name, identifier, alertGroup, alert, automatic)
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
+			}
+			body, err := playbookRunBody(lc, caseID, name, identifier, alertGroup, alert)
 			if err != nil {
 				return err
 			}
@@ -73,10 +78,6 @@ func newSOARPlaybookRunCmd() *cobra.Command {
 			}
 			if dr || !ay {
 				return emitPlaybookMutationJSON("playbook run", body, dr, false, nil)
-			}
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
 			}
 			raw, err := lc.AttachWorkflowToCase(baseContext(), body)
 			if err != nil {
@@ -91,11 +92,10 @@ func newSOARPlaybookRunCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.IntVar(&caseID, "case-id", 0, "SOAR case id to run against (required)")
-	f.StringVar(&name, "name", "", "playbook name")
+	f.StringVar(&name, "name", "", "playbook name (auto-resolves original workflow uuid)")
 	f.StringVar(&identifier, "identifier", "", "original workflow definition identifier")
 	f.StringVar(&alertGroup, "alert-group", "", "optional alert group identifier")
 	f.StringVar(&alert, "alert", "", "optional alert identifier")
-	f.BoolVar(&automatic, "automatic", true, "allow automatic playbook actions to run")
 	f.BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	f.BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")

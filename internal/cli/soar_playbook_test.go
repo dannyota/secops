@@ -121,13 +121,12 @@ func TestSOARPlaybookValidateRejectsUnsafeName(t *testing.T) {
 }
 
 func TestPlaybookRunBody(t *testing.T) {
-	body, err := playbookRunBody(123, " Case Workflow ", "11111111-1111-1111-1111-111111111111", " group ", " alert ", false)
+	body, err := playbookRunBody(nil, 123, " Case Workflow ", "11111111-1111-1111-1111-111111111111", " group ", " alert ")
 	if err != nil {
 		t.Fatalf("playbookRunBody: %v", err)
 	}
 	want := map[string]any{
 		"cyberCaseId":                          123,
-		"shouldRunAutomatic":                   false,
 		"wfName":                               "Case Workflow",
 		"originalWorkflowDefinitionIdentifier": "11111111-1111-1111-1111-111111111111",
 		"alertGroupIdentifier":                 "group",
@@ -138,8 +137,11 @@ func TestPlaybookRunBody(t *testing.T) {
 			t.Fatalf("body[%s] = %#v, want %#v", k, body[k], v)
 		}
 	}
+	if _, ok := body["inputParameters"]; !ok {
+		t.Fatal("body missing inputParameters")
+	}
 
-	if _, err := playbookRunBody(123, "", "", "", "", true); err == nil {
+	if _, err := playbookRunBody(nil, 123, "", "", "", ""); err == nil {
 		t.Fatal("playbookRunBody accepted missing playbook selector")
 	}
 }

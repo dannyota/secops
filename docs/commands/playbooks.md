@@ -634,11 +634,10 @@ secopsctl playbooks rerun --case-id N (--name <playbook> | --identifier <uuid>) 
 |---|---|---|---|
 | `--alert` | string | - | optional alert identifier |
 | `--alert-group` | string | - | optional alert group identifier |
-| `--automatic` | bool | true | allow automatic playbook actions to run |
 | `--case-id` | int | 0 | SOAR case id to rerun against (required) |
 | `--dry-run` | bool | false | preview only (default behavior) |
-| `--identifier` | string | - | original workflow definition identifier |
-| `--name` | string | - | playbook name |
+| `--identifier` | string | - | original workflow definition identifier (uuid) |
+| `--name` | string | - | playbook display name (resolved to identifier automatically) |
 | `--yes` | bool | false | apply for real / skip confirmation |
 
 ## playbooks rerun-block
@@ -731,8 +730,9 @@ secopsctl playbooks run --case-id N (--name <playbook> | --identifier <uuid>) [f
 
 ```text
 Attach a live SOAR playbook to one explicit case, optionally scoped to
-one alert. Dry-run is the default and prints the SecOps request body;
-pass --yes to ask SecOps to attach/run it.
+one alert. When --name is used, the playbook's original workflow uuid is
+resolved automatically. Dry-run is the default and prints the SecOps
+request body; pass --yes to ask SecOps to attach/run it.
 ```
 
 **Flags**
@@ -741,11 +741,10 @@ pass --yes to ask SecOps to attach/run it.
 |---|---|---|---|
 | `--alert` | string | - | optional alert identifier |
 | `--alert-group` | string | - | optional alert group identifier |
-| `--automatic` | bool | true | allow automatic playbook actions to run |
 | `--case-id` | int | 0 | SOAR case id to run against (required) |
 | `--dry-run` | bool | false | preview only (default behavior) |
 | `--identifier` | string | - | original workflow definition identifier |
-| `--name` | string | - | playbook name |
+| `--name` | string | - | playbook name (auto-resolves original workflow uuid) |
 | `--yes` | bool | false | apply for real / skip confirmation |
 
 ## playbooks simulation-enrichment
