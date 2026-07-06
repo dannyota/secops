@@ -185,55 +185,24 @@ func commandsGroup(group string, rows []commandRow) error {
 	return commandsFlat(filtered)
 }
 
-// compactRow is a lighter commandRow for drill-down JSON: flags carry
-// name/type/enum but drop the verbose usage text that bloats large groups.
+// compactRow is the drill-down JSON shape: path, kind, description, and
+// positional args only. Flag detail is available via the `usage` meta-tool,
+// so the drill-down stays small even for large groups like cases (51 cmds).
 type compactRow struct {
-	Path  string        `json:"path"`
-	Kind  string        `json:"kind"`
-	JSON  bool          `json:"json"`
-	Short string        `json:"short"`
-	Args  string        `json:"args,omitempty"`
-	Flags []compactFlag `json:"flags,omitempty"`
-}
-
-type compactFlag struct {
-	Name     string   `json:"name"`
-	Type     string   `json:"type"`
-	Default  string   `json:"default,omitempty"`
-	Required bool     `json:"required,omitempty"`
-	Enum     []string `json:"enum,omitempty"`
-}
-
-// guardFlags are the standard dry-run/yes/out/prune flags present on every
-// guarded-mutation command. They are documented once in the catalog header
-// and stripped from individual command entries to save space.
-var guardFlags = map[string]bool{
-	"dry-run": true, "yes": true, "out": true, "prune": true,
+	Path  string `json:"path"`
+	Kind  string `json:"kind"`
+	Short string `json:"short"`
+	Args  string `json:"args,omitempty"`
 }
 
 func compactRows(rows []commandRow) []compactRow {
 	out := make([]compactRow, len(rows))
 	for i, r := range rows {
-		var flags []compactFlag
-		for _, f := range r.Flags {
-			if guardFlags[f.Name] {
-				continue
-			}
-			flags = append(flags, compactFlag{
-				Name:     f.Name,
-				Type:     f.Type,
-				Default:  f.Default,
-				Required: f.Required,
-				Enum:     f.Enum,
-			})
-		}
 		out[i] = compactRow{
 			Path:  r.Path,
 			Kind:  r.Kind,
-			JSON:  r.JSON,
 			Short: r.Short,
 			Args:  r.Args,
-			Flags: flags,
 		}
 	}
 	return out
