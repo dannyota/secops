@@ -67,9 +67,79 @@ func PushSOARPlaybookSave(ctx context.Context, lc *legacy.Client, file string, d
 		return nil
 	}
 
-	if _, err := lc.SavePlaybook(ctx, json.RawMessage(data)); err != nil {
+	resp, err := lc.SavePlaybook(ctx, json.RawMessage(data))
+	if err != nil {
 		return err
+	}
+	if dropped := detectDroppedSteps(json.RawMessage(data), resp); len(dropped) > 0 {
+		fmt.Fprintf(os.Stderr, "warning: server dropped %d step(s) — the following steps were not saved:\n", len(dropped))
+		for _, name := range dropped {
+			fmt.Fprintf(os.Stderr, "  - %s\n", name)
+		}
+		fmt.Fprintln(os.Stderr, "This typically happens when a step has an identifier the server does not recognize (e.g. a new step added to a previously-saved playbook).")
 	}
 	fmt.Fprintln(w, "Done. Playbook saved (re-pull to capture the new version identifier).")
 	return nil
+}
+
+// playbookSteps is the minimal step shape needed to compare submitted vs
+// response step sets. Only instanceName and identifier are read.
+type playbookSteps struct {
+	Steps []struct {
+		InstanceName string `json:"instanceName"`
+		Identifier   string `json:"identifier"`
+	} `json:"steps"`
+}
+
+// detectDroppedSteps compares the steps in submitted against those in response
+// (both are playbook JSON bodies) and returns the instanceNames of any steps
+// present in submitted but absent from response. Comparison is by identifier
+// (the server's key); when an identifier is empty (new step), instanceName is
+// used as fallback. Returns nil when no steps were dropped or when either body
+// cannot be parsed.
+func detectDroppedSteps(submitted, response json.RawMessage) []string {
+	var sub, resp playbookSteps
+	if err := json.Unmarshal(submitted, &sub); err != nil {
+		return nil
+	}
+	if err := json.Unmarshal(response, &resp); err != nil {
+		return nil
+	}
+	if len(sub.Steps) == 0 || len(resp.Steps) >= len(sub.Steps) {
+		return nil
+	}
+
+	// Build a set of identifiers (and instanceNames) present in the response.
+	respIDs := make(map[string]struct{}, len(resp.Steps))
+	respNames := make(map[string]struct{}, len(resp.Steps))
+	for _, s := range resp.Steps {
+		if s.Identifier != "" {
+			respIDs[s.Identifier] = struct{}{}
+		}
+		if s.InstanceName != "" {
+			respNames[s.InstanceName] = struct{}{}
+		}
+	}
+
+	var dropped []string
+	for _, s := range sub.Steps {
+		if s.Identifier != "" {
+			if _, ok := respIDs[s.Identifier]; ok {
+				continue
+			}
+		} else if s.InstanceName != "" {
+			if _, ok := respNames[s.InstanceName]; ok {
+				continue
+			}
+		}
+		label := s.InstanceName
+		if label == "" {
+			label = s.Identifier
+		}
+		if label == "" {
+			label = "(unnamed step)"
+		}
+		dropped = append(dropped, label)
+	}
+	return dropped
 }
