@@ -230,6 +230,7 @@ func lintRelations(pbName string, relations []json.RawMessage, stepIDs map[strin
 	}
 
 	hasIncoming := map[string]bool{}
+	graph := map[string][]string{} // adjacency list for cycle detection
 	var danglingIndices []int
 	var orphanTargets []string
 
@@ -258,6 +259,9 @@ func lintRelations(pbName string, relations []json.RawMessage, stepIDs map[strin
 					i, nameOf(rel.FromStep), rel.ToStep))
 		}
 
+		if !fromBad && !toBad && rel.FromStep != "" && rel.ToStep != "" {
+			graph[rel.FromStep] = append(graph[rel.FromStep], rel.ToStep)
+		}
 		if !toBad && rel.ToStep != "" {
 			hasIncoming[rel.ToStep] = true
 		}
@@ -274,6 +278,16 @@ func lintRelations(pbName string, relations []json.RawMessage, stepIDs map[strin
 		}
 	}
 
+	// Detect cycles via DFS.
+	if cycle := findRelationCycle(graph); len(cycle) > 0 {
+		names := make([]string, len(cycle))
+		for i, id := range cycle {
+			names[i] = nameOf(id)
+		}
+		add("error", "cycle",
+			fmt.Sprintf("step relation cycle: %s — playbook may loop infinitely", strings.Join(names, " → ")))
+	}
+
 	if len(danglingIndices) > 0 {
 		fix := fmt.Sprintf("fix: pull the playbook, delete stepsRelations entries %v from the JSON, "+
 			"then reconnect orphan step(s) %s in the console editor, and push back (soar push playbook --file <file> --yes)",
@@ -282,6 +296,54 @@ func lintRelations(pbName string, relations []json.RawMessage, stepIDs map[strin
 	}
 
 	return findings
+}
+
+// findRelationCycle returns the first cycle found in the directed graph, or nil.
+func findRelationCycle(graph map[string][]string) []string {
+	const (
+		white = 0 // unvisited
+		gray  = 1 // in current path
+		black = 2 // fully processed
+	)
+	color := map[string]int{}
+	parent := map[string]string{}
+
+	var cycle []string
+	var dfs func(string) bool
+	dfs = func(u string) bool {
+		color[u] = gray
+		for _, v := range graph[u] {
+			if color[v] == gray {
+				// Back edge — reconstruct cycle.
+				cycle = []string{v}
+				for cur := u; cur != v; cur = parent[cur] {
+					cycle = append(cycle, cur)
+				}
+				cycle = append(cycle, v)
+				// Reverse so it reads in traversal order.
+				for i, j := 0, len(cycle)-1; i < j; i, j = i+1, j-1 {
+					cycle[i], cycle[j] = cycle[j], cycle[i]
+				}
+				return true
+			}
+			if color[v] == white {
+				parent[v] = u
+				if dfs(v) {
+					return true
+				}
+			}
+		}
+		color[u] = black
+		return false
+	}
+	for u := range graph {
+		if color[u] == white {
+			if dfs(u) {
+				return cycle
+			}
+		}
+	}
+	return nil
 }
 
 var placeholderInJSONRe = regexp.MustCompile(`\[(?:Alert|Event|Case|Entity)\.[^\]]+\]`)

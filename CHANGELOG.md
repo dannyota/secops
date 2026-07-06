@@ -3,6 +3,14 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.4 — 2026-07-07
+
+### Added
+
+- **Playbook lint: detect step relation cycles.** `playbooks lint` now
+  detects cycles in the step relation graph (`[error] cycle`) — a
+  playbook with a cycle may loop infinitely at runtime.
+
 ## v0.9.3 — 2026-07-06
 
 ### Added
