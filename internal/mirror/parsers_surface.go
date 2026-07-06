@@ -311,9 +311,9 @@ func retryActivateParser(ctx context.Context, c *chronicle.Client, logType, id s
 const parserValidateTimeout = 5 * time.Minute
 
 // waitParserValidated polls a fresh parser version until its validation
-// settles. On FAILED it reports the parsing errors from the validation report;
-// on timeout it says how to finish by hand (the version is created, only the
-// activation is pending).
+// settles. On FAILED / INTERNAL_ERROR it reports the parsing errors; on
+// PASSED / VALIDATION_SKIPPED it returns success; on timeout it says how to
+// finish by hand (the version is created, only the activation is pending).
 func waitParserValidated(ctx context.Context, c *chronicle.Client, logType, id string) error {
 	deadline := time.Now().Add(parserValidateTimeout)
 	wait := 2 * time.Second
@@ -323,10 +323,12 @@ func waitParserValidated(ctx context.Context, c *chronicle.Client, logType, id s
 			return err
 		}
 		switch stage := strings.ToUpper(p.ValidationStage); {
-		case strings.Contains(stage, "PASSED"):
+		case strings.Contains(stage, "PASSED"), strings.Contains(stage, "SKIPPED"):
 			return nil
-		case strings.Contains(stage, "FAILED"):
-			msg := fmt.Sprintf("parser %s validation FAILED", id)
+		case strings.Contains(stage, "FAILED"),
+			strings.Contains(stage, "INTERNAL_ERROR"),
+			strings.Contains(stage, "DELETE_CANDIDATE"):
+			msg := fmt.Sprintf("parser %s validation %s", id, p.ValidationStage)
 			if p.ValidationReport != "" {
 				if errs, lerr := c.ListParsingErrors(ctx, p.ValidationReport, 5); lerr == nil && len(errs) > 0 {
 					msg += ": " + string(errs[0].Error)
