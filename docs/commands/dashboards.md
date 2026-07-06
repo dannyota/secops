@@ -2,7 +2,7 @@
 
 # secopsctl dashboards
 
-Manage native dashboards (charts, widgets, layout, filters)
+Dashboard ops: create, get, edit, charts, markdown, button, layout, filters
 
 ## dashboards button add
 
@@ -606,7 +606,7 @@ left-to-right). Use --json for the full machine-readable list.
 
 ## dashboards lint
 
-Lint a dashboard's charts for common issues (read-only static analysis)
+Static analysis of a dashboard's charts — check for common issues (read-only)
 
 ```text
 secopsctl dashboards lint <dashboard-id>

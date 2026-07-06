@@ -2,7 +2,7 @@
 
 # secopsctl exclusions
 
-Manage rule exclusions (findings refinements) for detections
+Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is `pull/push rule_exclusions`
 
 ## exclusions deploy
 

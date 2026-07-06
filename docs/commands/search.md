@@ -2,7 +2,7 @@
 
 # secopsctl search
 
-Search the SIEM: UDM events, raw logs, stats, saved searches
+Search the SIEM (read-only): udm events, raw logs, stats, saved searches
 
 ## search event
 
@@ -99,7 +99,7 @@ secopsctl gemini generate-query 'failed logins to admin accounts in the last hou
 
 ## search raw
 
-Search raw logs by regex and print full matching lines
+Content-based raw-log search: print FULL raw lines matching a regex
 
 ```text
 secopsctl search raw <pattern> [flags]
@@ -176,7 +176,7 @@ secopsctl search run --file examples/queries/login-success.udm --hours 24
 
 ## search saved
 
-Manage server-side saved and shared searches (Search Manager)
+Server-side saved & shared searches (Search Manager)
 
 ```text
 secopsctl search saved

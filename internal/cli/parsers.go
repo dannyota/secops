@@ -27,10 +27,11 @@ func newParsersCmd() *cobra.Command {
 		Short: "Manage log parsers (versions, run, activate, extensions)",
 		Long: "Operate parser versions directly:\n" +
 			"  sample-logs  fetch a sample of RAW logs for a log type (to develop against)\n" +
-			"  versions     list a log type's parser versions (id, state, created)\n" +
+			"  versions     list a log type's parser versions (id, state, validation, version)\n" +
 			"  run          validate a CBN parser against sample logs (no server change)\n" +
 			"  validate     show parsing errors from a submitted parser's validation report\n" +
-			"  activate     make a specific parser version ACTIVE (guarded)\n" +
+			"  activate     make a parser version ACTIVE (guarded; auto-selects latest INACTIVE)\n" +
+			"  deactivate   make a custom parser INACTIVE (revert to prebuilt)\n" +
 			"  upgrade      preview + activate a prebuilt parser update (release candidate)\n" +
 			"  rollback     roll back to the last used parser version\n" +
 			"  delete       delete a specific parser version (guarded; --force for ACTIVE)\n" +
@@ -40,8 +41,9 @@ func newParsersCmd() *cobra.Command {
 			"`push parsers` (edit + create-new-version + activate).",
 	}
 	cmd.AddCommand(newParsersVersionsCmd(), newParsersRunCmd(), newParsersActivateCmd(),
-		newParsersSampleLogsCmd(), newParsersValidateCmd(), newParsersDeleteCmd(),
-		newParsersExtensionCmd(), newParsersUpgradeCmd(), newParsersRollbackCmd())
+		newParsersDeactivateCmd(), newParsersSampleLogsCmd(), newParsersValidateCmd(),
+		newParsersDeleteCmd(), newParsersExtensionCmd(), newParsersUpgradeCmd(),
+		newParsersRollbackCmd())
 	return cmd
 }
 
@@ -208,23 +210,40 @@ func newParsersVersionsCmd() *cobra.Command {
 				return err
 			}
 			type row struct {
-				ParserID   string `json:"parser_id"`
-				State      string `json:"state"`
-				Type       string `json:"type,omitempty"`
-				CreateTime string `json:"create_time,omitempty"`
+				ParserID        string `json:"parser_id"`
+				State           string `json:"state"`
+				Type            string `json:"type,omitempty"`
+				ValidationStage string `json:"validation_stage,omitempty"`
+				Version         string `json:"version,omitempty"`
+				ReleaseStage    string `json:"release_stage,omitempty"`
+				CreateTime      string `json:"create_time,omitempty"`
 			}
 			rows := make([]row, 0, len(ps))
 			for i := range ps {
-				rows = append(rows, row{ParserID: parserID(ps[i].Name), State: ps[i].State, Type: ps[i].Type, CreateTime: ps[i].CreateTime})
+				r := row{
+					ParserID:        parserID(ps[i].Name),
+					State:           ps[i].State,
+					Type:            ps[i].Type,
+					ValidationStage: ps[i].ValidationStage,
+					ReleaseStage:    ps[i].ReleaseStage,
+					CreateTime:      ps[i].CreateTime,
+				}
+				if v, ok := ps[i].VersionInfo["version"]; ok {
+					r.Version = fmt.Sprint(v)
+				}
+				rows = append(rows, r)
 			}
 			sort.Slice(rows, func(i, j int) bool { return rows[i].CreateTime > rows[j].CreateTime })
 			if jsonOut {
 				return emitJSON(rows)
 			}
 			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-			fmt.Fprintln(tw, "PARSER ID\tSTATE\tTYPE\tCREATED")
+			fmt.Fprintln(tw, "PARSER ID\tSTATE\tTYPE\tVALIDATION\tVERSION\tCREATED")
 			for _, r := range rows {
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", r.ParserID, r.State, r.Type, r.CreateTime)
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+					r.ParserID, r.State, r.Type,
+					dashIfEmpty(r.ValidationStage), dashIfEmpty(r.Version),
+					r.CreateTime)
 			}
 			return tw.Flush()
 		},
@@ -388,16 +407,33 @@ func printStatedumpOneLiner(logNum int, dump string) {
 func newParsersActivateCmd() *cobra.Command {
 	var dryRun, yes bool
 	cmd := &cobra.Command{
-		Use:   "activate <log-type> <parser-id>",
+		Use:   "activate <log-type> [parser-id]",
 		Short: "Make a parser version ACTIVE (guarded; live ingestion switches)",
 		Long: "Activate a specific parser version for a log type — live ingestion switches to\n" +
-			"it immediately. Guarded: dry-run by default, --yes to apply. Use `parsers\n" +
-			"versions` to find a prior version's id to roll back to.",
-		Args: cobra.ExactArgs(2),
+			"it immediately. Guarded: dry-run by default, --yes to apply.\n\n" +
+			"With one argument (log-type only), the latest INACTIVE CUSTOM parser is auto-\n" +
+			"selected — the typical flow after `push parsers` creates a new version. Use\n" +
+			"`parsers versions` to find a prior version's id to roll back to.",
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logType, pid := args[0], args[1]
+			logType := args[0]
+			var pid string
+			if len(args) == 2 {
+				pid = args[1]
+			}
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
+			}
+			if pid == "" {
+				resolved, rerr := resolveLatestInactiveCustom(c, logType)
+				if rerr != nil {
+					return rerr
+				}
+				pid = resolved
+			}
 			target := fmt.Sprintf("activate parser %s/%s", logType, pid)
-			dr, ay := soarGuard(target, dryRun, yes) // generic dry-run/--yes guard
+			dr, ay := soarGuard(target, dryRun, yes)
 			if dr {
 				if jsonOut {
 					return emitGuardedResult(target, true, false)
@@ -411,10 +447,6 @@ func newParsersActivateCmd() *cobra.Command {
 				}
 				fmt.Println("Refusing to activate without confirmation (pass --yes). Aborted.")
 				return nil
-			}
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
 			}
 			if err := c.ActivateParser(baseContext(), logType, pid); err != nil {
 				return err
@@ -430,4 +462,28 @@ func newParsersActivateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return markJSON(cmd)
+}
+
+// resolveLatestInactiveCustom finds the most recently created INACTIVE CUSTOM
+// parser for a log type — the version a user just created and wants to activate.
+func resolveLatestInactiveCustom(c *chronicle.Client, logType string) (string, error) {
+	ps, err := c.ListParsers(baseContext(), logType)
+	if err != nil {
+		return "", err
+	}
+	var best *chronicle.Parser
+	for i := range ps {
+		if ps[i].State != "INACTIVE" || ps[i].Type != "CUSTOM" {
+			continue
+		}
+		if best == nil || ps[i].CreateTime > best.CreateTime {
+			best = &ps[i]
+		}
+	}
+	if best == nil {
+		return "", fmt.Errorf("no INACTIVE CUSTOM parser for %q — specify the parser-id explicitly", logType)
+	}
+	pid := parserID(best.Name)
+	fmt.Fprintf(os.Stderr, "auto-selected parser %s (latest INACTIVE CUSTOM, created %s)\n", pid, best.CreateTime)
+	return pid, nil
 }

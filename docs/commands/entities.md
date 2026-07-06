@@ -2,7 +2,7 @@
 
 # secopsctl entities
 
-Inspect entities: summarize alerts, prevalence, and findings-graph pivot
+Entity operational reads (summarize, findings-graph pivot)
 
 ## entities audit
 

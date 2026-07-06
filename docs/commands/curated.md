@@ -2,7 +2,7 @@
 
 # secopsctl curated
 
-Browse, search, and toggle Google-managed curated rule sets
+Google SecOps PREDEFINED detections: browse, search, and toggle Google-managed curated rule sets
 
 ## curated categories
 

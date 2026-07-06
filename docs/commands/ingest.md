@@ -2,7 +2,7 @@
 
 # secopsctl ingest
 
-Manage data ingestion (feeds, forwarders, parsers, pipelines)
+Data ingestion: feeds, forwarders, parsers, log types, pipeline, health
 
 ## ingest feeds delete
 
@@ -315,7 +315,7 @@ that maps the selected fields. Guarded; pass --yes to apply.
 
 ## ingest parsers extension get
 
-Show a parser extension's state and CBN snippet
+Get a parser extension
 
 ```text
 secopsctl ingest parsers extension get <log-type> <extension-id>
@@ -551,7 +551,7 @@ secopsctl ingest pipeline delete <id> [flags]
 
 ## ingest pipeline get
 
-Show one pipeline's config and state by id
+Get one pipeline by id
 
 ```text
 secopsctl ingest pipeline get <id>

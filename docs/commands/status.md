@@ -2,7 +2,7 @@
 
 # secopsctl status
 
-Show read-only diagnostics: capabilities, coverage, surfaces
+Read-only diagnostics: capabilities, coverage, surfaces
 
 ## status capabilities
 

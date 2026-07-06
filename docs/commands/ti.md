@@ -2,7 +2,7 @@
 
 # secopsctl ti
 
-Browse threat intel: find IOCs, inspect Mandiant collections (read-only)
+Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections
 
 ## ti associations
 

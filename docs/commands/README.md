@@ -8,27 +8,27 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 
 | Group | Commands | Description |
 |---|---|---|
-| [alerts](alerts.md) | 4 | Manage SIEM detection alerts: list, get, enrich, AI investigate, and guarded feedback update |
-| [audit](audit.md) | 1 | Run audit queries against user activity logs |
-| [cases](cases.md) | 51 | Manage SOAR cases: read (list, get) and guarded triage (assign, tag, close, ...) |
-| [cleanup](cleanup.md) | 1 | Remove secopsctl-owned smoke-test artifacts (guarded) |
-| [content-hub](content-hub.md) | 10 | Browse and manage Content Hub marketplace integrations and content packs |
-| [curated](curated.md) | 9 | Browse, search, and toggle Google-managed curated rule sets |
-| [dashboards](dashboards.md) | 29 | Manage native dashboards (charts, widgets, layout, filters) |
+| [alerts](alerts.md) | 4 | SIEM detection alerts: list/get (read-only), AI investigate, guarded feedback update |
+| [audit](audit.md) | 1 | Audit commands: user activity summary |
+| [cases](cases.md) | 51 | Work SOAR cases: read (list, get) + guarded triage (assign, tag, close, ...) |
+| [cleanup](cleanup.md) | 1 | Guarded cleanup helpers for secopsctl-owned artifacts |
+| [content-hub](content-hub.md) | 10 | Content Hub: browse + install/uninstall marketplace integrations and content packs |
+| [curated](curated.md) | 9 | Google SecOps PREDEFINED detections: browse, search, and toggle Google-managed curated rule sets |
+| [dashboards](dashboards.md) | 29 | Dashboard ops: create, get, edit, charts, markdown, button, layout, filters |
 | [data-access](data-access.md) | 8 | Manage data-access RBAC: labels (tag data) and scopes (grant access) |
 | [data-tables](data-tables.md) | 1 | Manage data tables (import rows from CSV) |
-| [entities](entities.md) | 5 | Inspect entities: summarize alerts, prevalence, and findings-graph pivot |
-| [exclusions](exclusions.md) | 3 | Manage rule exclusions (findings refinements) for detections |
-| [gemini](gemini.md) | 6 | Run AI (Gemini) features: generate queries, investigate alerts, summarize cases |
+| [entities](entities.md) | 5 | Entity operational reads (summarize, findings-graph pivot) |
+| [exclusions](exclusions.md) | 3 | Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is `pull/push rule_exclusions` |
+| [gemini](gemini.md) | 6 | AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks |
 | [info](info.md) | 4 | Show the resolved instance configuration (no API call) |
-| [ingest](ingest.md) | 33 | Manage data ingestion (feeds, forwarders, parsers, pipelines) |
+| [ingest](ingest.md) | 33 | Data ingestion: feeds, forwarders, parsers, log types, pipeline, health |
 | [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
-| [lists](lists.md) | 7 | Manage reference lists and entity watchlists |
+| [lists](lists.md) | 7 | Lists: reference lists (empty) and watchlists |
 | [mcp](mcp.md) | 2 | Model Context Protocol: serve secopsctl as an MCP server |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |
-| [rules](rules.md) | 20 | Manage custom detection rules (author, test, deploy, inspect) |
-| [search](search.md) | 16 | Search the SIEM: UDM events, raw logs, stats, saved searches |
+| [rules](rules.md) | 20 | Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`) |
+| [search](search.md) | 16 | Search the SIEM (read-only): udm events, raw logs, stats, saved searches |
 | [soar](soar.md) | 58 | Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC) |
-| [status](status.md) | 4 | Show read-only diagnostics: capabilities, coverage, surfaces |
-| [ti](ti.md) | 10 | Browse threat intel: find IOCs, inspect Mandiant collections (read-only) |
+| [status](status.md) | 4 | Read-only diagnostics: capabilities, coverage, surfaces |
+| [ti](ti.md) | 10 | Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections |
 | [global](global.md) | 8 | Top-level commands |

@@ -2,7 +2,7 @@
 
 # secopsctl lists
 
-Manage reference lists and entity watchlists
+Lists: reference lists (empty) and watchlists
 
 ## lists empty
 
@@ -117,7 +117,7 @@ secopsctl lists watchlists get <id>
 
 ## lists watchlists list
 
-List watchlists with id and display name
+List watchlists
 
 ```text
 secopsctl lists watchlists list [flags]

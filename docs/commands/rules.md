@@ -2,7 +2,7 @@
 
 # secopsctl rules
 
-Manage custom detection rules (author, test, deploy, inspect)
+Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`)
 
 ## rules alerts
 
@@ -342,7 +342,7 @@ secopsctl rules validate <file.yaral>
 
 ## rules versions
 
-List a rule's saved revisions with diff and restore
+Read-only: list a rule's saved revisions; subcommands: diff, restore
 
 ```text
 secopsctl rules versions <rule-id> [--show N] [flags]

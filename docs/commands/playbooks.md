@@ -183,7 +183,7 @@ secopsctl playbooks components jobs --integration <key> [flags]
 
 ## playbooks components triggers
 
-Show the playbook trigger vocabulary (offline — no API catalog exists for triggers)
+The playbook trigger vocabulary (offline — no API catalog exists for triggers)
 
 ```text
 secopsctl playbooks components triggers
@@ -221,7 +221,7 @@ listed by `components actions`) or by name (--action, optionally scoped by
 
 ## playbooks debug
 
-MUTATING (guarded): run a playbook definition in SecOps debug mode
+GUARDED: run a playbook definition in SecOps debug mode
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -427,7 +427,7 @@ display name (case-insensitive) or a definition identifier UUID.
 
 ## playbooks health
 
-Show fleet health: per-playbook run stats sorted by failure rate
+Fleet health: per-playbook run stats sorted by failure rate
 
 ```text
 secopsctl playbooks health [--hours N] [flags]
@@ -447,7 +447,7 @@ window are omitted. Uses the same stats API as `playbooks stats`.
 
 ## playbooks import
 
-MUTATING (guarded): import a playbook bundle (the zip `export --zip` produces)
+GUARDED: import a playbook bundle (the zip `export --zip` produces)
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -620,7 +620,7 @@ secopsctl playbooks python-logs [flags]
 
 ## playbooks rerun
 
-MUTATING (guarded): rerun a playbook on an explicit case/alert
+GUARDED: rerun a playbook on an explicit case/alert
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -642,7 +642,7 @@ secopsctl playbooks rerun --case-id N (--name <playbook> | --identifier <uuid>) 
 
 ## playbooks rerun-block
 
-MUTATING (guarded): rerun a nested playbook block on an explicit case/alert
+GUARDED: rerun a nested playbook block on an explicit case/alert
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -665,7 +665,7 @@ secopsctl playbooks rerun-block --case-id N (--name <block> | --identifier <uuid
 
 ## playbooks restore
 
-MUTATING (guarded): restore a playbook to a prior saved version
+GUARDED: restore a playbook to a prior saved version
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -720,7 +720,7 @@ secopsctl playbooks results --workflow-instance-id N [flags]
 
 ## playbooks run
 
-MUTATING (guarded): attach and run a playbook on an explicit case/alert
+GUARDED: attach and run a playbook on an explicit case/alert
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -787,7 +787,7 @@ modern v1alpha bridge and falls back to the legacy API.
 
 ## playbooks step execute
 
-MUTATING (guarded): execute one fetched workflow step instance
+GUARDED: execute one fetched workflow step instance
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -861,7 +861,7 @@ condition value, e.g. 1). No API call — review the result with
 
 ## playbooks step skip
 
-MUTATING (guarded): skip one pending workflow step (the reject half of an approval)
+GUARDED: skip one pending workflow step (the reject half of an approval)
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
