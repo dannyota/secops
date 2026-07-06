@@ -37,16 +37,14 @@ checksum:
   name_template: checksums.txt
 
 # Keyless cosign signature of the checksums file (verifiable with
-# `cosign verify-blob --certificate checksums.txt.pem --signature checksums.txt.sig checksums.txt`).
-# Requires cosign on the runner + id-token: write (both set in release.yml).
+# `cosign verify-blob --bundle checksums.txt.bundle checksums.txt`).
+# Requires cosign v2.5+ on the runner + id-token: write (both set in release.yml).
 signs:
   - cmd: cosign
-    signature: ${artifact}.sig
-    certificate: ${artifact}.pem
+    signature: ${artifact}.bundle
     args:
       - sign-blob
-      - --output-signature=${signature}
-      - --output-certificate=${certificate}
+      - --bundle=${signature}
       - ${artifact}
       - --yes
     artifacts: checksum

@@ -6,24 +6,17 @@ Model Context Protocol: serve secopsctl as an MCP server
 
 ## mcp install
 
-Register secopsctl in Claude Code MCP settings
+Register secopsctl in the project .mcp.json
 
 ```text
-secopsctl mcp install [flags]
+secopsctl mcp install
 ```
 
 ```text
-Add secopsctl as an MCP server in Claude Code settings so every
-session gets secopsctl tools automatically. Writes to
-.claude/settings.json (project, default) or ~/.claude/settings.json (--global).
-Idempotent — updates the entry if it already exists.
+Add secopsctl as an MCP server in the project-level .mcp.json so
+every Claude Code session in this directory gets secopsctl tools
+automatically. Idempotent — updates the entry if it already exists.
 ```
-
-**Flags**
-
-| Flag | Type | Default | Description |
-|---|---|---|---|
-| `--global` | bool | false | install into ~/.claude/settings.json instead of project-level |
 
 ## mcp serve
 
