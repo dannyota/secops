@@ -120,11 +120,10 @@ func commandsGrouped(groups []commandGroup, rows []commandRow) error {
 	}
 
 	type groupEntry struct {
-		Name    string   `json:"name"`
-		Short   string   `json:"short"`
-		Total   int      `json:"total"`
-		Guarded int      `json:"guarded"`
-		Cmds    []string `json:"commands"`
+		Name    string `json:"name"`
+		Short   string `json:"short"`
+		Total   int    `json:"total"`
+		Guarded int    `json:"guarded"`
 	}
 
 	var entries []groupEntry
@@ -133,28 +132,17 @@ func commandsGrouped(groups []commandGroup, rows []commandRow) error {
 		if len(gRows) == 0 {
 			continue
 		}
-		var cmds []string
 		guarded := 0
 		for _, r := range gRows {
-			// Strip the group prefix to show just the subcommand name.
-			sub := strings.TrimPrefix(r.Path, g.Name)
-			sub = strings.TrimSpace(sub)
-			if sub == "" {
-				sub = "(root)"
-			}
-			sub = strings.ReplaceAll(sub, " ", "-")
 			if r.Kind == "guarded-mutation" {
-				sub += "*"
 				guarded++
 			}
-			cmds = append(cmds, sub)
 		}
 		entries = append(entries, groupEntry{
 			Name:    g.Name,
 			Short:   g.Short,
 			Total:   len(gRows),
 			Guarded: guarded,
-			Cmds:    cmds,
 		})
 	}
 
@@ -162,10 +150,13 @@ func commandsGrouped(groups []commandGroup, rows []commandRow) error {
 		return emitJSON(entries)
 	}
 
-	fmt.Fprintf(os.Stdout, "secopsctl (%d commands, * = guarded mutation)\n\n", len(rows))
+	fmt.Fprintf(os.Stdout, "secopsctl (%d commands, use `commands <group>` for detail)\n\n", len(rows))
 	for _, e := range entries {
-		fmt.Fprintf(os.Stdout, "%-16s (%d) — %s\n", e.Name, e.Total, truncate(e.Short, 72))
-		fmt.Fprintf(os.Stdout, "  %s\n\n", strings.Join(e.Cmds, ", "))
+		guarded := ""
+		if e.Guarded > 0 {
+			guarded = fmt.Sprintf(", %d guarded", e.Guarded)
+		}
+		fmt.Fprintf(os.Stdout, "%-16s %2d cmds%-16s %s\n", e.Name, e.Total, guarded, truncate(e.Short, 60))
 	}
 	return nil
 }

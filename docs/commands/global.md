@@ -6,16 +6,20 @@ Top-level commands
 
 ## commands
 
-Read-only: list every command with its kind (read vs guarded-mutation), offline
+Read-only: list every command with its kind (read vs guarded-mutation), offline. Pass a group name to drill in for flags and args
 
 ```text
-secopsctl commands
+secopsctl commands [group]
 ```
 
 ```text
 Walk the command tree and list every runnable command: its path, one-line
 description, local flags, and KIND — `guarded-mutation` for commands that
 carry the standard --dry-run/--yes live-mutation gate, `read` otherwise.
+
+Without arguments: grouped catalog (compact). With a group name: detail
+for that group's commands (flags, args).
+
 Offline (no API call, no credentials) — the verb-level companion to
 `secopsctl surfaces`, and the input for building per-command allowlists
 for automation/agents.
