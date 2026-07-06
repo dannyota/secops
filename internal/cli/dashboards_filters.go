@@ -62,7 +62,7 @@ func parseDashboardFilters(raw json.RawMessage) []dashboardFilter {
 func newDashboardsFiltersGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "filters <verb>",
-		Short: "Dashboard filter operations: show, set",
+		Short: "Manage dashboard filters (show, set global time range)",
 	}
 	cmd.AddCommand(
 		newDashboardsFiltersShowCmd(),

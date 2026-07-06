@@ -11,7 +11,7 @@ func init() { rootCmd.AddCommand(newStatusCmd()) }
 func newStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status <area>",
-		Short: "Read-only diagnostics: capabilities, coverage, surfaces",
+		Short: "Show read-only diagnostics: capabilities, coverage, surfaces",
 		Long: "Read-only inspection of the tool + instance:\n" +
 			"  capabilities  session bootstrap — version + auth health + surface status\n" +
 			"  coverage      UDM / log-type coverage of the ingested data\n" +

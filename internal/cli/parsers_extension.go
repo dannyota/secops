@@ -16,7 +16,7 @@ import (
 func newParsersExtensionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "extension <verb>",
-		Short: "Manage parser extensions (list / create / extract / setting / activate / delete)",
+		Short: "Manage parser extensions (list, create, activate, extract)",
 	}
 	cmd.AddCommand(
 		newExtListCmd(),
@@ -86,7 +86,7 @@ func newExtListCmd() *cobra.Command {
 func newExtGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <log-type> <extension-id>",
-		Short: "Get a parser extension",
+		Short: "Show a parser extension's state and CBN snippet",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newChronicleClient()

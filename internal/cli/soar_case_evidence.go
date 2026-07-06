@@ -17,7 +17,7 @@ import (
 func newCaseEvidenceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "evidence <verb>",
-		Short: "Case evidence: guarded add (attach a file) + get (read one back)",
+		Short: "Manage case evidence: attach a file (guarded) or get one back (read-only)",
 		Long: "Attach a forensic artifact to a case and read it back. NOTE: the API has no\n" +
 			"evidence-delete, so a wrong `add` cannot be removed — attach deliberately.",
 	}

@@ -12,7 +12,7 @@ import (
 func newInfoSOARSystemCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "soar-system",
-		Short: "SOAR platform version, license, and data retention",
+		Short: "Show SOAR platform version, license, and data retention",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return preferModern("info soar-system",

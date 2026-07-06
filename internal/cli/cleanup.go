@@ -17,7 +17,7 @@ func init() { rootCmd.AddCommand(newCleanupCmd()) }
 func newCleanupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cleanup <verb>",
-		Short: "Guarded cleanup helpers for secopsctl-owned artifacts",
+		Short: "Remove secopsctl-owned smoke-test artifacts (guarded)",
 		Long: "Cleanup helpers for artifacts created by secopsctl smoke tests. Commands\n" +
 			"target only secopsctl-owned smoke prefixes and are dry-run by default.",
 	}

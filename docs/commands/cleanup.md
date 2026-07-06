@@ -2,7 +2,7 @@
 
 # secopsctl cleanup
 
-Guarded cleanup helpers for secopsctl-owned artifacts
+Remove secopsctl-owned smoke-test artifacts (guarded)
 
 ## cleanup smoke-artifacts
 

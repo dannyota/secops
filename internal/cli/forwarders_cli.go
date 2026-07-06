@@ -14,7 +14,7 @@ import (
 func newForwardersCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "forwarders <verb>",
-		Short: "List forwarders and their collectors (read-only)",
+		Short: "Browse forwarders and their collectors (read-only)",
 	}
 	cmd.AddCommand(newForwardersListCmd(), newForwardersGetCmd(), newForwardersCollectorsCmd())
 	return cmd
@@ -75,7 +75,7 @@ func newForwardersGetCmd() *cobra.Command {
 func newForwardersCollectorsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "collectors <verb>",
-		Short: "List/get the collectors on a forwarder (read-only)",
+		Short: "Browse collectors on a forwarder (read-only)",
 	}
 	list := &cobra.Command{
 		Use:   "list <forwarder-id>",

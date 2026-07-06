@@ -20,7 +20,7 @@ func newRulesVersionsCmd() *cobra.Command {
 	var show int
 	cmd := &cobra.Command{
 		Use:   "versions <rule-id> [--show N]",
-		Short: "Read-only: list a rule's saved revisions; subcommands: diff, restore",
+		Short: "List a rule's saved revisions with diff and restore",
 		Long: "List a rule's revision history (newest first) — each save/deploy mints a\n" +
 			"revision, identified by the @v_… suffix on its resource name. --show N prints\n" +
 			"the YARA-L of the Nth listed revision. Compare two revisions with\n" +

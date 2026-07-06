@@ -78,7 +78,7 @@ func newSOARJobRevisionCreateCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "create --integration I --job J --comment '...'",
-		Short: "GUARDED: snapshot the current job definition as a revision",
+		Short: "MUTATING (guarded): snapshot the current job definition as a revision",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			sc, err := newSOARClient()
@@ -147,7 +147,7 @@ func newSOARJobRevisionRollbackCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "rollback --integration I --job J --revision R",
-		Short: "GUARDED: restore a job definition to a previous revision",
+		Short: "MUTATING (guarded): restore a job definition to a previous revision",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			sc, err := newSOARClient()
@@ -204,7 +204,7 @@ func newSOARJobRevisionDeleteCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "delete --integration I --job J --revision R",
-		Short: "GUARDED: delete a job definition revision",
+		Short: "MUTATING (guarded): delete a job definition revision",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			sc, err := newSOARClient()

@@ -14,7 +14,7 @@ import (
 func newSOARConnectorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connector <verb>",
-		Short: "Inspect connector runtime stats (read) and trigger an on-demand run (guarded)",
+		Short: "Inspect connector runtime stats and trigger on-demand runs (guarded)",
 		Long: "Connector ops beside the reconcile loop:\n" +
 			"  stat <identifier> — runtime statistics for one connector instance (read-only);\n" +
 			"  run — trigger a connector instance to pull on demand (guarded).\n" +

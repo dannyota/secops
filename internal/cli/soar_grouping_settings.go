@@ -23,7 +23,7 @@ const groupingModuleSettings = "AlertGroupingSettings"
 func newSOARGroupingSettingsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "grouping <get|set>",
-		Short: "Read/set the alert-grouping General/Overflow settings (Timeframe, co-grouping, overflow)",
+		Short: "Manage alert-grouping General/Overflow settings (Timeframe, co-grouping, overflow)",
 	}
 	cmd.AddCommand(newGroupingSettingsGetCmd(), newGroupingSettingsSetCmd())
 	return cmd

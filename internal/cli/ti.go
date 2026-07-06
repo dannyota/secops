@@ -18,7 +18,7 @@ import (
 func newTICmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ti",
-		Short: "Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections",
+		Short: "Browse threat intel: find IOCs, inspect Mandiant collections (read-only)",
 		Long: "Read-only threat intelligence:\n" +
 			"  find / get / related           IOC matches in your data (resolve a value, inspect an IOC)\n" +
 			"  collections / collection       Google/Mandiant threat collections the tenant matches\n" +

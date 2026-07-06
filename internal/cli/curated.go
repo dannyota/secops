@@ -20,7 +20,7 @@ func init() {
 func newCuratedCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "curated <verb>",
-		Short: "Google SecOps PREDEFINED detections: browse, search, and toggle Google-managed curated rule sets",
+		Short: "Browse, search, and toggle Google-managed curated rule sets",
 		Long: "Curated content is Google-managed: you cannot create or delete rule sets,\n" +
 			"only toggle each deployment's `enabled` and `alerting` per precision\n" +
 			"(precise|broad).\n\n" +

@@ -63,7 +63,7 @@ func init() { rootCmd.AddCommand(newSOARMarketplaceCmd()) }
 func newSOARMarketplaceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "content-hub",
-		Short: "Content Hub: browse + install/uninstall marketplace integrations and content packs",
+		Short: "Browse and manage Content Hub marketplace integrations and content packs",
 	}
 	cmd.AddCommand(newSOARMarketplaceListCmd(), newSOARMarketplaceGetCmd(), newSOARContentPacksCmd(),
 		newSOARFeaturedCmd(), newSOARMarketplaceDiffCmd(),
@@ -76,7 +76,7 @@ func newSOARMarketplaceCmd() *cobra.Command {
 func newSOARMarketplaceBrowseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "browse",
-		Short: "Content Hub overview: integration + content-pack totals and installed counts",
+		Short: "Show Content Hub overview: integration + content-pack totals and installed counts",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newSOARClient()

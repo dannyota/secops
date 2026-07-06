@@ -83,7 +83,7 @@ func resolveWidgetLayouts(c *chronicle.Client, dashboardID string) ([]widgetLayo
 func newDashboardsLayoutGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "layout <verb>",
-		Short: "Widget layout operations: show grid map, move/resize widgets",
+		Short: "Show or reposition widgets on the dashboard grid",
 	}
 	cmd.AddCommand(
 		newDashboardsLayoutShowCmd(),

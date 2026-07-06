@@ -12,7 +12,7 @@ func init() { rootCmd.AddCommand(newIngestCmd()) }
 func newIngestCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ingest <area>",
-		Short: "Data ingestion: feeds, forwarders, parsers, log types, pipeline, health",
+		Short: "Manage data ingestion (feeds, forwarders, parsers, pipelines)",
 		Long: "Get logs into the SIEM and manage how they are parsed and processed:\n" +
 			"  feeds       managed log feeds\n" +
 			"  forwarders  forwarders + collection agents\n" +

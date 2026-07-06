@@ -163,7 +163,7 @@ func fmtWallTime(raw json.RawMessage) string {
 func newCaseContextCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "context <verb>",
-		Short: "Case-level key-value context properties (playbook state)",
+		Short: "Manage case-level key-value context properties (playbook state)",
 	}
 	cmd.AddCommand(newCaseContextListCmd(), newCaseContextSetCmd())
 	return cmd

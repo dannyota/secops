@@ -51,7 +51,7 @@ func loadLegacyOps() ([]legacyOp, error) {
 func newSOARLegacyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "legacy",
-		Short: "Escape hatch: call any Siemplify external-API op (/api/external/v1)",
+		Short: "Call any Siemplify external-API op (/api/external/v1)",
 	}
 	cmd.AddCommand(newSOARLegacyCallCmd(), newSOARLegacyListCmd())
 	return cmd

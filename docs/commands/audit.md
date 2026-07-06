@@ -2,7 +2,7 @@
 
 # secopsctl audit
 
-Audit commands: user activity summary
+Run audit queries against user activity logs
 
 ## audit user
 

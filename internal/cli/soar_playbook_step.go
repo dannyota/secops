@@ -33,7 +33,7 @@ type workflowStepInstanceSummary struct {
 func newSOARPlaybookStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "step",
-		Short: "Read and guarded-execute playbook steps",
+		Short: "Manage playbook workflow steps: get, execute, skip, insert",
 		Long: "Fetch a workflow step instance for review, then execute an explicit\n" +
 			"step-instance JSON body through a dry-run-first guarded command.",
 	}
@@ -102,7 +102,7 @@ func newSOARPlaybookStepExecuteCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "execute --file <step-instance.json>",
-		Short: "GUARDED: execute one fetched workflow step instance",
+		Short: "MUTATING (guarded): execute one fetched workflow step instance",
 		Long: "Execute one workflow step instance using a JSON body fetched from\n" +
 			"`playbooks step get` or SecOps. Dry-run is the default and prints a\n" +
 			"sanitized summary, not the raw step body.",
@@ -152,7 +152,7 @@ func newSOARPlaybookStepSkipCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "skip --file <step-instance.json> [--comment <s>]",
-		Short: "GUARDED: skip one pending workflow step (the reject half of an approval)",
+		Short: "MUTATING (guarded): skip one pending workflow step (the reject half of an approval)",
 		Long: "Skip a pending playbook step so the workflow continues past it — the other\n" +
 			"half of the approval decision (`step execute` continues it). Takes the same\n" +
 			"step-instance JSON `playbooks step get` fetches; --comment records why.\n" +

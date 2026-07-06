@@ -26,7 +26,7 @@ func init() { rootCmd.AddCommand(newAlertsCmd()) }
 func newAlertsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alerts <verb>",
-		Short: "SIEM detection alerts: list/get (read-only), AI investigate, guarded feedback update",
+		Short: "Manage SIEM detection alerts: list, get, enrich, AI investigate, and guarded feedback update",
 		Long: "Query Chronicle detection alerts over a time window (a snapshot view), fetch\n" +
 			"one by id, run the AI investigation for one (`investigate`), or set triage\n" +
 			"feedback (status / verdict / priority / comment) on one or more alerts.\n" +

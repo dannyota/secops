@@ -11,7 +11,7 @@ import (
 func newCaseSimulationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "simulation <verb>",
-		Short: "Playbook development test harness: create/list/simulate/delete custom test cases",
+		Short: "Manage custom simulation test cases for playbook development",
 		Long: "Manage the custom-case simulation harness for playbook development. Test\n" +
 			"cases appear in the SOAR case queue so playbooks can be attached, debugged,\n" +
 			"and iterated without real incidents.",

@@ -17,7 +17,7 @@ import (
 func newWatchlistsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "watchlists",
-		Short: "SIEM entity watchlists: list/get (read-only) + guarded add-entity",
+		Short: "Manage SIEM entity watchlists (list, get, create, delete, add/remove entity)",
 	}
 	cmd.AddCommand(newWatchlistsListCmd(), newWatchlistsGetCmd(), newWatchlistsAddEntityCmd(),
 		newWatchlistsCreateCmd(), newWatchlistsDeleteCmd(), newWatchlistsRemoveEntityCmd())
@@ -194,7 +194,7 @@ func newWatchlistsListCmd() *cobra.Command {
 	var limit int
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List watchlists",
+		Short: "List watchlists with id and display name",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()

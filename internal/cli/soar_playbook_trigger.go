@@ -20,7 +20,7 @@ type soarPlaybookTriggerSetResult struct {
 func newSOARPlaybookTriggerCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "trigger",
-		Short: "Edit playbook trigger fields in exported JSON; list live trigger tag values",
+		Short: "Manage playbook trigger fields offline and list live trigger tag values",
 		Long: "Edit playbook trigger fields in exported JSON without calling SOAR.\n" +
 			"The output is a reviewable artifact for `playbooks validate` and\n" +
 			"`soar push playbook --dry-run` before any live save. `trigger tags` reads\n" +

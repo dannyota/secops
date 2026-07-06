@@ -24,7 +24,7 @@ func init() { rootCmd.AddCommand(newDocsCmd()) }
 func newDocsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "docs",
-		Short:  "Documentation tooling (maintainers)",
+		Short:  "Generate documentation and command-reference pages (maintainers)",
 		Hidden: true,
 	}
 	cmd.AddCommand(newDocsGenerateCmd())

@@ -22,7 +22,7 @@ import (
 func newCaseAlertCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alert <verb>",
-		Short: "Per-alert triage inside a case: close, priority, move, reopen (guarded)",
+		Short: "Manage per-alert triage inside a case: close, priority, move, reopen (guarded)",
 		Long: "Act on a single alert WITHIN a case — close it (the case stays open),\n" +
 			"change its priority, move it to another (or a new) case, or reopen it.\n" +
 			"--alert takes the alert identifier shown by `soar case get`.",

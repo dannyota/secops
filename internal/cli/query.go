@@ -121,7 +121,7 @@ func emitRawLines(lines []chronicle.RawLogLine) error {
 func init() {
 	searchCmd := &cobra.Command{
 		Use:   "search",
-		Short: "Search the SIEM (read-only): udm events, raw logs, stats, saved searches",
+		Short: "Search the SIEM: UDM events, raw logs, stats, saved searches",
 		Long: "Search Google SecOps (read-only). Subcommands:\n" +
 			"  udm       point-in-time UDM event search over a time window\n" +
 			"  raw       content-based raw-log search (regex over the raw bytes)\n" +
@@ -199,7 +199,7 @@ func newQueryRawCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "raw <pattern>",
-		Short: "Content-based raw-log search: print FULL raw lines matching a regex",
+		Short: "Search raw logs by regex and print full matching lines",
 		Long: "Search raw (ingested) logs by CONTENT (searchRawLogs): <pattern> is a regex\n" +
 			"matched against the raw bytes — use a distinctive substring of the log type you\n" +
 			"want (it matches ANY log containing the pattern). Prints each match's FULL raw\n" +

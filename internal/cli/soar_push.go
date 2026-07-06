@@ -148,7 +148,7 @@ func newSOARBulkCloseCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "bulk-close",
-		Short: "Bulk-close SOAR cases by id or by a filter (reason: malicious|not-malicious|maintenance|inconclusive|unknown)",
+		Short: "Bulk-close SOAR cases by id or by a filter (typed close-reason enum)",
 		Long: "Close many SOAR cases in one guarded command with a typed close-reason, root\n" +
 			"cause, and comment. Select the cases by explicit ids (--ids) or by a modern\n" +
 			"cases-list filter (--where), e.g. the stale/duplicate sets a case-hygiene job\n" +

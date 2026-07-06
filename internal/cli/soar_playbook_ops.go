@@ -121,7 +121,7 @@ func newSOARPlaybookRestoreCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "restore --version <identifier> [--comment <s>] [--override]",
-		Short: "GUARDED: restore a playbook to a prior saved version",
+		Short: "MUTATING (guarded): restore a playbook to a prior saved version",
 		Long: "Roll a playbook back to a version from `playbooks versions` — the undo\n" +
 			"for a bad save or deploy. The restore itself mints a new version (nothing is\n" +
 			"lost); --override replaces the current definition outright.",
@@ -334,7 +334,7 @@ func newSOARPlaybookImportCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "import --file <bundle.zip>",
-		Short: "GUARDED: import a playbook bundle (the zip `export --zip` produces)",
+		Short: "MUTATING (guarded): import a playbook bundle (the zip `export --zip` produces)",
 		Long: "Import playbook definitions from an exported bundle — cross-tenant promotion\n" +
 			"(stage → prod) or restore from an offline backup. The bundle is sent as\n" +
 			"base64; SOAR validates and creates/updates the definitions it carries.",

@@ -31,7 +31,7 @@ func init() {
 func newCasesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cases <verb>",
-		Short: "Work SOAR cases: read (list, get) + guarded triage (assign, tag, close, ...)",
+		Short: "Manage SOAR cases: read (list, get) and guarded triage (assign, tag, close, ...)",
 		Long: "Operate cases against the live tenant. A case is one record; this command is\n" +
 			"auto-routed to the SOAR host where every verb works (`soar case …` remains as\n" +
 			"a hidden back-compat alias). `list` and `get` read only; every mutating verb\n" +

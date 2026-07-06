@@ -21,7 +21,7 @@ import (
 func newQuerySavedCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "saved",
-		Short: "Server-side saved & shared searches (Search Manager)",
+		Short: "Manage server-side saved and shared searches (Search Manager)",
 		Long: "List, run, and manage server-side saved searches (the console's Search\n" +
 			"Manager). Saved searches live on the tenant and can be shared across the org\n" +
 			"(--share). Running `saved` with no subcommand lists them.",

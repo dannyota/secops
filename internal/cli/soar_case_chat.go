@@ -12,7 +12,7 @@ import (
 func newCaseChatCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chat <verb>",
-		Short: "Case-wall chat: list, send, pin/unpin messages",
+		Short: "Manage case-wall chat: list, send, and check unread messages",
 	}
 	cmd.AddCommand(
 		newCaseChatListCmd(),

@@ -24,7 +24,7 @@ func newSOARPlaybookHealthCmd() *cobra.Command {
 	var hours int
 	cmd := &cobra.Command{
 		Use:   "health [--hours N]",
-		Short: "Fleet health: per-playbook run stats sorted by failure rate",
+		Short: "Show fleet health: per-playbook run stats sorted by failure rate",
 		Long: "Fetch run statistics for every enabled playbook across a time window\n" +
 			"and rank by failure rate (worst first). Playbooks with no runs in the\n" +
 			"window are omitted. Uses the same stats API as `playbooks stats`.",

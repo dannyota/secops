@@ -55,7 +55,7 @@ type soarJobTemplateRow struct {
 func newSOARJobCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "jobs",
-		Short: "Inspect and guarded-run SOAR jobs",
+		Short: "Manage SOAR jobs: list, run, templates, instances, revisions",
 		Long: "Inspect SOAR jobs and run one explicit job or job instance. Runs are\n" +
 			"live SecOps executions and are dry-run by default.",
 	}
@@ -107,7 +107,7 @@ func newSOARJobRunCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "run --job <id|uniqueIdentifier|name>",
-		Short: "GUARDED: run one installed SOAR job now",
+		Short: "MUTATING (guarded): run one installed SOAR job now",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lc, err := newSOARLegacyClient()
@@ -192,7 +192,7 @@ func newSOARJobLogsCmd() *cobra.Command {
 func newSOARJobTemplateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "template",
-		Short: "Inspect SOAR job templates",
+		Short: "Browse SOAR job templates",
 	}
 	cmd.AddCommand(newSOARJobTemplateListCmd())
 	return cmd
@@ -231,7 +231,7 @@ func newSOARJobTemplateListCmd() *cobra.Command {
 func newSOARJobInstanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "instance",
-		Short: "Inspect, guarded-run, and manage configured job instances",
+		Short: "Manage configured job instances: list, get, run, enable, create, delete",
 	}
 	cmd.AddCommand(newSOARJobInstanceListCmd(), newSOARJobInstanceGetCmd(),
 		newSOARJobInstanceRunCmd(), newSOARJobInstanceHistoryCmd(),
@@ -249,7 +249,7 @@ func newSOARJobInstanceSetCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "set --instance <id|uniqueIdentifier|name> (--enable | --disable)",
-		Short: "GUARDED: enable or disable a scheduled job instance",
+		Short: "MUTATING (guarded): enable or disable a scheduled job instance",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if enable == disable {
@@ -354,7 +354,7 @@ func newSOARJobInstanceDeleteCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "delete --instance <id|uniqueIdentifier|name>",
-		Short: "GUARDED: delete a scheduled job instance",
+		Short: "MUTATING (guarded): delete a scheduled job instance",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return preferModern("soar jobs instance delete",
@@ -559,7 +559,7 @@ func newSOARJobInstanceRunCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "run --instance <id|uniqueIdentifier|name>",
-		Short: "GUARDED: run one SOAR job instance now",
+		Short: "MUTATING (guarded): run one SOAR job instance now",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return preferModern("soar jobs instance run",

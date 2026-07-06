@@ -61,7 +61,7 @@ func buttonStyleToken(s string) string {
 func newDashboardsButtonGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "button <verb>",
-		Short: "Button widget operations: add, edit, remove",
+		Short: "Manage button widgets on a dashboard (add, edit, remove)",
 	}
 	cmd.AddCommand(
 		newDashboardsButtonAddCmd(),

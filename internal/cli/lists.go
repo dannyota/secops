@@ -11,7 +11,7 @@ func init() { rootCmd.AddCommand(newListsCmd()) }
 func newListsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lists <area>",
-		Short: "Lists: reference lists (empty) and watchlists",
+		Short: "Manage reference lists and entity watchlists",
 		Long: "Lookup-data lists:\n" +
 			"  empty          neutralize a reference list (config-as-code: pull/push reference_lists)\n" +
 			"  watchlists …   manage curated entity watchlists",

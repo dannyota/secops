@@ -26,7 +26,7 @@ func init() {
 func newGeminiCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gemini",
-		Short: "AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks",
+		Short: "Run AI (Gemini) features: generate queries, investigate alerts, summarize cases",
 		Long: "All Gemini-powered features consolidated in one group:\n" +
 			"  generate-query  turn a natural-language question into a UDM query (don't run it)\n" +
 			"  search          turn a natural-language question into a UDM query AND run it\n" +

@@ -11,7 +11,7 @@ import (
 func newPipelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pipeline <verb>",
-		Short: "Manage log processing pipelines (list / get / delete)",
+		Short: "Manage log processing pipelines (list, get, delete)",
 	}
 	cmd.AddCommand(
 		newPipelineListCmd(),
@@ -57,7 +57,7 @@ func newPipelineListCmd() *cobra.Command {
 func newPipelineGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get one pipeline by id",
+		Short: "Show one pipeline's config and state by id",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newChronicleClient()

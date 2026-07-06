@@ -21,7 +21,7 @@ func init() {
 func newRuleExclusionsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "exclusions <verb>",
-		Short: "Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is `pull/push rule_exclusions`",
+		Short: "Manage rule exclusions (findings refinements) for detections",
 		Long: "Operate on findings refinements outside the reconcile loop. Exclusions apply\n" +
 			"to both custom (`rules`) and Google-managed (`curated`) detections.\n" +
 			"Config-as-code is `pull rule_exclusions` / `push rule_exclusions`; deployment\n" +

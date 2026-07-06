@@ -24,7 +24,7 @@ import (
 func newCaseCommentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "comment <verb>",
-		Short: "Case comments: list (read) + guarded add — the triage-rationale record",
+		Short: "Manage case comments: list (read) and guarded add (triage-rationale record)",
 		Long: "Read and write case comments — the case-wall record where triage rationale\n" +
 			"and investigation notes belong (case *chat* is the separate analyst-messaging\n" +
 			"surface; close-time notes ride `close --comment`).",

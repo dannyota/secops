@@ -51,7 +51,7 @@ func readMarkdownText(text, textFile string) (string, error) {
 func newDashboardsMarkdownGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "markdown <verb>",
-		Short: "Markdown widget operations: add, edit, remove",
+		Short: "Manage markdown widgets on a dashboard (add, edit, remove)",
 	}
 	cmd.AddCommand(
 		newDashboardsMarkdownAddCmd(),

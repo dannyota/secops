@@ -67,7 +67,7 @@ type playbookJobComponentRow struct {
 func newSOARPlaybookComponentsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "components",
-		Short: "Discover the playbook-authoring palette: integrations, actions, flow functions, triggers, blocks",
+		Short: "Browse the playbook-authoring palette: integrations, actions, flow, triggers, blocks",
 		Long: "Discover live SecOps components that can be used while authoring playbooks —\n" +
 			"the designer's Step Selection palette as read-only catalogs: integrations,\n" +
 			"actions (all integrations, or one in detail), flow functions/operators,\n" +
@@ -543,7 +543,7 @@ var triggerVocabulary = []triggerVocabularyRow{
 func newSOARPlaybookComponentsTriggersCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "triggers",
-		Short: "The playbook trigger vocabulary (offline — no API catalog exists for triggers)",
+		Short: "Show the playbook trigger vocabulary (offline — no API catalog exists for triggers)",
 		Long: "Print the playbook trigger vocabulary: the designer's trigger kinds and the\n" +
 			"`type` tokens saved on playbook definitions. Triggers have no list API — the\n" +
 			"kinds are condition presets; inspect a pulled playbook's `trigger` record\n" +

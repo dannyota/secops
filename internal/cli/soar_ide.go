@@ -7,7 +7,7 @@ import "github.com/spf13/cobra"
 func newSOARIDECmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ide <verb>",
-		Short: "SOAR authoring: build playbooks, package custom integrations",
+		Short: "Build playbooks and package custom integrations for SOAR",
 	}
 	cmd.AddCommand(newSOARBuildPlaybookCmd(), newSOARPackageIntegrationCmd())
 	return cmd

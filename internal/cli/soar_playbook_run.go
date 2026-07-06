@@ -57,7 +57,7 @@ func newSOARPlaybookRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "run --case-id N (--name <playbook> | --identifier <uuid>)",
 		Aliases: []string{"attach"},
-		Short:   "GUARDED: attach and run a playbook on an explicit case/alert",
+		Short:   "MUTATING (guarded): attach and run a playbook on an explicit case/alert",
 		Long: "Attach a live SOAR playbook to one explicit case, optionally scoped to\n" +
 			"one alert. When --name is used, the playbook's original workflow uuid is\n" +
 			"resolved automatically. Dry-run is the default and prints the SecOps\n" +
@@ -111,7 +111,7 @@ func newSOARPlaybookDebugCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "debug --file <playbook.json> --test-case-id N",
-		Short: "GUARDED: run a playbook definition in SecOps debug mode",
+		Short: "MUTATING (guarded): run a playbook definition in SecOps debug mode",
 		Long: "Run an exported playbook definition in SecOps debug/simulation mode\n" +
 			"against an explicit SecOps test case. Dry-run is the default; pass --yes\n" +
 			"to ask SecOps to start the debug run.",
@@ -351,7 +351,7 @@ func newSOARPlaybookRerunCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "rerun --case-id N (--name <playbook> | --identifier <uuid>)",
-		Short: "GUARDED: rerun a playbook on an explicit case/alert",
+		Short: "MUTATING (guarded): rerun a playbook on an explicit case/alert",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lc, err := newSOARLegacyClient()
@@ -405,7 +405,7 @@ func newSOARPlaybookRerunBlockCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "rerun-block --case-id N (--name <block> | --identifier <uuid>)",
-		Short: "GUARDED: rerun a nested playbook block on an explicit case/alert",
+		Short: "MUTATING (guarded): rerun a nested playbook block on an explicit case/alert",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			body, err := playbookBlockRunBody(caseID, name, identifier, alertGroup, alert, inputsFile)

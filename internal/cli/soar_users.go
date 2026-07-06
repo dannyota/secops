@@ -19,7 +19,7 @@ import (
 func newSOARUsersCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "users",
-		Short: "SOAR user directory (assignee lookup for `case assign --user`)",
+		Short: "List SOAR users (assignee lookup for case assign)",
 	}
 	cmd.AddCommand(newSOARUsersListCmd())
 	return cmd

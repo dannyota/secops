@@ -20,7 +20,7 @@ func init() { rootCmd.AddCommand(newDashboardsCmd()) }
 func newDashboardsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dashboards <verb>",
-		Short: "Dashboard ops: create, get, edit, charts, markdown, button, layout, filters",
+		Short: "Manage native dashboards (charts, widgets, layout, filters)",
 		Long: "Operations on native dashboards outside the reconcile loop:\n" +
 			"  list — list all dashboards (id, type, title);\n" +
 			"  create — create an empty dashboard (guarded);\n" +
@@ -307,7 +307,7 @@ func newDashboardsCreateCmd() *cobra.Command {
 func newDashboardsChartsGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "charts <verb>",
-		Short: "Chart operations: list, get, add, edit, remove, run",
+		Short: "Manage dashboard charts (list, get, add, edit, remove, run)",
 	}
 	cmd.AddCommand(
 		newDashboardsChartsCmd(),

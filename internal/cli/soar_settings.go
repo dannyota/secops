@@ -34,7 +34,7 @@ func newRandomUUID() (string, error) {
 func newSOARSettingsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "settings",
-		Short: "Read/set singleton SOAR case-routing policies",
+		Short: "Manage singleton SOAR case-routing policies and API keys",
 	}
 	cmd.AddCommand(
 		newSOARPolicyCmd("case-assignment", "case auto-assignment policy", "assignmentPolicy",
@@ -64,7 +64,7 @@ func newSOARSettingsCmd() *cobra.Command {
 // never persists or logs it (House Rule 4). `revoke` posts the full record
 // back, resolved by --name or --id from the list.
 func newSOARAPIKeysCmd() *cobra.Command {
-	parent := &cobra.Command{Use: "api-keys", Short: "List, create (guarded), and revoke (guarded) SOAR API keys"}
+	parent := &cobra.Command{Use: "api-keys", Short: "Manage SOAR API keys (list, create, revoke)"}
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List API keys: id, name, permission group, SOC role, environments, created",

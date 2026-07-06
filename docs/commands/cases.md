@@ -2,7 +2,7 @@
 
 # secopsctl cases
 
-Work SOAR cases: read (list, get) + guarded triage (assign, tag, close, ...)
+Manage SOAR cases: read (list, get) and guarded triage (assign, tag, close, ...)
 
 ## cases aging
 
@@ -631,7 +631,7 @@ flag): informative | low | medium | high | critical.
 
 ## cases rename
 
-Rename a case
+Rename a case's title
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -974,7 +974,7 @@ narrows the scanned set. JSON or table.
 
 ## cases tag
 
-Tag a case
+Add a tag to a case (supports bulk --ids)
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -1077,7 +1077,7 @@ secopsctl cases task list --id N [flags]
 
 ## cases untag
 
-Untag a case
+Remove a tag from a case
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 

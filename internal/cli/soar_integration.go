@@ -330,7 +330,7 @@ func newSOARIntegrationInstallCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "install --identifier <marketplace-id>",
-		Short: "Install a Content Hub marketplace integration (guarded)",
+		Short: "MUTATING (guarded): install a Content Hub marketplace integration",
 		Long: "Install a marketplace integration pack by its identifier (from\n" +
 			"`soar marketplace list`). Guarded: dry-run by default, --yes to apply.\n" +
 			"Configure an instance afterwards with `integrations create`.",
@@ -382,7 +382,7 @@ func newSOARIntegrationInstallCmd() *cobra.Command {
 func newSOARIntegrationConnectorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connector",
-		Short: "List/delete connector definitions inside an integration",
+		Short: "Manage connector definitions inside an integration",
 	}
 	cmd.AddCommand(newSOARConnectorDefListCmd(), newSOARConnectorDefDeleteCmd())
 	return cmd

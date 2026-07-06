@@ -18,7 +18,7 @@ func init() { rootCmd.AddCommand(newAuditCmd()) }
 func newAuditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "audit",
-		Short: "Audit commands: user activity summary",
+		Short: "Run audit queries against user activity logs",
 	}
 	cmd.AddCommand(newAuditUserCmd())
 	return cmd

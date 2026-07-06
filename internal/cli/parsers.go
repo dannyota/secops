@@ -24,7 +24,7 @@ import (
 func newParsersCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "parsers <verb>",
-		Short: "Inspect and activate log parsers (versions / run / activate)",
+		Short: "Manage log parsers (versions, run, activate, extensions)",
 		Long: "Operate parser versions directly:\n" +
 			"  sample-logs  fetch a sample of RAW logs for a log type (to develop against)\n" +
 			"  versions     list a log type's parser versions (id, state, created)\n" +

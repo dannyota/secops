@@ -30,7 +30,7 @@ func init() {
 func newRulesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rules <verb>",
-		Short: "Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under `curated`)",
+		Short: "Manage custom detection rules (author, test, deploy, inspect)",
 		Long: "Operate on the rules you author. Inspect output (detections/errors/alerts),\n" +
 			"author/test/promote, manage versions and retrohunts, and roll up health.\n" +
 			"Config-as-code is `pull rules` / `push rules-create|update|deploy|disable`.\n" +

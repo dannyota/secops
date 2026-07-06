@@ -11,7 +11,7 @@ import (
 func newSOARAuditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "audit <verb>",
-		Short: "SOAR audit logs and notifications",
+		Short: "Browse SOAR audit logs and notifications",
 	}
 	cmd.AddCommand(newAuditListCmd(), newNotificationsCmd(), newReportTemplatesCmd())
 	return cmd
@@ -69,7 +69,7 @@ func newAuditListCmd() *cobra.Command {
 func newNotificationsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "notifications <verb>",
-		Short: "User notifications — list, unread count, close",
+		Short: "Manage user notifications (list, unread count, close)",
 	}
 	cmd.AddCommand(
 		newNotificationsListCmd(),

@@ -150,7 +150,7 @@ validate against the tenant and does not mutate SOAR.
 
 ## soar jobs instance create
 
-GUARDED: create a scheduled job instance
+MUTATING (guarded): create a scheduled job instance
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -191,7 +191,7 @@ Create a scheduled job instance. Two modes:
 
 ## soar jobs instance delete
 
-GUARDED: delete a scheduled job instance
+MUTATING (guarded): delete a scheduled job instance
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -259,7 +259,7 @@ secopsctl soar jobs instance list [flags]
 
 ## soar jobs instance run
 
-GUARDED: run one SOAR job instance now
+MUTATING (guarded): run one SOAR job instance now
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -277,7 +277,7 @@ secopsctl soar jobs instance run --instance <id|uniqueIdentifier|name> [flags]
 
 ## soar jobs instance set
 
-GUARDED: enable or disable a scheduled job instance
+MUTATING (guarded): enable or disable a scheduled job instance
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -335,7 +335,7 @@ Human output prints counts only; --json emits the raw payload.
 
 ## soar jobs revision create
 
-GUARDED: snapshot the current job definition as a revision
+MUTATING (guarded): snapshot the current job definition as a revision
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -355,7 +355,7 @@ secopsctl soar jobs revision create --integration I --job J --comment '...' [fla
 
 ## soar jobs revision delete
 
-GUARDED: delete a job definition revision
+MUTATING (guarded): delete a job definition revision
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -390,7 +390,7 @@ secopsctl soar jobs revision list --integration I --job J [flags]
 
 ## soar jobs revision rollback
 
-GUARDED: restore a job definition to a previous revision
+MUTATING (guarded): restore a job definition to a previous revision
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -410,7 +410,7 @@ secopsctl soar jobs revision rollback --integration I --job J --revision R [flag
 
 ## soar jobs run
 
-GUARDED: run one installed SOAR job now
+MUTATING (guarded): run one installed SOAR job now
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -548,7 +548,7 @@ Target `blacklists`:
 
 ## soar push bulk-close
 
-Bulk-close SOAR cases by id or by a filter (reason: malicious|not-malicious|maintenance|inconclusive|unknown)
+Bulk-close SOAR cases by id or by a filter (typed close-reason enum)
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
@@ -1073,7 +1073,7 @@ Target `webhooks`:
 
 ## soar settings api-keys
 
-List, create (guarded), and revoke (guarded) SOAR API keys
+Manage SOAR API keys (list, create, revoke)
 
 ```text
 secopsctl soar settings api-keys

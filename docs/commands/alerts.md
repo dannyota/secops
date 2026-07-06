@@ -2,7 +2,7 @@
 
 # secopsctl alerts
 
-SIEM detection alerts: list/get (read-only), AI investigate, guarded feedback update
+Manage SIEM detection alerts: list, get, enrich, AI investigate, and guarded feedback update
 
 ## alerts enrich
 

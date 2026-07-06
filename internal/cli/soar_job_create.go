@@ -43,7 +43,7 @@ func newSOARJobInstanceCreateCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "create (--file <instance.json> | --integration I --job J --display-name N ...)",
-		Short: "GUARDED: create a scheduled job instance",
+		Short: "MUTATING (guarded): create a scheduled job instance",
 		Long: "Create a scheduled job instance. Two modes:\n\n" +
 			"  --file <path>    Raw JSON body sent via the legacy API (escape hatch).\n" +
 			"  --integration + --job + --display-name + schedule flags: resolved and\n" +

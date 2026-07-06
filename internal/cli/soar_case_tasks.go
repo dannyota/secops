@@ -17,7 +17,7 @@ import (
 func newCaseTaskCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "task <verb>",
-		Short: "Case checklist tasks: list (read) + guarded add/done/delete",
+		Short: "Manage case checklist tasks: list (read) and guarded add/done/delete",
 	}
 	cmd.AddCommand(newCaseTaskListCmd(), newCaseTaskAddCmd(), newCaseTaskDoneCmd(), newCaseTaskDeleteCmd())
 	return cmd

@@ -168,7 +168,7 @@ type lintFinding struct {
 func newDashboardsLintCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lint <dashboard-id>",
-		Short: "Static analysis of a dashboard's charts — check for common issues (read-only)",
+		Short: "Lint a dashboard's charts for common issues (read-only static analysis)",
 		Long: "Checks every chart for:\n" +
 			"  1. \"none\" legend — a legends array on a single-series chart renders\n" +
 			"     \"none\" as the label in the console (fixable: remove legends).\n" +

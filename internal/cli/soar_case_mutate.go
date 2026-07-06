@@ -142,7 +142,7 @@ func newCaseRenameCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "rename --id N --title <s>",
-		Short: "Rename a case",
+		Short: "Rename a case's title",
 		Long: "Change a case's title. --id is the SOAR integer case id from\n" +
 			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",
 		Args: cobra.NoArgs,
@@ -220,8 +220,10 @@ func newCaseTagCmd(remove bool) *cobra.Command {
 		dryRun, yes bool
 	)
 	use, verb := "tag", "add tag to"
+	short := "Add a tag to a case (supports bulk --ids)"
 	if remove {
 		use, verb = "untag", "remove tag from"
+		short = "Remove a tag from a case"
 	}
 	useLine := use + " --id N --tag <s>"
 	if !remove {
@@ -229,7 +231,7 @@ func newCaseTagCmd(remove bool) *cobra.Command {
 	}
 	cmd := &cobra.Command{
 		Use:   useLine,
-		Short: strings.ToUpper(use[:1]) + use[1:] + " a case",
+		Short: short,
 		Long: strings.ToUpper(verb[:1]) + verb[1:] + " a case (list existing tags with\n" +
 			"`soar case values tags`). --id is the SOAR integer case id from\n" +
 			"`soar case list`. Guarded: dry-run by default, --yes to apply live.",

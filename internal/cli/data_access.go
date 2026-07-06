@@ -35,7 +35,7 @@ func newDataAccessCmd() *cobra.Command {
 }
 
 func newDataAccessLabelsCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "labels <verb>", Short: "Data-access labels (tag data for access control)"}
+	cmd := &cobra.Command{Use: "labels <verb>", Short: "Manage data-access labels (tag data for access control)"}
 	cmd.AddCommand(
 		daListCmd("label", func() ([]daRow, []json.RawMessage, error) {
 			c, err := newChronicleClient()
@@ -88,7 +88,7 @@ func newDataAccessLabelsCmd() *cobra.Command {
 }
 
 func newDataAccessScopesCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "scopes <verb>", Short: "Data-access scopes (grant principals access to labelled data)"}
+	cmd := &cobra.Command{Use: "scopes <verb>", Short: "Manage data-access scopes (grant principals access to labelled data)"}
 	cmd.AddCommand(
 		daListCmd("scope", func() ([]daRow, []json.RawMessage, error) {
 			c, err := newChronicleClient()

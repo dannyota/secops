@@ -22,7 +22,7 @@ func newAlertsInvestigateCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "investigate <alert-id>",
-		Short: "AI investigation for one alert — shows existing result, or triggers a new one",
+		Short: "Run the AI investigation for one alert (shows existing result or triggers a new one)",
 		Long: "Run (or view) the AI (Gemini) investigation for one detection alert.\n\n" +
 			"Default: check for an existing completed investigation first and show it\n" +
 			"(matching the web UI's behavior). If none exists, trigger a new one and poll\n" +
