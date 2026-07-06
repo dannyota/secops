@@ -235,6 +235,7 @@ func coercePlaybookTypes(body json.RawMessage) (json.RawMessage, error) {
 		for _, s := range steps {
 			if step, ok := s.(map[string]any); ok {
 				stringifyInts(step)
+				coerceStepType(step)
 			}
 		}
 	}
@@ -267,6 +268,34 @@ func stringifyInts(m map[string]any) {
 		case string:
 			// already a string; leave as-is.
 		}
+	}
+}
+
+// stepTypeNames maps the integer step-type code to the string enum the SOAR
+// save API expects. Exported playbooks carry the integer; the save endpoint
+// rejects it with "Expected string TokenType for enum [StepType]".
+var stepTypeNames = map[int64]string{
+	0: "ACTION",
+	1: "CONDITION",
+	2: "PLACEHOLDER",
+}
+
+// coerceStepType converts a numeric "type" field in a step to the string enum
+// the SOAR save API requires. Already-string values are left as-is.
+func coerceStepType(step map[string]any) {
+	v, ok := step["type"]
+	if !ok {
+		return
+	}
+	if _, ok := v.(string); ok {
+		return // already a string — leave for the server to validate.
+	}
+	code, ok := intFieldValue(v)
+	if !ok {
+		return
+	}
+	if name, known := stepTypeNames[code]; known {
+		step["type"] = name
 	}
 }
 

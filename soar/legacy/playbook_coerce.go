@@ -39,9 +39,8 @@ func applyActionStepMold(body map[string]any, repl PlaybookStepReplacement) erro
 }
 
 func validateActionStepMold(mold map[string]any) error {
-	stepType, ok := intFieldValue(mold["type"])
-	if !ok || stepType != 0 {
-		return fmt.Errorf("legacy: step mold is type %v, want action step type 0", mold["type"])
+	if !isActionStepType(mold["type"]) {
+		return fmt.Errorf("legacy: step mold is type %v, want action step (0 or \"ACTION\")", mold["type"])
 	}
 	if stringMapField(mold, "integration") == "" {
 		return fmt.Errorf("legacy: step mold missing integration")
@@ -134,6 +133,16 @@ func decodeJSONValue(raw json.RawMessage, label string) (any, error) {
 func stringMapField(m map[string]any, key string) string {
 	s, _ := m[key].(string)
 	return s
+}
+
+// isActionStepType returns true when v represents an action step type —
+// either the integer 0 or the string "ACTION".
+func isActionStepType(v any) bool {
+	if s, ok := v.(string); ok {
+		return s == "ACTION"
+	}
+	code, ok := intFieldValue(v)
+	return ok && code == 0
 }
 
 func intFieldValue(v any) (int64, bool) {

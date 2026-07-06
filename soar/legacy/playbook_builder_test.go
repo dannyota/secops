@@ -187,7 +187,7 @@ func TestBuildPlaybookFromMoldsRejectsUnwiredStepMold(t *testing.T) {
 	if err == nil {
 		t.Fatal("BuildPlaybookFromMolds accepted a non-action mold")
 	}
-	if !strings.Contains(err.Error(), "want action step type 0") {
+	if !strings.Contains(err.Error(), "want action step") {
 		t.Fatalf("error = %v", err)
 	}
 }
