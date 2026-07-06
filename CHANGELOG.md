@@ -3,6 +3,37 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.8.1 — 2026-07-06
+
+MCP-first agent integration. The `skill` command is removed; agent integration
+is now `secopsctl mcp install` → every Claude Code session gets all 361
+secopsctl tools and 17 craft-guide resources automatically.
+
+### Added
+
+- **MCP server.** `mcp serve` — Model Context Protocol server over stdio
+  JSON-RPC. Auto-generates tools from the cobra command tree with typed
+  InputSchema (flags → JSON schema properties, positional args, enums).
+  Guarded mutations carry `[guarded: dry-run by default]` in the description.
+  Zero external dependencies.
+- **MCP resources.** All `docs/tips/*.md` files embedded in the binary and
+  served as `tips://{name}` resources — recipes, gotchas, the auth model,
+  search surface, parser extensions.
+- **`mcp install`.** Registers secopsctl in `.claude/settings.json`
+  (`--global` for `~/.claude/settings.json`).
+- **Tips gap-fill.** `15-recipes.md` (cross-cutting workflows) and
+  `16-gotchas.md` (operational traps). Tips embed expanded from single-file to
+  `embed.FS` with `All()` export.
+
+### Removed
+
+- **`skill` / `skill install`** and the `skills/secopsctl/` package — fully
+  replaced by `mcp serve` + MCP resources.
+
+### Changed
+
+- `status capabilities` JSON: `skill_command` → `mcp_command`.
+
 ## v0.5.1 — 2026-06-26
 
 Dashboard portability, a quota-aware transport, and a broad operator command
@@ -43,15 +74,15 @@ behind the standard dry-run/`--yes` guard with a structured `--json` result.
 - Chart reads (`dashboards charts`, `pull --with-charts`, the copy path) use one
   `dashboardCharts:batchGet` with a per-chart fallback; `dashboards verify` treats
   a 4xx chart failure as broken and a 429/5xx as transient.
-- The bundled agent skill (`skills/secopsctl/SKILL.md`) covers the new commands.
+- MCP resources serve the domain knowledge formerly in the bundled agent skill.
 
 ## v0.5.0 — 2026-06-25
 
 An operator-experience and agent-enablement milestone (Waves 73–83): the CLI's
 own surface becomes machine-discoverable, daily triage scales, deploy previews
 get more honest, the last config-as-code fidelity edges close, and dashboard
-authoring gains a verify half. Built, offline-tested, and live-validated against
-an instance; every mutation stays behind the standard dry-run/`--yes` guard.
+authoring gains a verify half. Every mutation stays behind the standard
+dry-run/`--yes` guard.
 
 ### Added
 
@@ -63,8 +94,8 @@ an instance; every mutation stays behind the standard dry-run/`--yes` guard.
   `{code, message, retryable, status, request_id}` envelope on stderr (so stdout
   stays clean for the payload). `push --json` dry-run includes a per-object change
   plan (`items[]`).
-- **secopsctl Claude Code skill** shipped in-repo (`skills/secopsctl/SKILL.md`),
-  pointing at the machine-readable surface as its source of truth.
+- **Agent enablement via MCP.** `secopsctl mcp serve` auto-generates MCP tools
+  from the command tree; `mcp install` registers in Claude Code settings.
 - **Query library.** `query run --file <path>|-` and `query saved [<name>]` run a
   UDM predicate from a file/stdin or from a tracked `saved_queries/` pack.
 - **Alert triage at scale.** `alerts update --where <filter>` / `--stdin-ids`
@@ -150,15 +181,14 @@ an instance; every mutation stays behind the standard dry-run/`--yes` guard.
   - `dashboards charts <id>` lists each chart with its resolved query (read-only;
     `--json`), the way to recover a `--chart-id` or review what a dashboard runs.
 
-  The mutating verbs are guarded (dry-run by default, `--yes` to apply). Validated
-  end to end by `TestLiveDashboardsChartCLISmoke`. A lossless deref-on-pull
+  The mutating verbs are guarded (dry-run by default, `--yes` to apply). A lossless deref-on-pull
   round-trip (capturing chart queries into the mirror) remains a tracked follow-up.
 
 ## v0.4.2 — 2026-06-22
 
 ### Added
 
-- Native-dashboard **chart-query authoring** is live-validated. A dashboard's
+- Native-dashboard **chart-query authoring** via the dedicated chart ops. A dashboard's
   `definition.charts[]` is reference-only by API design — each entry references a
   `dashboardCharts` resource by name, and the YARA-L query lives one hop further in
   a `dashboardQueries` resource — so `push dashboards` (wholesale `definition.charts`
@@ -182,8 +212,8 @@ an instance; every mutation stays behind the standard dry-run/`--yes` guard.
   user id into a committed file (and `updateUserId` no longer churns the diff on
   every edit). Removed the dead, leaky `PullDashboards` puller (no caller; it wrote
   raw CURATED dashboard list items including `createUserId`); `pull dashboards` uses
-  the engine surface. Live-validated: pulled dashboards carry no actor ids and
-  `drift dashboards` is in sync.
+  the engine surface. Pulled dashboards carry no actor ids and `drift dashboards`
+  is in sync.
 
 ## v0.4.0 — 2026-06-12
 
@@ -195,8 +225,7 @@ alert-grouping reconcile surface.
 - `soar push grouping` — alert-grouping rules as config-as-code via the modern
   v1alpha `alertGroupingRules` API (siemplify-soar host). Reconciles
   create/update/delete; `--prune` deletes server-only rules but refuses the
-  non-deletable catch-all fallback (`category: ALL`). Validated end to end against
-  a live instance.
+  non-deletable catch-all fallback (`category: ALL`).
 - Pull-time value redaction: a committed `.secopsctl-redact` patterns file (one
   regex per line) at the data root, plus an ad-hoc `--redact` flag on `soar pull`,
   masks secrets that arrive as plain inline strings (e.g. a webhook URL carrying a
