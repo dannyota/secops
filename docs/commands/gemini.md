@@ -2,7 +2,7 @@
 
 # secopsctl gemini
 
-AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks
+Run AI (Gemini) features: generate queries, investigate alerts, summarize cases
 
 ## gemini ask
 
@@ -77,7 +77,7 @@ secopsctl gemini generate-query 'failed logins to admin accounts in the last hou
 
 ## gemini investigate
 
-AI investigation for one alert — shows existing result, or triggers a new one
+Run the AI investigation for one alert (shows existing result or triggers a new one)
 
 ```text
 secopsctl gemini investigate <alert-id> [flags]

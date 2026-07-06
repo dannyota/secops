@@ -2,11 +2,11 @@
 
 # secopsctl content-hub
 
-Content Hub: browse + install/uninstall marketplace integrations and content packs
+Browse and manage Content Hub marketplace integrations and content packs
 
 ## content-hub browse
 
-Content Hub overview: integration + content-pack totals and installed counts
+Show Content Hub overview: integration + content-pack totals and installed counts
 
 ```text
 secopsctl content-hub browse

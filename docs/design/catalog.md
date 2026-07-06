@@ -5,9 +5,8 @@ surface, updated in the same commit that moves the surface forward. Design in
 [architecture.md](architecture.md); the API split by plane and unbuilt gaps in
 [surfaces.md](surfaces.md); product specifics in [soar.md](soar.md) / [siem.md](siem.md).
 
-This page is the **status spine** — the compact tables. Per-surface detail (one
-entry per function) lives alongside in [catalog-siem.md](catalog-siem.md) and
-[catalog-soar.md](catalog-soar.md), linked under each table's *Surface details*.
+This page is the **status spine** — the compact tables. Per-surface detail lives
+in the auto-generated [command reference](../commands/README.md).
 
 **Where the code is:** surfaces register in `internal/mirror/registry_{soar,siem}.go`
 (playbooks: `soar_playbooks.go`; data_tables: `datatables_surface.go`;
@@ -110,9 +109,6 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `log-types` | imperative | ✅ chronicle · v1alpha | List (default: active feeds only, search/sort), get, create custom (auto `_CUSTOM` suffix); permanent — no delete/rename endpoint (API or console). |
 | governance — `riskConfig` · `dataAccessLabels`/`Scopes` | imperative | ✅ chronicle · v1 | SDK-only (no CLI yet); write-validated; quirky create (persist-despite-error, list lag, tombstone). |
 
-#### Surface details
-
-Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.md).
 
 ### Operational plane — query → act (live data)
 
@@ -141,9 +137,6 @@ Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.
 | **alert enrichment** (`alerts enrich`) | operational (read) | ✅ chronicle · v1alpha | Full per-alert detection collection (rule + UDM events + entities + triage) via `legacy:legacyBatchGetCollections` — the surface the console uses. The `enrichmentAgent:*` path (W56) is a dead 500 and unused by the console; the pre-case action verbs that rode it are withheld (the in-case equivalent is `cases run-action`). |
 | **watchlist membership** | imperative | 🔨 chronicle (shape validated; op gated per instance) | `lists watchlists add-entity`; UDM Entity envelope required; membership can 501 per instance |
 
-#### Surface details
-
-Per-surface detail (one entry per function): see [catalog-siem.md](catalog-siem.md).
 
 ## SOAR — Siemplify (`*.siemplify-soar.com`, AppKey)
 
@@ -186,9 +179,6 @@ reflection; refused on an incomplete listing to prevent false deletions.
 | `grouping` | reconcile (modern) | ✅ siemplify · v1alpha | — | Alert-grouping rules on v1alpha SOAR host; bespoke Surface. |
 | `case-data` | imperative (modern) | ✅ siemplify · v1alpha | — | Wave 16. SDK full CRUD; no CLI wired yet. |
 
-#### Surface details
-
-Per-surface detail (one entry per function): see [catalog-soar.md](catalog-soar.md).
 
 ### Operational + imperative — query → act / per-entity verbs
 
@@ -213,9 +203,6 @@ Per-surface detail (one entry per function): see [catalog-soar.md](catalog-soar.
 | `form-dynamic-parameters` | deferred | 🔒 siemplify · v1alpha (unsafe PUT) | 🔒 read | Not wired; PUT silently resets `formType` to Invalid. |
 | `soar legacy call <op>` | raw | — | ✅ | Passthrough for integrations, ontology, settings, environment-priorities, permissions. |
 
-#### Surface details
-
-Per-surface detail (one entry per function): see [catalog-soar.md](catalog-soar.md).
 
 ## Other features — cross-cutting (domain varies per row)
 
@@ -230,9 +217,6 @@ Grouped by feature, not by domain. The New-API cell names the domain because the
 | `ti associations` / `related-associations` | operational read | ✅ chronicle · v1 | — | IoC associations (malware families / threat actors): batchGet by id (chunked ≤80 names/call), get, fetchRelated pivots from an IoC/collection/association; resource names use numeric project. |
 | `ti coverage` / `ti filters` | operational read | ✅ chronicle · v1 | — | `coverageDetails` rule↔threat-collection coverage mapping (filtered by collection ids, chunked ≤40/call) + the threat-collection filter-set metadata (JSON-only; path form carries a DEVIATION note pending a live probe). |
 
-#### Surface details
-
-Per-surface detail (one entry per function): see [catalog-soar.md](catalog-soar.md).
 
 ### Content Hub & integrations
 
@@ -260,9 +244,6 @@ Installing content (integration packages and the connector/job/action definition
 | `integrations install` (+ pack `:install`/`:uninstall`) | imperative/raw | ✅ siemplify · v1alpha (`:install`/`:uninstall`) | 🔨 (`/store`) | Installs marketplace pack via v1alpha; built. |
 | `integrations action` / `job-def` (template/create/update/delete) | imperative | ✅ siemplify · v1alpha | 🔨 | Python definition authoring loop (W60+W65); built. |
 
-#### Surface details
-
-Per-surface detail (one entry per function): see [catalog-soar.md](catalog-soar.md).
 
 ## How to keep this current
 

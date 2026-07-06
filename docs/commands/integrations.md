@@ -228,7 +228,7 @@ instances across environments, and which playbooks use it. The
 
 ## integrations install
 
-Install a Content Hub marketplace integration (guarded)
+MUTATING (guarded): install a Content Hub marketplace integration
 
 > Guarded mutation — dry-run by default; apply with `--yes`.
 

@@ -52,7 +52,7 @@ v1alpha integration catalog plus legacy connector/job runtime cards.
 
 ## info soar-system
 
-SOAR platform version, license, and data retention
+Show SOAR platform version, license, and data retention
 
 ```text
 secopsctl info soar-system

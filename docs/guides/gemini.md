@@ -126,4 +126,4 @@ run, and treat the model's output as a draft to verify, not a fact.
 - [Search](search.md) — the deterministic search engine these verbs feed.
 - [Triage](triage.md) — where `gemini` fits in the alert → case → rule flow.
 - [LLM & automation](../tips/10-llm-and-automation.md) — driving the AI surfaces safely.
-- [Catalog (SIEM)](../design/catalog-siem.md) — per-surface status.
+- [Catalog](../design/catalog.md) — per-surface status.

@@ -52,38 +52,36 @@
 ## Command reference
 
 - [Overview](https://secops.danny.vn/#/commands/README): Generated from the command tree — run go run ./cmd/secopsctl docs generate after changing a command. "Guarded" commands are live mutations...
-- [alerts](https://secops.danny.vn/#/commands/alerts): SIEM detection alerts: list/get (read-only), AI investigate, guarded feedback update
-- [audit](https://secops.danny.vn/#/commands/audit): Audit commands: user activity summary
-- [cases](https://secops.danny.vn/#/commands/cases): Work SOAR cases: read (list, get) + guarded triage (assign, tag, close, ...)
-- [cleanup](https://secops.danny.vn/#/commands/cleanup): Guarded cleanup helpers for secopsctl-owned artifacts
-- [content-hub](https://secops.danny.vn/#/commands/content-hub): Content Hub: browse + install/uninstall marketplace integrations and content packs
-- [curated](https://secops.danny.vn/#/commands/curated): Google SecOps PREDEFINED detections: browse, search, and toggle Google-managed curated rule sets
-- [dashboards](https://secops.danny.vn/#/commands/dashboards): Dashboard ops: create, get, edit, charts, markdown, button, layout, filters
+- [alerts](https://secops.danny.vn/#/commands/alerts): Manage SIEM detection alerts: list, get, enrich, AI investigate, and guarded feedback update
+- [audit](https://secops.danny.vn/#/commands/audit): Run audit queries against user activity logs
+- [cases](https://secops.danny.vn/#/commands/cases): Manage SOAR cases: read (list, get) and guarded triage (assign, tag, close, ...)
+- [cleanup](https://secops.danny.vn/#/commands/cleanup): Remove secopsctl-owned smoke-test artifacts (guarded)
+- [content-hub](https://secops.danny.vn/#/commands/content-hub): Browse and manage Content Hub marketplace integrations and content packs
+- [curated](https://secops.danny.vn/#/commands/curated): Browse, search, and toggle Google-managed curated rule sets
+- [dashboards](https://secops.danny.vn/#/commands/dashboards): Manage native dashboards (charts, widgets, layout, filters)
 - [data-access](https://secops.danny.vn/#/commands/data-access): Manage data-access RBAC: labels (tag data) and scopes (grant access)
 - [data-tables](https://secops.danny.vn/#/commands/data-tables): Manage data tables (import rows from CSV)
-- [entities](https://secops.danny.vn/#/commands/entities): Entity operational reads (summarize, findings-graph pivot)
-- [exclusions](https://secops.danny.vn/#/commands/exclusions): Imperative findings-refinement ops (enable/disable/archive) for custom + curated detections — config-as-code is pull/push rule_exclusions
-- [gemini](https://secops.danny.vn/#/commands/gemini): AI (Gemini): generate queries, investigate alerts, summarize cases, generate playbooks
+- [entities](https://secops.danny.vn/#/commands/entities): Inspect entities: summarize alerts, prevalence, and findings-graph pivot
+- [exclusions](https://secops.danny.vn/#/commands/exclusions): Manage rule exclusions (findings refinements) for detections
+- [gemini](https://secops.danny.vn/#/commands/gemini): Run AI (Gemini) features: generate queries, investigate alerts, summarize cases
 - [global](https://secops.danny.vn/#/commands/global): Top-level commands
 - [info](https://secops.danny.vn/#/commands/info): Show the resolved instance configuration (no API call)
-- [ingest](https://secops.danny.vn/#/commands/ingest): Data ingestion: feeds, forwarders, parsers, log types, pipeline, health
+- [ingest](https://secops.danny.vn/#/commands/ingest): Manage data ingestion (feeds, forwarders, parsers, pipelines)
 - [integrations](https://secops.danny.vn/#/commands/integrations): Manage SOAR integration instances (imperative create/delete)
-- [lists](https://secops.danny.vn/#/commands/lists): Lists: reference lists (empty) and watchlists
+- [lists](https://secops.danny.vn/#/commands/lists): Manage reference lists and entity watchlists
 - [mcp](https://secops.danny.vn/#/commands/mcp): Model Context Protocol: serve secopsctl as an MCP server
 - [playbooks](https://secops.danny.vn/#/commands/playbooks): Discover and validate SOAR playbooks
-- [rules](https://secops.danny.vn/#/commands/rules): Your CUSTOM detections: author, test, deploy, and inspect (Google-managed rules are under curated)
-- [search](https://secops.danny.vn/#/commands/search): Search the SIEM (read-only): udm events, raw logs, stats, saved searches
+- [rules](https://secops.danny.vn/#/commands/rules): Manage custom detection rules (author, test, deploy, inspect)
+- [search](https://secops.danny.vn/#/commands/search): Search the SIEM: UDM events, raw logs, stats, saved searches
 - [soar](https://secops.danny.vn/#/commands/soar): Operate Google SecOps SOAR (Siemplify) as code (AppKey auth, no ADC)
-- [status](https://secops.danny.vn/#/commands/status): Read-only diagnostics: capabilities, coverage, surfaces
-- [ti](https://secops.danny.vn/#/commands/ti): Threat intel & IOCs (read-only): find/inspect IOCs, browse Mandiant collections
+- [status](https://secops.danny.vn/#/commands/status): Show read-only diagnostics: capabilities, coverage, surfaces
+- [ti](https://secops.danny.vn/#/commands/ti): Browse threat intel: find IOCs, inspect Mandiant collections (read-only)
 
 ## Design
 
 - [Architecture](https://secops.danny.vn/#/design/architecture): How secopsctl works, independent of any one surface. Product specifics live in *canonical*, *etag*)? See the [glossary](../GLOSSARY.md).
 - [Surfaces](https://secops.danny.vn/#/design/surfaces): The authoritative map of which API does what, split by plane: every API family has exactly one home (plane + host + auth + version) and one...
 - [Catalog (status)](https://secops.danny.vn/#/design/catalog): The source of truth for what exists and how mature it is — one status per surface, updated in the same commit that moves the surface...
-- [Catalog — SIEM](https://secops.danny.vn/#/design/catalog-siem): Per-surface detail for the SIEM (Chronicle) plane. The status matrix and the compact tables are the spine in [catalog.md](catalog.md); this...
-- [Catalog — SOAR](https://secops.danny.vn/#/design/catalog-soar): Per-surface detail for the SOAR (Siemplify) plane and the cross-cutting features (Threat Intel, Content Hub). The status matrix and the...
 - [SIEM](https://secops.danny.vn/#/design/siem): Design for the Google SecOps SIEM surface of secopsctl. SIEM splits into two planes that need different models: config is *desired state*...
 - [SOAR](https://secops.danny.vn/#/design/soar): Design for the Google SecOps SOAR surface of secopsctl, ported from real operational SOAR usage. Two facts drive it:
 - [CLI naming](https://secops.danny.vn/#/design/cli-naming): Phase D is a one-shot hard rename of the secopsctl command surface to a small set of self-describing top-level groups. Every command name...

@@ -42,8 +42,6 @@ FILES=(
   docs/design/architecture.md
   docs/design/surfaces.md
   docs/design/catalog.md
-  docs/design/catalog-siem.md
-  docs/design/catalog-soar.md
   docs/design/siem.md
   docs/design/soar.md
   docs/design/cli-naming.md

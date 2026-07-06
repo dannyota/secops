@@ -298,7 +298,7 @@ secopsctl ti related CAMP.00.001
 
 Each step is independent — run any one on its own, or chain them to go from a
 raw event to the threat intelligence behind an indicator. Threat-intel verbs
-live under [`ti`](../design/catalog-siem.md) (`ti find` / `ti get` / `ti related`
+live under [`ti`](../commands/ti.md) (`ti find` / `ti get` / `ti related`
 / `ti collections` / `ti collection`).
 
 ## See also

@@ -88,7 +88,7 @@ secopsctl soar integrations configure --integration <id> --param key=value
 
 `soar integrations configure` is the post-install step that supplies the
 integration's parameters; see [Playbooks](playbooks.md) and the
-[Catalog (SOAR)](../design/catalog-soar.md) for the full integration lifecycle
+[Catalog](../design/catalog.md) for the full integration lifecycle
 (install → configure → instances → connectors → jobs).
 
 ## See also
@@ -96,4 +96,4 @@ integration's parameters; see [Playbooks](playbooks.md) and the
 - [Configure](configure.md) — set `soar_url` + the AppKey the Content Hub needs.
 - [Playbooks](playbooks.md) — build and operate playbooks on the installed packs.
 - [SOAR design](../design/soar.md) — the two-host rule and SOAR-plane surfaces.
-- [Catalog (SOAR)](../design/catalog-soar.md) — per-surface status.
+- [Catalog](../design/catalog.md) — per-surface status.

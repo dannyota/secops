@@ -2,7 +2,7 @@
 
 # secopsctl ingest
 
-Data ingestion: feeds, forwarders, parsers, log types, pipeline, health
+Manage data ingestion (feeds, forwarders, parsers, pipelines)
 
 ## ingest feeds delete
 
@@ -190,13 +190,41 @@ Make a parser version ACTIVE (guarded; live ingestion switches)
 > Guarded mutation — dry-run by default; apply with `--yes`.
 
 ```text
-secopsctl ingest parsers activate <log-type> <parser-id> [flags]
+secopsctl ingest parsers activate <log-type> [parser-id] [flags]
 ```
 
 ```text
 Activate a specific parser version for a log type — live ingestion switches to
-it immediately. Guarded: dry-run by default, --yes to apply. Use `parsers
-versions` to find a prior version's id to roll back to.
+it immediately. Guarded: dry-run by default, --yes to apply.
+
+With one argument (log-type only), the latest INACTIVE CUSTOM parser is auto-
+selected — the typical flow after `push parsers` creates a new version. Use
+`parsers versions` to find a prior version's id to roll back to.
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--dry-run` | bool | false | preview only (default behavior) |
+| `--yes` | bool | false | apply for real / skip confirmation |
+
+## ingest parsers deactivate
+
+MUTATING (guarded): deactivate a custom parser (reverts to prebuilt)
+
+> Guarded mutation — dry-run by default; apply with `--yes`.
+
+```text
+secopsctl ingest parsers deactivate <log-type> [parser-id] [flags]
+```
+
+```text
+Deactivate a custom parser for a log type — live ingestion reverts to the
+prebuilt parser. Matches the console's "Make Inactive" action.
+
+With one argument (log-type only), the ACTIVE CUSTOM parser is auto-selected.
+The parser version is preserved as INACTIVE and can be re-activated later.
 ```
 
 **Flags**
@@ -315,7 +343,7 @@ that maps the selected fields. Guarded; pass --yes to apply.
 
 ## ingest parsers extension get
 
-Get a parser extension
+Show a parser extension's state and CBN snippet
 
 ```text
 secopsctl ingest parsers extension get <log-type> <extension-id>
@@ -551,7 +579,7 @@ secopsctl ingest pipeline delete <id> [flags]
 
 ## ingest pipeline get
 
-Get one pipeline by id
+Show one pipeline's config and state by id
 
 ```text
 secopsctl ingest pipeline get <id>

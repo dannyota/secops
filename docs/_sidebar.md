@@ -72,8 +72,6 @@
   - [Architecture](design/architecture.md)
   - [Surfaces](design/surfaces.md)
   - [Catalog (status)](design/catalog.md)
-  - [Catalog — SIEM](design/catalog-siem.md)
-  - [Catalog — SOAR](design/catalog-soar.md)
   - [SIEM](design/siem.md)
   - [SOAR](design/soar.md)
   - [CLI naming](design/cli-naming.md)
