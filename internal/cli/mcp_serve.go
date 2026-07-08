@@ -40,6 +40,7 @@ type mcpTool struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description,omitempty"`
 	InputSchema map[string]any `json:"inputSchema"`
+	Annotations map[string]any `json:"annotations,omitempty"`
 }
 
 type mcpResource struct {
@@ -122,11 +123,12 @@ func newMCPSession() *mcpSession {
 }
 
 func (s *mcpSession) buildMetaTools() []mcpTool {
+	readOnly := map[string]any{"readOnlyHint": true}
 	return []mcpTool{
 		{
 			Name: "run",
-			Description: "Run any secopsctl command. Pass the full command without the " +
-				"'secopsctl' prefix.",
+			Description: "Escape hatch: run a raw secopsctl command string (no argument " +
+				"validation). Prefer focus(<group>) for typed tools with validated schemas.",
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -151,11 +153,13 @@ func (s *mcpSession) buildMetaTools() []mcpTool {
 					},
 				},
 			},
+			Annotations: readOnly,
 		},
 		{
 			Name: "focus",
-			Description: "Load typed tools for a command group (full schemas with flags). " +
-				"Call help first to see groups.",
+			Description: "Load typed tools for a command group — the preferred way to " +
+				"execute commands. Each tool has validated, documented parameters. " +
+				"Call help first to see groups, unfocus to free context.",
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -166,11 +170,12 @@ func (s *mcpSession) buildMetaTools() []mcpTool {
 				},
 				"required": []string{"group"},
 			},
+			Annotations: readOnly,
 		},
 		{
 			Name: "usage",
-			Description: "Show flags, args, and description for one command. " +
-				"Use before `run` to learn a command's interface.",
+			Description: "Show flags, args, and description for one command, and " +
+				"auto-load it as a callable typed tool. No separate focus call needed.",
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -181,6 +186,7 @@ func (s *mcpSession) buildMetaTools() []mcpTool {
 				},
 				"required": []string{"command"},
 			},
+			Annotations: readOnly,
 		},
 		{
 			Name: "unfocus",
@@ -195,6 +201,7 @@ func (s *mcpSession) buildMetaTools() []mcpTool {
 					},
 				},
 			},
+			Annotations: readOnly,
 		},
 	}
 }
@@ -234,9 +241,12 @@ func (s *mcpSession) dispatch(req jrpcRequest) jrpcResponse {
 				"version": resolveBuildInfo().Version,
 			},
 			"instructions": "secopsctl is a CLI for Google SecOps (Chronicle SIEM + " +
-				"Siemplify SOAR). Start with `help` to see command groups. " +
-				"Use `usage <command>` to see flags and args for a specific command, " +
-				"then `run` to execute it. Or `focus` a group to load all its typed tools. " +
+				"Siemplify SOAR). Start with `help` to see command groups, then " +
+				"`focus <group>` to load typed tools — the preferred way to run " +
+				"commands (validated arguments, full schemas). `usage <command>` " +
+				"previews one command's schema and auto-loads it as a callable tool. " +
+				"`run` is an escape hatch for raw command strings (no validation). " +
+				"`unfocus` when done to free context. " +
 				"Mutations are guarded: pass yes=true to apply (dry-run by default).",
 		})
 
@@ -348,7 +358,7 @@ func (s *mcpSession) handleRun(id json.RawMessage, args map[string]any) jrpcResp
 	if err != nil {
 		return mcpText(id, err.Error(), true)
 	}
-	return mcpText(id, string(out), false)
+	return mcpText(id, string(out)+s.nudgeForRun(argv), false)
 }
 
 func (s *mcpSession) handleHelp(id json.RawMessage, args map[string]any) jrpcResponse {
@@ -384,12 +394,33 @@ func (s *mcpSession) handleUsage(id json.RawMessage, args map[string]any) jrpcRe
 			". Use 'help' to see available commands.", true)
 	}
 
+	// Auto-focus the resolved tool so the agent can call it directly without
+	// a separate focus() call — makes the typed path strictly cheaper than run.
+	loaded := false
+	existing := s.focused["_usage"]
+	alreadyLoaded := false
+	for _, t := range existing {
+		if t.Name == tool.Name {
+			alreadyLoaded = true
+			break
+		}
+	}
+	if !alreadyLoaded {
+		s.focused["_usage"] = append(existing, tool)
+		s.notifyToolsChanged()
+		loaded = true
+	}
+
 	b, _ := json.MarshalIndent(map[string]any{
 		"name":        tool.Name,
 		"description": tool.Description,
 		"inputSchema": tool.InputSchema,
 	}, "", "  ")
-	return mcpText(id, string(b), false)
+	suffix := ""
+	if loaded {
+		suffix = "\n\nloaded — callable as mcp__secopsctl__" + tool.Name
+	}
+	return mcpText(id, string(b)+suffix, false)
 }
 
 func (s *mcpSession) handleFocus(id json.RawMessage, args map[string]any) jrpcResponse {
@@ -454,240 +485,36 @@ func (s *mcpSession) handleUnfocus(id json.RawMessage, args map[string]any) jrpc
 	return mcpText(id, "unfocused "+group, false)
 }
 
-// --- Tool generation from the cobra command tree ---
-
-func mcpToolsFromCobra() []mcpTool {
-	var out []mcpTool
-	walkRunnable(rootCmd, "", func(path string, c *cobra.Command) {
-		top, _, _ := strings.Cut(path, " ")
-		switch top {
-		case "mcp", "completion", "docs":
-			return
+// nudgeForRun returns a one-line tip when the run command matches a typed tool
+// that isn't currently focused — steering the agent toward focus/usage.
+func (s *mcpSession) nudgeForRun(argv []string) string {
+	var parts []string
+	for _, a := range argv {
+		if strings.HasPrefix(a, "-") {
+			break
 		}
-		out = append(out, cobraToMCPTool(path, c))
-	})
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
+		parts = append(parts, strings.ReplaceAll(a, "-", "_"))
+	}
+	for end := len(parts); end > 0; end-- {
+		name := strings.Join(parts[:end], "_")
+		if _, ok := s.toolIndex[name]; ok {
+			if s.isFocused(name) {
+				return ""
+			}
+			group := strings.ReplaceAll(parts[0], "_", "-")
+			return fmt.Sprintf("\ntip: typed tool available — focus(\"%s\") loads validated schemas", group)
+		}
+	}
+	return ""
 }
 
-func cobraToMCPTool(path string, c *cobra.Command) mcpTool {
-	name := strings.ReplaceAll(strings.ReplaceAll(path, " ", "_"), "-", "_")
-
-	props := map[string]any{}
-	var required []string
-
-	if spec := positionalSpec(c); spec != "" {
-		props["args"] = map[string]any{
-			"type":        "string",
-			"description": "positional arguments: " + spec,
-		}
-		required = append(required, "args")
-	}
-
-	for _, f := range localFlagInfos(c) {
-		props[strings.ReplaceAll(f.Name, "-", "_")] = flagSchemaProperty(f)
-		if f.Required {
-			required = append(required, strings.ReplaceAll(f.Name, "-", "_"))
-		}
-	}
-
-	desc := c.Short
-	if commandKind(c) == "guarded-mutation" {
-		desc += " [guarded: dry-run by default, pass yes=true to apply]"
-	}
-
-	schema := map[string]any{"type": "object", "properties": props}
-	if len(required) > 0 {
-		schema["required"] = required
-	}
-	return mcpTool{Name: name, Description: desc, InputSchema: schema}
-}
-
-func flagSchemaProperty(f flagInfo) map[string]any {
-	prop := map[string]any{"description": f.Usage}
-	switch f.Type {
-	case "bool":
-		prop["type"] = "boolean"
-	case "int", "int32", "int64", "uint", "uint32", "uint64":
-		prop["type"] = "integer"
-	case "float32", "float64":
-		prop["type"] = "number"
-	case "stringSlice", "stringArray":
-		prop["type"] = "array"
-		prop["items"] = map[string]any{"type": "string"}
-	default:
-		prop["type"] = "string"
-	}
-	if f.Default != "" && f.Default != "false" && f.Default != "0" && f.Default != "[]" {
-		prop["default"] = f.Default
-	}
-	if len(f.Enum) > 0 {
-		prop["enum"] = f.Enum
-	}
-	return prop
-}
-
-// --- Tool execution via subprocess ---
-
-func mcpExecTool(name string, args map[string]any) (string, error) {
-	parts := strings.Split(name, "_")
-	var argv []string
-
-	// Restore hyphenated command names: content_hub → content-hub.
-	// The command tree uses hyphens; tool names use underscores as separators.
-	// Walk the cobra tree to resolve the actual command path.
-	argv = mcpResolveCommandPath(parts)
-
-	if positional, ok := args["args"]; ok {
-		if s, ok := positional.(string); ok && s != "" {
-			argv = append(argv, strings.Fields(s)...)
-		}
-	}
-
-	for k, v := range args {
-		if k == "args" {
-			continue
-		}
-		flag := "--" + strings.ReplaceAll(k, "_", "-")
-		switch val := v.(type) {
-		case bool:
-			if val {
-				argv = append(argv, flag)
-			}
-		case float64:
-			if val == float64(int(val)) {
-				argv = append(argv, flag, fmt.Sprintf("%d", int(val)))
-			} else {
-				argv = append(argv, flag, fmt.Sprintf("%g", val))
-			}
-		case string:
-			if val != "" {
-				argv = append(argv, flag, val)
-			}
-		case []any:
-			for _, item := range val {
-				argv = append(argv, flag, fmt.Sprint(item))
-			}
-		default:
-			argv = append(argv, flag, fmt.Sprint(val))
-		}
-	}
-
-	// Force JSON output unless the caller already set a format.
-	if !mcpHasFlag(args, "json") && !mcpHasFlag(args, "format") && !mcpHasFlag(args, "output") {
-		argv = append(argv, "--json")
-	}
-
-	// Forward global flags from the parent MCP session so the subprocess
-	// inherits --read-only, --config, --timeout, etc.
-	argv = append(argv, mcpGlobalFlags(args)...)
-
-	self, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("cannot find secopsctl binary: %w", err)
-	}
-
-	cmd := exec.Command(self, argv...) //nolint:gosec // self is os.Executable, argv from validated tool schema
-	cmd.Env = os.Environ()
-	out, err := cmd.CombinedOutput()
-	if err != nil && len(out) > 0 {
-		return "", fmt.Errorf("%s", out)
-	}
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
-}
-
-// mcpResolveCommandPath maps underscore-separated tool-name segments back to
-// the hyphenated cobra command path. It walks rootCmd's children greedily:
-// ["content", "hub", "browse"] → finds "content-hub" child → then "browse".
-func mcpResolveCommandPath(segments []string) []string {
-	var resolved []string
-	cmd := rootCmd
-	i := 0
-	for i < len(segments) {
-		found := false
-		// Try longest match first: "content-hub" before "content".
-		for end := min(len(segments), i+3); end > i; end-- {
-			candidate := strings.Join(segments[i:end], "-")
-			for _, child := range cmd.Commands() {
-				if child.Name() == candidate {
-					resolved = append(resolved, candidate)
-					cmd = child
-					i = end
-					found = true
-					break
-				}
-			}
-			if found {
-				break
+func (s *mcpSession) isFocused(toolName string) bool {
+	for _, tools := range s.focused {
+		for _, t := range tools {
+			if t.Name == toolName {
+				return true
 			}
 		}
-		if !found {
-			resolved = append(resolved, segments[i])
-			i++
-		}
 	}
-	return resolved
-}
-
-// mcpSplitArgs splits a command string into tokens, respecting double and
-// single quotes (like a minimal POSIX shell). Unquoted tokens split on
-// whitespace; quoted spans preserve interior whitespace and are stripped
-// of the outer quotes.
-func mcpSplitArgs(s string) []string {
-	var args []string
-	var cur []byte
-	inSingle, inDouble := false, false
-	for _, c := range []byte(s) {
-		switch {
-		case c == '\'' && !inDouble:
-			inSingle = !inSingle
-		case c == '"' && !inSingle:
-			inDouble = !inDouble
-		case (c == ' ' || c == '\t') && !inSingle && !inDouble:
-			if len(cur) > 0 {
-				args = append(args, string(cur))
-				cur = cur[:0]
-			}
-		default:
-			cur = append(cur, c)
-		}
-	}
-	if len(cur) > 0 {
-		args = append(args, string(cur))
-	}
-	return args
-}
-
-// mcpGlobalFlags returns the global flags that should be forwarded from the
-// parent MCP serve process to a tool subprocess, skipping any the caller
-// already set explicitly.
-func mcpGlobalFlags(callerArgs map[string]any) []string {
-	var flags []string
-	fwd := func(name string, val bool) {
-		if val && !mcpHasFlag(callerArgs, name) {
-			flags = append(flags, "--"+name)
-		}
-	}
-	fwd("read-only", readOnlyMode())
-	fwd("legacy", forceLegacy)
-	fwd("non-interactive", true) // subprocesses should never prompt
-	fwd("no-progress", true)     // no TTY inside MCP
-	if cfgFile != "" && !mcpHasFlag(callerArgs, "config") {
-		flags = append(flags, "--config", cfgFile)
-	}
-	if rootCmd.PersistentFlags().Changed("timeout") && !mcpHasFlag(callerArgs, "timeout") {
-		flags = append(flags, "--timeout", requestTimeout.String())
-	}
-	return flags
-}
-
-func mcpHasFlag(args map[string]any, name string) bool {
-	if _, ok := args[name]; ok {
-		return true
-	}
-	_, ok := args[strings.ReplaceAll(name, "-", "_")]
-	return ok
+	return false
 }

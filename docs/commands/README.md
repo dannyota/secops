@@ -10,7 +10,7 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 |---|---|---|
 | [alerts](alerts.md) | 4 | Manage SIEM detection alerts: list, get, enrich, AI investigate, and guarded feedback update |
 | [audit](audit.md) | 1 | Run audit queries against user activity logs |
-| [cases](cases.md) | 51 | Manage SOAR cases: read (list, get) and guarded triage (assign, tag, close, ...) |
+| [cases](cases.md) | 52 | Manage SOAR cases: read (list, get) and guarded triage (assign, tag, close, ...) |
 | [cleanup](cleanup.md) | 1 | Remove secopsctl-owned smoke-test artifacts (guarded) |
 | [content-hub](content-hub.md) | 10 | Browse and manage Content Hub marketplace integrations and content packs |
 | [curated](curated.md) | 9 | Browse, search, and toggle Google-managed curated rule sets |

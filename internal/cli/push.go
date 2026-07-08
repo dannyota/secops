@@ -163,7 +163,8 @@ func runPush(cmd *cobra.Command, args []string) error {
 		if target == "dashboards" {
 			s = mirror.DashboardsSurfaceForMirror(client, dir)
 		}
-		if err := ensureDataDir(target, dir, dryRun); err != nil {
+		dirWarn, err := ensureDataDir(target, dir, dryRun)
+		if err != nil {
 			return err
 		}
 		// Say up front when --prune can't delete on this surface, so the operator
@@ -183,8 +184,10 @@ func runPush(cmd *cobra.Command, args []string) error {
 			return perr
 		}
 		if jsonOut {
+			absDir, _ := filepath.Abs(dir)
 			return emitJSON(struct {
 				Target      string                 `json:"target"`
+				Dir         string                 `json:"dir"`
 				DryRun      bool                   `json:"dry_run"`
 				Applied     bool                   `json:"applied"`
 				Created     int                    `json:"created"`
@@ -195,14 +198,15 @@ func runPush(cmd *cobra.Command, args []string) error {
 				Skipped     int                    `json:"skipped_deletes"`
 				SkipReason  string                 `json:"skip_reason,omitempty"`
 				WouldChange bool                   `json:"would_change"`
+				Warning     string                 `json:"warning,omitempty"`
 				Items       []reconcile.PlanChange `json:"items,omitempty"`
 			}{
-				Target: target, DryRun: dryRun, Applied: !dryRun && assumeYes,
+				Target: target, Dir: absDir, DryRun: dryRun, Applied: !dryRun && assumeYes,
 				Created: sum.Created, Updated: sum.Updated, Deleted: sum.Deleted,
 				Unchanged: sum.Unchanged, Failed: sum.Failed,
 				Skipped: len(sum.SkippedDeletes), SkipReason: sum.SkipReason,
 				WouldChange: sum.Created+sum.Updated+sum.Deleted > 0,
-				Items:       sum.Changes,
+				Warning:     dirWarn, Items: sum.Changes,
 			})
 		}
 		return nil
@@ -222,7 +226,8 @@ func runPush(cmd *cobra.Command, args []string) error {
 	}
 	if target == "curated" {
 		dir := filepath.Join(mirror.DataRoot(pushOut), mirror.DirCurated)
-		if err := ensureDataDir(target, dir, dryRun); err != nil {
+		dirWarn, err := ensureDataDir(target, dir, dryRun)
+		if err != nil {
 			return err
 		}
 		maybeConfirm()
@@ -231,12 +236,15 @@ func runPush(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if jsonOut {
+			absDir, _ := filepath.Abs(dir)
 			return emitJSON(struct {
 				Target  string `json:"target"`
+				Dir     string `json:"dir"`
 				DryRun  bool   `json:"dry_run"`
 				Applied bool   `json:"applied"`
 				Count   int    `json:"count"`
-			}{Target: target, DryRun: dryRun, Applied: !dryRun && assumeYes, Count: n})
+				Warning string `json:"warning,omitempty"`
+			}{Target: target, Dir: absDir, DryRun: dryRun, Applied: !dryRun && assumeYes, Count: n, Warning: dirWarn})
 		}
 		return nil
 	}
@@ -244,7 +252,8 @@ func runPush(cmd *cobra.Command, args []string) error {
 	if rulesDir == "" {
 		rulesDir = filepath.Join(mirror.DataRoot(pushOut), mirror.DirRules)
 	}
-	if err := ensureDataDir(target, rulesDir, dryRun); err != nil {
+	dirWarn, err := ensureDataDir(target, rulesDir, dryRun)
+	if err != nil {
 		return err
 	}
 	maybeConfirm()
@@ -267,12 +276,15 @@ func runPush(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if jsonOut {
+		absDir, _ := filepath.Abs(rulesDir)
 		return emitJSON(struct {
 			Target  string `json:"target"`
+			Dir     string `json:"dir"`
 			DryRun  bool   `json:"dry_run"`
 			Applied bool   `json:"applied"`
 			Count   int    `json:"count"`
-		}{Target: target, DryRun: dryRun, Applied: !dryRun && assumeYes, Count: n})
+			Warning string `json:"warning,omitempty"`
+		}{Target: target, Dir: absDir, DryRun: dryRun, Applied: !dryRun && assumeYes, Count: n, Warning: dirWarn})
 	}
 	return err
 }
@@ -309,16 +321,24 @@ func confirmPush(target string) bool {
 // ensureDataDir refuses a LIVE push when the resolved local data directory does
 // not exist — almost always a wrong --out or working directory, which (with
 // --prune) would read zero local files and delete live objects. A dry run is
-// always allowed: it previews and mutates nothing.
-func ensureDataDir(target, dir string, dryRun bool) error {
+// allowed through but returns a warning when the dir is missing, so the caller
+// can surface it (e.g. in JSON output) — a silent count:0 on a wrong path is
+// the most common MCP/automation misdiagnosis.
+func ensureDataDir(target, dir string, dryRun bool) (string, error) {
+	fi, err := os.Stat(dir)
+	missing := err != nil || !fi.IsDir()
 	if dryRun {
-		return nil
+		if missing {
+			abs, _ := filepath.Abs(dir)
+			return fmt.Sprintf("data dir %s not found — results may be empty; pass --out with the correct data root", abs), nil
+		}
+		return "", nil
 	}
-	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
-		return fmt.Errorf("push %s: local data dir %q not found — pass --out <data root> or run from it "+
+	if missing {
+		return "", fmt.Errorf("push %s: local data dir %q not found — pass --out <data root> or run from it "+
 			"(refusing a live push that would read no local files)", target, dir)
 	}
-	return nil
+	return "", nil
 }
 
 // stdinIsTerminal reports whether stdin is an interactive character device,

@@ -242,6 +242,48 @@ func TestMCPSplitArgs(t *testing.T) {
 	}
 }
 
+func TestMCPToolAnnotations(t *testing.T) {
+	tools := mcpToolsFromCobra()
+	index := map[string]mcpTool{}
+	for _, tool := range tools {
+		index[tool.Name] = tool
+	}
+
+	// Read-only tools must have readOnlyHint.
+	for _, name := range []string{"doctor", "info", "search_udm", "cases_list"} {
+		tool, ok := index[name]
+		if !ok {
+			t.Errorf("tool %q not found", name)
+			continue
+		}
+		if tool.Annotations == nil {
+			t.Errorf("tool %q has no annotations", name)
+			continue
+		}
+		if tool.Annotations["readOnlyHint"] != true {
+			t.Errorf("tool %q should have readOnlyHint=true", name)
+		}
+	}
+
+	// Guarded mutations must have destructiveHint.
+	if tool, ok := index["push"]; ok {
+		if tool.Annotations == nil || tool.Annotations["destructiveHint"] != true {
+			t.Error("push should have destructiveHint=true")
+		}
+	}
+
+	// Every tool should have a title annotation.
+	for _, tool := range tools {
+		if tool.Annotations == nil {
+			t.Errorf("tool %q has no annotations", tool.Name)
+			continue
+		}
+		if _, ok := tool.Annotations["title"]; !ok {
+			t.Errorf("tool %q should have a title annotation", tool.Name)
+		}
+	}
+}
+
 func TestFlagSchemaProperty(t *testing.T) {
 	tests := []struct {
 		flag flagInfo

@@ -3,6 +3,30 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.8 — 2026-07-08
+
+### Improved
+
+- **MCP: focus-first design.** Server instructions and tool descriptions now
+  steer agents toward `focus <group>` (typed tools with validated schemas)
+  as the primary interaction pattern; `run` is described as the escape hatch.
+  `usage <command>` auto-loads the resolved tool as a callable typed tool
+  (no separate `focus` call needed). `run` appends a one-line tip when a
+  typed tool exists for the command.
+
+- **MCP: tool annotations.** Every tool carries `readOnlyHint` /
+  `destructiveHint` annotations derived from the command classification,
+  plus a `title` with the human-readable command path. Lets MCP clients
+  auto-approve read-only tool calls.
+
+### Fixed
+
+- **Push dry-run: surface resolved data directory.** All push JSON
+  results now include `dir` (the resolved absolute data directory) so an
+  agent can see where the command looked. `ensureDataDir` returns a warning
+  on dry-run when the directory doesn't exist — surfaced as `warning` in the
+  JSON output instead of a silent `count: 0`.
+
 ## v0.9.7 — 2026-07-07
 
 ### Fixed

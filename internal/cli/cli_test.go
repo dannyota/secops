@@ -160,18 +160,28 @@ func TestRequireSubcommandKnownChildOK(t *testing.T) {
 	}
 }
 
-// TestEnsureDataDir: a live push into a missing data dir is refused; dry-run is allowed.
+// TestEnsureDataDir: a live push into a missing data dir is refused; dry-run is
+// allowed but returns a warning when the dir is missing.
 func TestEnsureDataDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := ensureDataDir("t", dir, false); err != nil {
+	if warn, err := ensureDataDir("t", dir, false); err != nil {
 		t.Errorf("existing dir, live: unexpected error %v", err)
+	} else if warn != "" {
+		t.Errorf("existing dir, live: unexpected warning %q", warn)
 	}
 	missing := filepath.Join(dir, "nope")
-	if err := ensureDataDir("t", missing, false); err == nil {
+	if _, err := ensureDataDir("t", missing, false); err == nil {
 		t.Error("missing dir, live push: expected an error")
 	}
-	if err := ensureDataDir("t", missing, true); err != nil {
+	if warn, err := ensureDataDir("t", missing, true); err != nil {
 		t.Errorf("missing dir, dry-run: should be allowed, got %v", err)
+	} else if warn == "" {
+		t.Error("missing dir, dry-run: expected a warning")
+	}
+	if warn, err := ensureDataDir("t", dir, true); err != nil {
+		t.Errorf("existing dir, dry-run: unexpected error %v", err)
+	} else if warn != "" {
+		t.Errorf("existing dir, dry-run: unexpected warning %q", warn)
 	}
 }
 

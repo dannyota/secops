@@ -604,6 +604,37 @@ Output is JSON. Complements `cases summarize` (the AI narrative) and `cases get`
 | `--id` | int | 0 | SOAR case id (required) |
 | `--widgets` | bool | false | return the overview widget template instead of the case entities |
 
+## cases playbook-errors
+
+Show playbook execution errors for a case (including nested blocks)
+
+```text
+secopsctl cases playbook-errors <case-id> [flags]
+```
+
+```text
+Walk every alert's playbook(s) in a case and show faulted steps with
+full error messages. Descends into nested BLOCK playbooks recursively.
+Completed/pending step counts are shown as a summary line per playbook.
+
+Uses the legacy AppKey API (reliable lane).
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--alert` | string | - | scope to one alert (identifier from 'soar case get') |
+| `--id` | int | 0 | SOAR case id (alternative to the positional arg) |
+
+**Examples**
+
+```bash
+secopsctl soar case playbook-errors 6139
+  secopsctl soar case playbook-errors 6139 --json
+  secopsctl soar case playbook-errors 6139 --alert <alert-identifier>
+```
+
 ## cases priority
 
 Change a case's priority

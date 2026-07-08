@@ -111,10 +111,10 @@ func TestDetectSaveDrift(t *testing.T) {
 			issues: []string{`step "S2" was dropped`, "1 of 1 relation(s) were dropped"},
 		},
 		{
-			name:    "invalid JSON returns nil",
-			sub:     "not json",
-			resp:    "not json",
-			issues:  nil,
+			name:   "invalid JSON returns nil",
+			sub:    "not json",
+			resp:   "not json",
+			issues: nil,
 		},
 	}
 	for _, tt := range tests {

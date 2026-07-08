@@ -388,6 +388,35 @@ string status enums (flexibleString decoder). Embedded JSON in error
 messages is auto-detected and pretty-printed. `--alert` scopes to one
 alert; `--json` emits structured output.
 
+### Wave 143 — MCP focus-first design, push path feedback *(built)*
+
+MCP server redesign promoting `focus` over `run`, plus push dry-run
+diagnostic feedback.
+
+- **Focus-first MCP instructions.** `initialize` instructions, tool
+  descriptions, and server instructions now steer agents toward
+  `focus <group>` (typed tools with validated schemas) as the primary
+  interaction pattern; `run` is described as the escape hatch for raw
+  command strings.
+- **`usage` auto-focuses.** `usage <command>` now auto-loads the resolved
+  tool into the visible tool set and sends `tools/list_changed`, so the
+  agent can call the typed tool immediately — no separate `focus` call
+  needed. Makes the typed path strictly cheaper than `run`.
+- **`run` nudge.** When `run` executes a command that has a matching typed
+  tool in the index (and isn't already focused), the result appends a
+  one-line tip steering toward `focus`.
+- **Tool annotations.** Every generated tool carries MCP annotations:
+  `readOnlyHint: true` for reads, `destructiveHint: true` for guarded
+  mutations, and `title` with the human-readable command path. Meta-tools
+  (`help`, `focus`, `usage`, `unfocus`) are annotated as read-only.
+- **Push `dir` + `warning` in JSON output.** All push JSON
+  results now include `dir` (the resolved absolute data directory) so an
+  agent can see where the command looked. `ensureDataDir` returns a
+  warning (not an error) on dry-run when the dir doesn't exist — surfaced
+  as `warning` in the JSON instead of a silent `count: 0`.
+- **File split.** Tool generation and subprocess execution extracted from
+  `mcp_serve.go` into `mcp_tools.go` (length budget).
+
 ---
 
 ## Non-goals
