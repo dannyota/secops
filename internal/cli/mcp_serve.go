@@ -51,7 +51,7 @@ type mcpResource struct {
 }
 
 func newMCPServeCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run secopsctl as an MCP server (stdio JSON-RPC transport)",
 		Long: "Start a Model Context Protocol server over stdin/stdout. Every\n" +
@@ -63,7 +63,13 @@ func newMCPServeCmd() *cobra.Command {
 			return runMCPServe()
 		},
 	}
+	cmd.Flags().StringVar(&mcpProjectDir, "project-dir", "", "project root for subprocess cwd (set by mcp install)")
+	return cmd
 }
+
+// mcpProjectDir is the project root passed by mcp install; subprocesses run
+// with this as their cwd so relative --out paths resolve correctly.
+var mcpProjectDir string
 
 type mcpSession struct {
 	allTools  []mcpTool
@@ -351,6 +357,7 @@ func (s *mcpSession) handleRun(id json.RawMessage, args map[string]any) jrpcResp
 
 	c := exec.Command(self, argv...) //nolint:gosec // self is os.Executable, argv from agent input
 	c.Env = os.Environ()
+	c.Dir = mcpProjectDir
 	out, err := c.CombinedOutput()
 	if err != nil && len(out) > 0 {
 		return mcpText(id, string(out), true)

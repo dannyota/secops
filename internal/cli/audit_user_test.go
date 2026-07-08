@@ -13,7 +13,7 @@ func TestAuditUserQueryBuilder(t *testing.T) {
 	}{
 		{"login", []string{`USER_LOGIN`, email}},
 		{"admin", []string{`USER_CHANGE_PERMISSIONS`, `USER_CHANGE_PASSWORD`, email}},
-		{"password", []string{`USER_CHANGE_PASSWORD`, `principal.user.emailAddresses`, `target.user.emailAddresses`, email}},
+		{"password", []string{`USER_CHANGE_PASSWORD`, `principal.user.email_addresses`, `target.user.email_addresses`, email}},
 		{"oauth", []string{`USER_RESOURCE_ACCESS`, `target.application`, email}},
 		{"iam", []string{`USER_CHANGE_PERMISSIONS`, `RESOURCE_PERMISSIONS_CHANGE`, email}},
 		{"resource", []string{`RESOURCE_READ`, `RESOURCE_WRITTEN`, email}},

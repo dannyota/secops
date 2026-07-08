@@ -155,6 +155,7 @@ func mcpExecTool(name string, args map[string]any) (string, error) {
 
 	cmd := exec.Command(self, argv...) //nolint:gosec // self is os.Executable, argv from validated tool schema
 	cmd.Env = os.Environ()
+	cmd.Dir = mcpProjectDir
 	out, err := cmd.CombinedOutput()
 	if err != nil && len(out) > 0 {
 		return "", fmt.Errorf("%s", out)

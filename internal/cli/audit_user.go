@@ -31,22 +31,22 @@ type activityCategory struct {
 
 var userActivityCategories = []activityCategory{
 	{"login", func(email string) string {
-		return fmt.Sprintf(`metadata.event_type = "USER_LOGIN" AND principal.user.emailAddresses = "%s"`, email)
+		return fmt.Sprintf(`metadata.event_type = "USER_LOGIN" AND principal.user.email_addresses = "%s"`, email)
 	}},
 	{"admin", func(email string) string {
-		return fmt.Sprintf(`(metadata.event_type = "USER_CHANGE_PERMISSIONS" OR metadata.event_type = "USER_CHANGE_PASSWORD" OR metadata.event_type = "USER_CREATION" OR metadata.event_type = "USER_DELETION" OR metadata.event_type = "GROUP_MODIFICATION") AND principal.user.emailAddresses = "%s"`, email)
+		return fmt.Sprintf(`(metadata.event_type = "USER_CHANGE_PERMISSIONS" OR metadata.event_type = "USER_CHANGE_PASSWORD" OR metadata.event_type = "USER_CREATION" OR metadata.event_type = "USER_DELETION" OR metadata.event_type = "GROUP_MODIFICATION") AND principal.user.email_addresses = "%s"`, email)
 	}},
 	{"password", func(email string) string {
-		return fmt.Sprintf(`metadata.event_type = "USER_CHANGE_PASSWORD" AND (principal.user.emailAddresses = "%s" OR target.user.emailAddresses = "%s")`, email, email)
+		return fmt.Sprintf(`metadata.event_type = "USER_CHANGE_PASSWORD" AND (principal.user.email_addresses = "%s" OR target.user.email_addresses = "%s")`, email, email)
 	}},
 	{"oauth", func(email string) string {
-		return fmt.Sprintf(`metadata.event_type = "USER_RESOURCE_ACCESS" AND principal.user.emailAddresses = "%s" AND target.application != ""`, email)
+		return fmt.Sprintf(`metadata.event_type = "USER_RESOURCE_ACCESS" AND principal.user.email_addresses = "%s" AND target.application != ""`, email)
 	}},
 	{"iam", func(email string) string {
-		return fmt.Sprintf(`(metadata.event_type = "USER_CHANGE_PERMISSIONS" OR metadata.event_type = "RESOURCE_PERMISSIONS_CHANGE") AND principal.user.emailAddresses = "%s"`, email)
+		return fmt.Sprintf(`(metadata.event_type = "USER_CHANGE_PERMISSIONS" OR metadata.event_type = "RESOURCE_PERMISSIONS_CHANGE") AND principal.user.email_addresses = "%s"`, email)
 	}},
 	{"resource", func(email string) string {
-		return fmt.Sprintf(`(metadata.event_type = "RESOURCE_READ" OR metadata.event_type = "RESOURCE_WRITTEN" OR metadata.event_type = "RESOURCE_CREATION" OR metadata.event_type = "RESOURCE_DELETION") AND principal.user.emailAddresses = "%s"`, email)
+		return fmt.Sprintf(`(metadata.event_type = "RESOURCE_READ" OR metadata.event_type = "RESOURCE_WRITTEN" OR metadata.event_type = "RESOURCE_CREATION" OR metadata.event_type = "RESOURCE_DELETION") AND principal.user.email_addresses = "%s"`, email)
 	}},
 }
 

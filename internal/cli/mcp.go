@@ -58,9 +58,10 @@ func runMCPInstall() error {
 	if servers == nil {
 		servers = map[string]any{}
 	}
+	projDir, _ := os.Getwd()
 	servers["secopsctl"] = map[string]any{
 		"command": self,
-		"args":    []string{"mcp", "serve"},
+		"args":    []string{"mcp", "serve", "--project-dir", projDir},
 	}
 	config["mcpServers"] = servers
 

@@ -3,6 +3,24 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.10 — 2026-07-08
+
+### Fixed
+
+- **Audit user: UDM field paths.** All 6 activity category queries used
+  camelCase `emailAddresses` instead of the snake_case `email_addresses`
+  required by the UDM query language, causing HTTP 400 on every query.
+
+- **MCP subprocess cwd.** The MCP server subprocess inherited the server's
+  cwd (home dir), so relative `--out` paths resolved to the wrong directory.
+  `mcp serve` now accepts `--project-dir` (set by `mcp install`) and passes
+  it as `cmd.Dir` to every subprocess.
+
+- **Parser activation retry.** `push parsers` now checks the response body
+  for FAILED_PRECONDITION (not just HTTP 400) and retries up to 6 times
+  (~51s budget), covering SCC log types that need extra server-side
+  processing time after validation passes.
+
 ## v0.9.9 — 2026-07-08
 
 ### Improved

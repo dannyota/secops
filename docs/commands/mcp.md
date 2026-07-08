@@ -23,7 +23,7 @@ automatically. Idempotent — updates the entry if it already exists.
 Run secopsctl as an MCP server (stdio JSON-RPC transport)
 
 ```text
-secopsctl mcp serve
+secopsctl mcp serve [flags]
 ```
 
 ```text
@@ -33,3 +33,9 @@ MCP resources. Designed for Claude Code and other MCP-aware agents.
 
 Register with: secopsctl mcp install
 ```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--project-dir` | string | - | project root for subprocess cwd (set by mcp install) |

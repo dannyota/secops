@@ -283,12 +283,13 @@ func parserCreateActivate(ctx context.Context, c *chronicle.Client, local reconc
 	return parserLiveObject(spec.LogType, *active)
 }
 
-// retryActivateParser retries activation on FAILED_PRECONDITION (HTTP 400).
-// Even after validation passes, the server may not accept the activate call
-// immediately — especially for log types with an existing prebuilt parser.
-// A brief retry bridges the gap that manual `parsers activate` crosses naturally.
+// retryActivateParser retries activation on FAILED_PRECONDITION. Even after
+// validation passes, the server may not accept the activate call immediately —
+// especially for log types with an existing prebuilt parser (SCC types need
+// up to ~45s). A retry loop bridges the gap that manual `parsers activate`
+// crosses naturally.
 func retryActivateParser(ctx context.Context, c *chronicle.Client, logType, id string) error {
-	const maxAttempts = 4
+	const maxAttempts = 6
 	wait := 3 * time.Second
 	for attempt := range maxAttempts {
 		err := c.ActivateParser(ctx, logType, id)
@@ -296,7 +297,7 @@ func retryActivateParser(ctx context.Context, c *chronicle.Client, logType, id s
 			return nil
 		}
 		var apiErr *chronicle.APIError
-		if !errors.As(err, &apiErr) || apiErr.Status != 400 || attempt == maxAttempts-1 {
+		if !errors.As(err, &apiErr) || !isFailedPrecondition(apiErr) || attempt == maxAttempts-1 {
 			return err
 		}
 		fmt.Fprintf(os.Stderr, "  (retry) activate %s: %v — retrying in %s\n", id, err, wait)
@@ -304,6 +305,11 @@ func retryActivateParser(ctx context.Context, c *chronicle.Client, logType, id s
 		wait = min(wait*2, 15*time.Second)
 	}
 	return nil // unreachable
+}
+
+func isFailedPrecondition(e *chronicle.APIError) bool {
+	return e.Status == 400 || e.Status == 412 ||
+		strings.Contains(strings.ToUpper(e.Body), "FAILED_PRECONDITION")
 }
 
 // parserValidateTimeout bounds the wait for a fresh parser version's async
