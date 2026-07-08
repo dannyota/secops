@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 
@@ -115,27 +116,56 @@ func healthChecks(ctx context.Context) (checks []doctorCheck, allOK bool, cfgErr
 
 	checks = append(checks, checkConfigFields(inst))
 
-	creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
-	var client *chronicle.Client
+	// Run the SIEM pipeline (auth → siem) and SOAR probe in parallel —
+	// the two planes use independent hosts and credentials.
+	var (
+		wg    sync.WaitGroup
+		authC doctorCheck
+		siemC doctorCheck
+		soarC doctorCheck
+	)
 
-	auc := doctorCheck{Name: "auth", label: "auth (OAuth)"}
+	wg.Add(2)
+
+	// SIEM pipeline: auth then siem (sequential within this goroutine).
+	go func() {
+		defer wg.Done()
+		authC = checkAuth(ctx, inst)
+		var client *chronicle.Client
+		if authC.OK {
+			// Auth passed — build client for the SIEM reach check.
+			creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
+			if c, err := chronicle.NewClient(inst.Settings(), creds); err == nil {
+				client = c
+			}
+		}
+		siemC = checkSIEM(ctx, client, inst)
+	}()
+
+	// SOAR probe: fully independent (AppKey auth, different host).
+	go func() {
+		defer wg.Done()
+		soarC = checkSOAR(ctx, inst)
+	}()
+
+	wg.Wait()
+
+	checks = append(checks, authC, siemC, soarC)
+	return finalize(checks)
+}
+
+func checkAuth(ctx context.Context, inst *config.Instance) doctorCheck {
+	c := doctorCheck{Name: "auth", label: "auth (OAuth)"}
+	creds := auth.OAuth(auth.WithForceIPv4(inst.ForceIPv4))
 	probe, _ := http.NewRequestWithContext(ctx, http.MethodGet,
 		fmt.Sprintf("https://%s-chronicle.googleapis.com/", inst.Region), nil)
 	if err := creds.Apply(probe); err != nil {
-		auc.Error = err.Error()
-		auc.Hint = "run `gcloud auth application-default login`, then retry"
-	} else if c, cerr := chronicle.NewClient(inst.Settings(), creds); cerr != nil {
-		auc.Error = cerr.Error()
-		auc.Hint = "run `gcloud auth application-default login`, then retry"
-	} else {
-		client, auc.OK, auc.Detail = c, true, "token acquired"
+		c.Error = err.Error()
+		c.Hint = "run `gcloud auth application-default login`, then retry"
+		return c
 	}
-	checks = append(checks, auc)
-
-	checks = append(checks, checkSIEM(ctx, client, inst))
-	checks = append(checks, checkSOAR(ctx, inst))
-
-	return finalize(checks)
+	c.OK, c.Detail = true, "token acquired"
+	return c
 }
 
 func finalize(checks []doctorCheck) ([]doctorCheck, bool, error) {
@@ -178,7 +208,12 @@ func checkSIEM(ctx context.Context, client *chronicle.Client, inst *config.Insta
 	}
 	if _, err := client.ListRulesBasic(ctx); err != nil {
 		c.Error = err.Error()
-		c.Hint = "check region/project_id in config and that the Chronicle API is enabled"
+		var apiErr *chronicle.APIError
+		if errors.As(err, &apiErr) && apiErr.Status == http.StatusForbidden {
+			c.Hint = "ADC identity lacks SecOps SIEM permission — check IAM roles (Chronicle API Viewer or higher)"
+		} else {
+			c.Hint = "check region/project_id in config and that the Chronicle API is enabled"
+		}
 		return c
 	}
 	c.OK, c.Detail = true, inst.Region+"-chronicle.googleapis.com"

@@ -3,6 +3,15 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.9 — 2026-07-08
+
+### Improved
+
+- **Doctor: parallel health checks.** The SIEM pipeline (auth + reach) and
+  SOAR probe now run concurrently, cutting wall-clock time roughly in half.
+  A 403 on the SIEM reach check now surfaces a clear ADC permission hint
+  instead of a generic connectivity message.
+
 ## v0.9.8 — 2026-07-08
 
 ### Improved
