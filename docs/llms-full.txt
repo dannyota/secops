@@ -5576,7 +5576,6 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | `log-types` | imperative | ✅ chronicle · v1alpha | List (default: active feeds only, search/sort), get, create custom (auto `_CUSTOM` suffix); permanent — no delete/rename endpoint (API or console). |
 | governance — `riskConfig` · `dataAccessLabels`/`Scopes` | imperative | ✅ chronicle · v1 | SDK-only (no CLI yet); write-validated; quirky create (persist-despite-error, list lag, tombstone). |
 
-
 ### Operational plane — query → act (live data)
 
 > **Cases are a SOAR function, surfaced as one command** — the top-level `cases`
@@ -5603,7 +5602,6 @@ Modern-only: the Legacy (Siemplify external) column is `—` throughout — Chro
 | **findings graph** (`findingsGraph`) | operational (read) | ✅ chronicle · v1alpha | Graph-pivot from detection id (W56); SDK-only (`chronicle/findings_graph.go`) |
 | **alert enrichment** (`alerts enrich`) | operational (read) | ✅ chronicle · v1alpha | Full per-alert detection collection (rule + UDM events + entities + triage) via `legacy:legacyBatchGetCollections` — the surface the console uses. The `enrichmentAgent:*` path (W56) is a dead 500 and unused by the console; the pre-case action verbs that rode it are withheld (the in-case equivalent is `cases run-action`). |
 | **watchlist membership** | imperative | 🔨 chronicle (shape validated; op gated per instance) | `lists watchlists add-entity`; UDM Entity envelope required; membership can 501 per instance |
-
 
 ## SOAR — Siemplify (`*.siemplify-soar.com`, AppKey)
 
@@ -5646,7 +5644,6 @@ reflection; refused on an incomplete listing to prevent false deletions.
 | `grouping` | reconcile (modern) | ✅ siemplify · v1alpha | — | Alert-grouping rules on v1alpha SOAR host; bespoke Surface. |
 | `case-data` | imperative (modern) | ✅ siemplify · v1alpha | — | Wave 16. SDK full CRUD; no CLI wired yet. |
 
-
 ### Operational + imperative — query → act / per-entity verbs
 
 | Function (CLI) | Lane | New API | Legacy | Notes |
@@ -5657,9 +5654,10 @@ reflection; refused on an incomplete listing to prevent false deletions.
 | `cases simulation` | imperative | ✅ siemplify · v1alpha | ✅ | Full simulation CRUD + export/import. W118 adds `--event-field`/`--alert-field`, `export`, `import`. |
 | `cases <verb>` (assign/rename/stage/tag/untag/describe/importance/priority/close/reopen/merge/incident + `comment add` + `report`) | imperative | — | ✅ 11 verbs · 🔨 W52 (smoke extended, gated) | 11 verbs; W52 base; v0.7.2 adds `incident` (mark/unmark) + `report` (PDF/CSV/XLSX/DOC export). |
 | `cases alert <verb>` (close/priority/move/reopen) | imperative | — | 🔨 smoke extended, gated | Per-alert triage (W52); guarded. |
+| `cases playbook-errors <id>` | operational read | — | ✅ | Walk all alerts' playbook executions and show faulted steps with full error messages; recurses into nested BLOCK playbooks. |
 | `gemini generate` (AI playbook drafting) | imperative | 🔨 siemplify · v1alpha (guarded) | — | W56 Gemini drafting; creates a draft on the instance; guarded. Write smoke gated. v0.7.2: moved to `gemini` group (hidden alias at `playbooks generate`). |
 | `playbooks` operational helpers | operational read + guarded execution | — | ✅ | Waves 39 + 51 + 55; lifecycle ops, export (JSON + `--zip` platform bundle), import (from ZIP), deploy toggle, batch delete, step insert, run/debug/rerun. |
-| `playbooks get` / `list` / `lint` / `health` / `diff` / `duplicate` / `move` / `categories` | operational read + guarded mutation | ✅ duplicate · categories — siemplify · v1alpha | ✅ | W118+W120; authoring inspection + folder management. `duplicate` uses modern v1alpha primary with `--folder`/`--env`, legacy+export→save fallback. `categories` (alias `folders`): list/create/rename/delete. `move`: relocate playbook to a category. |
+| `playbooks get` / `list` / `lint` / `health` / `diff` / `duplicate` / `move` / `categories` | operational read + guarded mutation | ✅ duplicate · categories — siemplify · v1alpha | ✅ | W118+W120; authoring inspection + folder management. `lint` detects dangling step relations (orphaned `stepsRelations` entries referencing deleted steps — causes console 500 on edit), broken block refs, missing integrations, placeholder-in-JSON, whitespace-poisoned triggers. `duplicate` uses modern v1alpha primary with `--folder`/`--env`, legacy+export→save fallback. `categories` (alias `folders`): list/create/rename/delete. `move`: relocate playbook to a category. |
 | **playbook authoring palette** (`playbooks components`) | operational read | ✅ siemplify · v1alpha wildcard catalogs | — | W58 designer palette as CLI catalogs; built. |
 | `soar jobs` operational helpers | operational read + guarded execution | ✅ siemplify · v1alpha (modern default, legacy fallback) | 🔨 | Instance list/get/set/delete/run on the modern jobInstances surface via `preferModern`; flag-based `instance create` (interval or advanced once/daily/weekly/monthly schedules; `--param` resolved against the job-def spec); `instance history` per-run execution logs with `--status` filter; `revision list/create/rollback/delete` job-definition snapshots; legacy `jobs run`/`logs`/`template` retained. |
 | `soar push bulk-close` | imperative | — | 🔨 | Queue bulk-close with typed reason enum. |
@@ -5669,7 +5667,6 @@ reflection; refused on an incomplete listing to prevent false deletions.
 | `idp-mappings` | imperative | ✅ siemplify · v1alpha | — | SDK-only (no CLI). 500s on chronicle; answers on SOAR host. Built. |
 | `form-dynamic-parameters` | deferred | 🔒 siemplify · v1alpha (unsafe PUT) | 🔒 read | Not wired; PUT silently resets `formType` to Invalid. |
 | `soar legacy call <op>` | raw | — | ✅ | Passthrough for integrations, ontology, settings, environment-priorities, permissions. |
-
 
 ## Other features — cross-cutting (domain varies per row)
 
@@ -5684,7 +5681,6 @@ Grouped by feature, not by domain. The New-API cell names the domain because the
 | `ti associations` / `related-associations` | operational read | ✅ chronicle · v1 | — | IoC associations (malware families / threat actors): batchGet by id (chunked ≤80 names/call), get, fetchRelated pivots from an IoC/collection/association; resource names use numeric project. |
 | `ti coverage` / `ti filters` | operational read | ✅ chronicle · v1 | — | `coverageDetails` rule↔threat-collection coverage mapping (filtered by collection ids, chunked ≤40/call) + the threat-collection filter-set metadata (JSON-only; path form carries a DEVIATION note pending a live probe). |
 
-
 ### Content Hub & integrations
 
 Installing content (integration packages and the connector/job/action definitions they carry) and the marketplace catalog. Configured integration instances are environment-scoped and operated imperatively. All on the siemplify domain.
@@ -5698,7 +5694,7 @@ Installing content (integration packages and the connector/job/action definition
 | `soar ide build-playbook` / `playbooks mold` / `playbooks trigger set` | offline utility | — | — | Composes save-ready playbook JSON from an exported base; offline-only; built + offline-tested. |
 | `integrations scaffold` / `soar ide package-integration` | offline utility | — | — | Scaffolds Python custom integration dirs; packages to ZIP for IDE import; no API call. |
 | `commands` / `status surfaces` / `status capabilities` / `status enums` | offline utility + live probe | — | — | Machine-readable registries; W73 rich flag schema + `status capabilities` live probe; `status enums` lists SOAR integer-to-name enum mappings (CasePriority, CloseReason, SLA types, BlockList types, WorkflowsStatus); `--live` fetches instance-specific values (case stages, playbook categories); `--json` for machine output; *(built — offline-tested)*. |
-| `mcp serve` / `mcp install` | offline utility | — | — | W139–140; MCP server over stdio — auto-generates tools from cobra tree + serves docs/tips as resources. Progressive tool disclosure via `listChanged`: initial listing shows ~36 tools (standalone + promoted + category routers); calling a category expands its sub-tools on demand. `install` registers in `.mcp.json`. No external deps; zero-config once `secopsctl config` is done. |
+| `mcp serve` / `mcp install` | offline utility | — | — | W139–140; MCP server over stdio — auto-generates tools from cobra tree + serves docs/tips as resources. Focus-first design: `focus <group>` loads typed tools (validated schemas), `usage <cmd>` auto-loads a single tool, `run` is the unvalidated escape hatch. Tool annotations (`readOnlyHint`/`destructiveHint`) from `commandKind`; `run` nudges toward `focus` when a typed tool exists. Progressive disclosure via `listChanged`. `install` registers in `.mcp.json`. |
 | `docs generate` (hidden) | offline utility | — | — | W127; generates the per-group command-reference pages (`docs/commands/`) + index from the command tree and syncs the sidebar block; `--check` is the CI freshness gate. |
 | structured `--json` errors + dry-run plan | output contract | — | — | W73 verified; stderr structured error envelope + stdout dry-run change plan. |
 | global `--output table\|json\|csv` | output contract | — | — | W127; `--output json` ≡ `--json` everywhere; table/csv on the format-aware commands (`query udm`, `mitre`, `rules health`), where a local `--format` overrides it. |
@@ -5710,7 +5706,6 @@ Installing content (integration packages and the connector/job/action definition
 | `integrations create` / `instances` / `configure` / `delete` (instances) | imperative | — | 🔨 | Integration instances; not reconcilable; CRUD with auto-resolve + configure overlay; built. |
 | `integrations install` (+ pack `:install`/`:uninstall`) | imperative/raw | ✅ siemplify · v1alpha (`:install`/`:uninstall`) | 🔨 (`/store`) | Installs marketplace pack via v1alpha; built. |
 | `integrations action` / `job-def` (template/create/update/delete) | imperative | ✅ siemplify · v1alpha | 🔨 | Python definition authoring loop (W60+W65); built. |
-
 
 ## How to keep this current
 
@@ -6446,7 +6441,7 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 |---|---|---|
 | [alerts](alerts.md) | 4 | Manage SIEM detection alerts: list, get, enrich, AI investigate, and guarded feedback update |
 | [audit](audit.md) | 1 | Run audit queries against user activity logs |
-| [cases](cases.md) | 51 | Manage SOAR cases: read (list, get) and guarded triage (assign, tag, close, ...) |
+| [cases](cases.md) | 52 | Manage SOAR cases: read (list, get) and guarded triage (assign, tag, close, ...) |
 | [cleanup](cleanup.md) | 1 | Remove secopsctl-owned smoke-test artifacts (guarded) |
 | [content-hub](content-hub.md) | 10 | Browse and manage Content Hub marketplace integrations and content packs |
 | [curated](curated.md) | 9 | Browse, search, and toggle Google-managed curated rule sets |
