@@ -108,6 +108,8 @@ func mcpExecTool(name string, args map[string]any) (string, error) {
 		}
 	}
 
+	mcpStripSecurityFlags(args)
+
 	for k, v := range args {
 		if k == "args" {
 			continue
@@ -226,19 +228,23 @@ func mcpSplitArgs(s string) []string {
 }
 
 // mcpGlobalFlags returns the global flags that should be forwarded from the
-// parent MCP serve process to a tool subprocess, skipping any the caller
-// already set explicitly.
+// parent MCP serve process to a tool subprocess. Security-critical flags
+// (--read-only, --non-interactive, --no-progress) are forwarded unconditionally
+// when the parent has them set — a caller cannot suppress them via arguments.
 func mcpGlobalFlags(callerArgs map[string]any) []string {
 	var flags []string
-	fwd := func(name string, val bool) {
-		if val && !mcpHasFlag(callerArgs, name) {
-			flags = append(flags, "--"+name)
-		}
+
+	// Security-critical: forward unconditionally, ignore caller overrides.
+	if readOnlyMode() {
+		flags = append(flags, "--read-only")
 	}
-	fwd("read-only", readOnlyMode())
-	fwd("legacy", forceLegacy)
-	fwd("non-interactive", true) // subprocesses should never prompt
-	fwd("no-progress", true)     // no TTY inside MCP
+	flags = append(flags, "--non-interactive") // subprocesses must never prompt
+	flags = append(flags, "--no-progress")     // no TTY inside MCP
+
+	// Non-security flags: skip if the caller already set them.
+	if forceLegacy && !mcpHasFlag(callerArgs, "legacy") {
+		flags = append(flags, "--legacy")
+	}
 	if cfgFile != "" && !mcpHasFlag(callerArgs, "config") {
 		flags = append(flags, "--config", cfgFile)
 	}
@@ -246,6 +252,18 @@ func mcpGlobalFlags(callerArgs map[string]any) []string {
 		flags = append(flags, "--timeout", requestTimeout.String())
 	}
 	return flags
+}
+
+// mcpStripSecurityFlags removes security-critical flag keys from caller
+// arguments so they cannot contradict the unconditionally-forwarded flags.
+func mcpStripSecurityFlags(args map[string]any) {
+	for _, name := range []string{
+		"read-only", "read_only",
+		"non-interactive", "non_interactive",
+		"no-progress", "no_progress",
+	} {
+		delete(args, name)
+	}
 }
 
 func mcpHasFlag(args map[string]any, name string) bool {
