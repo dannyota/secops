@@ -3,6 +3,18 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.11 — 2026-07-09
+
+### Fixed
+
+- **Playbook save: backfill missing step params.** The SOAR save endpoint
+  returns HTTP 500 (errorCode 2000) when ACTION steps lack infrastructure
+  parameters introduced in a platform update (`AsyncActionTimeout`,
+  `AsyncPollingInterval`, and 7 others). Older playbooks pre-date these
+  fields. `coercePlaybookTypes` now detects missing params on each ACTION
+  step and backfills them with their platform defaults before the save call.
+  Existing params are never overwritten.
+
 ## v0.9.10 — 2026-07-08
 
 ### Fixed
