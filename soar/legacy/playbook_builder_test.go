@@ -81,8 +81,8 @@ func TestBuildPlaybookFromMoldsSetsCronAndReplacesStep(t *testing.T) {
 		t.Fatalf("additionalProperties = %#v, want base layout preserved", props)
 	}
 	params := step["parameters"].([]any)
-	if len(params) != 1 {
-		t.Fatalf("parameters = %#v", params)
+	if len(params) != 1+len(requiredStepParams) {
+		t.Fatalf("parameters count = %d, want %d (1 original + %d backfilled)", len(params), 1+len(requiredStepParams), len(requiredStepParams))
 	}
 	relations := got["stepsRelations"].([]any)
 	if len(relations) != 1 {

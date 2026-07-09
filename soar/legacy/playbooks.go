@@ -236,6 +236,7 @@ func coercePlaybookTypes(body json.RawMessage) (json.RawMessage, error) {
 			if step, ok := s.(map[string]any); ok {
 				stringifyInts(step)
 				coerceStepType(step)
+				backfillStepParams(step)
 			}
 		}
 	}
@@ -297,6 +298,67 @@ func coerceStepType(step map[string]any) {
 	if name, known := stepTypeNames[code]; known {
 		step["type"] = name
 	}
+}
+
+// requiredStepParams are infrastructure parameters the SOAR save endpoint
+// expects on every ACTION step. Older playbooks pre-date these fields; the
+// server NPEs (HTTP 500, errorCode 2000) when they are absent. Backfilling
+// them with their platform defaults lets legacy playbooks save again.
+var requiredStepParams = []struct {
+	name  string
+	value any // nil → JSON null; string → JSON string.
+}{
+	{"AssignedUsers", nil},
+	{"AsyncActionTimeout", "86400"},
+	{"AsyncPollingInterval", "3600"},
+	{"DynamicInjectionInstancePlaceholder", ""},
+	{"FallbackIntegrationInstance", nil},
+	{"FetchInstanceByName", "false"},
+	{"HasApprovalLink", nil},
+	{"MessageToAssignee", nil},
+	{"PendingActionTimeout", nil},
+}
+
+// backfillStepParams ensures every ACTION step carries the infrastructure
+// parameters the server requires. Parameters already present are never
+// overwritten.
+func backfillStepParams(step map[string]any) {
+	// Only backfill ACTION steps — CONDITION/PLACEHOLDER steps use a different
+	// param set and save fine without these.
+	if t, _ := step["type"].(string); t != "ACTION" && t != "" {
+		return
+	}
+
+	params, ok := step["parameters"].([]any)
+	if !ok {
+		return
+	}
+
+	existing := make(map[string]bool, len(params))
+	for _, p := range params {
+		if pm, ok := p.(map[string]any); ok {
+			if name, ok := pm["name"].(string); ok {
+				existing[name] = true
+			}
+		}
+	}
+
+	for _, rp := range requiredStepParams {
+		if existing[rp.name] {
+			continue
+		}
+		p := map[string]any{
+			"name":                         rp.name,
+			"value":                        rp.value,
+			"isMandatory":                  false,
+			"id":                           json.Number("0"),
+			"creationTimeUnixTimeInMs":     json.Number("0"),
+			"modificationTimeUnixTimeInMs": json.Number("0"),
+			"additionalProperties":         map[string]any{},
+		}
+		params = append(params, p)
+	}
+	step["parameters"] = params
 }
 
 // playbookName extracts the "name" field from a marshaled playbook body.
