@@ -22,7 +22,7 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [gemini](gemini.md) | 6 | Run AI (Gemini) features: generate queries, investigate alerts, summarize cases |
 | [info](info.md) | 4 | Show the resolved instance configuration (no API call) |
 | [ingest](ingest.md) | 34 | Manage data ingestion (feeds, forwarders, parsers, pipelines) |
-| [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
+| [integrations](integrations.md) | 22 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Manage reference lists and entity watchlists |
 | [mcp](mcp.md) | 2 | Model Context Protocol: serve secopsctl as an MCP server |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |

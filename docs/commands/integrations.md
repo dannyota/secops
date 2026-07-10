@@ -226,6 +226,35 @@ instances across environments, and which playbooks use it. The
 <identifier> is the integration identifier (e.g. 'GoogleChronicle').
 ```
 
+## integrations import
+
+MUTATING (guarded): import a custom integration from a packaged ZIP
+
+> Guarded mutation — dry-run by default; apply with `--yes`.
+
+```text
+secopsctl integrations import --file <zip> [flags]
+```
+
+```text
+Import a custom integration ZIP (produced by `soar ide package-integration`)
+into SecOps SOAR. Creates the integration and all action/job definitions
+it contains, with their Python scripts.
+
+By default the integration is created in staging mode (--staging, the
+safe default); pass --no-staging to create directly in production.
+Promote a staged integration from the IDE (More options → Push to production).
+```
+
+**Flags**
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--dry-run` | bool | false | preview only (default behavior) |
+| `--file` | string | - | packaged integration ZIP (required) |
+| `--staging` | bool | true | create in staging mode (promote from IDE later) |
+| `--yes` | bool | false | apply for real / skip confirmation |
+
 ## integrations install
 
 MUTATING (guarded): install a Content Hub marketplace integration

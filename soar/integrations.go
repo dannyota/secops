@@ -180,6 +180,18 @@ func (c *Client) GetIntegration(ctx context.Context, identifier string) (*Integr
 	return &out, nil
 }
 
+// CreateIntegration creates a new custom integration pack. body carries the
+// v1alpha POST shape: {displayName, parameters, categories, staging, type}.
+// The integration starts empty (no actions/connectors/jobs); callers add
+// definitions via CreateActionDef / CreateJobDef afterwards. LIVE MUTATION.
+func (c *Client) CreateIntegration(ctx context.Context, body json.RawMessage) (*Integration, error) {
+	var out Integration
+	if err := c.t.V1Alpha(ctx, "POST", "integrations", body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // DeleteIntegration deletes a whole custom integration pack by its addressable
 // key (Identifier or a full resource path). Only genuinely CUSTOM packs
 // (custom=true) are deletable; commercial/marketplace packs — including their

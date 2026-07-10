@@ -27,6 +27,7 @@ func newSOARIntegrationCmd() *cobra.Command {
 		newSOARIntegrationConfigureCmd(), newSOARIntegrationListCmd(), newSOARIntegrationInstancesCmd(),
 		newSOARIntegrationInstallCmd(), newSOARIntegrationUninstallCmd(), newSOARIntegrationRenameCmd(),
 		newSOARIntegrationConnectorCmd(), newSOARIntegrationScaffoldCmd(),
+		newSOARIntegrationImportCmd(),
 		newSOARIntegrationActionCmd(), newSOARIntegrationJobCmd())
 	return cmd
 }

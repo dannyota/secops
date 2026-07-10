@@ -3,6 +3,21 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.12 — 2026-07-10
+
+### Added
+
+- **`integrations import --file <zip>`.** Import a custom integration ZIP
+  (produced by `integrations scaffold` + `soar ide package-integration`)
+  into SecOps SOAR. Creates the integration and all action/job definitions
+  with their Python scripts. Staging by default (`--no-staging` for
+  production). Closes the scaffold → package → import → configure lifecycle
+  with no UI step.
+
+- **`soar.Client.CreateIntegration`** SDK method (v1alpha POST on the SOAR
+  host). Manifest parameter types are mapped to v1alpha enum values
+  automatically (`string` → `STRING`, etc.).
+
 ## v0.9.11 — 2026-07-09
 
 ### Fixed
