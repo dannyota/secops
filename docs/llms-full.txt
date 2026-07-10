@@ -5693,6 +5693,7 @@ Installing content (integration packages and the connector/job/action definition
 | `info cron` | offline utility | — | — | Scans local scheduler files + pulled SOAR JSON for scheduled automation; no API call. |
 | `soar ide build-playbook` / `playbooks mold` / `playbooks trigger set` | offline utility | — | — | Composes save-ready playbook JSON from an exported base; offline-only; built + offline-tested. |
 | `integrations scaffold` / `soar ide package-integration` | offline utility | — | — | Scaffolds Python custom integration dirs; packages to ZIP for IDE import; no API call. |
+| `integrations import` | guarded write | 🔨 siemplify · v1alpha | 🔨 | Import a packaged custom integration ZIP (scaffold → package → import); creates integration + action/job definitions with Python scripts; staging by default. |
 | `commands` / `status surfaces` / `status capabilities` / `status enums` | offline utility + live probe | — | — | Machine-readable registries; W73 rich flag schema + `status capabilities` live probe; `status enums` lists SOAR integer-to-name enum mappings (CasePriority, CloseReason, SLA types, BlockList types, WorkflowsStatus); `--live` fetches instance-specific values (case stages, playbook categories); `--json` for machine output; *(built — offline-tested)*. |
 | `mcp serve` / `mcp install` | offline utility | — | — | W139–140; MCP server over stdio — auto-generates tools from cobra tree + serves docs/tips as resources. Focus-first design: `focus <group>` loads typed tools (validated schemas), `usage <cmd>` auto-loads a single tool, `run` is the unvalidated escape hatch. Tool annotations (`readOnlyHint`/`destructiveHint`) from `commandKind`; `run` nudges toward `focus` when a typed tool exists. Progressive disclosure via `listChanged`. `install` registers in `.mcp.json`. |
 | `docs generate` (hidden) | offline utility | — | — | W127; generates the per-group command-reference pages (`docs/commands/`) + index from the command tree and syncs the sidebar block; `--check` is the CI freshness gate. |
@@ -6453,7 +6454,7 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [gemini](gemini.md) | 6 | Run AI (Gemini) features: generate queries, investigate alerts, summarize cases |
 | [info](info.md) | 4 | Show the resolved instance configuration (no API call) |
 | [ingest](ingest.md) | 34 | Manage data ingestion (feeds, forwarders, parsers, pipelines) |
-| [integrations](integrations.md) | 21 | Manage SOAR integration instances (imperative create/delete) |
+| [integrations](integrations.md) | 22 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Manage reference lists and entity watchlists |
 | [mcp](mcp.md) | 2 | Model Context Protocol: serve secopsctl as an MCP server |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |
