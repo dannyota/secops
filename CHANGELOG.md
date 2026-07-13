@@ -3,6 +3,17 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.14 — 2026-07-13
+
+### Changed
+
+- **Concurrent MCP tool calls.** The MCP server now dispatches `tools/call`
+  requests in goroutines, so multiple long-running commands (UDM searches,
+  pulls) execute in parallel as independent subprocesses. Metadata operations
+  (initialize, tools/list, focus/unfocus) remain synchronous to preserve
+  ordering. An `RWMutex` guards the focused-tools map; a separate write mutex
+  serializes stdout encoding.
+
 ## v0.9.13 — 2026-07-13
 
 ### Changed

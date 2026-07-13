@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 )
@@ -79,6 +80,9 @@ type mcpSession struct {
 	resources []mcpResource
 	resCont   map[string]string
 	enc       *json.Encoder
+
+	mu  sync.RWMutex // guards focused map
+	wmu sync.Mutex   // guards enc (stdout writes)
 }
 
 func runMCPServe() error {
@@ -86,6 +90,9 @@ func runMCPServe() error {
 
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 1<<20), 1<<20)
+
+	var wg sync.WaitGroup
+	defer wg.Wait()
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -99,10 +106,23 @@ func runMCPServe() error {
 		if req.ID == nil {
 			continue
 		}
-		resp := s.dispatch(req)
-		if err := s.enc.Encode(resp); err != nil {
-			return err
+
+		// Tool calls (subprocess-backed) run concurrently so multiple
+		// long queries can execute in parallel. Everything else is fast
+		// metadata — run inline to preserve ordering for initialize,
+		// tools/list, focus/unfocus.
+		if req.Method == "tools/call" {
+			wg.Add(1)
+			go func(r jrpcRequest) {
+				defer wg.Done()
+				resp := s.dispatch(r)
+				s.send(resp)
+			}(req)
+			continue
 		}
+
+		resp := s.dispatch(req)
+		s.send(resp)
 	}
 	return scanner.Err()
 }
@@ -214,6 +234,8 @@ func (s *mcpSession) buildMetaTools() []mcpTool {
 }
 
 func (s *mcpSession) visibleTools() []mcpTool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	var out []mcpTool
 	out = append(out, s.metaTools...)
 	for _, tools := range s.focused {
@@ -223,8 +245,14 @@ func (s *mcpSession) visibleTools() []mcpTool {
 	return out
 }
 
+func (s *mcpSession) send(v any) {
+	s.wmu.Lock()
+	defer s.wmu.Unlock()
+	_ = s.enc.Encode(v)
+}
+
 func (s *mcpSession) notifyToolsChanged() {
-	_ = s.enc.Encode(map[string]string{
+	s.send(map[string]string{
 		"jsonrpc": "2.0",
 		"method":  "notifications/tools/list_changed",
 	})
@@ -413,6 +441,7 @@ func (s *mcpSession) handleUsage(id json.RawMessage, args map[string]any) jrpcRe
 	// Auto-focus the resolved tool so the agent can call it directly without
 	// a separate focus() call — makes the typed path strictly cheaper than run.
 	loaded := false
+	s.mu.Lock()
 	existing := s.focused["_usage"]
 	alreadyLoaded := false
 	for _, t := range existing {
@@ -423,8 +452,11 @@ func (s *mcpSession) handleUsage(id json.RawMessage, args map[string]any) jrpcRe
 	}
 	if !alreadyLoaded {
 		s.focused["_usage"] = append(existing, tool)
-		s.notifyToolsChanged()
 		loaded = true
+	}
+	s.mu.Unlock()
+	if loaded {
+		s.notifyToolsChanged()
 	}
 
 	b, _ := json.MarshalIndent(map[string]any{
@@ -471,7 +503,9 @@ func (s *mcpSession) handleFocus(id json.RawMessage, args map[string]any) jrpcRe
 			". Use 'help' to see available groups.", true)
 	}
 
+	s.mu.Lock()
 	s.focused[group] = tools
+	s.mu.Unlock()
 	s.notifyToolsChanged()
 
 	names := make([]string, len(tools))
@@ -485,18 +519,25 @@ func (s *mcpSession) handleFocus(id json.RawMessage, args map[string]any) jrpcRe
 func (s *mcpSession) handleUnfocus(id json.RawMessage, args map[string]any) jrpcResponse {
 	group, _ := args["group"].(string)
 	if group == "" {
+		s.mu.Lock()
 		count := len(s.focused)
 		s.focused = make(map[string][]mcpTool)
+		s.mu.Unlock()
 		if count > 0 {
 			s.notifyToolsChanged()
 		}
 		return mcpText(id, fmt.Sprintf("unfocused all (%d groups)", count), false)
 	}
 
-	if _, ok := s.focused[group]; !ok {
+	s.mu.Lock()
+	_, ok := s.focused[group]
+	if ok {
+		delete(s.focused, group)
+	}
+	s.mu.Unlock()
+	if !ok {
 		return mcpText(id, "group "+group+" is not focused", true)
 	}
-	delete(s.focused, group)
 	s.notifyToolsChanged()
 	return mcpText(id, "unfocused "+group, false)
 }
@@ -525,6 +566,8 @@ func (s *mcpSession) nudgeForRun(argv []string) string {
 }
 
 func (s *mcpSession) isFocused(toolName string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, tools := range s.focused {
 		for _, t := range tools {
 			if t.Name == toolName {
