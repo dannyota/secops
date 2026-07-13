@@ -1,6 +1,7 @@
 - [Home](/)
 
 - **Getting started**
+  - [MCP server](guides/mcp.md)
   - [Install](guides/install.md)
   - [Configure & auth](guides/configure.md)
   - [The loop](guides/the-loop.md)

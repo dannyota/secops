@@ -65,7 +65,7 @@ func newRulesTrendsCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "trends",
-		Short: "Read-only: per-rule detection counts + last detection — which rules are noisy or silent",
+		Short: "Read-only: show per-rule detection counts + last detection — which rules are noisy or silent",
 		Long: "Detection counts (bucketed by day over the window) and the last-detection\n" +
 			"timestamp per rule, noisiest first — the data behind enable/alerting\n" +
 			"decisions. No --rule = every rule on the instance. Curated rules have their\n" +
@@ -129,7 +129,7 @@ func newRulesTrendsCmd() *cobra.Command {
 func newRulesCountsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "counts",
-		Short: "Read-only: rule count and quota statistics for the instance",
+		Short: "Read-only: show rule count and quota statistics for the instance",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()
@@ -157,7 +157,7 @@ func newRulesEventsCmd() *cobra.Command {
 	var maxEvents int
 	cmd := &cobra.Command{
 		Use:   "events <rule> <detection-id>",
-		Short: "Read-only: the UDM events behind one detection (the evidence pivot)",
+		Short: "Read-only: show the UDM events behind one detection (the evidence pivot)",
 		Long: "Fetch the events a detection matched — the evidence an analyst inspects\n" +
 			"before a verdict, without hand-writing a `query udm`. <rule> is a rule id,\n" +
 			"display name, or slug; <detection-id> comes from `rules detections`.\n" +

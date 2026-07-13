@@ -24,7 +24,7 @@ standard `--dry-run`/`--yes` gate; everything else is a read.
 | [ingest](ingest.md) | 34 | Manage data ingestion (feeds, forwarders, parsers, pipelines) |
 | [integrations](integrations.md) | 22 | Manage SOAR integration instances (imperative create/delete) |
 | [lists](lists.md) | 7 | Manage reference lists and entity watchlists |
-| [mcp](mcp.md) | 2 | Model Context Protocol: serve secopsctl as an MCP server |
+| [mcp](mcp.md) | 2 | Serve secopsctl as an MCP server and register with MCP clients |
 | [playbooks](playbooks.md) | 50 | Discover and validate SOAR playbooks |
 | [rules](rules.md) | 20 | Manage custom detection rules (author, test, deploy, inspect) |
 | [search](search.md) | 16 | Search the SIEM: UDM events, raw logs, stats, saved searches |

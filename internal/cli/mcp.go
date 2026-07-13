@@ -17,7 +17,7 @@ func init() {
 func newMCPCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mcp",
-		Short: "Model Context Protocol: serve secopsctl as an MCP server",
+		Short: "Serve secopsctl as an MCP server and register with MCP clients",
 	}
 	cmd.AddCommand(newMCPServeCmd(), newMCPInstallCmd())
 	return cmd
@@ -26,7 +26,7 @@ func newMCPCmd() *cobra.Command {
 func newMCPInstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "Register secopsctl in the project .mcp.json",
+		Short: "Register secopsctl as an MCP server in the project .mcp.json",
 		Long: "Add secopsctl as an MCP server in the project-level .mcp.json so\n" +
 			"every Claude Code session in this directory gets secopsctl tools\n" +
 			"automatically. Idempotent — updates the entry if it already exists.",

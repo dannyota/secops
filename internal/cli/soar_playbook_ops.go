@@ -41,7 +41,7 @@ func newSOARPlaybookVersionsCmd() *cobra.Command {
 	var name, identifier string
 	cmd := &cobra.Command{
 		Use:   "versions (--name <playbook> | --identifier <uuid>)",
-		Short: "Read-only: a playbook's saved version history (each save/deploy mints one)",
+		Short: "Read-only: list a playbook's saved version history (each save/deploy mints one)",
 		Long: "List a playbook's version log — every save (including `deploy` toggles and\n" +
 			"`push playbook`) mints a new version. The identifier shown per entry is what\n" +
 			"`playbooks restore` rolls back to.",
@@ -154,7 +154,7 @@ func newSOARPlaybookStatsCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "stats (--name <playbook> | --identifier <uuid>) [--hours N]",
-		Short: "Read-only: a playbook's run statistics across all cases over a window",
+		Short: "Read-only: show a playbook's run statistics across all cases over a window",
 		Long: "Aggregate run statistics for one playbook across every case it ran on —\n" +
 			"the automation-health view (`summary` inspects a single run). Prefers the\n" +
 			"modern v1alpha bridge and falls back to the legacy API.",
@@ -462,7 +462,7 @@ func newSOARPlaybookComponentsUsageCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "usage (--action-id N | --action <name> [--integration <key>])",
-		Short: "Read-only: which playbooks use an integration action (impact analysis)",
+		Short: "Read-only: find which playbooks use an integration action (impact analysis)",
 		Long: "The reverse index for editing or removing an action: every playbook whose\n" +
 			"steps reference it. Address the action by its numeric id (--action-id, as\n" +
 			"listed by `components actions`) or by name (--action, optionally scoped by\n" +

@@ -6,7 +6,7 @@ Browse, search, and toggle Google-managed curated rule sets
 
 ## curated categories
 
-Read-only: overview of curated rule-set categories with set and enabled counts
+Read-only: show curated rule-set categories with set and enabled counts
 
 ```text
 secopsctl curated categories
@@ -36,7 +36,7 @@ versions). The `ur_…` id comes from `curated rules`. The user-rule twin is
 
 ## curated events
 
-Read-only: the event(s) and rationale behind one CURATED detection
+Read-only: show the event(s) and rationale behind one CURATED detection
 
 ```text
 secopsctl curated events <detection-id> [flags]
@@ -190,7 +190,7 @@ controls alerting independently of enablement. Guarded: dry-run by default,
 
 ## curated trends
 
-Read-only: per-curated-rule detection counts + last detection
+Read-only: show per-curated-rule detection counts + last detection
 
 ```text
 secopsctl curated trends (--rule ur_a,ur_b | --all) [flags]

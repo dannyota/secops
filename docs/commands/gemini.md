@@ -136,7 +136,7 @@ secopsctl gemini search 'network connections to a public IP in the last hour'
 
 ## gemini summarize
 
-Read-only: the structured AI summary of a case (reasons, next steps)
+Read-only: show the structured AI summary of a case (reasons, next steps)
 
 ```text
 secopsctl gemini summarize --id N [--refresh] [flags]

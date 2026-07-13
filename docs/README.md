@@ -1,45 +1,58 @@
 # secopsctl
 
-Operate **Google SecOps** (Chronicle SIEM + Siemplify SOAR) **as code** — one Go
-CLI and one importable Go SDK that treat your SIEM/SOAR the way Terraform treats
-infrastructure. The core loop is **pull live state → review the `git diff` →
-push it back**, driven by a single reconciliation engine across every surface.
-Live events, alerts, and cases are read and acted on directly — never reconciled
-from a file. It's **tenant-neutral** (nothing baked in; everything comes from one
-config file) and built for humans and LLM agents alike: deterministic flags,
-optional `--json`, a clear `--help`.
+Open-source **MCP server**, **CLI**, and **Go SDK** for Google SecOps (Chronicle
+SIEM + Siemplify SOAR). One tool, three interfaces — operate your SIEM/SOAR from
+any AI agent that speaks [Model Context Protocol](https://modelcontextprotocol.io),
+from the terminal, or from Go code.
 
-> **⚠️ `pull` is read-only. Every `push` is a live production deploy.** Mutating
-> commands default to `--dry-run` and print a `LIVE DEPLOY` banner — nothing
-> changes until you pass `--yes`. Always dry-run, read it, then deploy.
+> Community project. Not affiliated with or endorsed by Google.
 
-New here? **[Install](guides/install.md) → [Configure & auth](guides/configure.md) →
-[The loop](guides/the-loop.md).** Building it? **[Architecture](design/architecture.md).**
-Want the status of every surface? **[Catalog](design/catalog.md).**
+## Three ways in
 
-## In 60 seconds
+| Interface | What it does | Get started |
+|-----------|-------------|-------------|
+| **MCP Server** | Give Claude, Cursor, or any MCP client full access to your SecOps tenant — 360+ tools with dynamic loading | [MCP guide](guides/mcp.md) |
+| **CLI** | `secopsctl pull rules`, `secopsctl cases list` — pull live state, review in `git diff`, push back | [Install](guides/install.md) |
+| **Go SDK** | `import "danny.vn/secops/chronicle"` — typed clients for SIEM and SOAR, split by credential | [SDK guide](guides/sdk.md) |
+
+## MCP server — quick start
 
 ```bash
-# 1 — build the single static binary (Go ≥ 1.26)
-go install danny.vn/secops/cmd/secopsctl@latest   # or: go build -o secopsctl ./cmd/secopsctl
+go install danny.vn/secops/cmd/secopsctl@latest
 
-# 2 — point it at your tenant (one-screen form → ~/.secopsctl/instance.yaml, 0600, git-ignored)
-secopsctl config
+secopsctl config      # one-screen wizard → ~/.secopsctl/instance.yaml
+secopsctl doctor      # verify auth + API reach
 
-# 3 — verify config + auth + both planes reach (read-only smoke test)
-secopsctl doctor
+secopsctl mcp install # writes .mcp.json in the current project
+```
 
-# 4 — run the loop: pull live state, review it as a diff, push it back
-secopsctl pull rules
-git diff                       # ← the review surface
+Restart your MCP client. The server exposes five meta-tools (`help`, `run`,
+`focus`, `unfocus`, `usage`) and loads group-specific typed tools on demand —
+staying within context limits while covering every command.
+
+[Full MCP setup guide &rarr;](guides/mcp.md)
+
+## CLI — quick start
+
+```bash
+go install danny.vn/secops/cmd/secopsctl@latest
+
+secopsctl config                        # point at your tenant
+secopsctl doctor                        # verify config + auth + both planes
+
+secopsctl pull rules                    # snapshot live state
+git diff                                # ← the review surface
 secopsctl push rules-create --dry-run   # preview; add --yes to deploy
 ```
 
+Mutating commands default to `--dry-run` and print a `LIVE DEPLOY` banner —
+nothing changes until you pass `--yes`.
+
 Two credentials, two independent planes: **SIEM** uses Google **ADC** (minted
 in-process, nothing on disk); **SOAR** uses a long-lived **AppKey**. SIEM alone
-gives a clean `doctor` — add SOAR whenever you need it. Full walkthrough,
-including where to find your four identifiers and your SOAR host:
-[Configure & auth](guides/configure.md).
+gives a clean `doctor` — add SOAR whenever you need it.
+
+[Full CLI walkthrough &rarr;](guides/configure.md)
 
 ## What you can do
 

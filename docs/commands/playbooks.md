@@ -198,7 +198,7 @@ kinds are condition presets; inspect a pulled playbook's `trigger` record
 
 ## playbooks components usage
 
-Read-only: which playbooks use an integration action (impact analysis)
+Read-only: find which playbooks use an integration action (impact analysis)
 
 ```text
 secopsctl playbooks components usage (--action-id N | --action <name> [--integration <key>]) [flags]
@@ -766,7 +766,7 @@ secopsctl playbooks simulation-enrichment --test-case-id N --step-identifier <uu
 
 ## playbooks stats
 
-Read-only: a playbook's run statistics across all cases over a window
+Read-only: show a playbook's run statistics across all cases over a window
 
 ```text
 secopsctl playbooks stats (--name <playbook> | --identifier <uuid>) [--hours N] [flags]
@@ -1003,7 +1003,7 @@ SecOps save or debug run is easier to review.
 
 ## playbooks versions
 
-Read-only: a playbook's saved version history (each save/deploy mints one)
+Read-only: list a playbook's saved version history (each save/deploy mints one)
 
 ```text
 secopsctl playbooks versions (--name <playbook> | --identifier <uuid>) [flags]

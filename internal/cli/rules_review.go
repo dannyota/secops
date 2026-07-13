@@ -19,7 +19,7 @@ func newRulesReviewCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "review",
-		Short: "Read-only: promotion report for monitor-mode rules (enabled, not alerting)",
+		Short: "Read-only: show promotion report for monitor-mode rules (enabled, not alerting)",
 		Long: "Identify rules that are enabled but NOT alerting (monitor mode) and show\n" +
 			"their detection activity over the last --hours. Rules with the most\n" +
 			"detections appear first — the best promotion candidates. Use --min-detections\n" +

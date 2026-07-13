@@ -73,7 +73,7 @@ secopsctl ingest feeds schemas [--source-type <type>] [flags]
 
 ## ingest feeds service-account
 
-Read-only: the Chronicle-managed service account email for feed IAM grants
+Read-only: show the Chronicle-managed service account email for feed IAM grants
 
 ```text
 secopsctl ingest feeds service-account
@@ -113,7 +113,7 @@ secopsctl ingest forwarders list
 
 ## ingest health
 
-Read-only: the error-notification configs that watch log-source health
+Read-only: list the error-notification configs that watch log-source health
 
 ```text
 secopsctl ingest health

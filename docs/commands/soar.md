@@ -90,7 +90,7 @@ connector definition (`soar pull connectors`). Guarded: dry-run by default,
 
 ## soar connector stat
 
-Read-only: runtime statistics for one connector instance (events, errors, last run)
+Read-only: show runtime statistics for one connector instance (events, errors, last run)
 
 ```text
 secopsctl soar connector stat <identifier>

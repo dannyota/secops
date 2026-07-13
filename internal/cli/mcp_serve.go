@@ -109,7 +109,7 @@ func runMCPServe() error {
 
 func newMCPSession() *mcpSession {
 	allTools := mcpToolsFromCobra()
-	resources, resCont := mcpResourcesFromTips()
+	resources, resCont := mcpResourcesFromEmbedded()
 
 	toolIndex := make(map[string]mcpTool, len(allTools))
 	for _, t := range allTools {
@@ -134,7 +134,8 @@ func (s *mcpSession) buildMetaTools() []mcpTool {
 		{
 			Name: "run",
 			Description: "Escape hatch: run a raw secopsctl command string (no argument " +
-				"validation). Prefer focus(<group>) for typed tools with validated schemas.",
+				"validation). Prefer focus(<group>) for typed tools with validated schemas. " +
+				"Use shell-style quoting for values with spaces: --filter 'event.type = \"LOGIN\"'.",
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -246,14 +247,22 @@ func (s *mcpSession) dispatch(req jrpcRequest) jrpcResponse {
 				"name":    "secopsctl",
 				"version": resolveBuildInfo().Version,
 			},
-			"instructions": "secopsctl is a CLI for Google SecOps (Chronicle SIEM + " +
-				"Siemplify SOAR). Start with `help` to see command groups, then " +
-				"`focus <group>` to load typed tools — the preferred way to run " +
-				"commands (validated arguments, full schemas). `usage <command>` " +
-				"previews one command's schema and auto-loads it as a callable tool. " +
-				"`run` is an escape hatch for raw command strings (no validation). " +
-				"`unfocus` when done to free context. " +
-				"Mutations are guarded: pass yes=true to apply (dry-run by default).",
+			"instructions": "secopsctl — MCP server, CLI, and Go SDK for Google SecOps " +
+				"(Chronicle SIEM + Siemplify SOAR).\n\n" +
+				"Discovery flow:\n" +
+				"1. help → list command groups\n" +
+				"2. help {group} → list subcommands\n" +
+				"3. usage {command} → flags, args, and description for one command\n" +
+				"4. focus {group} → load typed tool schemas (enables structured calls)\n" +
+				"5. run {command} → execute any command (e.g. \"cases list --limit 5\")\n\n" +
+				"Use \"run\" for quick one-off commands. Use \"focus\" when you need " +
+				"repeated structured calls within a group.\n" +
+				"Prefer \"focus\" for commands with filter expressions — typed parameters " +
+				"avoid quoting issues.\n" +
+				"In \"run\", use shell-style quoting for values with spaces: " +
+				"--filter 'metadata.event_type = \"USER_LOGIN\"'.\n\n" +
+				"All mutations are dry-run by default — pass yes=true to apply.\n" +
+				"Output is JSON by default when called via MCP.",
 		})
 
 	case "ping":

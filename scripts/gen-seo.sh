@@ -80,9 +80,9 @@ llms="$outdir/llms.txt"
 {
   echo "# secopsctl"
   echo ""
-  echo "> Operate Google SecOps (Chronicle SIEM + Siemplify SOAR) as code — a Go CLI"
-  echo "> and unofficial Go SDK. Pull live state, review in git diff, push back."
-  echo "> 340+ commands across the SIEM (ADC/OAuth) and SOAR (AppKey) planes."
+  echo "> Open-source MCP server, CLI, and Go SDK for Google SecOps (Chronicle SIEM +"
+  echo "> Siemplify SOAR). Give AI agents access to 360+ SecOps commands via Model"
+  echo "> Context Protocol, or operate your tenant as code from the terminal."
   echo ""
 
   while IFS= read -r line; do

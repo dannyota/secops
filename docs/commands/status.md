@@ -6,7 +6,7 @@ Show read-only diagnostics: capabilities, coverage, surfaces
 
 ## status capabilities
 
-Session bootstrap: tool version + auth health + surface status + read-only state
+Show tool version, auth health, surface status, and read-only state
 
 ```text
 secopsctl status capabilities [flags]

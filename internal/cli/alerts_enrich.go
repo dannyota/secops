@@ -25,7 +25,7 @@ import (
 func newAlertsEnrichCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "enrich <alert-id>",
-		Short: "Read-only: a SIEM alert's full context (rule detection, UDM events, entities, triage)",
+		Short: "Read-only: show a SIEM alert's full context (rule detection, UDM events, entities, triage)",
 		Long: "Fetch the rich per-alert view the console renders when an analyst opens an\n" +
 			"alert — the rule detection(s), every mapped UDM event, the involved entities\n" +
 			"and indicators (hosts, users, process hashes, domains), the alert's MITRE\n" +

@@ -18,7 +18,7 @@ func newCaseOverviewCmd() *cobra.Command {
 	var widgets bool
 	cmd := &cobra.Command{
 		Use:   "overview --id N [--widgets]",
-		Short: "Read-only: a case's overview entities (or --widgets template) — the console Overview tab",
+		Short: "Read-only: show a case's overview entities (or --widgets template) — the console Overview tab",
 		Long: "Return the data behind the console's case Overview tab. By default this is the\n" +
 			"case's entities with their enrichment — the entity context an analyst sees.\n" +
 			"--widgets returns the overview widget template (the configured layout) instead.\n" +

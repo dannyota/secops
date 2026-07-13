@@ -164,7 +164,7 @@ func matchCategory(catID, catName, q string) bool {
 func newCuratedCategoriesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "categories",
-		Short: "Read-only: overview of curated rule-set categories with set and enabled counts",
+		Short: "Read-only: show curated rule-set categories with set and enabled counts",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()

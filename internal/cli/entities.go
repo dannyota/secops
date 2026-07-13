@@ -91,7 +91,7 @@ func newEntitiesRiskScoresCmd() *cobra.Command {
 	var limit int
 	cmd := &cobra.Command{
 		Use:   "risk-scores [--filter EXPR] [--order-by FIELD] [--limit N]",
-		Short: "Read-only: per-entity behavioral risk scores (filter + sort)",
+		Short: "Read-only: list per-entity behavioral risk scores (filter + sort)",
 		Long: "Query entityRiskScores — a normalized behavioral risk score per entity, the\n" +
 			"signal for prioritizing which hosts/users to look at first. --filter and\n" +
 			"--order-by pass through to the API (e.g. --order-by 'riskScore desc'); --limit\n" +

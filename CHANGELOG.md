@@ -3,6 +3,27 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## v0.9.13 — 2026-07-13
+
+### Changed
+
+- **Reposition as MCP server for Google SecOps.** Docs homepage, SEO metadata,
+  structured data, llms.txt, and OG tags now lead with "MCP server, CLI, and
+  Go SDK" — three interfaces, one tool.
+
+- **Dedicated MCP guide** (`docs/guides/mcp.md`). Setup instructions for
+  Claude Code, Claude Desktop, and Cursor; discovery workflow; security model.
+
+- **Guides served as MCP resources.** The 15 user-facing guides now travel
+  inside the binary as `guide://` resources alongside the existing `tips://`
+  resources (32 total).
+
+- **Verb-first command descriptions.** 23 noun-first `Short` descriptions
+  rewritten to start with imperative verbs for better MCP tool discovery.
+
+- **Server instructions enriched.** Structured discovery flow (numbered steps),
+  shell-style quoting guidance for the `run` tool, JSON-output note.
+
 ## v0.9.12 — 2026-07-10
 
 ### Added

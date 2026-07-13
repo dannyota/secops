@@ -107,7 +107,7 @@ func newFeedsGetCmd() *cobra.Command {
 func newFeedsServiceAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "service-account",
-		Short: "Read-only: the Chronicle-managed service account email for feed IAM grants",
+		Short: "Read-only: show the Chronicle-managed service account email for feed IAM grants",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			c, err := newChronicleClient()

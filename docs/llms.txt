@@ -1,13 +1,14 @@
 # secopsctl
 
-> Operate Google SecOps (Chronicle SIEM + Siemplify SOAR) as code — a Go CLI
-> and unofficial Go SDK. Pull live state, review in git diff, push back.
-> 340+ commands across the SIEM (ADC/OAuth) and SOAR (AppKey) planes.
+> Open-source MCP server, CLI, and Go SDK for Google SecOps (Chronicle SIEM +
+> Siemplify SOAR). Give AI agents access to 360+ SecOps commands via Model
+> Context Protocol, or operate your tenant as code from the terminal.
 
-- [Home](https://secops.danny.vn/#/): Operate Google SecOps (Chronicle SIEM + Siemplify SOAR) as code — one Go CLI and one importable Go SDK that treat your SIEM/SOAR the way...
+- [Home](https://secops.danny.vn/#/): Open-source MCP server, CLI, and Go SDK for Google SecOps (Chronicle SIEM + Siemplify SOAR). One tool, three interfaces — operate your...
 
 ## Getting started
 
+- [MCP server](https://secops.danny.vn/#/guides/mcp): Use secopsctl as a [Model Context Protocol](https://modelcontextprotocol.io) server to give AI agents — Claude Code, Claude Desktop,...
 - [Install](https://secops.danny.vn/#/guides/install): Get the secopsctl binary onto a machine, then verify it can reach your tenant. secopsctl is a single Go binary (module danny.vn/secops);...
 - [Configure & auth](https://secops.danny.vn/#/guides/configure): One config file, two auth planes. Get both right and every other command just works.
 - [The loop](https://secops.danny.vn/#/guides/the-loop): Detection-as-code: live state is mirrored to files under git, reviewed in a diff, and pushed back. The git history is the source of truth...
@@ -69,7 +70,7 @@
 - [ingest](https://secops.danny.vn/#/commands/ingest): Manage data ingestion (feeds, forwarders, parsers, pipelines)
 - [integrations](https://secops.danny.vn/#/commands/integrations): Manage SOAR integration instances (imperative create/delete)
 - [lists](https://secops.danny.vn/#/commands/lists): Manage reference lists and entity watchlists
-- [mcp](https://secops.danny.vn/#/commands/mcp): Model Context Protocol: serve secopsctl as an MCP server
+- [mcp](https://secops.danny.vn/#/commands/mcp): Serve secopsctl as an MCP server and register with MCP clients
 - [playbooks](https://secops.danny.vn/#/commands/playbooks): Discover and validate SOAR playbooks
 - [rules](https://secops.danny.vn/#/commands/rules): Manage custom detection rules (author, test, deploy, inspect)
 - [search](https://secops.danny.vn/#/commands/search): Search the SIEM: UDM events, raw logs, stats, saved searches

@@ -20,7 +20,7 @@ secopsctl rules alerts <rule-id> [flags]
 
 ## rules counts
 
-Read-only: rule count and quota statistics for the instance
+Read-only: show rule count and quota statistics for the instance
 
 ```text
 secopsctl rules counts
@@ -95,7 +95,7 @@ List the execution errors a rule produced over the last --hours.
 
 ## rules events
 
-Read-only: the UDM events behind one detection (the evidence pivot)
+Read-only: show the UDM events behind one detection (the evidence pivot)
 
 ```text
 secopsctl rules events <rule> <detection-id> [flags]
@@ -138,7 +138,7 @@ deployment.
 
 ## rules health
 
-Read-only: per-rule health roll-up (compile / execution / silence) across all rules
+Read-only: show per-rule health roll-up (compile / execution / silence) across all rules
 
 ```text
 secopsctl rules health [flags]
@@ -253,7 +253,7 @@ secopsctl rules retrohunt list <rule>
 
 ## rules review
 
-Read-only: promotion report for monitor-mode rules (enabled, not alerting)
+Read-only: show promotion report for monitor-mode rules (enabled, not alerting)
 
 ```text
 secopsctl rules review [flags]
@@ -312,7 +312,7 @@ secopsctl rules test detections/new-rule.yaral --hours 24
 
 ## rules trends
 
-Read-only: per-rule detection counts + last detection — which rules are noisy or silent
+Read-only: show per-rule detection counts + last detection — which rules are noisy or silent
 
 ```text
 secopsctl rules trends [flags]

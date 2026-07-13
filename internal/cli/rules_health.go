@@ -45,7 +45,7 @@ func newRulesHealthCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "health",
-		Short: "Read-only: per-rule health roll-up (compile / execution / silence) across all rules",
+		Short: "Read-only: show per-rule health roll-up (compile / execution / silence) across all rules",
 		Long: "One read that classifies every rule by health and lists the worst first:\n" +
 			"  failing  — does not compile\n" +
 			"  erroring — deployment execution is limited/paused\n" +

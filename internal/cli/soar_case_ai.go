@@ -49,7 +49,7 @@ func newCaseSummarizeCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "summarize --id N [--refresh]",
-		Short: "Read-only: the structured AI summary of a case (reasons, next steps)",
+		Short: "Read-only: show the structured AI summary of a case (reasons, next steps)",
 		Long: "Fetch (generating on first request) Google's AI summary of a case —\n" +
 			"summary, reasons, and suggested next steps as structured fields. Generation\n" +
 			"is asynchronous; the command polls until the summary settles. An existing or\n" +
@@ -125,7 +125,7 @@ func newCaseCountsCmd() *cobra.Command {
 	var filter string
 	cmd := &cobra.Command{
 		Use:   "counts [--filter <expr>]",
-		Short: "Read-only: case counts grouped by priority for a filter set",
+		Short: "Read-only: show case counts grouped by priority for a filter set",
 		Long: "The triage queue's per-priority numbers: one cheap exact count per priority\n" +
 			"(the modern cases list reports the full filtered total on a pageSize=1\n" +
 			"request; the cases:countPriorities RPC is not served). --filter composes\n" +

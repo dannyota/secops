@@ -6,7 +6,7 @@ Manage SOAR cases: read (list, get) and guarded triage (assign, tag, close, ...)
 
 ## cases aging
 
-Read-only: open cases by age (oldest first) with SLA status
+Read-only: list open cases by age (oldest first) with SLA status
 
 ```text
 secopsctl cases aging [--filter <expr>] [--limit N] [flags]
@@ -342,7 +342,7 @@ secopsctl cases context set --id N --key <k> --value <v> [flags]
 
 ## cases counts
 
-Read-only: case counts grouped by priority for a filter set
+Read-only: show case counts grouped by priority for a filter set
 
 ```text
 secopsctl cases counts [--filter <expr>] [flags]
@@ -583,7 +583,7 @@ automatically if omitted. All ids are SOAR integer case ids from
 
 ## cases overview
 
-Read-only: a case's overview entities (or --widgets template) — the console Overview tab
+Read-only: show a case's overview entities (or --widgets template) — the console Overview tab
 
 ```text
 secopsctl cases overview --id N [--widgets] [flags]
@@ -982,7 +982,7 @@ Move one or more cases to a workflow stage (list valid stages with
 
 ## cases stats
 
-Read-only: queue stats — open/closed counts, age + resolution-time percentiles
+Read-only: show queue stats — open/closed counts, age + resolution-time percentiles
 
 ```text
 secopsctl cases stats [--filter <expr>] [flags]

@@ -8,7 +8,7 @@ import "github.com/spf13/cobra"
 func newIngestionHealthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "health",
-		Short: "Read-only: the error-notification configs that watch log-source health",
+		Short: "Read-only: list the error-notification configs that watch log-source health",
 		Long: "List the error-notification configs — the thresholds that flag delayed,\n" +
 			"zero-ingesting, or erroring log sources (the ingestion-health watchdog). JSON.",
 		Args: cobra.NoArgs,

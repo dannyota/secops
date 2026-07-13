@@ -142,7 +142,7 @@ func newCaseAgingCmd() *cobra.Command {
 	var limit, maxItems int
 	cmd := &cobra.Command{
 		Use:   "aging [--filter <expr>] [--limit N]",
-		Short: "Read-only: open cases by age (oldest first) with SLA status",
+		Short: "Read-only: list open cases by age (oldest first) with SLA status",
 		Long: "List open cases oldest-first by age (now − createTime), with priority and SLA\n" +
 			"expiration status — the queue-health view for spotting stale/aging cases.\n" +
 			"--filter composes with the open-status base. JSON or table.",
@@ -198,7 +198,7 @@ func newCaseStatsCmd() *cobra.Command {
 	var maxItems int
 	cmd := &cobra.Command{
 		Use:   "stats [--filter <expr>]",
-		Short: "Read-only: queue stats — open/closed counts, age + resolution-time percentiles",
+		Short: "Read-only: show queue stats — open/closed counts, age + resolution-time percentiles",
 		Long: "Compute queue health over the scanned cases: open vs closed counts, open-case\n" +
 			"age p50/p90 (now − createTime), and closed-case resolution-time p50/p90\n" +
 			"(updateTime − createTime, a close-time proxy — the case payload has no\n" +

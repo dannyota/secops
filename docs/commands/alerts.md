@@ -6,7 +6,7 @@ Manage SIEM detection alerts: list, get, enrich, AI investigate, and guarded fee
 
 ## alerts enrich
 
-Read-only: a SIEM alert's full context (rule detection, UDM events, entities, triage)
+Read-only: show a SIEM alert's full context (rule detection, UDM events, entities, triage)
 
 ```text
 secopsctl alerts enrich <alert-id>

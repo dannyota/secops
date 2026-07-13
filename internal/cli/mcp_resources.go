@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 
+	"danny.vn/secops/docs/guides"
 	"danny.vn/secops/docs/tips"
 )
 
@@ -26,12 +27,15 @@ func (s *mcpSession) handleResourceRead(req jrpcRequest) jrpcResponse {
 	}}
 }
 
-func mcpResourcesFromTips() ([]mcpResource, map[string]string) {
-	entries := tips.All()
-	resources := make([]mcpResource, 0, len(entries))
-	content := make(map[string]string, len(entries))
+func mcpResourcesFromEmbedded() ([]mcpResource, map[string]string) {
+	tipEntries := tips.All()
+	guideEntries := guides.All()
 
-	for _, e := range entries {
+	total := len(tipEntries) + len(guideEntries)
+	resources := make([]mcpResource, 0, total)
+	content := make(map[string]string, total)
+
+	for _, e := range tipEntries {
 		uri := "tips://" + e.Name
 		resources = append(resources, mcpResource{
 			URI:         uri,
@@ -41,5 +45,17 @@ func mcpResourcesFromTips() ([]mcpResource, map[string]string) {
 		})
 		content[uri] = e.Content
 	}
+
+	for _, e := range guideEntries {
+		uri := "guide://" + e.Name
+		resources = append(resources, mcpResource{
+			URI:         uri,
+			Name:        e.Title,
+			Description: e.Title,
+			MimeType:    "text/markdown",
+		})
+		content[uri] = e.Content
+	}
+
 	return resources, content
 }

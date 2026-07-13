@@ -19,7 +19,7 @@ import (
 func newCapabilitiesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "capabilities",
-		Short: "Session bootstrap: tool version + auth health + surface status + read-only state",
+		Short: "Show tool version, auth health, surface status, and read-only state",
 		Long: "One call that fuses `version`, `doctor`, and `surfaces`: the tool build, auth\n" +
 			"health per plane (SIEM ADC vs SOAR AppKey), read-only state, and a summary of\n" +
 			"which API surfaces are validated vs blocked. Intended as the first call of an\n" +

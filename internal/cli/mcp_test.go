@@ -85,30 +85,31 @@ func joinPath(parts []string) string {
 	return strings.Join(parts, " ")
 }
 
-func TestMCPResourcesFromTips(t *testing.T) {
-	resources, content := mcpResourcesFromTips()
+func TestMCPResourcesFromEmbedded(t *testing.T) {
+	resources, content := mcpResourcesFromEmbedded()
 	if len(resources) == 0 {
 		t.Fatal("expected at least one resource")
 	}
 
-	foundRecipes := false
-	foundGotchas := false
+	want := map[string]bool{
+		"tips://15-recipes": false,
+		"tips://16-gotchas": false,
+		"guide://mcp":       false,
+		"guide://search":    false,
+		"guide://configure": false,
+	}
 	for _, r := range resources {
-		if r.URI == "tips://15-recipes" {
-			foundRecipes = true
-		}
-		if r.URI == "tips://16-gotchas" {
-			foundGotchas = true
+		if _, ok := want[r.URI]; ok {
+			want[r.URI] = true
 		}
 		if body, ok := content[r.URI]; !ok || len(body) == 0 {
 			t.Errorf("resource %q has no content", r.URI)
 		}
 	}
-	if !foundRecipes {
-		t.Error("expected tips://15-recipes resource")
-	}
-	if !foundGotchas {
-		t.Error("expected tips://16-gotchas resource")
+	for uri, found := range want {
+		if !found {
+			t.Errorf("expected resource %q", uri)
+		}
 	}
 }
 

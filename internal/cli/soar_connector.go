@@ -27,7 +27,7 @@ func newSOARConnectorCmd() *cobra.Command {
 func newConnectorStatCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stat <identifier>",
-		Short: "Read-only: runtime statistics for one connector instance (events, errors, last run)",
+		Short: "Read-only: show runtime statistics for one connector instance (events, errors, last run)",
 		Long: "Fetch runtime statistics for a connector instance by its identifier (from\n" +
 			"`soar pull connectors`) — events processed, errors, and last-run timing, to\n" +
 			"confirm a connector is healthy after a config change. JSON.",

@@ -70,7 +70,7 @@ use the SAME time range; pass them verbatim with repeatable --param key=value.
 
 ## entities risk-scores
 
-Read-only: per-entity behavioral risk scores (filter + sort)
+Read-only: list per-entity behavioral risk scores (filter + sort)
 
 ```text
 secopsctl entities risk-scores [--filter EXPR] [--order-by FIELD] [--limit N] [flags]

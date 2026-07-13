@@ -75,7 +75,7 @@ func newCuratedTrendsCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "trends (--rule ur_a,ur_b | --all)",
-		Short: "Read-only: per-curated-rule detection counts + last detection",
+		Short: "Read-only: show per-curated-rule detection counts + last detection",
 		Long: "Detection counts (bucketed by day over the window) and the last-detection\n" +
 			"timestamp per CURATED rule, noisiest first — the data behind `push curated`\n" +
 			"enable/alerting decisions. --all sweeps every curated rule on the instance\n" +
@@ -151,7 +151,7 @@ func newCuratedEventsCmd() *cobra.Command {
 	var limit int
 	cmd := &cobra.Command{
 		Use:   "events <detection-id>",
-		Short: "Read-only: the event(s) and rationale behind one CURATED detection",
+		Short: "Read-only: show the event(s) and rationale behind one CURATED detection",
 		Long: "Fetch the prioritized event(s), entities, and rationale behind a curated\n" +
 			"detection (the id comes from `curated detections`). Human output shows the\n" +
 			"rationale and counts; --json is the full payload. The user-rule twin is\n" +

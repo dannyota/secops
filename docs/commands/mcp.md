@@ -2,11 +2,11 @@
 
 # secopsctl mcp
 
-Model Context Protocol: serve secopsctl as an MCP server
+Serve secopsctl as an MCP server and register with MCP clients
 
 ## mcp install
 
-Register secopsctl in the project .mcp.json
+Register secopsctl as an MCP server in the project .mcp.json
 
 ```text
 secopsctl mcp install
