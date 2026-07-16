@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"encoding/json"
+	"io"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -282,6 +285,63 @@ func TestMCPToolAnnotations(t *testing.T) {
 		if _, ok := tool.Annotations["title"]; !ok {
 			t.Errorf("tool %q should have a title annotation", tool.Name)
 		}
+	}
+}
+
+func TestArgvHasOutputFlag(t *testing.T) {
+	tests := []struct {
+		argv []string
+		want bool
+	}{
+		{[]string{"cases", "list"}, false},
+		{[]string{"cases", "list", "--json"}, true},
+		{[]string{"cases", "list", "--json=false"}, true},
+		{[]string{"cases", "list", "--output", "csv"}, true},
+		{[]string{"cases", "list", "--output=csv"}, true},
+		{[]string{"audit", "user", "--format=json"}, true},
+		{[]string{"cases", "list", "--jsonl"}, false},
+		{[]string{"--outputs", "x"}, false},
+		{nil, false},
+	}
+	for _, tt := range tests {
+		if got := argvHasOutputFlag(tt.argv); got != tt.want {
+			t.Errorf("argvHasOutputFlag(%v) = %v, want %v", tt.argv, got, tt.want)
+		}
+	}
+}
+
+// Concurrent tools/call dispatch means focus/unfocus/usage and the read
+// paths race against each other by design; this exercises them together so
+// `go test -race` guards the session's locking. The usage call with an
+// unknown deep path additionally walks cobra subtrees skipped at init,
+// covering the presortCommandTree guarantee.
+func TestMCPSessionConcurrentToolCalls(t *testing.T) {
+	s := newMCPSession()
+	s.enc = json.NewEncoder(io.Discard)
+
+	id := json.RawMessage(`1`)
+	var wg sync.WaitGroup
+	for i := range 40 {
+		wg.Go(func() {
+			switch i % 5 {
+			case 0:
+				s.handleFocus(id, map[string]any{"group": "cases"})
+			case 1:
+				s.handleUsage(id, map[string]any{"command": "cases list"})
+			case 2:
+				s.visibleTools()
+				s.isFocused("cases_list")
+			case 3:
+				s.handleUnfocus(id, map[string]any{"group": "cases"})
+			case 4:
+				s.handleUsage(id, map[string]any{"command": "completion bash"})
+			}
+		})
+	}
+	wg.Wait()
+
+	if got := len(s.visibleTools()); got < len(s.metaTools) {
+		t.Errorf("visibleTools() = %d tools, want at least the %d meta tools", got, len(s.metaTools))
 	}
 }
 

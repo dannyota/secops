@@ -107,27 +107,26 @@ func runMCPServe() error {
 			continue
 		}
 
-		// Tool calls (subprocess-backed) run concurrently so multiple
-		// long queries can execute in parallel. Everything else is fast
-		// metadata — run inline to preserve ordering for initialize,
-		// tools/list, focus/unfocus.
+		// tools/call (subprocess-backed) dispatches concurrently so long
+		// commands overlap. That includes the meta tools — focus/unfocus/
+		// usage arrive as tools/call — so the mutexes, not the loop,
+		// serialize focused-map and stdout access. Protocol metadata
+		// (initialize, tools/list, resources/*) runs inline on the read
+		// loop.
 		if req.Method == "tools/call" {
-			wg.Add(1)
-			go func(r jrpcRequest) {
-				defer wg.Done()
-				resp := s.dispatch(r)
-				s.send(resp)
-			}(req)
+			wg.Go(func() {
+				s.send(s.dispatch(req))
+			})
 			continue
 		}
 
-		resp := s.dispatch(req)
-		s.send(resp)
+		s.send(s.dispatch(req))
 	}
 	return scanner.Err()
 }
 
 func newMCPSession() *mcpSession {
+	presortCommandTree(rootCmd)
 	allTools := mcpToolsFromCobra()
 	resources, resCont := mcpResourcesFromEmbedded()
 
@@ -248,7 +247,11 @@ func (s *mcpSession) visibleTools() []mcpTool {
 func (s *mcpSession) send(v any) {
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
-	_ = s.enc.Encode(v)
+	if err := s.enc.Encode(v); err != nil {
+		// Stdout is reserved for protocol frames, so a failed response
+		// can't be answered in-band — leave a trace on stderr.
+		fmt.Fprintf(os.Stderr, "secopsctl mcp: response write failed: %v\n", err)
+	}
 }
 
 func (s *mcpSession) notifyToolsChanged() {
@@ -323,13 +326,6 @@ func (s *mcpSession) handleToolCall(req jrpcRequest) jrpcResponse {
 	}
 	_ = json.Unmarshal(req.Params, &params)
 
-	text := func(str string, isErr bool) jrpcResponse {
-		return jrpcResponse{JSONRPC: "2.0", ID: req.ID, Result: map[string]any{
-			"content": []map[string]string{{"type": "text", "text": str}},
-			"isError": isErr,
-		}}
-	}
-
 	switch params.Name {
 	case "run":
 		return s.handleRun(req.ID, params.Arguments)
@@ -343,14 +339,14 @@ func (s *mcpSession) handleToolCall(req jrpcRequest) jrpcResponse {
 		return s.handleUnfocus(req.ID, params.Arguments)
 	default:
 		if _, ok := s.toolIndex[params.Name]; !ok {
-			return text("unknown tool: "+params.Name+
+			return mcpText(req.ID, "unknown tool: "+params.Name+
 				". Use 'help' to discover commands, or 'focus' to load typed tools.", true)
 		}
 		out, err := mcpExecTool(params.Name, params.Arguments)
 		if err != nil {
-			return text(err.Error(), true)
+			return mcpText(req.ID, err.Error(), true)
 		}
-		return text(out, false)
+		return mcpText(req.ID, out, false)
 	}
 }
 
@@ -372,17 +368,9 @@ func (s *mcpSession) handleRun(id json.RawMessage, args map[string]any) jrpcResp
 		return mcpText(id, "empty command", true)
 	}
 
-	if !mcpHasFlag(args, "json") && !mcpHasFlag(args, "format") && !mcpHasFlag(args, "output") {
-		hasJSON := false
-		for _, a := range argv {
-			if a == "--json" || a == "--format" || a == "--output" {
-				hasJSON = true
-				break
-			}
-		}
-		if !hasJSON {
-			argv = append(argv, "--json")
-		}
+	if !mcpHasFlag(args, "json") && !mcpHasFlag(args, "format") && !mcpHasFlag(args, "output") &&
+		!argvHasOutputFlag(argv) {
+		argv = append(argv, "--json")
 	}
 
 	argv = append(argv, mcpGlobalFlags(nil)...)

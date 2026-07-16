@@ -3,6 +3,23 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
+## Unreleased
+
+### Fixed
+
+- **MCP `run` respects `--flag=value` output flags.** The server appended
+  `--json` whenever a `run` command set its format in equals form
+  (e.g. `--output=csv`), which collided with the mutually-exclusive `--json`
+  and failed the subprocess. Both `--flag value` and `--flag=value` forms are
+  now detected.
+
+### Changed
+
+- **MCP concurrency hardening.** The cobra command tree is pre-sorted before
+  concurrent dispatch begins (child slices sort in place on first access), and
+  a failed response write now leaves a trace on stderr instead of being
+  dropped silently.
+
 ## v0.9.14 — 2026-07-13
 
 ### Changed

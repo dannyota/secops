@@ -166,6 +166,16 @@ func mcpExecTool(name string, args map[string]any) (string, error) {
 	return string(out), nil
 }
 
+// presortCommandTree visits every node (hidden subtrees included) so cobra's
+// lazy in-place child sort runs once up front. mcpResolveCommandPath calls
+// Commands() from concurrent tool-call goroutines; without the presort, two
+// goroutines reaching a not-yet-visited node could sort the same slice at once.
+func presortCommandTree(c *cobra.Command) {
+	for _, child := range c.Commands() {
+		presortCommandTree(child)
+	}
+}
+
 // mcpResolveCommandPath maps underscore-separated tool-name segments back to
 // the hyphenated cobra command path. It walks rootCmd's children greedily:
 // ["content", "hub", "browse"] → finds "content-hub" child → then "browse".
@@ -273,4 +283,19 @@ func mcpHasFlag(args map[string]any, name string) bool {
 	}
 	_, ok := args[strings.ReplaceAll(name, "-", "_")]
 	return ok
+}
+
+// argvHasOutputFlag reports whether argv already carries an output-format
+// flag, in either "--flag value" or "--flag=value" form. --json and --output
+// are mutually exclusive at the root command, so a missed detection would
+// append --json next to an explicit --output=… and fail the subprocess.
+func argvHasOutputFlag(argv []string) bool {
+	for _, a := range argv {
+		for _, f := range [...]string{"--json", "--format", "--output"} {
+			if a == f || strings.HasPrefix(a, f+"=") {
+				return true
+			}
+		}
+	}
+	return false
 }
