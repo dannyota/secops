@@ -5,6 +5,15 @@ notes in the signed tag messages.
 
 ## Unreleased
 
+### Added
+
+- **MCP large-output spill.** Tool results larger than an inline threshold
+  (64 KiB default, `SECOPS_MCP_SPILL_BYTES` to tune) are streamed to a
+  temporary file — bounded memory, no giant inline result for the client to
+  reject — and the tool returns a JSON pointer with the path, size, a 1 KiB
+  head preview, and guidance. Spill files are `0600` under
+  `$TMPDIR/secopsctl-mcp/` and swept after 24 hours.
+
 ### Fixed
 
 - **MCP `run` respects `--flag=value` output flags.** The server appended
@@ -14,6 +23,12 @@ notes in the signed tag messages.
   now detected.
 
 ### Changed
+
+- **MCP subprocess streams split.** Tool subprocesses no longer interleave
+  stderr into the result: success returns stdout (falling back to stderr when
+  stdout is empty), failure returns stderr plus the stdout head with the exit
+  cause appended, capped at the inline threshold. Both exec paths (`run` and
+  typed tools) share one helper.
 
 - **MCP concurrency hardening.** The cobra command tree is pre-sorted before
   concurrent dispatch begins (child slices sort in place on first access), and

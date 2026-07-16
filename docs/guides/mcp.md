@@ -134,6 +134,29 @@ The server exposes:
 All tool output is JSON. Mutations are dry-run by default — the agent must
 pass `yes=true` to apply, same as the CLI.
 
+### Large output
+
+MCP clients cap how big a tool result may be; an over-limit inline result is
+rejected wholesale and the data is lost. To avoid that, results larger than
+64 KiB are written to a temporary file instead, and the tool returns a small
+JSON pointer:
+
+```json
+{
+  "spilled": true,
+  "file": "/tmp/secopsctl-mcp/secopsctl-mcp-1234.json",
+  "bytes": 1048576,
+  "head": "…first 1 KiB preview…",
+  "message": "Output exceeded the 65536-byte inline limit; …"
+}
+```
+
+The agent reads or filters the file (e.g. with `jq`), or re-runs the command
+with `--limit` / narrower filters. Spill files live under
+`$TMPDIR/secopsctl-mcp/` (mode `0600`, directory `0700`) and are swept after
+24 hours. Set `SECOPS_MCP_SPILL_BYTES` to tune the inline threshold for
+clients with different result caps.
+
 ## Security
 
 - **Two-plane auth.** SIEM uses Google ADC (org-scoped OAuth); SOAR uses an

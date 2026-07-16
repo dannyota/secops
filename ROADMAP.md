@@ -417,6 +417,19 @@ diagnostic feedback.
 - **File split.** Tool generation and subprocess execution extracted from
   `mcp_serve.go` into `mcp_tools.go` (length budget).
 
+### Wave 144 — MCP large-output spill + subprocess stream split *(built)*
+
+Tool results larger than an inline threshold (64 KiB default,
+`SECOPS_MCP_SPILL_BYTES` override) stream to a `0600` temp file under
+`$TMPDIR/secopsctl-mcp/` — an overflow writer keeps memory bounded — and the
+tool returns a JSON pointer (`spilled`, `file`, `bytes`, 1 KiB `head`
+preview, guidance). Spill files sweep after 24h (at session start and before
+each new spill). Subprocess stdout/stderr are captured separately so
+diagnostics never corrupt a JSON result: success returns stdout (stderr
+fallback when stdout is empty), failure returns stderr + stdout head with
+the exit cause appended, capped at the threshold. Both exec paths (`run`,
+typed tools) collapse into one `mcpRunSelf` helper.
+
 ---
 
 ## Non-goals

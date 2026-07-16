@@ -2,8 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"sort"
 	"strings"
 
@@ -148,22 +146,8 @@ func mcpExecTool(name string, args map[string]any) (string, error) {
 	// inherits --read-only, --config, --timeout, etc.
 	argv = append(argv, mcpGlobalFlags(args)...)
 
-	self, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("cannot find secopsctl binary: %w", err)
-	}
-
-	cmd := exec.Command(self, argv...) //nolint:gosec // self is os.Executable, argv from validated tool schema
-	cmd.Env = os.Environ()
-	cmd.Dir = mcpProjectDir
-	out, err := cmd.CombinedOutput()
-	if err != nil && len(out) > 0 {
-		return "", fmt.Errorf("%s", out)
-	}
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
+	out, _, err := mcpRunSelf(argv)
+	return out, err
 }
 
 // presortCommandTree visits every node (hidden subtrees included) so cobra's

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -127,6 +126,7 @@ func runMCPServe() error {
 
 func newMCPSession() *mcpSession {
 	presortCommandTree(rootCmd)
+	mcpSweepSpills(mcpSpillDir(), mcpSpillMaxAge)
 	allTools := mcpToolsFromCobra()
 	resources, resCont := mcpResourcesFromEmbedded()
 
@@ -375,22 +375,14 @@ func (s *mcpSession) handleRun(id json.RawMessage, args map[string]any) jrpcResp
 
 	argv = append(argv, mcpGlobalFlags(nil)...)
 
-	self, err := os.Executable()
-	if err != nil {
-		return mcpText(id, fmt.Sprintf("cannot find secopsctl binary: %v", err), true)
-	}
-
-	c := exec.Command(self, argv...) //nolint:gosec // self is os.Executable, argv from agent input
-	c.Env = os.Environ()
-	c.Dir = mcpProjectDir
-	out, err := c.CombinedOutput()
-	if err != nil && len(out) > 0 {
-		return mcpText(id, string(out), true)
-	}
+	out, spilled, err := mcpRunSelf(argv)
 	if err != nil {
 		return mcpText(id, err.Error(), true)
 	}
-	return mcpText(id, string(out)+s.nudgeForRun(argv), false)
+	if spilled {
+		return mcpText(id, out, false)
+	}
+	return mcpText(id, out+s.nudgeForRun(argv), false)
 }
 
 func (s *mcpSession) handleHelp(id json.RawMessage, args map[string]any) jrpcResponse {
