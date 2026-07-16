@@ -135,23 +135,17 @@ func newDashboardsInspectCmd() *cobra.Command {
 
 // ── lint ─────────────────────────────────────────────────────────────
 
-// reservedVarRe matches the $variable names the dashboard query engine
+// findReservedVariables returns the reserved $variable names used by a query
 // reserves. A chart whose query binds one SAVES fine but fails at execute time
 // (HTTP 400, or executes yet renders blank in the console) — so the collision
 // must be caught statically.
-var reservedVarRe = regexp.MustCompile(`\$(?:rules?|events?|entity|entities|detections?|alerts?)\b`)
-
 // findReservedVariables returns the distinct reserved variable names a chart
 // query uses, in first-use order.
 func findReservedVariables(query string) []string {
-	seen := make(map[string]struct{})
-	var out []string
-	for _, m := range reservedVarRe.FindAllString(query, -1) {
-		if _, dup := seen[m]; dup {
-			continue
-		}
-		seen[m] = struct{}{}
-		out = append(out, m)
+	vars := reservedQueryVars(query)
+	out := make([]string, 0, len(vars))
+	for _, v := range vars {
+		out = append(out, "$"+v)
 	}
 	return out
 }

@@ -170,7 +170,7 @@ func lintPlaybook(pbName string, raw json.RawMessage, knownPlaybooks map[string]
 
 		stepType := displayJSONScalar(step.Type)
 
-		if stepType == "BLOCK" || stepType == "Block" {
+		if stepType == "BLOCK" || stepType == "Block" || stepType == "5" {
 			blockName := strings.ToLower(step.Name)
 			if _, ok := knownPlaybooks[blockName]; !ok {
 				add("error", "broken-block-ref",

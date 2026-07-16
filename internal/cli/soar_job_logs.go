@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -117,12 +118,17 @@ func epochNumberToString(n json.Number) string {
 	return msToUTC(v)
 }
 
-// truncateMessage shortens a log message to maxLen, appending "..." if cut.
+// truncateMessage shortens a log message to maxLen bytes, appending "..." if
+// cut; the cut lands on a rune boundary so multi-byte text stays valid UTF-8.
 func truncateMessage(s string, maxLen int) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", "")
-	if len(s) > maxLen {
-		return s[:maxLen-3] + "..."
+	if len(s) <= maxLen {
+		return s
 	}
-	return s
+	cut := maxLen - 3
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "..."
 }

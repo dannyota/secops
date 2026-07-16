@@ -57,6 +57,10 @@ var reservedYaralKeywords = map[string]bool{
 	"int8": true, "uint8": true, "int16": true, "uint16": true,
 	"int32": true, "uint32": true, "int8be": true, "uint8be": true,
 	"int16be": true, "uint16be": true, "int32be": true, "uint32be": true,
+	// The dashboard query engine additionally reserves the singular/plural
+	// family of its result nouns — both forms fail at render time.
+	"rules": true, "event": true, "entity": true, "entities": true,
+	"detection": true, "detections": true, "alert": true, "alerts": true,
 }
 
 // reservedQueryVars returns the distinct `$variable` names declared in a query that

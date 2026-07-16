@@ -433,29 +433,9 @@ func newParsersActivateCmd() *cobra.Command {
 				pid = resolved
 			}
 			target := fmt.Sprintf("activate parser %s/%s", logType, pid)
-			dr, ay := soarGuard(target, dryRun, yes)
-			if dr {
-				if jsonOut {
-					return emitGuardedResult(target, true, false)
-				}
-				fmt.Printf("DRY RUN — would activate parser %s for %q. Re-run with --yes.\n", pid, logType)
-				return nil
-			}
-			if !ay {
-				if jsonOut {
-					return emitGuardedResult(target, false, false)
-				}
-				fmt.Println("Refusing to activate without confirmation (pass --yes). Aborted.")
-				return nil
-			}
-			if err := c.ActivateParser(baseContext(), logType, pid); err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitGuardedResult(target, false, true)
-			}
-			fmt.Printf("Activated parser %s for %q.\n", pid, logType)
-			return nil
+			return guardedSIEMMutation(target, dryRun, yes, func() error {
+				return c.ActivateParser(baseContext(), logType, pid)
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")

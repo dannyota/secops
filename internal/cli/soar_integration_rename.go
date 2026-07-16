@@ -177,5 +177,6 @@ func newSOARIntegrationRenameCmd() *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "preview without mutating")
 	f.BoolVar(&yes, "yes", false, "skip confirmation prompt")
 	cmd.MarkFlagsMutuallyExclusive("instance", "env")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
 	return markJSON(cmd)
 }

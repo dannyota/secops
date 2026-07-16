@@ -206,6 +206,7 @@ func newDashboardsMarkdownEditCmd() *cobra.Command {
 			if lerr != nil {
 				return lerr
 			}
+			origLayout := curLayout
 			if layRaw != nil {
 				curLayout = layRaw
 			}
@@ -219,7 +220,7 @@ func newDashboardsMarkdownEditCmd() *cobra.Command {
 				Visualization: markdownVisualization(content, bgColor),
 			})
 			if aerr != nil {
-				return aerr
+				return restoreRemovedChart(ctx, c, id, chart, origLayout, aerr)
 			}
 			_ = resp
 

@@ -39,20 +39,34 @@ func newCaseEvidenceAddCmd() *cobra.Command {
 			"default, --yes to apply. The API has no delete, so this is one-way.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			data, err := os.ReadFile(file)
+			// Stat now for the preview, encode only on apply — the dry-run
+			// preview must not dump a base64 blob to stdout.
+			st, err := os.Stat(file)
 			if err != nil {
 				return err
 			}
-			body := map[string]any{
+			preview := map[string]any{
 				"caseIdentifier": caseID,
-				"base64Blob":     base64.StdEncoding.EncodeToString(data),
+				"base64Blob":     fmt.Sprintf("<%d bytes from %s — encoded on apply>", st.Size(), file),
 				"name":           name,
 				"type":           evType,
 				"description":    desc,
 				"isImportant":    false,
 			}
-			return caseAction(fmt.Sprintf("attach evidence %q (%d bytes) to case %d", name, len(data), caseID), body, dryRun, yes,
+			return caseAction(fmt.Sprintf("attach evidence %q (%d bytes) to case %d", name, st.Size(), caseID), preview, dryRun, yes,
 				func(ctx context.Context, lc *legacy.Client) (legacy.RawJSON, error) {
+					data, rerr := os.ReadFile(file)
+					if rerr != nil {
+						return nil, rerr
+					}
+					body := map[string]any{
+						"caseIdentifier": caseID,
+						"base64Blob":     base64.StdEncoding.EncodeToString(data),
+						"name":           name,
+						"type":           evType,
+						"description":    desc,
+						"isImportant":    false,
+					}
 					return lc.AddEvidence(ctx, body)
 				})
 		},

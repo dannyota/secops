@@ -324,7 +324,14 @@ func (s *mcpSession) handleToolCall(req jrpcRequest) jrpcResponse {
 		Name      string         `json:"name"`
 		Arguments map[string]any `json:"arguments"`
 	}
-	_ = json.Unmarshal(req.Params, &params)
+	if len(req.Params) > 0 {
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			return jrpcResponse{
+				JSONRPC: "2.0", ID: req.ID,
+				Error: &jrpcError{Code: -32602, Message: "invalid tools/call params: " + err.Error()},
+			}
+		}
+	}
 
 	switch params.Name {
 	case "run":

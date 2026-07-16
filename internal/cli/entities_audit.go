@@ -16,10 +16,12 @@ func newEntitiesAuditCmd() *cobra.Command {
 	var minRisk, limit int
 	cmd := &cobra.Command{
 		Use:   "audit [--min-risk N] [--limit N]",
-		Short: "Read-only: cross-reference entity risk scores with watchlist coverage",
-		Long: "Audit detection maturity by cross-referencing entity risk scores with\n" +
-			"watchlist membership. Reports: watchlist inventory + health, high-risk\n" +
-			"entities not on any watchlist (coverage gaps), and risk-score distribution.\n\n" +
+		Short: "Read-only: watchlist health + high-risk entities by risk score",
+		Long: "Audit detection posture: watchlist inventory + health (empty lists,\n" +
+			"default multiplying factors) and the entities at or above the risk\n" +
+			"threshold, with the risk-score distribution. Per-entity watchlist\n" +
+			"membership is not cross-referenced; treat the high-risk list as\n" +
+			"candidates to verify against watchlists.\n\n" +
 			"All reads are API-only — no mutations.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {

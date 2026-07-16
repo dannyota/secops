@@ -39,28 +39,39 @@ func newDashboardsDeleteCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
+			// Guard before any client or API work so --dry-run stays fully
+			// offline (no credentials needed for the preview).
+			target := "delete dashboard " + id
+			dr, ay := soarGuard(target, dryRun, yes)
+			if dr {
+				if jsonOut {
+					return emitGuardedResult(target, true, false)
+				}
+				fmt.Printf("DRY RUN — would DELETE dashboard %s. Re-run with --yes.\n", id)
+				return nil
+			}
+			if !ay {
+				if jsonOut {
+					return emitGuardedResult(target, false, false)
+				}
+				fmt.Println("Refusing to delete a dashboard without confirmation (pass --yes). Aborted.")
+				return nil
+			}
 			c, err := newChronicleClient()
 			if err != nil {
 				return err
 			}
 			ctx := baseContext()
-			// Name the dashboard before touching it, so the preview is unambiguous.
+			// Name the dashboard before deleting so the result is unambiguous.
 			title := id
 			if d, gerr := c.GetDashboard(ctx, id, false); gerr == nil && d.DisplayName != "" {
 				title = d.DisplayName
 			}
-			target := fmt.Sprintf("delete dashboard %q (%s)", title, id)
-			dr, ay := soarGuard(target, dryRun, yes)
-			if dr {
-				fmt.Printf("DRY RUN — would DELETE dashboard %q (%s). Re-run with --yes.\n", title, id)
-				return nil
-			}
-			if !ay {
-				fmt.Println("Refusing to delete a dashboard without confirmation (pass --yes). Aborted.")
-				return nil
-			}
 			if err := c.DeleteDashboard(ctx, id); err != nil {
 				return hintDeleteDashboard(id, err)
+			}
+			if jsonOut {
+				return emitGuardedResult(fmt.Sprintf("delete dashboard %q (%s)", title, id), false, true)
 			}
 			fmt.Printf("Deleted dashboard %q (%s).\n", title, id)
 			return nil
@@ -69,7 +80,7 @@ func newDashboardsDeleteCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "apply for real / skip confirmation")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "yes")
-	return cmd
+	return markJSON(cmd)
 }
 
 // hintDeleteDashboard augments a delete failure with a diagnosis. A 500 deleting a

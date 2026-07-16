@@ -260,8 +260,11 @@ func jobRowMatches(row soarJobRow, selector string) bool {
 
 func jobInstanceRowMatches(row soarJobInstanceRow, selector string) bool {
 	selector = strings.TrimSpace(selector)
+	// Integration is a grouping attribute, not an instance identity — matching
+	// on it would select every instance of that integration (the modern path
+	// never matches on it either).
 	return selector != "" && (row.ID == selector || row.UniqueIdentifier == selector ||
-		row.Name == selector || row.DefinitionName == selector || row.Integration == selector)
+		row.Name == selector || row.DefinitionName == selector)
 }
 
 func printSOARJobRows(w io.Writer, rows []soarJobRow) {

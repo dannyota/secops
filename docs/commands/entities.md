@@ -6,16 +6,18 @@ Inspect entities: summarize alerts, prevalence, and findings-graph pivot
 
 ## entities audit
 
-Read-only: cross-reference entity risk scores with watchlist coverage
+Read-only: watchlist health + high-risk entities by risk score
 
 ```text
 secopsctl entities audit [--min-risk N] [--limit N] [flags]
 ```
 
 ```text
-Audit detection maturity by cross-referencing entity risk scores with
-watchlist membership. Reports: watchlist inventory + health, high-risk
-entities not on any watchlist (coverage gaps), and risk-score distribution.
+Audit detection posture: watchlist inventory + health (empty lists,
+default multiplying factors) and the entities at or above the risk
+threshold, with the risk-score distribution. Per-entity watchlist
+membership is not cross-referenced; treat the high-risk list as
+candidates to verify against watchlists.
 
 All reads are API-only — no mutations.
 ```

@@ -159,7 +159,13 @@ func runAuditUser(c *chronicle.Client, email string, start, end time.Time, cats 
 
 		events, err := c.SearchUDM(ctx, query, start, end, limit)
 		if err != nil {
-			clearProgress()
+			// clearProgress only rewinds a TTY; a redirected stderr needs the
+			// dangling progress line terminated explicitly.
+			if stderrIsTTY() {
+				clearProgress()
+			} else {
+				fmt.Fprintln(os.Stderr)
+			}
 			return nil, fmt.Errorf("%s: %w", cat.Name, err)
 		}
 		fmt.Fprintf(os.Stderr, " %d events\n", len(events))

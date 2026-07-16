@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -314,11 +315,13 @@ func applyParams(filter string, params []string) (string, error) {
 		if k == "" {
 			return "", fmt.Errorf("--param key must not be empty")
 		}
-		placeholder := "$" + k
-		if !strings.Contains(filter, placeholder) {
-			return "", fmt.Errorf("placeholder %s not found in query text", placeholder)
+		// Bind the placeholder to a word boundary so $email never eats the
+		// prefix of $email_domain.
+		re := regexp.MustCompile(regexp.QuoteMeta("$"+k) + `\b`)
+		if !re.MatchString(filter) {
+			return "", fmt.Errorf("placeholder $%s not found in query text", k)
 		}
-		filter = strings.ReplaceAll(filter, placeholder, v)
+		filter = re.ReplaceAllLiteralString(filter, v)
 	}
 	return filter, nil
 }

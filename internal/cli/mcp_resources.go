@@ -11,7 +11,14 @@ func (s *mcpSession) handleResourceRead(req jrpcRequest) jrpcResponse {
 	var params struct {
 		URI string `json:"uri"`
 	}
-	_ = json.Unmarshal(req.Params, &params)
+	if len(req.Params) > 0 {
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			return jrpcResponse{
+				JSONRPC: "2.0", ID: req.ID,
+				Error: &jrpcError{Code: -32602, Message: "invalid resources/read params: " + err.Error()},
+			}
+		}
+	}
 
 	body, ok := s.resCont[params.URI]
 	if !ok {

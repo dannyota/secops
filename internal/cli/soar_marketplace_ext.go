@@ -61,12 +61,20 @@ func newSOARFeaturedInstallCmd() *cobra.Command {
 			uid = lastSegment(uid)
 			label := "featured install " + uid
 			dr, ay := soarGuard(label, dryRun, yes)
-			fmt.Fprintf(os.Stdout, "Install featured playbook: %s (env: %s)\n", uid, env)
+			if !jsonOut {
+				fmt.Fprintf(os.Stdout, "Install featured playbook: %s (env: %s)\n", uid, env)
+			}
 			if dr {
+				if jsonOut {
+					return emitGuardedResult(label, true, false)
+				}
 				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
 				return nil
 			}
 			if !ay {
+				if jsonOut {
+					return emitGuardedResult(label, false, false)
+				}
 				fmt.Fprintln(os.Stdout, "Refused. Pass --yes.")
 				return nil
 			}

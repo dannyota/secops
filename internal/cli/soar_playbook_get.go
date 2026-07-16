@@ -132,7 +132,7 @@ func parsePlaybookDetail(raw json.RawMessage) playbookGetDetail {
 			d.ActionSteps++
 		case "CONDITION", "Condition", "4":
 			d.ConditionSteps++
-		case "BLOCK", "Block":
+		case "BLOCK", "Block", "5":
 			blockNames = append(blockNames, step.Name)
 		}
 		if step.Integration != "" {

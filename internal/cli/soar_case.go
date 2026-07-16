@@ -109,7 +109,7 @@ func caseAction(action string, body any, dryRun, yes bool, do func(ctx context.C
 		w := os.Stdout
 		bar := strings.Repeat("!", 72)
 		fmt.Fprintln(w, bar)
-		fmt.Fprintln(w, "!! LIVE SOAR case action against a PRODUCTION tenant !!")
+		fmt.Fprintln(w, "!! LIVE SOAR mutation against a PRODUCTION tenant !!")
 		fmt.Fprintf(w, "!! Action: %s\n", action)
 		fmt.Fprintln(w, bar)
 		pretty, _ := json.MarshalIndent(body, "", "  ")

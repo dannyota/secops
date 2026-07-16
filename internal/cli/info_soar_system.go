@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -45,6 +46,11 @@ func newInfoSOARSystemCmd() *cobra.Command {
 }
 
 func renderSystemInfo(ver json.RawMessage, verr error, lic json.RawMessage, lerr error, ret json.RawMessage, rerr error) error {
+	// Total failure must surface as an error so preferModern can fall back to
+	// the legacy path; partial success still renders inline.
+	if verr != nil && lerr != nil && rerr != nil {
+		return errors.Join(verr, lerr, rerr)
+	}
 	if jsonOut {
 		out := map[string]any{}
 		if verr == nil {

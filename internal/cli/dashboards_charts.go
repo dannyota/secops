@@ -77,6 +77,28 @@ func rawJSONOrNil(field, s string) (json.RawMessage, error) {
 
 // nestedString reads a nested string field from raw JSON, "" if any hop is
 // missing or not a string.
+// restoreRemovedChart re-adds a chart captured before a remove+add edit whose
+// add failed — without it the tile would stay deleted. Best-effort: when the
+// restore also fails, the original chart JSON goes to stderr for a manual
+// rebuild, and both errors are reported.
+func restoreRemovedChart(ctx context.Context, c *chronicle.Client, dashboardID string, chart, layout json.RawMessage, cause error) error {
+	var fields map[string]json.RawMessage
+	_ = json.Unmarshal(chart, &fields)
+	_, rerr := c.AddChart(ctx, dashboardID, chronicle.AddChartInput{
+		DisplayName:     nestedString(chart, "displayName"),
+		Description:     nestedString(chart, "description"),
+		TileType:        nestedString(chart, "tileType"),
+		ChartLayout:     layout,
+		ChartDatasource: fields["chartDatasource"],
+		Visualization:   fields["visualization"],
+	})
+	if rerr != nil {
+		fmt.Fprintf(os.Stderr, "automatic restore failed (%v); original chart definition:\n%s\n", rerr, chart)
+		return fmt.Errorf("edit failed after the old tile was removed: %w (automatic restore also failed: %w)", cause, rerr)
+	}
+	return fmt.Errorf("edit failed; the original tile was restored under a new chart id: %w", cause)
+}
+
 func nestedString(raw json.RawMessage, keys ...string) string {
 	cur := raw
 	for i, k := range keys {

@@ -255,6 +255,7 @@ func newDashboardsButtonEditCmd() *cobra.Command {
 			if lerr != nil {
 				return lerr
 			}
+			origLayout := curLayout
 			if layRaw != nil {
 				curLayout = layRaw
 			}
@@ -268,7 +269,7 @@ func newDashboardsButtonEditCmd() *cobra.Command {
 				Visualization: buttonVisualization(curLabel, curURL, curDesc, curColor, curStyle, curNewTab),
 			})
 			if aerr != nil {
-				return aerr
+				return restoreRemovedChart(ctx, c, id, chart, origLayout, aerr)
 			}
 			_ = resp
 

@@ -120,10 +120,10 @@ func TestFindReservedVariables(t *testing.T) {
 	}{
 		{"binding via field = $var", `metadata.product_event_type = $rule`, []string{"$rule"}},
 		{"outcome assignment", `outcome: $events = count(metadata.id)`, []string{"$events"}},
-		{"several, deduped, first-use order", `$entity = principal.ip $rule = metadata.id $entity = x`, []string{"$entity", "$rule"}},
+		{"several, deduped, sorted", `$entity = principal.ip $rule = metadata.id $entity = x`, []string{"$entity", "$rule"}},
 		{"prefix does not false-positive", `$rulename = metadata.id AND $eventful = x`, nil},
 		{"safe names", `$actor = principal.user.userid $count = count(metadata.id)`, nil},
-		{"plural forms", `$rules = a $alerts = b $detections = c`, []string{"$rules", "$alerts", "$detections"}},
+		{"plural forms, sorted", `$rules = a $alerts = b $detections = c`, []string{"$alerts", "$detections", "$rules"}},
 	}
 	for _, tc := range cases {
 		got := findReservedVariables(tc.query)

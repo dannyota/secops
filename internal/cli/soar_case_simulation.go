@@ -171,11 +171,19 @@ func newSimCreateCmd() *cobra.Command {
 				"alertName":    alertName,
 				"eventName":    eventName,
 			}
-			if kvs := parseSimKVFields(eventFields); len(kvs) > 0 {
-				body["additionalEventFields"] = kvs
+			evKVs, err := parseSimKVFields(eventFields)
+			if err != nil {
+				return fmt.Errorf("--event-field: %w", err)
 			}
-			if kvs := parseSimKVFields(alertFields); len(kvs) > 0 {
-				body["additionalAlertFields"] = kvs
+			if len(evKVs) > 0 {
+				body["additionalEventFields"] = evKVs
+			}
+			alKVs, err := parseSimKVFields(alertFields)
+			if err != nil {
+				return fmt.Errorf("--alert-field: %w", err)
+			}
+			if len(alKVs) > 0 {
+				body["additionalAlertFields"] = alKVs
 			}
 			label := fmt.Sprintf("simulation create %q", alertName)
 			dr, ay := soarGuard(label, dryRun, yes)
@@ -389,16 +397,16 @@ func newSimAlertCmd() *cobra.Command {
 	return cmd
 }
 
-func parseSimKVFields(pairs []string) []map[string]string {
+func parseSimKVFields(pairs []string) ([]map[string]string, error) {
 	var out []map[string]string
 	for _, p := range pairs {
 		k, v, ok := strings.Cut(p, "=")
 		if !ok || strings.TrimSpace(k) == "" {
-			continue
+			return nil, fmt.Errorf("invalid field %q: expected key=value", p)
 		}
 		out = append(out, map[string]string{"key": strings.TrimSpace(k), "value": v})
 	}
-	return out
+	return out, nil
 }
 
 func newSimDeleteCmd() *cobra.Command {

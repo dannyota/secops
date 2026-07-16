@@ -408,6 +408,9 @@ func newRulesAlertsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := checkHours(hours); err != nil {
+				return err
+			}
 			start, end := timeWindow(hours)
 			ruleID, err := resolveRuleID(baseContext(), c, args[0])
 			if err != nil {
