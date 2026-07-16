@@ -3,6 +3,7 @@ package legacy
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -174,4 +175,62 @@ func TestLivePlaybookDuplicateDelete(t *testing.T) {
 			t.Fatalf("duplicated playbook %q still present after delete", id)
 		}
 	}
+}
+
+// TestLiveStepTypeVocabulary reports the distinct step "type" tokens observed
+// across exported playbooks — the data needed to extend stepTypeNames beyond
+// the codes already validated against the save API. Read-only; gated on
+// SECOPS_SOAR_SMOKE=1 (run with -v to see the vocabulary).
+func TestLiveStepTypeVocabulary(t *testing.T) {
+	lc, ctx := liveClient(t)
+	cards, err := lc.ListEnabledWorkflowCards(ctx, struct{}{})
+	if err != nil {
+		t.Fatalf("ListEnabledWorkflowCards: %v", err)
+	}
+	var list []map[string]any
+	if err := json.Unmarshal(cards, &list); err != nil || len(list) == 0 {
+		t.Skipf("no exportable playbooks (err=%v, n=%d)", err, len(list))
+	}
+	types := map[string]int{}
+	var collect func(v any)
+	collect = func(v any) {
+		switch tv := v.(type) {
+		case map[string]any:
+			if tt, ok := tv["type"]; ok {
+				if _, isStep := tv["instanceName"]; isStep {
+					types[fmt.Sprint(tt)]++
+				}
+			}
+			for _, e := range tv {
+				collect(e)
+			}
+		case []any:
+			for _, e := range tv {
+				collect(e)
+			}
+		}
+	}
+	exported := 0
+	for _, card := range list {
+		if exported >= 5 {
+			break
+		}
+		id, _ := card["identifier"].(string)
+		if id == "" {
+			continue
+		}
+		raw, err := lc.ExportWorkflowWithBlocks(ctx, id)
+		if err != nil {
+			continue
+		}
+		exported++
+		var def any
+		if json.Unmarshal(raw, &def) == nil {
+			collect(def)
+		}
+	}
+	if exported == 0 {
+		t.Skip("no playbook exported")
+	}
+	t.Logf("step type vocabulary across %d exports: %v", exported, types)
 }

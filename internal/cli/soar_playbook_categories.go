@@ -126,20 +126,13 @@ func newSOARPlaybookCategoryRenameCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			isDry, _ := soarGuard(fmt.Sprintf("rename category %q → %q", oldName, newName), dryRun, yes)
-			if isDry {
-				fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] would rename category %q (id=%d) to %q\n", oldName, id, newName)
-				return nil
-			}
-			_, err = lc.AddOrUpdatePlaybookCategory(baseContext(), map[string]any{
-				"id":   id,
-				"name": newName,
-			})
-			if err != nil {
+			return soarGuardedMutation(fmt.Sprintf("rename category %q → %q", oldName, newName), dryRun, yes, func() error {
+				_, err := lc.AddOrUpdatePlaybookCategory(baseContext(), map[string]any{
+					"id":   id,
+					"name": newName,
+				})
 				return err
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "renamed category %q → %q\n", oldName, newName)
-			return nil
+			})
 		},
 	}
 	f := cmd.Flags()
@@ -168,19 +161,12 @@ func newSOARPlaybookCategoryDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			isDry, _ := soarGuard(fmt.Sprintf("delete category %q (id=%d)", name, id), dryRun, yes)
-			if isDry {
-				fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] would delete category %q (id=%d)\n", name, id)
-				return nil
-			}
-			_, err = lc.RemovePlaybookCategories(baseContext(), map[string]any{
-				"ids": []int{id},
-			})
-			if err != nil {
+			return soarGuardedMutation(fmt.Sprintf("delete category %q (id=%d)", name, id), dryRun, yes, func() error {
+				_, err := lc.RemovePlaybookCategories(baseContext(), map[string]any{
+					"ids": []int{id},
+				})
 				return err
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "deleted category %q (id=%d)\n", name, id)
-			return nil
+			})
 		},
 	}
 	f := cmd.Flags()
@@ -222,21 +208,13 @@ func newSOARPlaybookMoveCmd() *cobra.Command {
 				return err
 			}
 
-			isDry, _ := soarGuard(fmt.Sprintf("move playbook %s → category %q", args[0], catName), dryRun, yes)
-			if isDry {
-				fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] would move %s to category %q (id=%d)\n", args[0], catName, catID)
-				return nil
-			}
-
-			_, err = lc.MoveDefinitionsToCategory(ctx, map[string]any{
-				"category":    catID,
-				"identifiers": []string{identifier},
-			})
-			if err != nil {
+			return soarGuardedMutation(fmt.Sprintf("move playbook %s → category %q", args[0], catName), dryRun, yes, func() error {
+				_, err := lc.MoveDefinitionsToCategory(ctx, map[string]any{
+					"category":    catID,
+					"identifiers": []string{identifier},
+				})
 				return err
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "moved %s to category %q\n", args[0], catName)
-			return nil
+			})
 		},
 	}
 	f := cmd.Flags()

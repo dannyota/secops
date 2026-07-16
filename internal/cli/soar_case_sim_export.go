@@ -68,25 +68,17 @@ func newSimImportCmd() *cobra.Command {
 				return fmt.Errorf("invalid JSON in %s: %w", args[0], err)
 			}
 			label := fmt.Sprintf("simulation import %s", args[0])
-			dr, ay := soarGuard(label, dryRun, yes)
-			if dr {
-				fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] would import simulation from %s\n", args[0])
+			return soarGuardedMutation(label, dryRun, yes, func() error {
+				lc, err := newSOARLegacyClient()
+				if err != nil {
+					return err
+				}
+				_, err = lc.AttackSimImportCustomCase(baseContext(), body)
+				if err != nil {
+					return fmt.Errorf("import simulation: %w", err)
+				}
 				return nil
-			}
-			if !ay {
-				fmt.Fprintln(cmd.OutOrStdout(), "Refusing to import without confirmation (pass --yes). Aborted.")
-				return nil
-			}
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
-			}
-			_, err = lc.AttackSimImportCustomCase(baseContext(), body)
-			if err != nil {
-				return fmt.Errorf("import simulation: %w", err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "imported simulation from %s\n", args[0])
-			return nil
+			})
 		},
 	}
 	f := cmd.Flags()

@@ -254,33 +254,19 @@ func newDashboardsMarkdownRemoveCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			target := fmt.Sprintf("remove markdown %s from dashboard %s", chartID, id)
-			dr, ay := soarGuard(target, dryRun, yes)
-			if dr {
-				if jsonOut {
-					return emitGuardedResult(target, true, false)
+			return guardedSIEMMutation(target, dryRun, yes, func() error {
+				c, err := newChronicleClient()
+				if err != nil {
+					return err
 				}
-				fmt.Printf("DRY RUN — would remove markdown %s from dashboard %s. Re-run with --yes.\n", chartID, id)
-				return nil
-			}
-			if !ay {
-				if jsonOut {
-					return emitGuardedResult(target, false, false)
+				if _, err := c.RemoveChart(baseContext(), id, chartID); err != nil {
+					return err
 				}
-				fmt.Println("Refusing to remove markdown without confirmation (pass --yes). Aborted.")
+				if !jsonOut {
+					fmt.Printf("Removed markdown %s from dashboard %s. Re-pull to mirror it locally.\n", chartID, id)
+				}
 				return nil
-			}
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-			if _, err := c.RemoveChart(baseContext(), id, chartID); err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitGuardedResult(target, false, true)
-			}
-			fmt.Printf("Removed markdown %s from dashboard %s. Re-pull to mirror it locally.\n", chartID, id)
-			return nil
+			})
 		},
 	}
 	cmd.Flags().StringVar(&chartID, "chart-id", "", "id of the markdown widget to remove (required)")

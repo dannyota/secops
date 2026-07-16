@@ -63,3 +63,26 @@ func TestLiveWatchlistEntityWriteSmoke(t *testing.T) {
 	}
 	t.Log("OK entities:remove")
 }
+
+// TestLiveWatchlistEntitiesList probes the read-only watchlists/{id}:listEntities
+// surface `entities audit` cross-references. Read-only; gated on
+// SECOPS_SIEM_SMOKE=1. Reports the entity count per watchlist so the audit's
+// membership source is confirmed in one run.
+func TestLiveWatchlistEntitiesList(t *testing.T) {
+	c, ctx := liveChronicle(t)
+	wls, err := c.ListWatchlists(ctx, 0)
+	if err != nil {
+		t.Fatalf("ListWatchlists: %v", err)
+	}
+	if len(wls) == 0 {
+		t.Skip("no watchlists on this instance")
+	}
+	for _, w := range wls {
+		ents, err := c.ListWatchlistEntities(ctx, w.WatchlistID(), 0)
+		if err != nil {
+			t.Errorf("ListWatchlistEntities(%s): %v", w.DisplayName, err)
+			continue
+		}
+		t.Logf("watchlist %q: %d entities", w.DisplayName, len(ents))
+	}
+}

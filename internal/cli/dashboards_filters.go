@@ -142,97 +142,69 @@ func newDashboardsFiltersSetCmd() *cobra.Command {
 			}
 
 			summary := fmt.Sprintf("%d %s", timeVal, unit)
-			target := fmt.Sprintf("set global time filter on dashboard %s to %s", id, summary)
+			action := fmt.Sprintf("set global time filter on dashboard %s to %s", id, summary)
 			if applyTo != "" {
-				target += fmt.Sprintf(" (apply-to: %s)", applyTo)
+				action += fmt.Sprintf(" (apply-to: %s)", applyTo)
 			}
-			dr, ay := soarGuard(target, dryRun, yes)
-			if dr {
-				if jsonOut {
-					return emitGuardedResult(target, true, false)
-				}
-				msg := fmt.Sprintf("DRY RUN — would set global time filter on dashboard %s to %s", id, summary)
-				if applyTo != "" {
-					msg += fmt.Sprintf(" and bind to charts: %s", applyTo)
-				}
-				msg += ". Re-run with --yes."
-				fmt.Println(msg)
-				return nil
-			}
-			if !ay {
-				if jsonOut {
-					return emitGuardedResult(target, false, false)
-				}
-				fmt.Println("Refusing to set filter without confirmation (pass --yes). Aborted.")
-				return nil
-			}
-
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-			ctx := baseContext()
-
-			d, err := c.GetDashboard(ctx, id, true)
-			if err != nil {
-				return err
-			}
-			var def struct {
-				Definition struct {
-					Filters []json.RawMessage `json:"filters"`
-					Charts  []json.RawMessage `json:"charts"`
-				} `json:"definition"`
-			}
-			_ = json.Unmarshal(d.Raw, &def)
-
-			timeFilter, _ := json.Marshal(map[string]any{
-				"id":                        "GlobalTimeFilter",
-				"isStandardTimeRangeFilter": true,
-				"filterOperatorAndFieldValues": []map[string]any{
-					{"fieldValues": []string{fmt.Sprintf("%d", timeVal), unit}},
-				},
-			})
-
-			newFilters := []json.RawMessage{}
-			for _, f := range def.Definition.Filters {
-				fid := nestedString(f, "id")
-				if fid == "GlobalTimeFilter" {
-					continue
-				}
-				var isTR struct {
-					IsStandardTimeRangeFilter bool `json:"isStandardTimeRangeFilter"`
-				}
-				if json.Unmarshal(f, &isTR) == nil && isTR.IsStandardTimeRangeFilter {
-					continue
-				}
-				newFilters = append(newFilters, f)
-			}
-			newFilters = append([]json.RawMessage{timeFilter}, newFilters...)
-
-			upd := chronicle.DashboardUpdate{Filters: newFilters}
-
-			// --apply-to: bind GlobalTimeFilter to targeted charts in the same PATCH.
-			if applyTo != "" {
-				charts, err := applyFilterToCharts(def.Definition.Charts, applyTo)
+			return guardedSIEMMutation(action, dryRun, yes, func() error {
+				c, err := newChronicleClient()
 				if err != nil {
 					return err
 				}
-				upd.Charts = charts
-			}
+				ctx := baseContext()
 
-			if _, err := c.UpdateDashboard(ctx, id, upd); err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitGuardedResult(target, false, true)
-			}
-			msg := fmt.Sprintf("Set global time filter on dashboard %s to %s.", id, summary)
-			if applyTo != "" {
-				msg += fmt.Sprintf(" Bound to charts: %s.", applyTo)
-			}
-			msg += " Re-pull to mirror it locally."
-			fmt.Println(msg)
-			return nil
+				d, err := c.GetDashboard(ctx, id, true)
+				if err != nil {
+					return err
+				}
+				var def struct {
+					Definition struct {
+						Filters []json.RawMessage `json:"filters"`
+						Charts  []json.RawMessage `json:"charts"`
+					} `json:"definition"`
+				}
+				_ = json.Unmarshal(d.Raw, &def)
+
+				timeFilter, _ := json.Marshal(map[string]any{
+					"id":                        "GlobalTimeFilter",
+					"isStandardTimeRangeFilter": true,
+					"filterOperatorAndFieldValues": []map[string]any{
+						{"fieldValues": []string{fmt.Sprintf("%d", timeVal), unit}},
+					},
+				})
+
+				newFilters := []json.RawMessage{}
+				for _, f := range def.Definition.Filters {
+					fid := nestedString(f, "id")
+					if fid == "GlobalTimeFilter" {
+						continue
+					}
+					var isTR struct {
+						IsStandardTimeRangeFilter bool `json:"isStandardTimeRangeFilter"`
+					}
+					if json.Unmarshal(f, &isTR) == nil && isTR.IsStandardTimeRangeFilter {
+						continue
+					}
+					newFilters = append(newFilters, f)
+				}
+				newFilters = append([]json.RawMessage{timeFilter}, newFilters...)
+
+				upd := chronicle.DashboardUpdate{Filters: newFilters}
+
+				// --apply-to: bind GlobalTimeFilter to targeted charts in the same PATCH.
+				if applyTo != "" {
+					charts, err := applyFilterToCharts(def.Definition.Charts, applyTo)
+					if err != nil {
+						return err
+					}
+					upd.Charts = charts
+				}
+
+				if _, err := c.UpdateDashboard(ctx, id, upd); err != nil {
+					return err
+				}
+				return nil
+			})
 		},
 	}
 	cmd.Flags().IntVar(&timeVal, "time", 0, "time range value (e.g. 24)")

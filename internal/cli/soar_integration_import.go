@@ -176,70 +176,54 @@ func importIntegration(bundle *integrationBundle, staging, dryRun, yes bool) err
 	action := fmt.Sprintf("import integration %q (%d actions, %d jobs) → %s",
 		m.DisplayName, len(bundle.Actions), len(bundle.Jobs), modeLabel)
 
-	dr, ay := soarGuard(action, dryRun, yes)
-	fmt.Fprintf(os.Stdout, "Integration: %s\n", m.DisplayName)
-	if m.Description != "" {
-		fmt.Fprintf(os.Stdout, "Description: %s\n", m.Description)
-	}
-	fmt.Fprintf(os.Stdout, "Mode:        %s\n", modeLabel)
-	for _, a := range bundle.Actions {
-		fmt.Fprintf(os.Stdout, "  action: %s (%d bytes)\n", a.DisplayName, len(a.ScriptBody))
-	}
-	for _, j := range bundle.Jobs {
-		fmt.Fprintf(os.Stdout, "  job:    %s (%d bytes)\n", j.DisplayName, len(j.ScriptBody))
-	}
-	fmt.Fprintln(os.Stdout)
+	return soarGuardedMutation(action, dryRun, yes, func() error {
+		c, err := newSOARClient()
+		if err != nil {
+			return err
+		}
+		ctx := baseContext()
 
-	if dr {
-		fmt.Fprintln(os.Stdout, "DRY RUN — no API calls made. Re-run with --yes to apply.")
+		createBody, err := json.Marshal(map[string]any{
+			"displayName": m.DisplayName,
+			"parameters":  convertManifestParams(m.Parameters),
+			"categories":  []string{},
+			"staging":     staging,
+			"type":        "RESPONSE",
+		})
+		if err != nil {
+			return err
+		}
+		integration, err := c.CreateIntegration(ctx, createBody)
+		if err != nil {
+			return fmt.Errorf("create integration: %w", err)
+		}
+		integrationKey := integration.Identifier
+		if !jsonOut {
+			fmt.Fprintf(os.Stdout, "Created integration %q (identifier: %s)\n", integration.DisplayName, integrationKey)
+		}
+
+		for _, a := range bundle.Actions {
+			if err := importActionDef(ctx, c, integrationKey, a); err != nil {
+				return fmt.Errorf("create action %q: %w", a.DisplayName, err)
+			}
+			if !jsonOut {
+				fmt.Fprintf(os.Stdout, "  created action: %s\n", a.DisplayName)
+			}
+		}
+		for _, j := range bundle.Jobs {
+			if err := importJobDef(ctx, c, integrationKey, j); err != nil {
+				return fmt.Errorf("create job %q: %w", j.DisplayName, err)
+			}
+			if !jsonOut {
+				fmt.Fprintf(os.Stdout, "  created job: %s\n", j.DisplayName)
+			}
+		}
+
+		if !jsonOut && staging {
+			fmt.Fprintln(os.Stdout, "Promote to production from IDE: More options → Push to production.")
+		}
 		return nil
-	}
-	if !ay {
-		fmt.Fprintln(os.Stdout, "Refusing to import without confirmation (pass --yes). Aborted.")
-		return nil
-	}
-
-	c, err := newSOARClient()
-	if err != nil {
-		return err
-	}
-	ctx := baseContext()
-
-	createBody, err := json.Marshal(map[string]any{
-		"displayName": m.DisplayName,
-		"parameters":  convertManifestParams(m.Parameters),
-		"categories":  []string{},
-		"staging":     staging,
-		"type":        "RESPONSE",
 	})
-	if err != nil {
-		return err
-	}
-	integration, err := c.CreateIntegration(ctx, createBody)
-	if err != nil {
-		return fmt.Errorf("create integration: %w", err)
-	}
-	integrationKey := integration.Identifier
-	fmt.Fprintf(os.Stdout, "Created integration %q (identifier: %s)\n", integration.DisplayName, integrationKey)
-
-	for _, a := range bundle.Actions {
-		if err := importActionDef(ctx, c, integrationKey, a); err != nil {
-			return fmt.Errorf("create action %q: %w", a.DisplayName, err)
-		}
-		fmt.Fprintf(os.Stdout, "  created action: %s\n", a.DisplayName)
-	}
-	for _, j := range bundle.Jobs {
-		if err := importJobDef(ctx, c, integrationKey, j); err != nil {
-			return fmt.Errorf("create job %q: %w", j.DisplayName, err)
-		}
-		fmt.Fprintf(os.Stdout, "  created job: %s\n", j.DisplayName)
-	}
-
-	fmt.Fprintf(os.Stdout, "\nDone. Integration %q imported (%s).\n", m.DisplayName, modeLabel)
-	if staging {
-		fmt.Fprintln(os.Stdout, "Promote to production from IDE: More options → Push to production.")
-	}
-	return nil
 }
 
 func importActionDef(ctx context.Context, c *soar.Client, integration string, def importComponentDef) error {

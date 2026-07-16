@@ -14,6 +14,14 @@ notes in the signed tag messages.
   head preview, and guidance. Spill files are `0600` under
   `$TMPDIR/secopsctl-mcp/` and swept after 24 hours.
 
+- **`entities audit` cross-references watchlist membership for real.** The
+  audit lists every watchlist's entities via the documented
+  `watchlists/{id}:listEntities` surface (new SDK method
+  `ListWatchlistEntities`) and reports as coverage gaps only the high-risk
+  entities on no watchlist. When an instance does not serve entity listing,
+  the result degrades honestly: `crossReferenced: false` plus a note, with
+  every high-risk entity listed unchecked.
+
 ### Fixed
 
 - **MCP `run` respects `--flag=value` output flags.** The server appended
@@ -54,6 +62,13 @@ notes in the signed tag messages.
   indented-JSON emitter; the retry/idempotency and request-id helpers both
   transports duplicated live once in the shared retry package; the tips and
   guides embed packages share one Markdown-walk implementation.
+
+- **One guard envelope for simple mutations.** `guardedSIEMMutation` and the
+  new `soarGuardedMutation` share one core (LIVE banner naming the plane and
+  action, standard dry-run/refuse/Done lines, a single structured `--json`
+  result), and 27 hand-rolled guard sites across the dashboards, data-access,
+  and SOAR command families now use it. Commands whose success emits an API
+  payload keep their richer envelopes deliberately.
 
 - **MCP subprocess streams split.** Tool subprocesses no longer interleave
   stderr into the result: success returns stdout (falling back to stderr when

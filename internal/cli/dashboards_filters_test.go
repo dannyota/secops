@@ -44,14 +44,14 @@ func TestFiltersSetApplyToDryRun(t *testing.T) {
 	// --apply-to all
 	out := runDryRun(t, newDashboardsFiltersSetCmd(),
 		"db_1", "--time", "7", "--unit", "DAY", "--apply-to", "all")
-	if !strings.Contains(out, "DRY RUN") || !strings.Contains(out, "bind to charts: all") {
+	if !strings.Contains(out, "DRY RUN") || !strings.Contains(out, "apply-to: all") {
 		t.Errorf("filters set --apply-to all dry-run output unexpected:\n%s", out)
 	}
 
 	// --apply-to specific IDs
 	out = runDryRun(t, newDashboardsFiltersSetCmd(),
 		"db_1", "--time", "1", "--unit", "HOUR", "--apply-to", "ch_1,ch_2")
-	if !strings.Contains(out, "DRY RUN") || !strings.Contains(out, "bind to charts: ch_1,ch_2") {
+	if !strings.Contains(out, "DRY RUN") || !strings.Contains(out, "apply-to: ch_1,ch_2") {
 		t.Errorf("filters set --apply-to ids dry-run output unexpected:\n%s", out)
 	}
 }

@@ -429,6 +429,19 @@ fallback when stdout is empty), failure returns stderr + stdout head with
 the exit cause appended, capped at the threshold. Both exec paths (`run`,
 typed tools) collapse into one `mcpRunSelf` helper.
 
+### Wave 145 — guard envelope unification + real watchlist cross-reference *(built)*
+
+One guard core behind `guardedSIEMMutation` and the new `soarGuardedMutation`
+(LIVE banner naming the plane + action, standard dry-run/refuse/Done lines,
+single structured `--json` result); 27 hand-rolled guard sites migrate to it,
+while payload-emitting commands keep their richer envelopes deliberately.
+`entities audit` cross-references watchlist membership for real via the
+documented `watchlists/{id}:listEntities` (new `ListWatchlistEntities` SDK
+method), reporting as coverage gaps only high-risk entities on no watchlist —
+with an honest `crossReferenced: false` + note when an instance does not serve
+entity listing. Gated read-only probes cover the listEntities surface and the
+playbook step-type vocabulary.
+
 ---
 
 ## Non-goals

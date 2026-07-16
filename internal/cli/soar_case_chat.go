@@ -83,43 +83,30 @@ func newCaseChatSendCmd() *cobra.Command {
 				return fmt.Errorf("--message is required")
 			}
 			label := fmt.Sprintf("case %d chat send", caseID)
-			dr, ay := soarGuard(label, dryRun, yes)
-			fmt.Fprintf(os.Stdout, "Case: %d\nMessage: %s\n", caseID, truncate(message, 80))
-			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
-				return nil
-			}
-			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to send without confirmation (pass --yes). Aborted.")
-				return nil
+			if !jsonOut {
+				fmt.Fprintf(os.Stdout, "Case: %d\nMessage: %s\n", caseID, truncate(message, 80))
 			}
 			body := map[string]any{"text": message}
-			return preferModern("soar case chat send",
-				func() error {
-					mc, err := newSOARClient()
-					if err != nil {
+			return soarGuardedMutation(label, dryRun, yes, func() error {
+				return preferModern("soar case chat send",
+					func() error {
+						mc, err := newSOARClient()
+						if err != nil {
+							return err
+						}
+						_, err = mc.CaseChatSend(baseContext(), caseID, body)
 						return err
-					}
-					_, err = mc.CaseChatSend(baseContext(), caseID, body)
-					if err != nil {
+					},
+					func() error {
+						lc, err := newSOARLegacyClient()
+						if err != nil {
+							return err
+						}
+						_, err = lc.CaseChatPost(baseContext(), caseID, body)
 						return err
-					}
-					fmt.Fprintln(os.Stdout, "message sent.")
-					return nil
-				},
-				func() error {
-					lc, err := newSOARLegacyClient()
-					if err != nil {
-						return err
-					}
-					_, err = lc.CaseChatPost(baseContext(), caseID, body)
-					if err != nil {
-						return err
-					}
-					fmt.Fprintln(os.Stdout, "message sent.")
-					return nil
-				},
-			)
+					},
+				)
+			})
 		},
 	}
 	f := cmd.Flags()

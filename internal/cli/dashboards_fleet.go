@@ -39,42 +39,26 @@ func newDashboardsDeleteCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			// Guard before any client or API work so --dry-run stays fully
-			// offline (no credentials needed for the preview).
 			target := "delete dashboard " + id
-			dr, ay := soarGuard(target, dryRun, yes)
-			if dr {
-				if jsonOut {
-					return emitGuardedResult(target, true, false)
+			return guardedSIEMMutation(target, dryRun, yes, func() error {
+				c, err := newChronicleClient()
+				if err != nil {
+					return err
 				}
-				fmt.Printf("DRY RUN — would DELETE dashboard %s. Re-run with --yes.\n", id)
-				return nil
-			}
-			if !ay {
-				if jsonOut {
-					return emitGuardedResult(target, false, false)
+				ctx := baseContext()
+				// Name the dashboard before deleting so the result is unambiguous.
+				title := id
+				if d, gerr := c.GetDashboard(ctx, id, false); gerr == nil && d.DisplayName != "" {
+					title = d.DisplayName
 				}
-				fmt.Println("Refusing to delete a dashboard without confirmation (pass --yes). Aborted.")
+				if err := c.DeleteDashboard(ctx, id); err != nil {
+					return hintDeleteDashboard(id, err)
+				}
+				if !jsonOut {
+					fmt.Printf("Deleted dashboard %q (%s).\n", title, id)
+				}
 				return nil
-			}
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-			ctx := baseContext()
-			// Name the dashboard before deleting so the result is unambiguous.
-			title := id
-			if d, gerr := c.GetDashboard(ctx, id, false); gerr == nil && d.DisplayName != "" {
-				title = d.DisplayName
-			}
-			if err := c.DeleteDashboard(ctx, id); err != nil {
-				return hintDeleteDashboard(id, err)
-			}
-			if jsonOut {
-				return emitGuardedResult(fmt.Sprintf("delete dashboard %q (%s)", title, id), false, true)
-			}
-			fmt.Printf("Deleted dashboard %q (%s).\n", title, id)
-			return nil
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")

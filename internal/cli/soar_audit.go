@@ -142,40 +142,24 @@ func newNotificationsCloseCmd() *cobra.Command {
 			if !all && id <= 0 {
 				return fmt.Errorf("pass --id <notification-id> or --all")
 			}
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
-			}
 			var label string
 			if all {
 				label = "notifications close-all"
 			} else {
 				label = "notification close " + strconv.Itoa(id)
 			}
-			dr, ay := soarGuard(label, dryRun, yes)
-			if all {
-				fmt.Fprintln(os.Stdout, "Close ALL notifications")
-			} else {
-				fmt.Fprintf(os.Stdout, "Close notification %d\n", id)
-			}
-			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
-				return nil
-			}
-			if !ay {
-				fmt.Fprintln(os.Stdout, "Refused. Pass --yes.")
-				return nil
-			}
-			if all {
-				_, err = lc.NotificationCloseAll(baseContext())
-			} else {
-				_, err = lc.NotificationCloseUser(baseContext(), id)
-			}
-			if err != nil {
+			return soarGuardedMutation(label, dryRun, yes, func() error {
+				lc, err := newSOARLegacyClient()
+				if err != nil {
+					return err
+				}
+				if all {
+					_, err = lc.NotificationCloseAll(baseContext())
+				} else {
+					_, err = lc.NotificationCloseUser(baseContext(), id)
+				}
 				return err
-			}
-			fmt.Fprintln(os.Stdout, "closed.")
-			return nil
+			})
 		},
 	}
 	f := cmd.Flags()

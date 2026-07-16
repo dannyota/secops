@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,12 +17,13 @@ func newEntitiesAuditCmd() *cobra.Command {
 	var minRisk, limit int
 	cmd := &cobra.Command{
 		Use:   "audit [--min-risk N] [--limit N]",
-		Short: "Read-only: watchlist health + high-risk entities by risk score",
+		Short: "Read-only: cross-reference entity risk scores with watchlist membership",
 		Long: "Audit detection posture: watchlist inventory + health (empty lists,\n" +
-			"default multiplying factors) and the entities at or above the risk\n" +
-			"threshold, with the risk-score distribution. Per-entity watchlist\n" +
-			"membership is not cross-referenced; treat the high-risk list as\n" +
-			"candidates to verify against watchlists.\n\n" +
+			"default multiplying factors), risk-score distribution, and coverage\n" +
+			"gaps — entities at or above the risk threshold that appear on no\n" +
+			"watchlist (membership via watchlists/{id}:listEntities). When the\n" +
+			"instance does not serve entity listing, every high-risk entity is\n" +
+			"reported unchecked and the result says so.\n\n" +
 			"All reads are API-only — no mutations.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -44,6 +46,11 @@ type auditResult struct {
 	GapCount      int              `json:"gapCount"`
 	TotalAudited  int              `json:"totalAudited"`
 	HighRiskCount int              `json:"highRiskCount"`
+	// CrossReferenced reports whether CoverageGaps was filtered by real
+	// watchlist membership; when false, CrossRefNote says why and every
+	// high-risk entity is listed unchecked.
+	CrossReferenced bool   `json:"crossReferenced"`
+	CrossRefNote    string `json:"crossRefNote,omitempty"`
 }
 
 type watchlistSummary struct {
@@ -85,6 +92,9 @@ func runEntitiesAudit(c *chronicle.Client, minRisk, limit int) error {
 		return fmt.Errorf("list watchlists: %w", err)
 	}
 
+	printProgress("watchlist entities", 0, 0)
+	members, memberErr := watchlistMembership(ctx, c, wls)
+
 	printProgress("risk scores", 0, 0)
 	scores, err := c.QueryEntityRiskScores(ctx, "", "riskScore desc", limit)
 	if err != nil {
@@ -93,7 +103,11 @@ func runEntitiesAudit(c *chronicle.Client, minRisk, limit int) error {
 	}
 	clearProgress()
 
-	result := buildAuditResult(wls, scores, minRisk)
+	result := buildAuditResult(wls, scores, minRisk, members)
+	result.CrossReferenced = memberErr == nil
+	if memberErr != nil {
+		result.CrossRefNote = "watchlist membership unavailable (" + memberErr.Error() + ") — high-risk entities listed unchecked"
+	}
 
 	if jsonOut {
 		return emitJSON(result)
@@ -102,7 +116,7 @@ func runEntitiesAudit(c *chronicle.Client, minRisk, limit int) error {
 	return nil
 }
 
-func buildAuditResult(wls []chronicle.Watchlist, scores []chronicle.EntityRiskScore, minRisk int) auditResult {
+func buildAuditResult(wls []chronicle.Watchlist, scores []chronicle.EntityRiskScore, minRisk int, members map[string]bool) auditResult {
 	var r auditResult
 	r.TotalAudited = len(scores)
 
@@ -143,6 +157,9 @@ func buildAuditResult(wls []chronicle.Watchlist, scores []chronicle.EntityRiskSc
 			continue
 		}
 		r.HighRiskCount++
+		if members != nil && members[strings.ToLower(entityIndicatorLabel(s))] {
+			continue // already on a watchlist — covered, not a gap
+		}
 		r.CoverageGaps = append(r.CoverageGaps, coverageGap{
 			Entity:     entityIndicatorLabel(s),
 			EntityType: entityTypeFromScore(s),
@@ -189,6 +206,64 @@ func entityIndicatorLabel(s chronicle.EntityRiskScore) string {
 	return s.EntityID
 }
 
+// watchlistMembership fetches every watchlist's entities and collects their
+// indicator strings (normalized lowercase) so risk-scored entities can be
+// checked for membership. The first listEntities failure aborts the
+// cross-reference and is returned — the audit then reports high-risk entities
+// unchecked instead of failing outright.
+func watchlistMembership(ctx context.Context, c *chronicle.Client, wls []chronicle.Watchlist) (map[string]bool, error) {
+	members := make(map[string]bool)
+	for _, w := range wls {
+		ents, err := c.ListWatchlistEntities(ctx, w.WatchlistID(), 0)
+		if err != nil {
+			return nil, fmt.Errorf("watchlist %s: %w", w.DisplayName, err)
+		}
+		for _, e := range ents {
+			for _, ind := range entityIndicatorStrings(e) {
+				members[strings.ToLower(ind)] = true
+			}
+		}
+	}
+	return members, nil
+}
+
+// entityIndicatorStrings collects the scalar strings under a watchlist
+// entity's "entity" subtree — the indicator fields (userid, hostname, ip,
+// email, …) a risk-score row's entityIndicator may carry — without
+// enumerating every UDM noun field.
+func entityIndicatorStrings(raw json.RawMessage) []string {
+	var obj struct {
+		Entity json.RawMessage `json:"entity"`
+	}
+	if json.Unmarshal(raw, &obj) != nil || len(obj.Entity) == 0 {
+		return nil
+	}
+	var node any
+	if json.Unmarshal(obj.Entity, &node) != nil {
+		return nil
+	}
+	var out []string
+	var walk func(v any)
+	walk = func(v any) {
+		switch t := v.(type) {
+		case string:
+			if t != "" {
+				out = append(out, t)
+			}
+		case []any:
+			for _, e := range t {
+				walk(e)
+			}
+		case map[string]any:
+			for _, e := range t {
+				walk(e)
+			}
+		}
+	}
+	walk(node)
+	return out
+}
+
 func printAuditReport(r auditResult) {
 	fmt.Println("=== Entity Risk / Watchlist Audit ===")
 	fmt.Println()
@@ -218,10 +293,21 @@ func printAuditReport(r auditResult) {
 		r.RiskScores.Users, r.RiskScores.Assets)
 
 	fmt.Println()
+	if r.CrossRefNote != "" {
+		fmt.Printf("Note: %s\n", r.CrossRefNote)
+	}
 	if r.GapCount == 0 {
-		fmt.Println("Coverage: no high-risk entities found above the threshold.")
+		if r.CrossReferenced && r.HighRiskCount > 0 {
+			fmt.Printf("Coverage: all %d high-risk entities are already on a watchlist.\n", r.HighRiskCount)
+		} else {
+			fmt.Println("Coverage: no high-risk entities found above the threshold.")
+		}
 	} else {
-		fmt.Printf("High-risk entities above threshold: %d\n", r.GapCount)
+		if r.CrossReferenced {
+			fmt.Printf("Coverage gaps — high-risk entities on no watchlist: %d (of %d high-risk)\n", r.GapCount, r.HighRiskCount)
+		} else {
+			fmt.Printf("High-risk entities above threshold (membership unchecked): %d\n", r.GapCount)
+		}
 		for _, g := range r.CoverageGaps {
 			fmt.Printf("  %-6s %-50s score=%d detections=%d\n",
 				g.EntityType, g.Entity, g.RiskScore, g.Detections)

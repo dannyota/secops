@@ -78,16 +78,16 @@ func newSOARConnectorDefDeleteCmd() *cobra.Command {
 			if !def.Custom {
 				return fmt.Errorf("connector %q (id %s) is a commercial definition, not deletable", def.DisplayName, id)
 			}
-			dr, _ := soarGuard("integration connector delete", dryRun, yes)
-			if dr {
-				fmt.Fprintf(os.Stdout, "DRY RUN — would delete custom connector definition %q (%s/%s)\n", def.DisplayName, integration, id)
+			action := fmt.Sprintf("delete custom connector definition %q (%s/%s)", def.DisplayName, integration, id)
+			return soarGuardedMutation(action, dryRun, yes, func() error {
+				if err := c.DeleteConnectorDef(ctx, integration, id); err != nil {
+					return err
+				}
+				if !jsonOut {
+					fmt.Fprintf(os.Stdout, "deleted custom connector definition %q (%s/%s)\n", def.DisplayName, integration, id)
+				}
 				return nil
-			}
-			if err := c.DeleteConnectorDef(ctx, integration, id); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stdout, "deleted custom connector definition %q (%s/%s)\n", def.DisplayName, integration, id)
-			return nil
+			})
 		},
 	}
 	f := cmd.Flags()

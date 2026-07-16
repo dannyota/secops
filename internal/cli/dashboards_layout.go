@@ -193,100 +193,84 @@ func newDashboardsLayoutMoveCmd() *cobra.Command {
 			}
 
 			target := fmt.Sprintf("move widget %s in dashboard %s (%s)", widgetID, id, joinComma(changes))
-			dr, ay := soarGuard(target, dryRun, yes)
-			if dr {
-				if jsonOut {
-					return emitGuardedResult(target, true, false)
-				}
-				fmt.Printf("DRY RUN — would move widget %s in dashboard %s: %s. Re-run with --yes.\n",
-					widgetID, id, joinComma(changes))
-				return nil
-			}
-			if !ay {
-				if jsonOut {
-					return emitGuardedResult(target, false, false)
-				}
-				fmt.Println("Refusing to move without confirmation (pass --yes). Aborted.")
-				return nil
-			}
-
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-			ctx := baseContext()
-
-			full, err := c.GetDashboard(ctx, id, true)
-			if err != nil {
-				return err
-			}
-			var def struct {
-				Definition struct {
-					Charts []json.RawMessage `json:"charts"`
-				} `json:"definition"`
-			}
-			if err := json.Unmarshal(full.Raw, &def); err != nil {
-				return err
-			}
-
-			want := lastSegment(widgetID)
-			found := false
-			for i, raw := range def.Definition.Charts {
-				ref := nestedString(raw, "dashboardChart")
-				if ref == "" || lastSegment(ref) != want {
-					continue
-				}
-				var m map[string]json.RawMessage
-				if err := json.Unmarshal(raw, &m); err != nil {
-					return err
-				}
-				var cur struct {
-					StartX int `json:"startX"`
-					StartY int `json:"startY"`
-					SpanX  int `json:"spanX"`
-					SpanY  int `json:"spanY"`
-				}
-				if layRaw, ok := m["chartLayout"]; ok {
-					_ = json.Unmarshal(layRaw, &cur)
-				}
-				if setX {
-					cur.StartX = x
-				}
-				if setY {
-					cur.StartY = y
-				}
-				if setSpanX {
-					cur.SpanX = spanX
-				}
-				if setSpanY {
-					cur.SpanY = spanY
-				}
-				nb, err := json.Marshal(cur)
+			return guardedSIEMMutation(target, dryRun, yes, func() error {
+				c, err := newChronicleClient()
 				if err != nil {
 					return err
 				}
-				m["chartLayout"] = nb
-				rewritten, err := json.Marshal(m)
+				ctx := baseContext()
+
+				full, err := c.GetDashboard(ctx, id, true)
 				if err != nil {
 					return err
 				}
-				def.Definition.Charts[i] = rewritten
-				found = true
-				break
-			}
-			if !found {
-				return fmt.Errorf("widget %s not found on dashboard %s", widgetID, id)
-			}
+				var def struct {
+					Definition struct {
+						Charts []json.RawMessage `json:"charts"`
+					} `json:"definition"`
+				}
+				if err := json.Unmarshal(full.Raw, &def); err != nil {
+					return err
+				}
 
-			if _, err := c.UpdateDashboard(ctx, id, chronicle.DashboardUpdate{Charts: def.Definition.Charts}); err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitGuardedResult(target, false, true)
-			}
-			fmt.Printf("Moved widget %s in dashboard %s: %s. Re-pull to mirror it locally.\n",
-				widgetID, id, joinComma(changes))
-			return nil
+				want := lastSegment(widgetID)
+				found := false
+				for i, raw := range def.Definition.Charts {
+					ref := nestedString(raw, "dashboardChart")
+					if ref == "" || lastSegment(ref) != want {
+						continue
+					}
+					var m map[string]json.RawMessage
+					if err := json.Unmarshal(raw, &m); err != nil {
+						return err
+					}
+					var cur struct {
+						StartX int `json:"startX"`
+						StartY int `json:"startY"`
+						SpanX  int `json:"spanX"`
+						SpanY  int `json:"spanY"`
+					}
+					if layRaw, ok := m["chartLayout"]; ok {
+						_ = json.Unmarshal(layRaw, &cur)
+					}
+					if setX {
+						cur.StartX = x
+					}
+					if setY {
+						cur.StartY = y
+					}
+					if setSpanX {
+						cur.SpanX = spanX
+					}
+					if setSpanY {
+						cur.SpanY = spanY
+					}
+					nb, err := json.Marshal(cur)
+					if err != nil {
+						return err
+					}
+					m["chartLayout"] = nb
+					rewritten, err := json.Marshal(m)
+					if err != nil {
+						return err
+					}
+					def.Definition.Charts[i] = rewritten
+					found = true
+					break
+				}
+				if !found {
+					return fmt.Errorf("widget %s not found on dashboard %s", widgetID, id)
+				}
+
+				if _, err := c.UpdateDashboard(ctx, id, chronicle.DashboardUpdate{Charts: def.Definition.Charts}); err != nil {
+					return err
+				}
+				if !jsonOut {
+					fmt.Printf("Moved widget %s in dashboard %s: %s. Re-pull to mirror it locally.\n",
+						widgetID, id, joinComma(changes))
+				}
+				return nil
+			})
 		},
 	}
 	cmd.Flags().StringVar(&widgetID, "widget-id", "", "id of the widget to move (required)")

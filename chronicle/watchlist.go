@@ -79,6 +79,37 @@ func (c *Client) ListWatchlists(ctx context.Context, pageSize int) ([]Watchlist,
 	return all, err
 }
 
+// ListWatchlistEntities returns every entity in a watchlist (GET
+// watchlists/{id}:listEntities). Entities are freeform UDM entity objects, so
+// they are returned raw. pageSize <= 0 lets the server choose (the endpoint
+// caps a page at 10000); pagination is handled transparently.
+func (c *Client) ListWatchlistEntities(ctx context.Context, id string, pageSize int) ([]json.RawMessage, error) {
+	var all []json.RawMessage
+	err := paginate(50, func(token string) (string, error) {
+		q := url.Values{}
+		if pageSize > 0 {
+			q.Set("pageSize", strconv.Itoa(pageSize))
+		}
+		if token != "" {
+			q.Set("pageToken", token)
+		}
+		var resp struct {
+			Entities      []json.RawMessage `json:"entities"`
+			NextPageToken string            `json:"nextPageToken"`
+		}
+		opts := []requestOption{withVersion(watchlistsAPIVersion)}
+		if len(q) > 0 {
+			opts = append(opts, withQuery(q))
+		}
+		if err := c.get(ctx, c.resourcePath("watchlists/"+url.PathEscape(id)+":listEntities", false), &resp, opts...); err != nil {
+			return "", err
+		}
+		all = append(all, resp.Entities...)
+		return resp.NextPageToken, nil
+	})
+	return all, err
+}
+
 // GetWatchlist fetches a single watchlist by ID (the trailing segment of its
 // resource name).
 func (c *Client) GetWatchlist(ctx context.Context, id string) (*Watchlist, error) {

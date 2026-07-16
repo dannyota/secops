@@ -186,43 +186,38 @@ func newSimCreateCmd() *cobra.Command {
 				body["additionalAlertFields"] = alKVs
 			}
 			label := fmt.Sprintf("simulation create %q", alertName)
-			dr, ay := soarGuard(label, dryRun, yes)
-			fmt.Fprintf(os.Stdout, "Simulation: %s (rule %s, source %s, product %s, event %s)\n",
-				alertName, ruleName, alertSource, alertProduct, eventName)
-			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
-				return nil
-			}
-			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to create without confirmation (pass --yes). Aborted.")
-				return nil
-			}
-			return preferModern("soar case simulation create",
-				func() error {
-					mc, err := newSOARClient()
-					if err != nil {
-						return err
-					}
-					_, err = mc.CreateSimulatedCustomCase(baseContext(), body)
-					if err != nil {
-						return err
-					}
-					fmt.Fprintf(os.Stdout, "created simulation %q\n", alertName)
-					return nil
-				},
-				func() error {
-					lc, err := newSOARLegacyClient()
-					if err != nil {
-						return err
-					}
-					_, err = lc.AttackSimCreateSimulatedCustomCase(baseContext(), body)
-					if err != nil {
-						return err
-					}
-					fmt.Fprintf(os.Stdout, "created simulation %q\n", alertName)
-					return nil
-				},
-			)
+			return soarGuardedMutation(label, dryRun, yes, func() error {
+				return preferModern("soar case simulation create",
+					func() error {
+						mc, err := newSOARClient()
+						if err != nil {
+							return err
+						}
+						_, err = mc.CreateSimulatedCustomCase(baseContext(), body)
+						if err != nil {
+							return err
+						}
+						if !jsonOut {
+							fmt.Fprintf(os.Stdout, "created simulation %q\n", alertName)
+						}
+						return nil
+					},
+					func() error {
+						lc, err := newSOARLegacyClient()
+						if err != nil {
+							return err
+						}
+						_, err = lc.AttackSimCreateSimulatedCustomCase(baseContext(), body)
+						if err != nil {
+							return err
+						}
+						if !jsonOut {
+							fmt.Fprintf(os.Stdout, "created simulation %q\n", alertName)
+						}
+						return nil
+					},
+				)
+			})
 		},
 	}
 	f := cmd.Flags()
@@ -348,42 +343,38 @@ func newSimAlertCmd() *cobra.Command {
 				body["environment"] = env
 			}
 			label := fmt.Sprintf("simulation alert on case %d", caseID)
-			dr, ay := soarGuard(label, dryRun, yes)
-			fmt.Fprintf(os.Stdout, "Simulate alert on case %d (alert %s)\n", caseID, truncate(alert, 60))
-			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
-				return nil
-			}
-			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to simulate without confirmation (pass --yes). Aborted.")
-				return nil
-			}
-			return preferModern("soar case simulation alert",
-				func() error {
-					mc, err := newSOARClient()
-					if err != nil {
-						return err
-					}
-					_, err = mc.SimulateAlert(baseContext(), body)
-					if err != nil {
-						return err
-					}
-					fmt.Fprintln(os.Stdout, "alert simulated.")
-					return nil
-				},
-				func() error {
-					lc, err := newSOARLegacyClient()
-					if err != nil {
-						return err
-					}
-					_, err = lc.AttackSimSimulateAlert(baseContext(), body)
-					if err != nil {
-						return err
-					}
-					fmt.Fprintln(os.Stdout, "alert simulated.")
-					return nil
-				},
-			)
+			return soarGuardedMutation(label, dryRun, yes, func() error {
+				return preferModern("soar case simulation alert",
+					func() error {
+						mc, err := newSOARClient()
+						if err != nil {
+							return err
+						}
+						_, err = mc.SimulateAlert(baseContext(), body)
+						if err != nil {
+							return err
+						}
+						if !jsonOut {
+							fmt.Fprintln(os.Stdout, "alert simulated.")
+						}
+						return nil
+					},
+					func() error {
+						lc, err := newSOARLegacyClient()
+						if err != nil {
+							return err
+						}
+						_, err = lc.AttackSimSimulateAlert(baseContext(), body)
+						if err != nil {
+							return err
+						}
+						if !jsonOut {
+							fmt.Fprintln(os.Stdout, "alert simulated.")
+						}
+						return nil
+					},
+				)
+			})
 		},
 	}
 	f := cmd.Flags()
@@ -433,42 +424,38 @@ func newSimDeleteCmd() *cobra.Command {
 				"kinds":       []any{},
 			}
 			label := fmt.Sprintf("simulation delete %q", name)
-			dr, ay := soarGuard(label, dryRun, yes)
-			fmt.Fprintf(os.Stdout, "Delete simulation: %s\n", name)
-			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
-				return nil
-			}
-			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to delete without confirmation (pass --yes). Aborted.")
-				return nil
-			}
-			return preferModern("soar case simulation delete",
-				func() error {
-					mc, err := newSOARClient()
-					if err != nil {
-						return err
-					}
-					_, err = mc.DeleteUseCase(baseContext(), body)
-					if err != nil {
-						return err
-					}
-					fmt.Fprintf(os.Stdout, "deleted simulation %q\n", name)
-					return nil
-				},
-				func() error {
-					lc, err := newSOARLegacyClient()
-					if err != nil {
-						return err
-					}
-					_, err = lc.AttackSimDeleteUseCase(baseContext(), body)
-					if err != nil {
-						return err
-					}
-					fmt.Fprintf(os.Stdout, "deleted simulation %q\n", name)
-					return nil
-				},
-			)
+			return soarGuardedMutation(label, dryRun, yes, func() error {
+				return preferModern("soar case simulation delete",
+					func() error {
+						mc, err := newSOARClient()
+						if err != nil {
+							return err
+						}
+						_, err = mc.DeleteUseCase(baseContext(), body)
+						if err != nil {
+							return err
+						}
+						if !jsonOut {
+							fmt.Fprintf(os.Stdout, "deleted simulation %q\n", name)
+						}
+						return nil
+					},
+					func() error {
+						lc, err := newSOARLegacyClient()
+						if err != nil {
+							return err
+						}
+						_, err = lc.AttackSimDeleteUseCase(baseContext(), body)
+						if err != nil {
+							return err
+						}
+						if !jsonOut {
+							fmt.Fprintf(os.Stdout, "deleted simulation %q\n", name)
+						}
+						return nil
+					},
+				)
+			})
 		},
 	}
 	f := cmd.Flags()

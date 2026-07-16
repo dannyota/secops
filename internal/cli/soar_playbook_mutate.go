@@ -263,37 +263,31 @@ func newSOARPlaybookDeployCmd() *cobra.Command {
 			}
 
 			action := fmt.Sprintf("playbook deploy %s → %s", pbName, toggle)
-			dr, ay := soarGuard(action, dryRun, yes)
-			fmt.Fprintf(os.Stdout, "Playbook: %q (%s)\n", pbName, identifier)
-			fmt.Fprintf(os.Stdout, "  isEnabled: %v → %v (mints a new version)\n", currentEnabled, wantEnabled)
-			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
-				return nil
-			}
-			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to deploy without confirmation (pass --yes). Aborted.")
-				return nil
+			if !jsonOut {
+				fmt.Fprintf(os.Stdout, "Playbook: %q (%s)\n", pbName, identifier)
+				fmt.Fprintf(os.Stdout, "  isEnabled: %v → %v (mints a new version)\n", currentEnabled, wantEnabled)
 			}
 
-			def["isEnabled"] = wantEnabled
-			deployed := false
-			if !forceLegacy {
-				mc, merr := newSOARClient()
-				if merr == nil {
-					if _, merr = mc.SaveWorkflowDefinitions(ctx, def); merr == nil {
-						deployed = true
-					} else if !isEnumTypeMismatch(merr) {
-						fmt.Fprintf(os.Stderr, "playbooks deploy: modern v1alpha path failed (%v) — falling back to legacy\n", merr)
+			return soarGuardedMutation(action, dryRun, yes, func() error {
+				def["isEnabled"] = wantEnabled
+				deployed := false
+				if !forceLegacy {
+					mc, merr := newSOARClient()
+					if merr == nil {
+						if _, merr = mc.SaveWorkflowDefinitions(ctx, def); merr == nil {
+							deployed = true
+						} else if !isEnumTypeMismatch(merr) {
+							fmt.Fprintf(os.Stderr, "playbooks deploy: modern v1alpha path failed (%v) — falling back to legacy\n", merr)
+						}
 					}
 				}
-			}
-			if !deployed {
-				if _, lerr := lc.SaveWorkflowDefinitions(ctx, def); lerr != nil {
-					return wrapPlaybookSaveError(lerr)
+				if !deployed {
+					if _, lerr := lc.SaveWorkflowDefinitions(ctx, def); lerr != nil {
+						return wrapPlaybookSaveError(lerr)
+					}
 				}
-			}
-			fmt.Fprintf(os.Stdout, "playbook %q %sd.\n", pbName, toggle)
-			return nil
+				return nil
+			})
 		},
 	}
 	f := cmd.Flags()

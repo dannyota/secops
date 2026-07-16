@@ -273,26 +273,19 @@ func newAuthoringDeleteCmd(kind string) *cobra.Command {
 		Short: "MUTATING (guarded): delete a custom " + kind + " definition by numeric id",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			c, err := newSOARClient()
-			if err != nil {
+			action := fmt.Sprintf("delete %s definition %s from integration %s — irreversible; playbooks referencing it break (check `components usage` first)", kind, id, integration)
+			return soarGuardedMutation(action, dryRun, yes, func() error {
+				c, err := newSOARClient()
+				if err != nil {
+					return err
+				}
+				if kind == "action" {
+					err = c.DeleteActionDef(baseContext(), integration, id)
+				} else {
+					err = c.DeleteJobDef(baseContext(), integration, id)
+				}
 				return err
-			}
-			action := fmt.Sprintf("delete %s definition %s from integration %s", kind, id, integration)
-			dr, ay := soarGuard(action, dryRun, yes)
-			if dr || !ay {
-				fmt.Fprintf(os.Stdout, "DRY RUN — would %s — irreversible; playbooks referencing it break (check `components usage` first).\n", action)
-				return nil
-			}
-			if kind == "action" {
-				err = c.DeleteActionDef(baseContext(), integration, id)
-			} else {
-				err = c.DeleteJobDef(baseContext(), integration, id)
-			}
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stdout, "deleted %s definition %s.\n", kind, id)
-			return nil
+			})
 		},
 	}
 	f := cmd.Flags()

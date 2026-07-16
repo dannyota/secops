@@ -245,26 +245,9 @@ func daDeleteCmd(kind string, fn func(string) error) *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			id := args[0]
 			target := fmt.Sprintf("delete data-access %s %q", kind, id)
-			dr, ay := soarGuard(target, dryRun, yes)
-			if dr {
-				if jsonOut {
-					return emitGuardedResult(target, true, false)
-				}
-				fmt.Printf("DRY RUN — would delete %s %q. Re-run with --yes.\n", kind, id)
-				return nil
-			}
-			if !ay {
-				if jsonOut {
-					return emitGuardedResult(target, false, false)
-				}
-				fmt.Println("Refusing to delete without confirmation (pass --yes). Aborted.")
-				return nil
-			}
-			if err := fn(id); err != nil {
-				return err
-			}
-			fmt.Printf("Deleted data-access %s %q.\n", kind, id)
-			return nil
+			return guardedSIEMMutation(target, dryRun, yes, func() error {
+				return fn(id)
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview only (default behavior)")

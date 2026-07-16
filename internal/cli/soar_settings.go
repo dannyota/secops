@@ -126,16 +126,29 @@ func newSOARAPIKeyCreateCmd() *cobra.Command {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
-			lc, err := newSOARLegacyClient()
-			if err != nil {
-				return err
-			}
+			// Payload-emitting: the minted AppKey is shown exactly once and can
+			// never be retrieved again, so both output modes must carry it —
+			// the standard guard envelope (which owns --json stdout) cannot.
 			action := fmt.Sprintf("create API key %q (permission group %d)", name, permissionGroup)
 			dr, ay := soarGuard(action, dryRun, yes)
-			if dr || !ay {
+			if dr {
+				if jsonOut {
+					return emitGuardedResult(action, true, false)
+				}
 				fmt.Fprintf(os.Stdout, "DRY RUN — would %s, environments %s; a fresh secret is minted locally and printed once on apply.\n",
 					action, strings.Join(environments, ","))
 				return nil
+			}
+			if !ay {
+				if jsonOut {
+					return emitGuardedResult(action, false, false)
+				}
+				fmt.Fprintf(os.Stdout, "Refusing to %s without confirmation (pass --yes). Aborted.\n", action)
+				return nil
+			}
+			lc, err := newSOARLegacyClient()
+			if err != nil {
+				return err
 			}
 			secret, err := newRandomUUID()
 			if err != nil {
@@ -143,6 +156,13 @@ func newSOARAPIKeyCreateCmd() *cobra.Command {
 			}
 			if err := lc.CreateAPIKey(baseContext(), name, secret, permissionGroup, socRole, environments); err != nil {
 				return err
+			}
+			if jsonOut {
+				return emitJSON(map[string]string{
+					"name":    name,
+					"app_key": secret,
+					"note":    "shown once — cannot be retrieved again; store it in a secret manager now",
+				})
 			}
 			fmt.Fprintf(os.Stdout, "created API key %q.\n\n  AppKey: %s\n\nThis value is shown ONCE and cannot be retrieved again — store it in a secret manager now.\n", name, secret)
 			return nil
@@ -193,17 +213,10 @@ func newSOARAPIKeyRevokeCmd() *cobra.Command {
 			if match == nil {
 				return fmt.Errorf("no API key matches (see `api-keys list`)")
 			}
-			action := fmt.Sprintf("revoke API key id %d %q", match.ID, match.Name)
-			dr, ay := soarGuard(action, dryRun, yes)
-			if dr || !ay {
-				fmt.Fprintf(os.Stdout, "DRY RUN — would %s — any client using it loses access immediately.\n", action)
-				return nil
-			}
-			if err := lc.RevokeAPIKey(baseContext(), *match); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stdout, "revoked API key id %d %q.\n", match.ID, match.Name)
-			return nil
+			action := fmt.Sprintf("revoke API key id %d %q — any client using it loses access immediately", match.ID, match.Name)
+			return soarGuardedMutation(action, dryRun, yes, func() error {
+				return lc.RevokeAPIKey(baseContext(), *match)
+			})
 		},
 	}
 	f := cmd.Flags()

@@ -135,31 +135,25 @@ func newSOARIntegrationConfigureCmd() *cobra.Command {
 				return fmt.Errorf("no --param values matched any settings on instance %s (available properties are shown by `soar legacy call integrations/GetIntegrationInstanceSettings/%s --read`)", instanceID, instanceID)
 			}
 
-			dr, ay := soarGuard("integration configure "+integration, dryRun, yes)
-			fmt.Fprintf(os.Stdout, "Instance: %s (integration %s, environment %s)\n", instanceID, integration, env)
-			fmt.Fprintf(os.Stdout, "Setting %d parameter(s):", len(matchedKeys))
-			for k := range matchedKeys {
-				fmt.Fprintf(os.Stdout, " %s", k)
-			}
-			fmt.Fprintln(os.Stdout)
-			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
-				return nil
-			}
-			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to configure without confirmation (pass --yes). Aborted.")
-				return nil
+			if !jsonOut {
+				fmt.Fprintf(os.Stdout, "Instance: %s (integration %s, environment %s)\n", instanceID, integration, env)
+				fmt.Fprintf(os.Stdout, "Setting %d parameter(s):", len(matchedKeys))
+				for k := range matchedKeys {
+					fmt.Fprintf(os.Stdout, " %s", k)
+				}
+				fmt.Fprintln(os.Stdout)
 			}
 
-			saveBody := map[string]any{
-				"instanceIdentifier": instanceID,
-				"settings":           settings,
-			}
-			if _, serr := lc.SaveStoreIntegrationConfigurationProperties(ctx, saveBody); serr != nil {
-				return serr
-			}
-			fmt.Fprintln(os.Stdout, "configuration saved.")
-			return nil
+			return soarGuardedMutation("integration configure "+integration, dryRun, yes, func() error {
+				saveBody := map[string]any{
+					"instanceIdentifier": instanceID,
+					"settings":           settings,
+				}
+				if _, serr := lc.SaveStoreIntegrationConfigurationProperties(ctx, saveBody); serr != nil {
+					return serr
+				}
+				return nil
+			})
 		},
 	}
 	f := cmd.Flags()

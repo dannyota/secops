@@ -221,27 +221,24 @@ func newCaseContextSetCmd() *cobra.Command {
 				return fmt.Errorf("--key is required")
 			}
 			label := fmt.Sprintf("case %d context set %s", caseID, key)
-			dr, ay := soarGuard(label, dryRun, yes)
-			fmt.Fprintf(os.Stdout, "Case: %d\nKey: %s\nValue: %s\n", caseID, key, value)
-			if dr {
-				fmt.Fprintln(os.Stdout, "DRY RUN — no API call made. Re-run with --yes to apply.")
+			if !jsonOut {
+				fmt.Fprintf(os.Stdout, "Case: %d\nKey: %s\nValue: %s\n", caseID, key, value)
+			}
+			return soarGuardedMutation(label, dryRun, yes, func() error {
+				mc, err := newSOARClient()
+				if err != nil {
+					return err
+				}
+				body := map[string]any{"key": key, "value": value}
+				_, err = mc.SetContextProperty(baseContext(), caseID, body)
+				if err != nil {
+					return err
+				}
+				if !jsonOut {
+					fmt.Fprintf(os.Stdout, "context property %q set on case %d.\n", key, caseID)
+				}
 				return nil
-			}
-			if !ay {
-				fmt.Fprintln(os.Stdout, "Refusing to set without confirmation (pass --yes). Aborted.")
-				return nil
-			}
-			mc, err := newSOARClient()
-			if err != nil {
-				return err
-			}
-			body := map[string]any{"key": key, "value": value}
-			_, err = mc.SetContextProperty(baseContext(), caseID, body)
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stdout, "context property %q set on case %d.\n", key, caseID)
-			return nil
+			})
 		},
 	}
 	f := cmd.Flags()

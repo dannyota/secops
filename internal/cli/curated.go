@@ -299,14 +299,26 @@ func printCuratedBlastRadius(ctx context.Context, c *chronicle.Client, category,
 
 // guardedSIEMMutation runs a live SIEM mutation behind the standard guard: a LIVE
 // banner + the action, dry-run by default, --yes (or an interactive confirm) to
-// apply. Mirrors the SOAR `soar case` guard for the SIEM side. In read-only mode
-// every mutation degrades to a dry run; confirmed mutations are audit-logged
-// (the decision core is the shared deriveGuard).
+// apply. In read-only mode every mutation degrades to a dry run; confirmed
+// mutations are audit-logged (the decision core is the shared deriveGuard).
 func guardedSIEMMutation(action string, dryRunFlag, yesFlag bool, do func() error) error {
+	return guardedMutation("SIEM", action, dryRunFlag, yesFlag, do)
+}
+
+// soarGuardedMutation is the SOAR twin of guardedSIEMMutation — the standard
+// guard envelope for SOAR-plane mutations whose success needs no payload
+// output (commands that must print an API response keep their own flow, e.g.
+// caseAction with its request preview).
+func soarGuardedMutation(action string, dryRunFlag, yesFlag bool, do func() error) error {
+	return guardedMutation("SOAR", action, dryRunFlag, yesFlag, do)
+}
+
+// guardedMutation is the shared guard envelope: LIVE banner naming the plane +
+// action, dry-run by default, --yes to apply, "Done" on success. In --json
+// mode it emits a single structured result instead of the human banner so
+// stdout stays valid JSON — do() must not print to stdout in that mode.
+func guardedMutation(plane, action string, dryRunFlag, yesFlag bool, do func() error) error {
 	dryRun, assumeYes := deriveGuard(action, dryRunFlag, yesFlag)
-	// In --json mode, emit a single structured result instead of the human banner
-	// so stdout stays valid JSON (confirmPush already declines to prompt under
-	// --json). Callers' do() must not print to stdout in this mode.
 	if jsonOut {
 		switch {
 		case dryRun:
@@ -323,7 +335,7 @@ func guardedSIEMMutation(action string, dryRunFlag, yesFlag bool, do func() erro
 	w := os.Stdout
 	bar := strings.Repeat("!", 72)
 	fmt.Fprintln(w, bar)
-	fmt.Fprintln(w, "!! LIVE SIEM change against a PRODUCTION tenant !!")
+	fmt.Fprintf(w, "!! LIVE %s change against a PRODUCTION tenant !!\n", plane)
 	fmt.Fprintf(w, "!! Action: %s\n", action)
 	fmt.Fprintln(w, bar)
 	if dryRun {

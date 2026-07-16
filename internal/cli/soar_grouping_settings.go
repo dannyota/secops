@@ -150,24 +150,15 @@ func newGroupingSettingsSetCmd() *cobra.Command {
 				}
 				return nil
 			}
-			dr, ay := soarGuard(action, dryRun, yes)
-			if dr || !ay {
-				if jsonOut {
-					return emitGuardedResult(action, dr, false)
+			return soarGuardedMutation(action, dryRun, yes, func() error {
+				if _, err = c.BatchUpdateModuleSettingProperties(ctx, groupingModuleSettings, changed); err != nil {
+					return err
 				}
-				if dr {
-					fmt.Fprintln(os.Stdout, "DRY RUN — no changes applied. Re-run with --yes to apply.")
+				if !jsonOut {
+					fmt.Fprintf(os.Stdout, "(%d propert(ies))\n", len(changed))
 				}
 				return nil
-			}
-			if _, err = c.BatchUpdateModuleSettingProperties(ctx, groupingModuleSettings, changed); err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitGuardedResult(action, false, true)
-			}
-			fmt.Fprintf(os.Stdout, "Done: %s (%d propert(ies)).\n", action, len(changed))
-			return nil
+			})
 		},
 	}
 	f := cmd.Flags()

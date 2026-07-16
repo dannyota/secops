@@ -207,37 +207,14 @@ func newSOARJobRevisionDeleteCmd() *cobra.Command {
 		Short: "MUTATING (guarded): delete a job definition revision",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			sc, err := newSOARClient()
-			if err != nil {
-				return err
-			}
-
 			action := fmt.Sprintf("delete revision %s of job %s/%s", revision, integration, job)
-			dr, ay := soarGuard(action, dryRun, yes)
-			if !jsonOut {
-				fmt.Fprintf(os.Stdout, "Deleting revision %s of job %s (integration %s)\n", revision, job, integration)
-			}
-			if dr {
-				if !jsonOut {
-					fmt.Fprintln(os.Stdout, "\nDRY RUN — no mutation sent. Re-run with --yes to apply.")
+			return soarGuardedMutation(action, dryRun, yes, func() error {
+				sc, err := newSOARClient()
+				if err != nil {
+					return err
 				}
-				return emitGuardedResult(action, dr, false)
-			}
-			if !ay {
-				if !jsonOut {
-					fmt.Fprintln(os.Stdout, "\nRefusing to delete without confirmation (pass --yes). Aborted.")
-				}
-				return emitGuardedResult(action, dr, false)
-			}
-
-			if err := sc.DeleteJobRevision(baseContext(), integration, job, revision); err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitGuardedResult(action, dr, true)
-			}
-			fmt.Fprintln(os.Stdout, "Done. Revision deleted.")
-			return nil
+				return sc.DeleteJobRevision(baseContext(), integration, job, revision)
+			})
 		},
 	}
 	f := cmd.Flags()

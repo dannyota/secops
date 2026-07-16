@@ -194,90 +194,73 @@ func newDashboardsButtonEditCmd() *cobra.Command {
 			}
 
 			target := fmt.Sprintf("edit button %s in dashboard %s", chartID, id)
-			dr, ay := soarGuard(target, dryRun, yes)
-			if dr {
-				if jsonOut {
-					return emitGuardedResult(target, true, false)
+			return guardedSIEMMutation(target, dryRun, yes, func() error {
+				c, err := newChronicleClient()
+				if err != nil {
+					return err
 				}
-				fmt.Printf("DRY RUN — would edit button %s in dashboard %s. Re-run with --yes.\n", chartID, id)
-				return nil
-			}
-			if !ay {
-				if jsonOut {
-					return emitGuardedResult(target, false, false)
-				}
-				fmt.Println("Refusing to edit button without confirmation (pass --yes). Aborted.")
-				return nil
-			}
+				ctx := baseContext()
 
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-			ctx := baseContext()
-
-			chart, gerr := c.GetChart(ctx, chartID)
-			if gerr != nil {
-				return gerr
-			}
-			curLabel := nestedString(chart, "visualization", "button", "label")
-			curURL := nestedString(chart, "visualization", "button", "hyperlink")
-			curDesc := nestedString(chart, "visualization", "button", "description")
-			curColor := nestedString(chart, "visualization", "button", "properties", "color")
-			curStyle := nestedString(chart, "visualization", "button", "properties", "buttonStyle")
-			var curNewTab bool
-			if v := extractRaw(extractRaw(chart, "visualization"), "button"); len(v) > 0 {
-				var b struct {
-					NewTab bool `json:"newTab"`
+				chart, gerr := c.GetChart(ctx, chartID)
+				if gerr != nil {
+					return gerr
 				}
-				_ = json.Unmarshal(v, &b)
-				curNewTab = b.NewTab
-			}
-			if hasLabel {
-				curLabel = label
-			}
-			if hasURL {
-				curURL = url
-			}
-			if hasDesc {
-				curDesc = description
-			}
-			if hasNewTab {
-				curNewTab = newTab
-			}
-			if hasColor {
-				curColor = color
-			}
-			if hasStyle {
-				curStyle = style
-			}
-			curLayout, lerr := currentChartLayout(ctx, c, id, chartID)
-			if lerr != nil {
-				return lerr
-			}
-			origLayout := curLayout
-			if layRaw != nil {
-				curLayout = layRaw
-			}
-			if _, rerr := c.RemoveChart(ctx, id, chartID); rerr != nil {
-				return rerr
-			}
-			resp, aerr := c.AddChart(ctx, id, chronicle.AddChartInput{
-				DisplayName:   nestedString(chart, "displayName"),
-				TileType:      chronicle.TileTypeButton,
-				ChartLayout:   curLayout,
-				Visualization: buttonVisualization(curLabel, curURL, curDesc, curColor, curStyle, curNewTab),
+				curLabel := nestedString(chart, "visualization", "button", "label")
+				curURL := nestedString(chart, "visualization", "button", "hyperlink")
+				curDesc := nestedString(chart, "visualization", "button", "description")
+				curColor := nestedString(chart, "visualization", "button", "properties", "color")
+				curStyle := nestedString(chart, "visualization", "button", "properties", "buttonStyle")
+				var curNewTab bool
+				if v := extractRaw(extractRaw(chart, "visualization"), "button"); len(v) > 0 {
+					var b struct {
+						NewTab bool `json:"newTab"`
+					}
+					_ = json.Unmarshal(v, &b)
+					curNewTab = b.NewTab
+				}
+				if hasLabel {
+					curLabel = label
+				}
+				if hasURL {
+					curURL = url
+				}
+				if hasDesc {
+					curDesc = description
+				}
+				if hasNewTab {
+					curNewTab = newTab
+				}
+				if hasColor {
+					curColor = color
+				}
+				if hasStyle {
+					curStyle = style
+				}
+				curLayout, lerr := currentChartLayout(ctx, c, id, chartID)
+				if lerr != nil {
+					return lerr
+				}
+				origLayout := curLayout
+				if layRaw != nil {
+					curLayout = layRaw
+				}
+				if _, rerr := c.RemoveChart(ctx, id, chartID); rerr != nil {
+					return rerr
+				}
+				_, aerr := c.AddChart(ctx, id, chronicle.AddChartInput{
+					DisplayName:   nestedString(chart, "displayName"),
+					TileType:      chronicle.TileTypeButton,
+					ChartLayout:   curLayout,
+					Visualization: buttonVisualization(curLabel, curURL, curDesc, curColor, curStyle, curNewTab),
+				})
+				if aerr != nil {
+					return restoreRemovedChart(ctx, c, id, chart, origLayout, aerr)
+				}
+				if !jsonOut {
+					fmt.Printf("Edited button %s in dashboard %s. Re-pull to mirror it locally.\n", chartID, id)
+				}
+				return nil
 			})
-			if aerr != nil {
-				return restoreRemovedChart(ctx, c, id, chart, origLayout, aerr)
-			}
-			_ = resp
-
-			if jsonOut {
-				return emitGuardedResult(target, false, true)
-			}
-			fmt.Printf("Edited button %s in dashboard %s. Re-pull to mirror it locally.\n", chartID, id)
-			return nil
 		},
 	}
 	cmd.Flags().StringVar(&chartID, "chart-id", "", "id of the button widget to edit (required)")
@@ -305,33 +288,19 @@ func newDashboardsButtonRemoveCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			target := fmt.Sprintf("remove button %s from dashboard %s", chartID, id)
-			dr, ay := soarGuard(target, dryRun, yes)
-			if dr {
-				if jsonOut {
-					return emitGuardedResult(target, true, false)
+			return guardedSIEMMutation(target, dryRun, yes, func() error {
+				c, err := newChronicleClient()
+				if err != nil {
+					return err
 				}
-				fmt.Printf("DRY RUN — would remove button %s from dashboard %s. Re-run with --yes.\n", chartID, id)
-				return nil
-			}
-			if !ay {
-				if jsonOut {
-					return emitGuardedResult(target, false, false)
+				if _, err := c.RemoveChart(baseContext(), id, chartID); err != nil {
+					return err
 				}
-				fmt.Println("Refusing to remove button without confirmation (pass --yes). Aborted.")
+				if !jsonOut {
+					fmt.Printf("Removed button %s from dashboard %s. Re-pull to mirror it locally.\n", chartID, id)
+				}
 				return nil
-			}
-			c, err := newChronicleClient()
-			if err != nil {
-				return err
-			}
-			if _, err := c.RemoveChart(baseContext(), id, chartID); err != nil {
-				return err
-			}
-			if jsonOut {
-				return emitGuardedResult(target, false, true)
-			}
-			fmt.Printf("Removed button %s from dashboard %s. Re-pull to mirror it locally.\n", chartID, id)
-			return nil
+			})
 		},
 	}
 	cmd.Flags().StringVar(&chartID, "chart-id", "", "id of the button widget to remove (required)")
