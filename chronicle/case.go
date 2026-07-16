@@ -116,7 +116,7 @@ func (c *Case) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*c = Case(a)
-	c.Raw = append(c.Raw[:0], b...)
+	c.Raw = append(c.Raw[:0:0], b...)
 	return nil
 }
 

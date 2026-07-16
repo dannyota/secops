@@ -85,7 +85,7 @@ func resolveFeedSecretRef(ctx context.Context, c *chronicle.Client, ref string) 
 		}
 		val, ok := os.LookupEnv(name)
 		if !ok {
-			return "", fmt.Errorf("feeds: env secret_ref variable is not set")
+			return "", fmt.Errorf("feeds: env secret_ref variable %q is not set", name)
 		}
 		return val, nil
 	}
@@ -128,7 +128,7 @@ func accessSecretManager(ctx context.Context, c *chronicle.Client, ref string) (
 		return "", fmt.Errorf("feeds: read Secret Manager response: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("feeds: Secret Manager access failed with HTTP %d", resp.StatusCode)
+		return "", fmt.Errorf("feeds: Secret Manager access failed with HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(data[:min(len(data), 256)])))
 	}
 	var out struct {
 		Payload struct {

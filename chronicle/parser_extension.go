@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"unicode/utf8"
 )
 
 // Parser extensions augment a built-in log-type parser with extra extraction
@@ -129,14 +128,12 @@ func (cfg *ParserExtensionConfig) Validate() error {
 	return nil
 }
 
-// encodeB64 returns s base64-encoded, passing through input that already decodes
-// to valid UTF-8 (matching the wrapper's idempotent-encode behavior).
+// encodeB64 returns s base64-encoded, unconditionally: NewCBNSnippetConfig
+// documents raw input, and an "already base64?" guess mis-handles raw text
+// that happens to decode (see the DEVIATION note on ParserExtensionConfig).
 func encodeB64(s string) string {
 	if s == "" {
 		return ""
-	}
-	if dec, err := base64.StdEncoding.DecodeString(s); err == nil && utf8.Valid(dec) {
-		return s // already base64
 	}
 	return base64.StdEncoding.EncodeToString([]byte(s))
 }

@@ -94,7 +94,7 @@ type LegacySoarPlatformInfo struct {
 // raw bytes (so nothing is lost) yet pull out the one cross-platform id callers
 // actually need — the SOAR caseId — without modeling the rest of the schema.
 func (c *LegacyCase) UnmarshalJSON(data []byte) error {
-	c.Raw = append(c.Raw[:0], data...)
+	c.Raw = append(c.Raw[:0:0], data...)
 	var probe struct {
 		SoarPlatformInfo *LegacySoarPlatformInfo `json:"soarPlatformInfo"`
 	}
@@ -184,7 +184,7 @@ func (c *LegacyCollection) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*c = LegacyCollection(a)
-	c.Raw = append(c.Raw[:0], data...)
+	c.Raw = append(c.Raw[:0:0], data...)
 	return nil
 }
 

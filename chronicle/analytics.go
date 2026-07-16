@@ -19,7 +19,7 @@ import (
 // under envelope key `key` and following nextPageToken (cap 50 pages). version=""
 // rides DefaultAPIVersion; extra carries any additional query params (filter,
 // orderBy, …) merged into each page request.
-func (c *Client) listRawCollection(ctx context.Context, sub, key string, pageSize int, version string, extra url.Values) ([]json.RawMessage, error) {
+func (c *Client) listRawCollection(ctx context.Context, sub, key string, pageSize int, version string, numeric bool, extra url.Values) ([]json.RawMessage, error) {
 	var all []json.RawMessage
 	err := paginate(50, func(token string) (string, error) {
 		q := url.Values{}
@@ -39,7 +39,7 @@ func (c *Client) listRawCollection(ctx context.Context, sub, key string, pageSiz
 			opts = append(opts, withVersion(version))
 		}
 		var env map[string]json.RawMessage
-		if err := c.get(ctx, c.resourcePath(sub, false), &env, opts...); err != nil {
+		if err := c.get(ctx, c.resourcePath(sub, numeric), &env, opts...); err != nil {
 			return "", err
 		}
 		if items, ok := env[key]; ok && len(items) > 0 {
@@ -67,13 +67,13 @@ func (c *Client) listRawCollection(ctx context.Context, sub, key string, pageSiz
 // ListInvestigationSteps returns the Gemini-performed steps of an investigation. Read-only.
 func (c *Client) ListInvestigationSteps(ctx context.Context, investigationID string, pageSize int) ([]json.RawMessage, error) {
 	sub := "investigations/" + url.PathEscape(lastSegment(investigationID)) + "/investigationSteps"
-	return c.listRawCollection(ctx, sub, "investigationSteps", pageSize, "", nil)
+	return c.listRawCollection(ctx, sub, "investigationSteps", pageSize, "", false, nil)
 }
 
 // ListInvestigationComments returns the comments on an investigation. Read-only.
 func (c *Client) ListInvestigationComments(ctx context.Context, investigationID string, pageSize int) ([]json.RawMessage, error) {
 	sub := "investigations/" + url.PathEscape(lastSegment(investigationID)) + "/investigationComments"
-	return c.listRawCollection(ctx, sub, "investigationComments", pageSize, "", nil)
+	return c.listRawCollection(ctx, sub, "investigationComments", pageSize, "", false, nil)
 }
 
 // EntityRiskScore is a per-entity behavioral risk score with detection context.
@@ -132,7 +132,7 @@ func (c *Client) QueryEntityRiskScores(ctx context.Context, filter, orderBy stri
 	if orderBy != "" {
 		extra.Set("orderBy", orderBy)
 	}
-	raw, err := c.listRawCollection(ctx, "entityRiskScores:query", "entityRiskScores", pageSize, "", extra)
+	raw, err := c.listRawCollection(ctx, "entityRiskScores:query", "entityRiskScores", pageSize, "", false, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -161,5 +161,6 @@ func (c *Client) GetBigQueryExport(ctx context.Context) (json.RawMessage, error)
 // combination (raw) — the API-side view of detection/"emerging threats" coverage.
 // Read-only. Pinned v1.
 func (c *Client) ListCoverageDetails(ctx context.Context, pageSize int) ([]json.RawMessage, error) {
-	return c.listRawCollection(ctx, "coverageDetails", "coverageDetails", pageSize, coverageAPIVersion, nil)
+	// coverageDetails wants the project-number form, matching ti.go.
+	return c.listRawCollection(ctx, "coverageDetails", "coverageDetails", pageSize, coverageAPIVersion, true, nil)
 }

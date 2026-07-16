@@ -360,11 +360,23 @@ func decodeRawList(raw json.RawMessage) ([]json.RawMessage, error) {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
+		sawEmpty := false
 		for _, k := range keys {
 			var a []json.RawMessage
-			if json.Unmarshal(obj[k], &a) == nil {
-				return a, nil
+			if json.Unmarshal(obj[k], &a) != nil {
+				continue
 			}
+			// A null or empty field (e.g. "alerts": null) must not shadow a
+			// later key that carries the records; remember it as a valid
+			// empty result in case no key has data.
+			if len(a) == 0 {
+				sawEmpty = true
+				continue
+			}
+			return a, nil
+		}
+		if sawEmpty {
+			return nil, nil
 		}
 	}
 	return nil, fmt.Errorf("response is neither a JSON array nor an object wrapping one")

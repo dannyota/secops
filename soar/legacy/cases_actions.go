@@ -138,7 +138,6 @@ func (c *Client) UnraiseIncident(ctx context.Context, body any) (RawJSON, error)
 	return c.externalPost(ctx, "/cases/UnraiseIncident", body)
 }
 
-// SkipAlert skips an alert.
 // SkipStep skips a pending playbook step (action) so the workflow continues
 // past it — the reject half of the manual/approval flow (POST /cases/Skip).
 // step is the full step-instance object exactly as fetched (the same shape

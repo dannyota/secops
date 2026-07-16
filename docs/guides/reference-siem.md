@@ -59,7 +59,7 @@ Offline or cross-plane helpers — no surface mutation.
 | `status capabilities [--json]` | Session bootstrap in one call: tool version + auth health + surface status + active read-only state. |
 | `status coverage [--limit N]` | MITRE ATT&CK detection coverage (threat-collection × rule) — the platform's coverage-posture view. JSON. |
 | `status surfaces [--json]` | List every API surface family — plane (host + auth), API version, lane (reconcile/imperative/raw/operational), status, and whether `--prune` can delete it. Reads nothing live; the map of reconcilable vs read-only. |
-| `mcp serve` / `mcp install` | MCP server over stdio — auto-generates tools from the command tree + serves tips as resources. `mcp install` registers in `.claude/settings.json`. |
+| `mcp serve` / `mcp install` | MCP server over stdio — auto-generates tools from the command tree + serves tips as resources. `mcp install` registers in the project's `.mcp.json`. |
 | `doctor` | Live smoke test: config + auth + SIEM/SOAR reachability. |
 | `config` (alias `init`) | Set up / edit the config (`~/.secopsctl/instance.yaml`, `0600`). Single-screen form, or flags + `--non-interactive`. `config --show-path` prints the active config file. See [configure](configure.md). |
 | `completion` | Generate the shell autocompletion script. |

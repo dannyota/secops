@@ -279,6 +279,7 @@ var stepTypeNames = map[int64]string{
 	0: "ACTION",
 	1: "CONDITION",
 	2: "PLACEHOLDER",
+	5: "BLOCK",
 }
 
 // coerceStepType converts a numeric "type" field in a step to the string enum
@@ -323,9 +324,11 @@ var requiredStepParams = []struct {
 // parameters the server requires. Parameters already present are never
 // overwritten.
 func backfillStepParams(step map[string]any) {
-	// Only backfill ACTION steps — CONDITION/PLACEHOLDER steps use a different
-	// param set and save fine without these.
-	if t, _ := step["type"].(string); t != "ACTION" && t != "" {
+	// Only backfill ACTION steps — other step kinds use a different param set
+	// and save fine without these. isActionStepType handles both the string
+	// enum and the numeric export form, so numeric non-action types are never
+	// backfilled by mistake.
+	if !isActionStepType(step["type"]) {
 		return
 	}
 

@@ -28,8 +28,8 @@ type ConnectorParameter struct {
 	Value       string `json:"value"`
 	Type        string `json:"type,omitempty"`
 	Mode        string `json:"mode,omitempty"`
-	Mandatory   bool   `json:"mandatory,omitempty"`
-	Advanced    bool   `json:"advanced,omitempty"`
+	Mandatory   bool   `json:"mandatory"`
+	Advanced    bool   `json:"advanced"`
 }
 
 // Key returns the parameter's addressing key: DisplayName when set, else Name.

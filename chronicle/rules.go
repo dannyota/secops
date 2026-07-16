@@ -241,9 +241,9 @@ func (c *Client) ValidateRule(ctx context.Context, text string) (*RuleValidation
 // owning ruleID is the segment between /rules/ and /deployment.
 type RuleDeployment struct {
 	Name           string `json:"name,omitempty"`
-	Enabled        bool   `json:"enabled,omitempty"`
-	Alerting       bool   `json:"alerting,omitempty"`
-	Archived       bool   `json:"archived,omitempty"`
+	Enabled        bool   `json:"enabled"`
+	Alerting       bool   `json:"alerting"`
+	Archived       bool   `json:"archived"`
 	RunFrequency   string `json:"runFrequency,omitempty"`
 	ExecutionState string `json:"executionState,omitempty"`
 }

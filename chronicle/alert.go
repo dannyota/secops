@@ -58,7 +58,7 @@ func (a *Alert) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*a = Alert(v)
-	a.Raw = append(a.Raw[:0], b...)
+	a.Raw = append(a.Raw[:0:0], b...)
 	if a.CreateTime == "" || a.DetectionTime == "" {
 		var alt struct {
 			CreateTime    string `json:"createTime"`
@@ -83,12 +83,12 @@ type AlertFeedback struct {
 	Verdict         string `json:"verdict,omitempty"`
 	Reputation      string `json:"reputation,omitempty"`
 	Reason          string `json:"reason,omitempty"`
-	RiskScore       int    `json:"riskScore,omitempty"`
-	Disregarded     bool   `json:"disregarded,omitempty"`
+	RiskScore       int    `json:"riskScore"`
+	Disregarded     bool   `json:"disregarded"`
 	SeverityDisplay string `json:"severityDisplay,omitempty"` // a label (e.g. "HIGH"), not a 0-100 score
 	Comment         string `json:"comment,omitempty"`
 	RootCause       string `json:"rootCause,omitempty"`
-	ConfidenceScore int    `json:"confidenceScore,omitempty"`
+	ConfidenceScore int    `json:"confidenceScore"`
 }
 
 // GetAlert fetches a single alert by ID via legacy:legacyGetAlert.
@@ -130,11 +130,11 @@ func (c *Client) GetAlert(ctx context.Context, alertID string, includeDetections
 // large, freeform, and version-dependent; Progress/Complete/counts are the
 // stable fields callers poll on.
 type AlertsSnapshot struct {
-	Progress            float64         `json:"progress,omitempty"`
-	Complete            bool            `json:"complete,omitempty"`
+	Progress            float64         `json:"progress"`
+	Complete            bool            `json:"complete"`
 	Alerts              []Alert         `json:"-"`
-	FilteredAlertsCount int             `json:"filteredAlertsCount,omitempty"`
-	BaselineAlertsCount int             `json:"baselineAlertsCount,omitempty"`
+	FilteredAlertsCount int             `json:"filteredAlertsCount"`
+	BaselineAlertsCount int             `json:"baselineAlertsCount"`
 	FieldAggregations   json.RawMessage `json:"-"`
 }
 

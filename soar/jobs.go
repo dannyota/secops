@@ -66,10 +66,10 @@ func (ji *JobInstance) UnmarshalJSON(data []byte) error {
 // JobInstanceParameter is a single parameter on a job instance.
 type JobInstanceParameter struct {
 	ID          json.Number `json:"id,omitempty"`
-	Mandatory   bool        `json:"mandatory,omitempty"`
+	Mandatory   bool        `json:"mandatory"`
 	Type        string      `json:"type,omitempty"`
 	DisplayName string      `json:"displayName,omitempty"`
-	Value       string      `json:"value,omitempty"`
+	Value       string      `json:"value"`
 }
 
 // JobInstanceLog is a single execution log entry for a job instance.

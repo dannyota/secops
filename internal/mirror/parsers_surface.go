@@ -308,7 +308,9 @@ func retryActivateParser(ctx context.Context, c *chronicle.Client, logType, id s
 }
 
 func isFailedPrecondition(e *chronicle.APIError) bool {
-	return e.Status == 400 || e.Status == 412 ||
+	// A bare 400 also covers INVALID_ARGUMENT, which can never succeed on
+	// retry — only 412 and an explicit FAILED_PRECONDITION body qualify.
+	return e.Status == 412 ||
 		strings.Contains(strings.ToUpper(e.Body), "FAILED_PRECONDITION")
 }
 

@@ -302,14 +302,12 @@ func (e *RuleError) Message() string {
 // ListErrors returns execution errors for ruleID. ruleID accepts the same forms
 // as ListDetections ("{id}", "{id}@v_...", "{id}@-").
 //
-// DEVIATION: the start/end params are accepted for a consistent signature but the
-// underlying ruleExecutionErrors endpoint filters only by rule (no time range in
-// the wrapper); they are ignored here. The server-side filter is built exactly as
-// the wrapper does: rule = "{instance}/rules/{ruleID}".
+// DEVIATION: the underlying ruleExecutionErrors endpoint filters only by rule
+// (no server-side time range in the wrapper), so a non-zero [start, end) window
+// is applied client-side against each error's errorTime after the fetch; errors
+// without a parseable errorTime are kept. The server-side filter is built
+// exactly as the wrapper does: rule = "{instance}/rules/{ruleID}".
 func (c *Client) ListErrors(ctx context.Context, ruleID string, start, end time.Time) ([]RuleError, error) {
-	_ = start
-	_ = end
-
 	filter := fmt.Sprintf("rule = %q", c.instancePath(false)+"/rules/"+ruleID)
 	q := url.Values{"filter": {filter}}
 
@@ -330,7 +328,23 @@ func (c *Client) ListErrors(ctx context.Context, ruleID string, start, end time.
 		all = append(all, resp.RuleExecutionErrors...)
 		return resp.NextPageToken, nil
 	})
-	return all, err
+	if err != nil || (start.IsZero() && end.IsZero()) {
+		return all, err
+	}
+	kept := all[:0]
+	for _, e := range all {
+		t, perr := time.Parse(time.RFC3339Nano, e.ErrorTime)
+		if perr == nil {
+			if !start.IsZero() && t.Before(start) {
+				continue
+			}
+			if !end.IsZero() && !t.Before(end) {
+				continue
+			}
+		}
+		kept = append(kept, e)
+	}
+	return kept, nil
 }
 
 // RuleAlertSearch is the result of SearchRuleAlerts. Each RuleAlerts element is

@@ -43,7 +43,7 @@ func (r *AlertGroupingRule) UnmarshalJSON(data []byte) error {
 	if json.Unmarshal(data, &idh) == nil && len(idh.ID) > 0 {
 		r.ID = string(bytes.Trim(idh.ID, `"`))
 	}
-	r.Raw = append(r.Raw[:0], data...)
+	r.Raw = append(r.Raw[:0:0], data...)
 	return nil
 }
 
@@ -81,7 +81,7 @@ func (p *ModuleSettingProperty) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*p = ModuleSettingProperty(a)
-	p.Raw = append(p.Raw[:0], data...)
+	p.Raw = append(p.Raw[:0:0], data...)
 	return nil
 }
 

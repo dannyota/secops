@@ -79,7 +79,7 @@ func (m *IoCMatch) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*m = IoCMatch(a)
-	m.Raw = append(m.Raw[:0], b...)
+	m.Raw = append(m.Raw[:0:0], b...)
 	return nil
 }
 

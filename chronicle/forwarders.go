@@ -16,6 +16,28 @@ import (
 
 // forwardersAPIVersion (forwarders + collectors) is pinned in versions.go.
 
+// Forwarder is a Chronicle log forwarder. Only the fields this SDK needs are
+// modeled; Config is preserved as a freeform blob and Raw carries the full
+// server payload.
+type Forwarder struct {
+	Name        string          `json:"name,omitempty"`
+	DisplayName string          `json:"displayName,omitempty"`
+	Config      json.RawMessage `json:"config,omitempty"`
+	Raw         json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON retains the full server payload in Raw.
+func (f *Forwarder) UnmarshalJSON(data []byte) error {
+	type alias Forwarder
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*f = Forwarder(a)
+	f.Raw = append(json.RawMessage(nil), data...)
+	return nil
+}
+
 // ForwarderID returns the trailing id segment of the forwarder's resource name.
 func (f *Forwarder) ForwarderID() string { return lastSegment(f.Name) }
 

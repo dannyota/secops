@@ -17,7 +17,7 @@ import (
 // faithful mirror round-trip).
 type DataTableColumn struct {
 	OriginalColumn string `json:"originalColumn,omitempty"`
-	ColumnIndex    int    `json:"columnIndex,omitempty"`
+	ColumnIndex    int    `json:"columnIndex"`
 	Name           string `json:"name,omitempty"`
 	// ColumnType is the value type for a plain column (one of the
 	// DataTableColumnType* enums). It is mutually exclusive with MappedColumnPath.

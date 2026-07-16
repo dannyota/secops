@@ -11,10 +11,10 @@ import (
 // TestLiveJobRevisionRoundTrip validates the full revision lifecycle:
 // list integrations → find one with jobs → create a throwaway revision →
 // verify it appears in the list → delete it → verify it's gone.
-// Write-smoke gated on SECOPS_SOAR_WRITE_SMOKE=1.
+// Write-smoke gated on SECOPS_SOAR_SMOKE_WRITE=1.
 func TestLiveJobRevisionRoundTrip(t *testing.T) {
-	if os.Getenv("SECOPS_SOAR_WRITE_SMOKE") != "1" {
-		t.Skip("write smoke — set SECOPS_SOAR_WRITE_SMOKE=1 (and SECOPS_SOAR_SMOKE=1) to run")
+	if os.Getenv("SECOPS_SOAR_SMOKE_WRITE") != "1" {
+		t.Skip("write smoke — set SECOPS_SOAR_SMOKE_WRITE=1 (and SECOPS_SOAR_SMOKE=1) to run")
 	}
 	c, ctx := liveClient(t)
 

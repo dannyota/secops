@@ -24,7 +24,9 @@ const (
 	BucketSizeHour = "BUCKET_SIZE_HOUR"
 )
 
-// RuleSource values for SearchRuleDetectionCountBuckets.
+// RuleSource values for SearchRuleDetectionCountBuckets. The curated token
+// really is "UPPERCASE_RULE" on the wire (not "CURATED_RULE") — the endpoint's
+// own naming, kept verbatim.
 const (
 	RuleSourceUser    = "USER_RULE"
 	RuleSourceCurated = "UPPERCASE_RULE"

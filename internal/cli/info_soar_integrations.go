@@ -18,12 +18,12 @@ type soarIntegrationHealthRow struct {
 	Key                       string   `json:"key"`
 	DisplayName               string   `json:"display_name,omitempty"`
 	Installed                 bool     `json:"installed"`
-	Custom                    bool     `json:"custom,omitempty"`
+	Custom                    bool     `json:"custom"`
 	ConnectorInstances        int      `json:"connector_instances"`
 	EnabledConnectorInstances int      `json:"enabled_connector_instances"`
 	JobInstances              int      `json:"job_instances"`
 	EnabledJobInstances       int      `json:"enabled_job_instances"`
-	UnconfiguredRuntime       int      `json:"unconfigured_runtime,omitempty"`
+	UnconfiguredRuntime       int      `json:"unconfigured_runtime"`
 	Environments              []string `json:"environments,omitempty"`
 	Issues                    []string `json:"issues,omitempty"`
 }

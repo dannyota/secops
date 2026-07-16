@@ -15,7 +15,7 @@ import (
 // flexInt is an integer the API may render as a JSON number or, for proto3 int64
 // fields, as a quoted string. It decodes either form (and null → 0); the zero
 // value omits under omitempty and marshals back as a plain number.
-type flexInt int
+type flexInt int64
 
 func (n *flexInt) UnmarshalJSON(data []byte) error {
 	if len(data) == 0 || string(data) == "null" {
@@ -31,14 +31,14 @@ func (n *flexInt) UnmarshalJSON(data []byte) error {
 			*n = 0
 			return nil
 		}
-		i, err := strconv.Atoi(s)
+		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
 			return fmt.Errorf("flexInt %q: %w", s, err)
 		}
 		*n = flexInt(i)
 		return nil
 	}
-	var i int
+	var i int64
 	if err := json.Unmarshal(data, &i); err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ type EntitySummary struct {
 	Prevalence                []PrevalenceData           `json:"prevalence,omitempty"`
 	TPDPrevalence             []PrevalenceData           `json:"tpdPrevalence,omitempty"`
 	FileMetadataAndProperties *FileMetadataAndProperties `json:"fileMetadataAndProperties,omitempty"`
-	HasMoreAlerts             bool                       `json:"hasMoreAlerts,omitempty"`
+	HasMoreAlerts             bool                       `json:"hasMoreAlerts"`
 	NextPageToken             string                     `json:"nextPageToken,omitempty"`
 }
 

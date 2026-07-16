@@ -346,10 +346,9 @@ Auto-generated MCP server from the cobra command tree and tip-file migration.
 - **MCP resources.** All 17 `docs/tips/*.md` files are embedded in the binary
   and served as `tips://{name}` resources. An agent reads domain knowledge
   (recipes, gotchas, auth model, search surface) the same way it reads tools.
-- **`mcp install`.** Registers secopsctl in `.claude/settings.json`
-  (`--global` for `~/.claude/settings.json`). After `secopsctl config` +
-  `secopsctl mcp install`, every Claude Code session gets all secopsctl
-  tools automatically.
+- **`mcp install`.** Registers secopsctl in the project's `.mcp.json`.
+  After `secopsctl config` + `secopsctl mcp install`, every Claude Code
+  session gets all secopsctl tools automatically.
 - **Tips gap-fill.** Two new tip files: `15-recipes.md` (cross-cutting
   copy-pasteable workflows) and `16-gotchas.md` (non-obvious operational
   traps). Tips README and sidebar updated.
@@ -361,7 +360,7 @@ Auto-generated MCP server from the cobra command tree and tip-file migration.
 
 The `skill` command and `skills/secopsctl/SKILL.md` are removed — MCP replaces
 the entire SKILL surface. Agent integration is now `secopsctl mcp install`
-(registers in `.claude/settings.json`); domain knowledge is served as MCP
+(registers in `.mcp.json`); domain knowledge is served as MCP
 resources from embedded `docs/tips/*.md`. The `status capabilities` JSON field
 changes from `skill_command` to `mcp_command`. Docs, README, catalog, and SEO
 artifacts updated to reflect the MCP-first model.

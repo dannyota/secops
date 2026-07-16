@@ -102,7 +102,7 @@ func (i *Investigation) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*i = Investigation(a)
-	i.Raw = append(i.Raw[:0], b...)
+	i.Raw = append(i.Raw[:0:0], b...)
 	return nil
 }
 

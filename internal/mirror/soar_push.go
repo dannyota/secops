@@ -115,6 +115,11 @@ func detectSaveDrift(submitted, response json.RawMessage) []string {
 			if s.InstanceName != "" {
 				respNames[s.InstanceName] = struct{}{}
 			}
+			// Submitted steps fall back to Identifier when instanceName is
+			// empty — index identifiers too so that fallback can match.
+			if s.Identifier != "" {
+				respNames[s.Identifier] = struct{}{}
+			}
 		}
 		for _, s := range sub.Steps {
 			label := s.InstanceName

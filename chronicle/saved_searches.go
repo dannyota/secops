@@ -54,7 +54,7 @@ type SavedSearch struct {
 	UserID          string           `json:"userId,omitempty"`
 	Description     string           `json:"description,omitempty"`
 	QueryType       QueryType        `json:"queryType,omitempty"`
-	CaseInsensitive bool             `json:"caseInsensitive,omitempty"`
+	CaseInsensitive bool             `json:"caseInsensitive"`
 	QueryLanguage   QueryLanguage    `json:"queryLanguage,omitempty"`
 }
 

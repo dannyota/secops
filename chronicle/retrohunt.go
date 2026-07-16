@@ -69,7 +69,7 @@ func (r *Retrohunt) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*r = Retrohunt(a)
-	r.Raw = append(r.Raw[:0], b...)
+	r.Raw = append(r.Raw[:0:0], b...)
 	return nil
 }
 

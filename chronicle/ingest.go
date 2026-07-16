@@ -33,14 +33,6 @@ type logLabel struct {
 	Value string `json:"value"`
 }
 
-// Forwarder is a Chronicle log forwarder. Only the fields this SDK needs are
-// modeled; Config is preserved as a freeform blob.
-type Forwarder struct {
-	Name        string          `json:"name,omitempty"`
-	DisplayName string          `json:"displayName,omitempty"`
-	Config      json.RawMessage `json:"config,omitempty"`
-}
-
 // defaultForwarderDisplayName is the forwarder this SDK gets-or-creates when a
 // caller ingests a raw log without naming one, mirroring the wrapper's default.
 const defaultForwarderDisplayName = "Wrapper-SDK-Forwarder"
@@ -110,7 +102,7 @@ func (c *Client) getOrCreateForwarder(ctx context.Context, displayName string) (
 			Forwarders    []Forwarder `json:"forwarders"`
 			NextPageToken string      `json:"nextPageToken"`
 		}
-		if err := c.get(ctx, c.resourcePath("forwarders", false), &resp, withQuery(q)); err != nil {
+		if err := c.get(ctx, c.resourcePath("forwarders", false), &resp, withQuery(q), withVersion(forwardersAPIVersion)); err != nil {
 			return "", err
 		}
 		for i := range resp.Forwarders {
@@ -142,7 +134,7 @@ func (c *Client) getOrCreateForwarder(ctx context.Context, displayName string) (
 	create.Config.ServerSettings = map[string]any{"enabled": false}
 
 	var created Forwarder
-	if err := c.post(ctx, c.resourcePath("forwarders", false), create, &created); err != nil {
+	if err := c.post(ctx, c.resourcePath("forwarders", false), create, &created, withVersion(forwardersAPIVersion)); err != nil {
 		return nil, err
 	}
 	return &created, nil

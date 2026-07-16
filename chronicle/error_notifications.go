@@ -23,7 +23,7 @@ import (
 type ErrorNotificationConfig struct {
 	Name                 string   `json:"name,omitempty"`
 	DisplayName          string   `json:"displayName,omitempty"`
-	Enabled              bool     `json:"enabled,omitempty"`
+	Enabled              bool     `json:"enabled"`
 	NotificationChannels []string `json:"notificationChannels,omitempty"`
 	// The oneof notification_type — exactly one is set.
 	IngestionCountZero     json.RawMessage `json:"ingestionCountZeroNotifications,omitempty"`

@@ -37,6 +37,19 @@ type Pipeline struct {
 	Etag           string          `json:"etag,omitempty"`
 	CreateTime     string          `json:"createTime,omitempty"`
 	UpdateTime     string          `json:"updateTime,omitempty"`
+	Raw            json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON retains the full server payload in Raw.
+func (p *Pipeline) UnmarshalJSON(data []byte) error {
+	type alias Pipeline
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*p = Pipeline(a)
+	p.Raw = append(json.RawMessage(nil), data...)
+	return nil
 }
 
 // PipelineID returns the trailing <id> segment of the pipeline's resource Name.
@@ -89,7 +102,7 @@ func (c *Client) ListPipelines(ctx context.Context, filterExpr string) ([]Pipeli
 func (c *Client) GetPipeline(ctx context.Context, pipelineID string) (*Pipeline, error) {
 	id := pipelineResourceID(pipelineID)
 	var p Pipeline
-	if err := c.get(ctx, c.resourcePath("logProcessingPipelines/"+id, false), &p); err != nil {
+	if err := c.get(ctx, c.resourcePath("logProcessingPipelines/"+url.PathEscape(id), false), &p); err != nil {
 		return nil, err
 	}
 	return &p, nil
@@ -122,7 +135,7 @@ func (c *Client) UpdatePipeline(ctx context.Context, pipelineID string, p *Pipel
 		opts = append(opts, withQuery(url.Values{"updateMask": {updateMask}}))
 	}
 	var out Pipeline
-	if err := c.patch(ctx, c.resourcePath("logProcessingPipelines/"+id, false), p, &out, opts...); err != nil {
+	if err := c.patch(ctx, c.resourcePath("logProcessingPipelines/"+url.PathEscape(id), false), p, &out, opts...); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -136,7 +149,7 @@ func (c *Client) DeletePipeline(ctx context.Context, pipelineID, etag string) er
 	if etag != "" {
 		opts = append(opts, withQuery(url.Values{"etag": {etag}}))
 	}
-	return c.do(ctx, "DELETE", c.resourcePath("logProcessingPipelines/"+id, false), nil, nil, opts...)
+	return c.do(ctx, "DELETE", c.resourcePath("logProcessingPipelines/"+url.PathEscape(id), false), nil, nil, opts...)
 }
 
 // AssociateStreams binds the given streams (log types / feeds) to a pipeline.
@@ -145,7 +158,7 @@ func (c *Client) AssociateStreams(ctx context.Context, pipelineID string, stream
 	body := struct {
 		Streams []Stream `json:"streams"`
 	}{Streams: streams}
-	path := c.resourcePath("logProcessingPipelines/"+id, false) + ":associateStreams"
+	path := c.resourcePath("logProcessingPipelines/"+url.PathEscape(id), false) + ":associateStreams"
 	return c.post(ctx, path, body, nil)
 }
 
@@ -155,7 +168,7 @@ func (c *Client) DissociateStreams(ctx context.Context, pipelineID string, strea
 	body := struct {
 		Streams []Stream `json:"streams"`
 	}{Streams: streams}
-	path := c.resourcePath("logProcessingPipelines/"+id, false) + ":dissociateStreams"
+	path := c.resourcePath("logProcessingPipelines/"+url.PathEscape(id), false) + ":dissociateStreams"
 	return c.post(ctx, path, body, nil)
 }
 

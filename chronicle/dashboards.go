@@ -35,7 +35,7 @@ func (d *NativeDashboard) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*d = NativeDashboard(a)
-	d.Raw = append(d.Raw[:0], data...)
+	d.Raw = append(d.Raw[:0:0], data...)
 	return nil
 }
 
