@@ -52,6 +52,12 @@ func TestApplyParams(t *testing.T) {
 			`principal.user.emailAddresses = "alice@example.com"`, false,
 		},
 		{
+			"prefix-sharing placeholders stay intact",
+			`$email AND $email_domain`,
+			[]string{"email=alice", "email_domain=example.com"},
+			`alice AND example.com`, false,
+		},
+		{
 			"multiple",
 			`$type AND $user`,
 			[]string{"type=USER_LOGIN", "user=bob"},

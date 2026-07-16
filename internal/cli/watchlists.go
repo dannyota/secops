@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -47,7 +46,7 @@ func newWatchlistsCreateCmd() *cobra.Command {
 					return err
 				}
 				if jsonOut {
-					return json.NewEncoder(os.Stdout).Encode(w)
+					return emitJSON(w)
 				}
 				fmt.Fprintf(os.Stdout, "Created watchlist %s.\n", w.WatchlistID())
 				return nil
@@ -206,7 +205,7 @@ func newWatchlistsListCmd() *cobra.Command {
 				return err
 			}
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(wls)
+				return emitJSON(wls)
 			}
 			for _, w := range wls {
 				fmt.Fprintf(os.Stdout, "%-28s %s\n", w.WatchlistID(), w.DisplayName)
@@ -233,7 +232,7 @@ func newWatchlistsGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return json.NewEncoder(os.Stdout).Encode(w)
+			return emitJSON(w)
 		},
 	}
 	// Output is always JSON (the full watchlist object), like `rules alerts`.

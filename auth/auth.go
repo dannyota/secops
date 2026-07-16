@@ -15,7 +15,6 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -49,22 +48,4 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	return t.base.RoundTrip(r2)
-}
-
-// MintToken resolves creds and extracts the Bearer token value. Returns an error
-// if creds don't produce a Bearer-style Authorization header (e.g. an API key).
-func MintToken(creds Credentials) (string, error) {
-	req, _ := http.NewRequest(http.MethodGet, "https://localhost/token-probe", nil)
-	if err := creds.Apply(req); err != nil {
-		return "", err
-	}
-	h := req.Header.Get("Authorization")
-	if h == "" {
-		return "", fmt.Errorf("auth: credentials did not set Authorization header")
-	}
-	const prefix = "Bearer "
-	if len(h) > len(prefix) && h[:len(prefix)] == prefix {
-		return h[len(prefix):], nil
-	}
-	return "", fmt.Errorf("auth: credentials set non-Bearer Authorization")
 }

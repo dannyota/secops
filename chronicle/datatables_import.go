@@ -226,21 +226,21 @@ func estimateBatchBytes(batch [][]string) int {
 	return total
 }
 
-// batchRows splits rows into batches of at most maxRowsPerBatch rows that each
-// stay within maxBytes (a single oversized row is emitted alone so the caller
-// can report it).
-func batchRows(rows [][]string, maxBytes int) [][][]string {
-	var batches [][][]string
-	cur := make([][]string, 0, maxRowsPerBatch)
+// batchBy splits items into batches of at most maxRowsPerBatch items that each
+// stay within maxBytes as measured by sizeOf (a single oversized item is
+// emitted alone so the caller can report it).
+func batchBy[T any](items []T, maxBytes int, sizeOf func(T) int) [][]T {
+	var batches [][]T
+	cur := make([]T, 0, maxRowsPerBatch)
 	var curBytes int
-	for _, r := range rows {
-		rb := estimateRowBytes(r)
-		if len(cur) > 0 && (len(cur) >= maxRowsPerBatch || curBytes+rb > maxBytes) {
+	for _, it := range items {
+		b := sizeOf(it)
+		if len(cur) > 0 && (len(cur) >= maxRowsPerBatch || curBytes+b > maxBytes) {
 			batches = append(batches, cur)
-			cur, curBytes = make([][]string, 0, maxRowsPerBatch), 0
+			cur, curBytes = make([]T, 0, maxRowsPerBatch), 0
 		}
-		cur = append(cur, r)
-		curBytes += rb
+		cur = append(cur, it)
+		curBytes += b
 	}
 	if len(cur) > 0 {
 		batches = append(batches, cur)
@@ -248,22 +248,12 @@ func batchRows(rows [][]string, maxBytes int) [][][]string {
 	return batches
 }
 
+// batchRows splits rows into size-bounded batches.
+func batchRows(rows [][]string, maxBytes int) [][][]string {
+	return batchBy(rows, maxBytes, estimateRowBytes)
+}
+
 // batchRowUpdates is batchRows for RowUpdate, sizing by each update's Values.
 func batchRowUpdates(updates []RowUpdate, maxBytes int) [][]RowUpdate {
-	var batches [][]RowUpdate
-	cur := make([]RowUpdate, 0, maxRowsPerBatch)
-	var curBytes int
-	for _, u := range updates {
-		rb := estimateRowBytes(u.Values)
-		if len(cur) > 0 && (len(cur) >= maxRowsPerBatch || curBytes+rb > maxBytes) {
-			batches = append(batches, cur)
-			cur, curBytes = make([]RowUpdate, 0, maxRowsPerBatch), 0
-		}
-		cur = append(cur, u)
-		curBytes += rb
-	}
-	if len(cur) > 0 {
-		batches = append(batches, cur)
-	}
-	return batches
+	return batchBy(updates, maxBytes, func(u RowUpdate) int { return estimateRowBytes(u.Values) })
 }

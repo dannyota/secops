@@ -52,3 +52,22 @@ func TestParseFilterArg(t *testing.T) {
 		t.Error("invalid JSON should error")
 	}
 }
+
+func TestExecResultRowCountColumnMajor(t *testing.T) {
+	cases := []struct {
+		name  string
+		raw   string
+		count int
+		known bool
+	}{
+		{"column-major values", `{"results":[{"column":"host","values":[{"value":{"stringVal":"a"}},{"value":{"stringVal":"b"}}]},{"column":"count","values":[{"value":{"intVal":5}}]}]}`, 2, true},
+		{"columns with empty values", `{"results":[{"column":"c","values":[]}]}`, 0, true},
+		{"scalar results fall through to generic arrays", `{"results":["a","b"]}`, 2, true},
+	}
+	for _, tc := range cases {
+		count, known := execResultRowCount(json.RawMessage(tc.raw))
+		if count != tc.count || known != tc.known {
+			t.Errorf("%s: execResultRowCount = (%d, %v), want (%d, %v)", tc.name, count, known, tc.count, tc.known)
+		}
+	}
+}

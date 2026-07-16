@@ -63,20 +63,13 @@ func newAlertsListCmd() *cobra.Command {
 					return err
 				}
 			}
-			c, err := newChronicleClient()
+			start, end, err := resolveWindow(hours, from, to)
 			if err != nil {
 				return err
 			}
-			start, end := timeWindow(hours)
-			if from != "" {
-				if start, err = parseQueryTS(from); err != nil {
-					return err
-				}
-			}
-			if to != "" {
-				if end, err = parseQueryTS(to); err != nil {
-					return err
-				}
+			c, err := newChronicleClient()
+			if err != nil {
+				return err
 			}
 			snap, err := c.GetAlerts(baseContext(), start, end, limit, filter, "", nil)
 			if err != nil {

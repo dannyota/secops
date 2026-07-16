@@ -18,7 +18,7 @@ func TestLiveSettingsReads(t *testing.T) {
 	readProbe(t, "settings/GetRootCauseCloseRecords", func() (RawJSON, error) { return lc.GetRootCauseCloseRecords(ctx) })
 
 	// System settings (version, entity types, certificate, proxy, case policies).
-	readProbe(t, "settings/GetSystemVersion", func() (RawJSON, error) { return lc.GetSystemVersion(ctx) })
+	readProbe(t, "settings/GetSystemVersion", func() (RawJSON, error) { return lc.SystemGetVersion(ctx) })
 	readProbe(t, "settings/GetSystemEventEntityTypes", func() (RawJSON, error) { return lc.GetSystemEventEntityTypes(ctx) })
 	// GetPublicCertificate omitted: it returns a binary certificate, not JSON.
 	readProbe(t, "settings/GetProxySettings", func() (RawJSON, error) { return lc.GetProxySettings(ctx) })

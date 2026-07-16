@@ -10,7 +10,7 @@ import (
 // Runs under SECOPS_SOAR_SMOKE=1.
 func TestLivePlaybooksReads(t *testing.T) {
 	lc, ctx := liveClient(t)
-	readProbe(t, "playbooks/ListEnabledPlaybooks", func() (RawJSON, error) { return lc.ListEnabledPlaybooks(ctx) })
+	readProbe(t, "playbooks/GetEnabledWFCards", func() (RawJSON, error) { return lc.ListEnabledWorkflowCards(ctx, struct{}{}) })
 	readProbe(t, "playbooks/ListWorkflowCategories", func() (RawJSON, error) { return lc.ListWorkflowCategories(ctx) })
 	readProbe(t, "ontology/ListVisualFamilies", func() (RawJSON, error) { return lc.ListVisualFamilies(ctx) })
 }

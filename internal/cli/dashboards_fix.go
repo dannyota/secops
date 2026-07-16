@@ -76,10 +76,14 @@ func applyStripDomain(ctx context.Context, c *chronicle.Client, dashID, chartID 
 	return err
 }
 
+// emailAssignRE matches email match-variable assignments that should be
+// wrapped in re.capture.
+var emailAssignRE = regexp.MustCompile(
+	`(\$\w+\s*=\s*)((?:principal|target|src|observer|intermediary|about)\.\w*\.?(?:email_addresses|userid|email))\b`)
+
 // wrapEmailsInCapture rewrites email match variable assignments to use re.capture.
 func wrapEmailsInCapture(query string) string {
-	re := regexp.MustCompile(
-		`(\$\w+\s*=\s*)((?:principal|target|src|observer|intermediary|about)\.\w*\.?(?:email_addresses|userid|email))\b`)
+	re := emailAssignRE
 	lines := strings.Split(query, "\n")
 	for i, line := range lines {
 		if re.MatchString(line) && !reCaptureRE.MatchString(line) {

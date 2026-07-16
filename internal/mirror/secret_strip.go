@@ -1,24 +1,29 @@
 package mirror
 
+import "strings"
+
 const redactedMarker = "***REDACTED***"
 
+// sensitiveKeys is matched case-insensitively (lowercase entries): server
+// payloads carry the same credential under Password/password/PASSWORD
+// depending on the surface, and a missed casing writes a secret to disk.
 var sensitiveKeys = map[string]bool{
 	"password":            true,
 	"secret":              true,
-	"apiKey":              true,
+	"apikey":              true,
 	"api_key":             true,
 	"token":               true,
-	"privateKey":          true,
+	"privatekey":          true,
 	"private_key":         true,
-	"clientSecret":        true,
+	"clientsecret":        true,
 	"client_secret":       true,
-	"authorizationHeader": true,
-	"secretAccessKey":     true,
+	"authorizationheader": true,
+	"secretaccesskey":     true,
 	"access_key":          true,
-	"accessKey":           true,
-	"authToken":           true,
+	"accesskey":           true,
+	"authtoken":           true,
 	"auth_token":          true,
-	"sharedKey":           true,
+	"sharedkey":           true,
 	"shared_key":          true,
 }
 
@@ -29,7 +34,7 @@ func stripSecrets(v any) any {
 	case map[string]any:
 		out := make(map[string]any, len(t))
 		for k, val := range t {
-			if sensitiveKeys[k] {
+			if sensitiveKeys[strings.ToLower(k)] {
 				out[k] = redactedMarker
 			} else {
 				out[k] = stripSecrets(val)

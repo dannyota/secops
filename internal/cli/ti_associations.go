@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -29,7 +28,7 @@ func newTIAssociationsCmd() *cobra.Command {
 				return err
 			}
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(assocs)
+				return emitJSON(assocs)
 			}
 			if len(assocs) == 0 {
 				fmt.Fprintln(os.Stdout, "no IoC associations returned (ATI may not be licensed).")
@@ -76,7 +75,7 @@ func newTIRelatedAssociationsCmd() *cobra.Command {
 				return err
 			}
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(assocs)
+				return emitJSON(assocs)
 			}
 			if len(assocs) == 0 {
 				fmt.Fprintln(os.Stdout, "no related associations found.")

@@ -112,8 +112,21 @@ func tokenInQuery(query, v string) bool {
 	// A token boundary that does NOT split a dotted field path: the char before v
 	// must not be a word char, `.`, or `$`, and the char after must not be a word
 	// char or `.`.
-	re := regexp.MustCompile(`(^|[^\w.$])` + regexp.QuoteMeta(v) + `($|[^\w.])`)
-	return re.MatchString(query)
+	inWord := func(c byte, before bool) bool {
+		return c == '_' || c == '.' || (before && c == '$') ||
+			('0' <= c && c <= '9') || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
+	}
+	for i := 0; ; i++ {
+		j := strings.Index(query[i:], v)
+		if j < 0 {
+			return false
+		}
+		i += j
+		if (i == 0 || !inWord(query[i-1], true)) &&
+			(i+len(v) == len(query) || !inWord(query[i+len(v)], false)) {
+			return true
+		}
+	}
 }
 
 // chartTypeIsTable reports whether a --chart-type denotes a table (which carries

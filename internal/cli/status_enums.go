@@ -43,7 +43,7 @@ func newEnumsCmd() *cobra.Command {
 			}
 
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(groups)
+				return emitJSON(groups)
 			}
 			printEnumGroups(cmd.OutOrStdout(), groups)
 			return nil

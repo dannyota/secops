@@ -49,7 +49,7 @@ func TestSOARPlaybookCommandRegistered(t *testing.T) {
 		}
 	}
 	step := commandChild(playbook, "step")
-	for _, name := range []string{"get", "execute"} {
+	for _, name := range []string{"get", "execute", "skip", "insert"} {
 		if commandChild(step, name) == nil {
 			t.Fatalf("playbooks step %s command not registered", name)
 		}
@@ -257,24 +257,6 @@ func TestPlaybookDebugHelperBodies(t *testing.T) {
 	}
 	if _, err := pendingStepBody(0, "", ""); err == nil {
 		t.Fatal("pendingStepBody accepted missing case id")
-	}
-}
-
-func TestWorkflowSummaryBody(t *testing.T) {
-	body, err := workflowSummaryBody(123, " alert ", "22222222-2222-2222-2222-222222222222", true, false)
-	if err != nil {
-		t.Fatalf("workflowSummaryBody: %v", err)
-	}
-	for k, v := range map[string]any{
-		"caseId":               123,
-		"alertIdentifier":      "alert",
-		"definitionIdentifier": "22222222-2222-2222-2222-222222222222",
-		"shouldFetchSteps":     true,
-		"collapseBlocks":       false,
-	} {
-		if body[k] != v {
-			t.Fatalf("body[%s] = %#v, want %#v", k, body[k], v)
-		}
 	}
 }
 

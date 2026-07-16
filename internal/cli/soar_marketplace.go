@@ -283,7 +283,7 @@ func newSOARMarketplaceGetCmd() *cobra.Command {
 				return err
 			}
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(m.Raw)
+				return emitJSON(m.Raw)
 			}
 			printMarketplaceDetail(m.Raw, m.Identifier, m.DisplayName)
 			return nil
@@ -349,7 +349,7 @@ func newSOARContentPackGetCmd() *cobra.Command {
 				return err
 			}
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(p.Raw)
+				return emitJSON(p.Raw)
 			}
 			printMarketplaceDetail(p.Raw, p.Identifier, p.DisplayName)
 			return nil

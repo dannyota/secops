@@ -62,7 +62,7 @@ func newTICollectionsCmd() *cobra.Command {
 				return err
 			}
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(tcs)
+				return emitJSON(tcs)
 			}
 			for i, t := range tcs {
 				fmt.Fprintf(os.Stdout, "%4d  %-12s %-22s %s\n", i+1, t.Type, t.ID, truncate(t.DisplayName, 80))
@@ -95,7 +95,7 @@ func newTICollectionCmd() *cobra.Command {
 			}
 			if jsonOut {
 				// Emit the full server object verbatim.
-				return json.NewEncoder(os.Stdout).Encode(tc.Raw)
+				return emitJSON(tc.Raw)
 			}
 			fmt.Fprintf(os.Stdout, "%s  [%s]\n%s\n\n%s\n", tc.DisplayName, tc.Type, tc.ID, tc.Description)
 			return nil

@@ -437,21 +437,3 @@ func resolveCaseAlert(ctx context.Context, lc *legacy.Client, caseID int) (strin
 	}
 	return "", fmt.Errorf("case %d has %d alert groups — re-run with one of:\n%s", caseID, len(refs), strings.Join(lines, "\n"))
 }
-
-func workflowSummaryBody(caseID int, alert, definition string, fetchSteps, collapseBlocks bool) (map[string]any, error) {
-	if caseID <= 0 {
-		return nil, fmt.Errorf("--case-id is required")
-	}
-	body := map[string]any{
-		"caseId":           caseID,
-		"shouldFetchSteps": fetchSteps,
-		"collapseBlocks":   collapseBlocks,
-	}
-	if alert = strings.TrimSpace(alert); alert != "" {
-		body["alertIdentifier"] = alert
-	}
-	if definition = strings.TrimSpace(definition); definition != "" {
-		body["definitionIdentifier"] = definition
-	}
-	return body, nil
-}

@@ -5,11 +5,6 @@ package legacy
 
 import "context"
 
-// GetSystemVersion returns the SOAR platform version.
-func (c *Client) GetSystemVersion(ctx context.Context) (RawJSON, error) {
-	return c.externalGet(ctx, "/settings/GetSystemVersion")
-}
-
 // GetSystemEventEntityTypes returns the system's event entity types.
 func (c *Client) GetSystemEventEntityTypes(ctx context.Context) (RawJSON, error) {
 	return c.externalGet(ctx, "/settings/GetSystemEventEntityTypes")

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"slices"
@@ -49,7 +48,7 @@ func newSOARIntegrationListCmd() *cobra.Command {
 
 			if jsonOut {
 				if !instances {
-					return json.NewEncoder(os.Stdout).Encode(ints)
+					return emitJSON(ints)
 				}
 				type packWithInstances struct {
 					soar.Integration
@@ -65,7 +64,7 @@ func newSOARIntegrationListCmd() *cobra.Command {
 					}
 					out = append(out, p)
 				}
-				return json.NewEncoder(os.Stdout).Encode(out)
+				return emitJSON(out)
 			}
 
 			instByPack := map[string][]soar.IntegrationInstance{}

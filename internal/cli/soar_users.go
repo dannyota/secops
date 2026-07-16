@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -50,7 +49,7 @@ func newSOARUsersListCmd() *cobra.Command {
 			users = filterUsers(users, grep, includeOff)
 			sort.Slice(users, func(i, j int) bool { return users[i].UserName < users[j].UserName })
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(users)
+				return emitJSON(users)
 			}
 			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 			fmt.Fprintln(tw, "USERNAME\tNAME\tEMAIL\tSOC ROLE\tPERMISSION GROUP\tDISABLED")

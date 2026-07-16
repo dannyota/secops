@@ -49,7 +49,7 @@ func newTICoverageCmd() *cobra.Command {
 			}
 
 			if jsonOut {
-				return json.NewEncoder(os.Stdout).Encode(details)
+				return emitJSON(details)
 			}
 			if len(details) == 0 {
 				fmt.Fprintln(os.Stdout, "no coverage details returned.")
@@ -92,7 +92,7 @@ func newTIFiltersCmd() *cobra.Command {
 				fmt.Fprintln(os.Stdout, "no filter set data returned.")
 				return nil
 			}
-			return json.NewEncoder(os.Stdout).Encode(raw)
+			return emitJSON(raw)
 		},
 	}
 	return markJSON(cmd)

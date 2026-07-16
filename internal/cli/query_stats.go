@@ -8,6 +8,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"danny.vn/secops/chronicle"
 )
 
 // newQueryStatsCmd runs an aggregation (stats) UDM query. `query udm` is an event
@@ -74,41 +76,7 @@ func newQueryStatsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if jsonOut {
-				// --json emits the full result (--limit is a human-table print cap only,
-				// so a script always sees every row the server returned).
-				return emitJSON(res)
-			}
-			if len(res.Columns) == 0 || res.TotalRows == 0 {
-				fmt.Println("no rows.")
-				printStatsWarnings(res.Warnings)
-				return nil
-			}
-			rows := res.Rows
-			truncated := false
-			if limit > 0 && len(rows) > limit {
-				rows = rows[:limit]
-				truncated = true
-			}
-			tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-			fmt.Fprintln(tw, strings.Join(res.Columns, "\t"))
-			for _, row := range rows {
-				cells := make([]string, len(res.Columns))
-				for i, col := range res.Columns {
-					cells[i] = statsCell(row[col])
-				}
-				fmt.Fprintln(tw, strings.Join(cells, "\t"))
-			}
-			if err := tw.Flush(); err != nil {
-				return err
-			}
-			if truncated {
-				fmt.Printf("\nshowing %d of %d row(s) (--limit).\n", len(rows), res.TotalRows)
-			} else {
-				fmt.Printf("\n%d row(s).\n", res.TotalRows)
-			}
-			printStatsWarnings(res.Warnings)
-			return nil
+			return renderStatsResult(res, limit)
 		},
 	}
 	f := cmd.Flags()
@@ -178,6 +146,13 @@ func runStatsFromUDM(query string, hours int, fromTS, toTS string) error {
 	if err != nil {
 		return err
 	}
+	return renderStatsResult(res, 0)
+}
+
+// renderStatsResult prints a stats result: --json emits the full result
+// (limit is a human-table print cap only, so a script always sees every row
+// the server returned); otherwise a tab table capped at limit rows (0 = all).
+func renderStatsResult(res *chronicle.StatsResult, limit int) error {
 	if jsonOut {
 		return emitJSON(res)
 	}
@@ -186,9 +161,15 @@ func runStatsFromUDM(query string, hours int, fromTS, toTS string) error {
 		printStatsWarnings(res.Warnings)
 		return nil
 	}
+	rows := res.Rows
+	truncated := false
+	if limit > 0 && len(rows) > limit {
+		rows = rows[:limit]
+		truncated = true
+	}
 	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	fmt.Fprintln(tw, strings.Join(res.Columns, "\t"))
-	for _, row := range res.Rows {
+	for _, row := range rows {
 		cells := make([]string, len(res.Columns))
 		for i, col := range res.Columns {
 			cells[i] = statsCell(row[col])
@@ -198,7 +179,11 @@ func runStatsFromUDM(query string, hours int, fromTS, toTS string) error {
 	if err := tw.Flush(); err != nil {
 		return err
 	}
-	fmt.Printf("\n%d row(s).\n", res.TotalRows)
+	if truncated {
+		fmt.Printf("\nshowing %d of %d row(s) (--limit).\n", len(rows), res.TotalRows)
+	} else {
+		fmt.Printf("\n%d row(s).\n", res.TotalRows)
+	}
 	printStatsWarnings(res.Warnings)
 	return nil
 }

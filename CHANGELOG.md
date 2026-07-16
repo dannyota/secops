@@ -22,7 +22,36 @@ notes in the signed tag messages.
   and failed the subprocess. Both `--flag value` and `--flag=value` forms are
   now detected.
 
+- **Full-code-review sweep.** An adversarially-verified review of every
+  package landed ~45 correctness fixes. SDK highlights: coverageDetails uses
+  the project-number path form; ingest's get-or-create forwarder pins the
+  v1beta forwarders version; pipeline IDs are URL-escaped; `ListErrors`
+  applies its time window (client-side) instead of ignoring it; `omitempty`
+  removed from non-pointer scalars that dropped `false`/`0` on re-marshal;
+  numeric BLOCK step types recognized end-to-end; a bare HTTP 400 is no
+  longer retried as FAILED_PRECONDITION; save-drift detection no longer
+  false-positives on identifier-only steps. CLI highlights: `dashboards
+  delete` previews offline and honors `--json`; button/markdown edits restore
+  the original tile when the re-add half of remove+add fails; reserved
+  dashboard variable detection uses one comprehensive keyword set; saved-query
+  `--param` no longer corrupts prefix-sharing placeholders; guarded commands
+  gained consistent banners, `--json` envelopes, and flag exclusivity.
+
 ### Changed
+
+- **Pull redaction matches secret key names case-insensitively.** A
+  `Password`/`APIKey` casing variant now redacts the same as its lowercase
+  form before anything is written to disk.
+
+- **Structure and dedup pass.** Oversized command files split by topic
+  (dashboards lint helpers, `soar job instance`, integration
+  configure/lifecycle/connector-def); wave-named test files renamed by
+  feature; duplicate legacy SDK methods consolidated
+  (`GetSystemVersion`/`ListEnabledPlaybooks`/`ExportPlaybook` twins removed in
+  favor of their kept counterparts); dead `MintToken` and
+  `workflowSummaryBody` removed; one generic size-bounded batcher backs the
+  data-table importers; all machine-readable output flows through one
+  indented-JSON emitter.
 
 - **MCP subprocess streams split.** Tool subprocesses no longer interleave
   stderr into the result: success returns stdout (falling back to stderr when
