@@ -206,7 +206,7 @@ func (c *Client) doRequest(ctx context.Context, method, full string, body, out a
 		resp, err := c.http.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("chronicle: %s request failed: %w", method, err)
-			if retryable(method, 0, true) {
+			if httpretry.Retryable(method, 0, true) {
 				if w, ok := nextWait(attempt, 0); ok {
 					wait = w
 					continue // transport error, idempotent method: retry
@@ -230,8 +230,8 @@ func (c *Client) doRequest(ctx context.Context, method, full string, body, out a
 			return nil
 		}
 
-		apiErr := &APIError{Method: method, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: requestIDFromHeader(resp.Header)}
-		if retryable(method, resp.StatusCode, false) {
+		apiErr := &APIError{Method: method, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: httpretry.RequestIDFromHeader(resp.Header)}
+		if httpretry.Retryable(method, resp.StatusCode, false) {
 			// Honor the server's Retry-After / RetryInfo ONLY for a 429 (quota — it's
 			// authoritative there); a 5xx uses the short backoff so a transient error
 			// doesn't block for a proxy-set Retry-After.

@@ -4,18 +4,20 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"danny.vn/secops/internal/httpretry"
 )
 
 // TestRequestIDFromHeader: the first present request-id header wins, in priority
 // order, and absence yields "".
 func TestRequestIDFromHeader(t *testing.T) {
 	h := http.Header{}
-	if got := requestIDFromHeader(h); got != "" {
+	if got := httpretry.RequestIDFromHeader(h); got != "" {
 		t.Errorf("empty headers → %q, want \"\"", got)
 	}
 	h.Set("X-Request-Id", "req-2")
 	h.Set("X-Goog-Request-Id", "goog-1")
-	if got := requestIDFromHeader(h); got != "goog-1" {
+	if got := httpretry.RequestIDFromHeader(h); got != "goog-1" {
 		t.Errorf("priority: got %q, want goog-1", got)
 	}
 }

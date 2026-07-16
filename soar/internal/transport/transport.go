@@ -72,20 +72,7 @@ func (e *Error) Error() string {
 // Retryable reports whether the failed request is safe to retry under the
 // transport's policy: a 429 (any method) or a 5xx on an idempotent method.
 // Surfaced so a structured error can tell a caller whether a retry is sound.
-func (e *Error) Retryable() bool { return retryable(e.Method, e.Status, false) }
-
-// requestIDHeaders are the response headers that may carry a server request id.
-var requestIDHeaders = []string{"X-Goog-Request-Id", "X-Request-Id", "X-Cloud-Trace-Context"}
-
-// requestIDFromHeader returns the first request-id header present, or "".
-func requestIDFromHeader(h http.Header) string {
-	for _, k := range requestIDHeaders {
-		if v := h.Get(k); v != "" {
-			return v
-		}
-	}
-	return ""
-}
+func (e *Error) Retryable() bool { return httpretry.Retryable(e.Method, e.Status, false) }
 
 // Transport executes authenticated SOAR requests. Safe for concurrent use.
 type Transport struct {
@@ -222,45 +209,11 @@ func (t *Transport) ExternalBytes(ctx context.Context, method, path string, body
 	return raw, nil
 }
 
-// retryStatuses5xx are server errors safe to retry ONLY for idempotent methods —
-// a 5xx on a mutating POST may have already taken effect server-side (the SOAR
-// external API in particular returns a post-creation 500 on CreateManualCase
-// while still creating the case), so blindly retrying it duplicates the side
-// effect. 429 (rate-limited → rejected before processing) is safe for any method.
-var retryStatuses5xx = map[int]bool{500: true, 502: true, 503: true, 504: true}
-
 const maxRetries = 4
 
 // baseBackoff is the first retry delay; subsequent attempts back off
 // exponentially (×2 each). A package var so tests can zero it.
 var baseBackoff = 300 * time.Millisecond
-
-// idempotentMethod reports whether retrying method is side-effect-safe. Only
-// these may be retried on a 5xx or a transport error; POST/PATCH are not.
-func idempotentMethod(method string) bool {
-	switch method {
-	case http.MethodGet, http.MethodHead, http.MethodPut, http.MethodDelete, http.MethodOptions, http.MethodTrace:
-		return true
-	default:
-		return false
-	}
-}
-
-// retryable decides whether a response/error for method warrants another attempt.
-// A transport error (no status) or a 5xx is retried only for idempotent methods;
-// 429 is retried for any method (the request was rejected, not processed).
-func retryable(method string, status int, transportErr bool) bool {
-	if transportErr {
-		return idempotentMethod(method)
-	}
-	if status == 429 {
-		return true
-	}
-	if retryStatuses5xx[status] {
-		return idempotentMethod(method)
-	}
-	return false
-}
 
 func (t *Transport) do(ctx context.Context, method, full string, body, out any, extraHeaders map[string]string) error {
 	var bodyBytes []byte
@@ -333,7 +286,7 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 		resp, err := t.http.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("soar: %s request failed: %w", method, err)
-			if retryable(method, 0, true) {
+			if httpretry.Retryable(method, 0, true) {
 				if w, ok := nextWait(attempt, 0); ok {
 					wait = w
 					continue
@@ -358,8 +311,8 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 			return nil
 		}
 
-		apiErr := &Error{Method: method, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: requestIDFromHeader(resp.Header)}
-		if retryable(method, resp.StatusCode, false) {
+		apiErr := &Error{Method: method, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: httpretry.RequestIDFromHeader(resp.Header)}
+		if httpretry.Retryable(method, resp.StatusCode, false) {
 			// Honor the server's Retry-After / RetryInfo ONLY for a 429 (quota); a
 			// 5xx uses the short backoff so a transient error fails fast.
 			var hint time.Duration

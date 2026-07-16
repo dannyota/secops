@@ -51,7 +51,9 @@ notes in the signed tag messages.
   favor of their kept counterparts); dead `MintToken` and
   `workflowSummaryBody` removed; one generic size-bounded batcher backs the
   data-table importers; all machine-readable output flows through one
-  indented-JSON emitter.
+  indented-JSON emitter; the retry/idempotency and request-id helpers both
+  transports duplicated live once in the shared retry package; the tips and
+  guides embed packages share one Markdown-walk implementation.
 
 - **MCP subprocess streams split.** Tool subprocesses no longer interleave
   stderr into the result: success returns stdout (falling back to stderr when

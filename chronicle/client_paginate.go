@@ -16,11 +16,6 @@ import (
 
 // --- retry plumbing ----------------------------------------------------------
 
-// retryStatuses are the HTTP statuses worth retrying with backoff. A 5xx is only
-// retried for idempotent methods (see retryable); 429 is retried for any method.
-// DEVIATION: explicit and bounded, rather than buried in transport defaults.
-var retryStatuses = map[int]bool{429: true, 500: true, 502: true, 503: true, 504: true}
-
 const maxRetries = 4
 
 // baseBackoff is the first retry delay; subsequent attempts back off ×2 (with
@@ -36,35 +31,6 @@ func retryPolicy() httpretry.Policy {
 	p.MaxAttempts = maxRetries + 1
 	p.Base = baseBackoff
 	return p
-}
-
-// idempotentMethod reports whether retrying method is side-effect-safe. Only these
-// may be retried on a 5xx or a transport error; POST/PATCH are NOT — a 5xx on a
-// mutation may have already applied server-side (create-despite-error), so
-// retrying it duplicates the side effect (CLAUDE.md). Mirrors the SOAR transport.
-func idempotentMethod(method string) bool {
-	switch method {
-	case http.MethodGet, http.MethodHead, http.MethodPut, http.MethodDelete, http.MethodOptions, http.MethodTrace:
-		return true
-	default:
-		return false
-	}
-}
-
-// retryable decides whether a response/error for method warrants another attempt:
-// a transport error (no status) or a 5xx is retried only for idempotent methods;
-// 429 (rejected before processing) is retried for any method.
-func retryable(method string, status int, transportErr bool) bool {
-	if transportErr {
-		return idempotentMethod(method)
-	}
-	if status == 429 {
-		return true
-	}
-	if retryStatuses[status] { // 5xx (429 already returned above)
-		return idempotentMethod(method)
-	}
-	return false
 }
 
 // --- streaming & pagination --------------------------------------------------
@@ -124,7 +90,7 @@ func (c *Client) streamArray(ctx context.Context, path string, body any, onElem 
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		data, _ := io.ReadAll(resp.Body)
-		return &APIError{Method: http.MethodPost, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: requestIDFromHeader(resp.Header)}
+		return &APIError{Method: http.MethodPost, URL: full, Status: resp.StatusCode, Body: string(data), RequestID: httpretry.RequestIDFromHeader(resp.Header)}
 	}
 
 	dec := json.NewDecoder(resp.Body)

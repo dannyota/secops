@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"danny.vn/secops/auth"
+	"danny.vn/secops/internal/httpretry"
 )
 
 // countingRT returns a fixed status for every call and counts how many requests
@@ -72,12 +73,12 @@ func TestRetryPolicy(t *testing.T) {
 
 func TestIdempotentMethod(t *testing.T) {
 	for _, m := range []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodDelete} {
-		if !idempotentMethod(m) {
+		if !httpretry.IdempotentMethod(m) {
 			t.Errorf("%s should be idempotent", m)
 		}
 	}
 	for _, m := range []string{http.MethodPost, http.MethodPatch} {
-		if idempotentMethod(m) {
+		if httpretry.IdempotentMethod(m) {
 			t.Errorf("%s should NOT be idempotent", m)
 		}
 	}

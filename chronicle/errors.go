@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
+	"danny.vn/secops/internal/httpretry"
 )
 
 // APIError is a non-2xx response from the Chronicle API.
@@ -34,25 +36,10 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("chronicle: %s request failed with HTTP %d%s: %s", e.Method, e.Status, rid, body)
 }
 
-// requestIDHeaders are the response headers that may carry a server request id,
-// in priority order. Surfaced on APIError so a failed call is traceable in a
-// support escalation.
-var requestIDHeaders = []string{"X-Goog-Request-Id", "X-Request-Id", "X-Cloud-Trace-Context"}
-
-// requestIDFromHeader returns the first request-id header present, or "".
-func requestIDFromHeader(h http.Header) string {
-	for _, k := range requestIDHeaders {
-		if v := h.Get(k); v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
 // Retryable reports whether the failed request is safe to retry under the
 // transport's policy: a 429 (any method) or a 5xx on an idempotent method.
 // Surfaced so a structured error can tell a caller whether a retry is sound.
-func (e *APIError) Retryable() bool { return retryable(e.Method, e.Status, false) }
+func (e *APIError) Retryable() bool { return httpretry.Retryable(e.Method, e.Status, false) }
 
 // IsNotFound reports whether err is an APIError with a 404 status. Useful for
 // the numeric-vs-string project-form fallback.
