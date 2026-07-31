@@ -34,10 +34,12 @@ secopsctl config [flags]
 ```
 
 ```text
-Create or edit the instance config in a single-screen form: all fields on
-one screen, ↑/↓ or Tab to move, edit in place, then Save (or Cancel). The
-SOAR AppKey field is hidden. Flags set values directly; --non-interactive
-(or non-terminal stdin) skips the form and writes flags + current values.
+Create or edit the instance config in an interactive form: click a field or
+use ↑/↓ or Tab to move, edit in place, then click Save (or Cancel). The
+mouse wheel moves through fields when the form is taller than the terminal.
+The SOAR AppKey field is hidden. Flags set values directly;
+--non-interactive (or non-terminal stdin) skips the form and writes flags +
+current values.
 
 Writes ~/.secopsctl/instance.yaml (0600), or the --config path if given.
 The file may hold the SOAR AppKey in plaintext (v1); it is git-ignored and
@@ -67,7 +69,8 @@ application-default login` handles SIEM auth.
 
   # set values non-interactively (e.g. in a script)
   secopsctl config --non-interactive \
-      --project-id your-project-id --region us --customer-id 00000000-0000-0000-0000-000000000000
+      --project-id your-project-id --project-number 000000000000 \
+      --region us --customer-id 00000000-0000-0000-0000-000000000000
 
   # print the resolved config file path
   secopsctl config --show-path
@@ -82,10 +85,11 @@ secopsctl doctor
 ```
 
 ```text
-doctor checks that secopsctl is correctly configured and can reach both
+doctor checks that secopsctl is correctly configured and can reach its
 APIs. It validates the config file (existence, permissions, required fields),
 acquires auth credentials, and makes one lightweight read-only call to the
-SIEM and SOAR planes. It never mutates anything. --json emits {ok, version, checks[]}.
+SIEM plane and, when configured, the SOAR plane. It never mutates anything.
+--json emits {ok, version, checks[]}.
 ```
 
 **Examples**

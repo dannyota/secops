@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -29,10 +31,12 @@ func init() {
 		Use:     "config",
 		Aliases: []string{"init"},
 		Short:   "Set up the secopsctl config (~/.secopsctl/instance.yaml)",
-		Long: "Create or edit the instance config in a single-screen form: all fields on\n" +
-			"one screen, ↑/↓ or Tab to move, edit in place, then Save (or Cancel). The\n" +
-			"SOAR AppKey field is hidden. Flags set values directly; --non-interactive\n" +
-			"(or non-terminal stdin) skips the form and writes flags + current values.\n\n" +
+		Long: "Create or edit the instance config in an interactive form: click a field or\n" +
+			"use ↑/↓ or Tab to move, edit in place, then click Save (or Cancel). The\n" +
+			"mouse wheel moves through fields when the form is taller than the terminal.\n" +
+			"The SOAR AppKey field is hidden. Flags set values directly;\n" +
+			"--non-interactive (or non-terminal stdin) skips the form and writes flags +\n" +
+			"current values.\n\n" +
 			"Writes ~/.secopsctl/instance.yaml (0600), or the --config path if given.\n" +
 			"The file may hold the SOAR AppKey in plaintext (v1); it is git-ignored and\n" +
 			"never committed. At run time, real SECOPS_* env vars override the file. The\n" +
@@ -42,7 +46,8 @@ func init() {
 			"  secopsctl config\n\n" +
 			"  # set values non-interactively (e.g. in a script)\n" +
 			"  secopsctl config --non-interactive \\\n" +
-			"      --project-id your-project-id --region us --customer-id 00000000-0000-0000-0000-000000000000\n\n" +
+			"      --project-id your-project-id --project-number 000000000000 \\\n" +
+			"      --region us --customer-id 00000000-0000-0000-0000-000000000000\n\n" +
 			"  # print the resolved config file path\n" +
 			"  secopsctl config --show-path",
 		Args: cobra.NoArgs,
@@ -63,7 +68,10 @@ func init() {
 			if target == "" {
 				target = config.DefaultPath()
 			}
-			cur := config.ReadForEdit(target)
+			cur, err := config.ReadForEditStrict(target)
+			if err != nil {
+				return err
+			}
 
 			// Flags override the current value when explicitly set.
 			f := cmd.Flags()
@@ -79,7 +87,13 @@ func init() {
 				cur.ForceIPv4 = fForceIPv4
 			}
 
-			if !nonInteractive && term.IsTerminal(int(os.Stdin.Fd())) {
+			stdinTerminal := term.IsTerminal(int(os.Stdin.Fd()))
+			stderrTerminal := term.IsTerminal(int(os.Stderr.Fd()))
+			if !nonInteractive && stdinTerminal && !stderrTerminal {
+				return fmt.Errorf("interactive config needs a terminal on stderr; remove the stderr redirect or use --non-interactive")
+			}
+			interactive := !nonInteractive && stdinTerminal && stderrTerminal
+			if interactive {
 				saved, err := runConfigForm(cur)
 				if err != nil {
 					return err
@@ -88,15 +102,14 @@ func init() {
 					fmt.Println("Cancelled; no changes written.")
 					return nil
 				}
-			} else if cur.Region != "" && !config.IsKnownRegion(cur.Region) {
+			}
+
+			normalizeConfigValues(cur)
+			if !interactive && cur.Region != "" && !config.IsKnownRegion(cur.Region) {
 				// Non-interactive: warn but don't block (allows a region newer than
 				// our list); the form path enforces membership.
 				fmt.Fprintf(os.Stderr, "  (warn) region %q is not in the known list\n", cur.Region)
 			}
-
-			// Store the SOAR URL canonically (add https:// if the user typed a
-			// bare host, trim a trailing slash).
-			cur.SOARURL = normalizeSOARURL(cur.SOARURL)
 
 			if missing := requiredMissing(cur); len(missing) > 0 {
 				return fmt.Errorf("missing required value(s): %s", strings.Join(missing, ", "))
@@ -127,48 +140,85 @@ func init() {
 	rootCmd.AddCommand(cmd)
 }
 
-// runConfigForm shows the single-screen huh form pre-filled from cur, mutating
-// cur in place. Returns whether the user chose Save.
+// runConfigForm shows the Huh form pre-filled from cur, mutating cur in place.
+// Returns whether the user chose Save.
 func runConfigForm(cur *config.Instance) (bool, error) {
 	projNum := cur.ProjectNumberString()
 	save := true
+	mouseCancelled := false
 
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewNote().
-				Title("secopsctl config").
-				Description("Edit fields, then Save. Writes ~/.secopsctl/instance.yaml (0600)."),
-			huh.NewInput().Title("Project ID").Value(&cur.ProjectID).
-				Validate(requiredField("project ID")),
-			huh.NewInput().Title("Project number").Value(&projNum).
-				Validate(requiredField("project number")),
-			huh.NewInput().Title("Region").Description("e.g. us, europe, asia-southeast1").
-				Value(&cur.Region).Validate(validRegion),
-			huh.NewInput().Title("Customer ID").Description("Chronicle instance GUID").
-				Value(&cur.CustomerID).Validate(requiredField("customer ID")),
-			huh.NewInput().Title("SOAR URL").Description("e.g. https://<tenant>.siemplify-soar.com").
-				Value(&cur.SOARURL).Validate(requiredField("SOAR URL")),
-			huh.NewInput().Title("SOAR AppKey").Description("hidden; needed for SOAR commands").
-				EchoMode(huh.EchoModePassword).Value(&cur.SOARAppKey).
-				Validate(requiredField("SOAR AppKey")),
-			huh.NewConfirm().Title("Force IPv4?").
-				Description("pin the dialer to IPv4 (corporate-VPN / broken-IPv6 fix)").
-				Value(&cur.ForceIPv4),
-			huh.NewConfirm().Title("Save this config?").
-				Affirmative("Save").Negative("Cancel").Value(&save),
-		),
+	form, fields := newConfigForm(cur, &projNum, &save)
+	mouse := &configMouseHandler{
+		fields:         fields,
+		save:           &save,
+		mouseCancelled: &mouseCancelled,
+	}
+	form.WithOutput(os.Stderr)
+	form.WithProgramOptions(
+		tea.WithOutput(os.Stderr),
+		tea.WithReportFocus(),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+		tea.WithFilter(mouse.filter),
 	)
 	if err := form.Run(); err != nil {
+		if mouseCancelled && errors.Is(err, huh.ErrUserAborted) {
+			return false, nil
+		}
 		return false, err
 	}
 
-	cur.ProjectID = strings.TrimSpace(cur.ProjectID)
-	cur.SetProjectNumber(strings.TrimSpace(projNum))
-	cur.Region = strings.TrimSpace(cur.Region)
-	cur.CustomerID = strings.TrimSpace(cur.CustomerID)
-	cur.SOARURL = strings.TrimSpace(cur.SOARURL)
-	cur.SOARAppKey = strings.TrimSpace(cur.SOARAppKey)
+	cur.SetProjectNumber(projNum)
 	return save, nil
+}
+
+// newConfigForm builds the pointer-bound form separately from its runner so
+// mouse behavior can be exercised with ordinary Bubble Tea messages in tests.
+func newConfigForm(cur *config.Instance, projNum *string, save *bool) (*huh.Form, []huh.Field) {
+	fields := []huh.Field{
+		huh.NewInput().Key(configFieldProjectID).Title("Project ID").Value(&cur.ProjectID).
+			Validate(requiredField("project ID")),
+		huh.NewInput().Key(configFieldProjectNumber).Title("Project number").Value(projNum).
+			Validate(requiredField("project number")),
+		huh.NewInput().Key(configFieldRegion).Title("Region").
+			Description("e.g. us, europe, asia-southeast1").
+			Value(&cur.Region).Validate(validRegion),
+		huh.NewInput().Key(configFieldCustomerID).Title("Customer ID").
+			Description("Chronicle instance GUID").
+			Value(&cur.CustomerID).Validate(requiredField("customer ID")),
+		huh.NewInput().Key(configFieldSOARURL).Title("SOAR URL").
+			Description("optional; needed for SOAR commands").
+			Value(&cur.SOARURL),
+		huh.NewInput().Key(configFieldSOARAppKey).Title("SOAR AppKey").
+			Description("optional and hidden; needed for SOAR commands").
+			EchoMode(huh.EchoModePassword).Value(&cur.SOARAppKey),
+		huh.NewConfirm().Key(configFieldForceIPv4).Title("Force IPv4?").
+			Description("pin the dialer to IPv4 (corporate-VPN / broken-IPv6 fix)").
+			Value(&cur.ForceIPv4),
+		huh.NewConfirm().Key(configFieldSave).Title("Save this config?").
+			Affirmative("Save").Negative("Cancel").Value(save),
+	}
+
+	allFields := make([]huh.Field, 0, len(fields)+1)
+	allFields = append(allFields,
+		huh.NewNote().
+			Title("secopsctl config").
+			Description("Click a field or use ↑/↓/Tab; scroll for more. Click Save or Cancel when finished."),
+	)
+	allFields = append(allFields, fields...)
+
+	keymap := huh.NewDefaultKeyMap()
+	keymap.Input.Prev.SetKeys("up", "shift+tab")
+	keymap.Input.Prev.SetHelp("↑/shift+tab", "back")
+	keymap.Input.Next.SetKeys("down", "enter", "tab")
+	keymap.Input.Next.SetHelp("↓/enter", "next")
+	keymap.Confirm.Prev.SetKeys("up", "shift+tab")
+	keymap.Confirm.Prev.SetHelp("↑/shift+tab", "back")
+	keymap.Confirm.Next.SetKeys("down", "enter", "tab")
+	keymap.Confirm.Next.SetHelp("↓/enter", "next")
+
+	form := huh.NewForm(huh.NewGroup(allFields...)).WithKeyMap(keymap)
+	return form, fields
 }
 
 // requiredField returns a huh validator that rejects an empty/blank value.
@@ -193,6 +243,17 @@ func validRegion(s string) error {
 	return nil
 }
 
+// normalizeConfigValues applies the same cleanup to form and flag input before
+// validation and persistence.
+func normalizeConfigValues(i *config.Instance) {
+	i.ProjectID = strings.TrimSpace(i.ProjectID)
+	i.SetProjectNumber(strings.TrimSpace(i.ProjectNumberString()))
+	i.Region = strings.TrimSpace(i.Region)
+	i.CustomerID = strings.TrimSpace(i.CustomerID)
+	i.SOARURL = normalizeSOARURL(strings.TrimSpace(i.SOARURL))
+	i.SOARAppKey = strings.TrimSpace(i.SOARAppKey)
+}
+
 // requiredMissing lists the required identifiers still empty after flags/form.
 func requiredMissing(i *config.Instance) []string {
 	var missing []string
@@ -207,12 +268,6 @@ func requiredMissing(i *config.Instance) []string {
 	}
 	if i.CustomerID == "" {
 		missing = append(missing, "customer_id")
-	}
-	if i.SOARURL == "" {
-		missing = append(missing, "soar_url")
-	}
-	if i.SOARAppKey == "" {
-		missing = append(missing, "soar_app_key")
 	}
 	return missing
 }

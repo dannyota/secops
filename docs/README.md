@@ -20,7 +20,7 @@ from the terminal, or from Go code.
 ```bash
 go install danny.vn/secops/cmd/secopsctl@latest
 
-secopsctl config      # one-screen wizard → ~/.secopsctl/instance.yaml
+secopsctl config      # interactive wizard → ~/.secopsctl/instance.yaml
 secopsctl doctor      # verify auth + API reach
 
 secopsctl mcp install # writes .mcp.json in the current project

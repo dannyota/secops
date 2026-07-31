@@ -16,6 +16,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,15 +33,16 @@ import (
 // Instance is one Chronicle/SecOps instance configuration. Field order is the
 // on-disk YAML order written by Save.
 type Instance struct {
-	ProjectID     string  `yaml:"project_id"`
-	ProjectNumber flexStr `yaml:"project_number"`
-	Region        string  `yaml:"region"`
-	CustomerID    string  `yaml:"customer_id"`
-	SOARURL       string  `yaml:"soar_url,omitempty"`     // SOAR host, e.g. https://<tenant>.siemplify-soar.com
-	SOARAppKey    string  `yaml:"soar_app_key,omitempty"` // SOAR AppKey (plaintext, v1); never committed (file is git-ignored)
-	BaseURL       string  `yaml:"base_url,omitempty"`     // derived from region when empty
-	UIURL         string  `yaml:"ui_url,omitempty"`
-	ForceIPv4     bool    `yaml:"force_ipv4,omitempty"` // pin the dialer to IPv4 (corporate-VPN fix; also via SECOPS_FORCE_IPV4)
+	ProjectID     string         `yaml:"project_id"`
+	ProjectNumber flexStr        `yaml:"project_number"`
+	Region        string         `yaml:"region"`
+	CustomerID    string         `yaml:"customer_id"`
+	SOARURL       string         `yaml:"soar_url,omitempty"`     // SOAR host, e.g. https://<tenant>.siemplify-soar.com
+	SOARAppKey    string         `yaml:"soar_app_key,omitempty"` // SOAR AppKey (plaintext, v1); never committed (file is git-ignored)
+	BaseURL       string         `yaml:"base_url,omitempty"`     // derived from region when empty
+	UIURL         string         `yaml:"ui_url,omitempty"`
+	ForceIPv4     bool           `yaml:"force_ipv4,omitempty"` // pin the dialer to IPv4 (corporate-VPN fix; also via SECOPS_FORCE_IPV4)
+	Extra         map[string]any `yaml:",inline"`              // preserve hand-edited and future keys when `secopsctl config` rewrites the file
 
 	source string // file Load read this from ("" = environment only); unexported → never persisted
 }
@@ -256,15 +258,26 @@ func Load(explicit string) (*Instance, error) {
 // ~/.secopsctl/instance.yaml.
 func DefaultPath() string { return userdir.InstanceConfigPath() }
 
-// ReadForEdit reads the config file at path WITHOUT env overlay or validation,
-// so it shows exactly what is persisted — for the interactive `config` command
-// to pre-fill prompts, and for best-effort reads that must tolerate a partial
-// config. A missing or unparseable file yields an empty Instance.
-func ReadForEdit(path string) *Instance {
+// ReadForEditStrict reads the config file at path WITHOUT env overlay or
+// validation, so an editor shows exactly what is persisted. A missing file
+// yields an empty Instance; malformed YAML is returned as an error so an editor
+// cannot accidentally overwrite it.
+func ReadForEditStrict(path string) (*Instance, error) {
 	if path == "" {
-		return &Instance{}
+		return &Instance{}, nil
 	}
-	if inst, err := readFile(path); err == nil {
+	inst, err := readFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return &Instance{}, nil
+	}
+	return inst, err
+}
+
+// ReadForEdit is the best-effort counterpart to ReadForEditStrict. It is for
+// callers that can tolerate a partial or malformed config; editors should use
+// ReadForEditStrict instead.
+func ReadForEdit(path string) *Instance {
+	if inst, err := ReadForEditStrict(path); err == nil {
 		return inst
 	}
 	return &Instance{}
@@ -280,7 +293,7 @@ func Save(inst *Instance, path string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return "", err
 	}
-	data, err := yaml.Marshal(inst)
+	data, err := marshalInstance(inst)
 	if err != nil {
 		return "", err
 	}
@@ -294,6 +307,22 @@ func Save(inst *Instance, path string) (string, error) {
 		return "", err
 	}
 	return path, nil
+}
+
+// marshalInstance converts yaml.v3 panics caused by invalid inline Extra values
+// (for example, a key that collides with project_id) into ordinary Save errors.
+func marshalInstance(inst *Instance) (data []byte, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			data = nil
+			err = fmt.Errorf("marshal config: %v", recovered)
+		}
+	}()
+	data, err = yaml.Marshal(inst)
+	if err != nil {
+		return nil, fmt.Errorf("marshal config: %w", err)
+	}
+	return data, nil
 }
 
 // ProjectNumberString returns the project number as a plain string.

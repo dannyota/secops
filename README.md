@@ -72,9 +72,10 @@ page; build verification and signature-checking steps are in the
 
 ## Quickstart
 
-**1. Configure your tenant.** `secopsctl config` (alias `init`) opens a one-screen
-form → `~/.secopsctl/instance.yaml` (`0600`, git-ignored). Or pass every field as
-flags:
+**1. Configure your tenant.** `secopsctl config` (alias `init`) opens an
+interactive form → `~/.secopsctl/instance.yaml` (`0600`, git-ignored). Click a
+field to edit it, click **Yes/No** or **Save/Cancel** to choose, and use the mouse
+wheel or `↑`/`↓`/`Tab` to move. Or pass fields as flags:
 
 ```bash
 secopsctl config \

@@ -3,9 +3,13 @@
 Notable changes per release. Earlier releases (v0.1.x – v0.2.x) carry their
 notes in the signed tag messages.
 
-## Unreleased
+## v0.9.15 — 2026-07-31
 
 ### Added
+
+- **Mouse controls for `secopsctl config`.** Click any field to focus it, click
+  Yes/No and Save/Cancel directly, or use the mouse wheel to move through a
+  form taller than the terminal. Arrow and Tab navigation remain available.
 
 - **MCP large-output spill.** Tool results larger than an inline threshold
   (64 KiB default, `SECOPS_MCP_SPILL_BYTES` to tune) are streamed to a
@@ -23,6 +27,11 @@ notes in the signed tag messages.
   every high-risk entity listed unchecked.
 
 ### Fixed
+
+- **Config editing is safer and SIEM-only setup works.** SOAR URL/AppKey now
+  remain optional as documented; form and flag values receive the same
+  whitespace normalization; malformed YAML is refused instead of overwritten;
+  and hand-edited or future YAML keys survive a `secopsctl config` rewrite.
 
 - **MCP `run` respects `--flag=value` output flags.** The server appended
   `--json` whenever a `run` command set its format in equals form

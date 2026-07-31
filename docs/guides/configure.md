@@ -18,9 +18,9 @@ and the SOAR AppKey stay local.
 secopsctl config
 ```
 
-Opens a single-screen form: every field on one screen, `↑`/`↓` or `Tab` to move,
-edit in place, then **Save** (or **Cancel**). The SOAR AppKey field is hidden as
-you type.
+Opens an interactive form. Click a field to edit it; click **Yes/No** or
+**Save/Cancel** to choose directly. Use the mouse wheel or `↑`/`↓`/`Tab` to move
+through fields when needed. The SOAR AppKey field is hidden as you type.
 
 Set values directly with flags instead — and `--non-interactive` (or a
 non-terminal stdin) skips the form and writes the flags plus current values:

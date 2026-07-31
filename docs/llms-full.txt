@@ -29,7 +29,7 @@ from the terminal, or from Go code.
 ```bash
 go install danny.vn/secops/cmd/secopsctl@latest
 
-secopsctl config      # one-screen wizard → ~/.secopsctl/instance.yaml
+secopsctl config      # interactive wizard → ~/.secopsctl/instance.yaml
 secopsctl doctor      # verify auth + API reach
 
 secopsctl mcp install # writes .mcp.json in the current project
@@ -280,9 +280,9 @@ and the SOAR AppKey stay local.
 secopsctl config
 ```
 
-Opens a single-screen form: every field on one screen, `↑`/`↓` or `Tab` to move,
-edit in place, then **Save** (or **Cancel**). The SOAR AppKey field is hidden as
-you type.
+Opens an interactive form. Click a field to edit it; click **Yes/No** or
+**Save/Cancel** to choose directly. Use the mouse wheel or `↑`/`↓`/`Tab` to move
+through fields when needed. The SOAR AppKey field is hidden as you type.
 
 Set values directly with flags instead — and `--non-interactive` (or a
 non-terminal stdin) skips the form and writes the flags plus current values:
@@ -2420,9 +2420,9 @@ Offline or cross-plane helpers — no surface mutation.
 | `status capabilities [--json]` | Session bootstrap in one call: tool version + auth health + surface status + active read-only state. |
 | `status coverage [--limit N]` | MITRE ATT&CK detection coverage (threat-collection × rule) — the platform's coverage-posture view. JSON. |
 | `status surfaces [--json]` | List every API surface family — plane (host + auth), API version, lane (reconcile/imperative/raw/operational), status, and whether `--prune` can delete it. Reads nothing live; the map of reconcilable vs read-only. |
-| `mcp serve` / `mcp install` | MCP server over stdio — auto-generates tools from the command tree + serves tips as resources. `mcp install` registers in `.claude/settings.json`. |
+| `mcp serve` / `mcp install` | MCP server over stdio — auto-generates tools from the command tree + serves tips as resources. `mcp install` registers in the project's `.mcp.json`. |
 | `doctor` | Live smoke test: config + auth + SIEM/SOAR reachability. |
-| `config` (alias `init`) | Set up / edit the config (`~/.secopsctl/instance.yaml`, `0600`). Single-screen form, or flags + `--non-interactive`. `config --show-path` prints the active config file. See [configure](configure.md). |
+| `config` (alias `init`) | Set up / edit the config (`~/.secopsctl/instance.yaml`, `0600`). Mouse/keyboard form, or flags + `--non-interactive`. `config --show-path` prints the active config file. See [configure](configure.md). |
 | `completion` | Generate the shell autocompletion script. |
 | `version` | Print version, commit, and build info. |
 | `help` | Help about any command. |
@@ -5663,10 +5663,12 @@ reflection; refused on an incomplete listing to prevent false deletions.
 |---|---|---|---|---|
 | `cases list` / `get <id>` | operational read | ✅ siemplify · v1alpha | ✅ get; list fallback | Cases on v1alpha siemplify domain; auto-falls back to legacy `ListCaseCards`; `--legacy` forces legacy. |
 | `gemini summarize` / `cases counts` / `cases alert recommend` (AI) | operational read | ✅ summarize · ✅ counts · 🔨 recommend create leg — siemplify · v1alpha | — | W56 AI-assist reads; W59 counts; recommend CREATE works, fetch leg not served (400). v0.7.2: `summarize` moved to `gemini` group (hidden alias at `cases summarize`). |
-| `cases run-action` | imperative | ✅ siemplify · v1alpha | ✅ | Runs any installed integration action on a case; guarded; guarded. |
+| `cases run-action` | imperative | ✅ siemplify · v1alpha | ✅ | Runs any installed integration action on a case; guarded. |
 | `cases simulation` | imperative | ✅ siemplify · v1alpha | ✅ | Full simulation CRUD + export/import. W118 adds `--event-field`/`--alert-field`, `export`, `import`. |
 | `cases <verb>` (assign/rename/stage/tag/untag/describe/importance/priority/close/reopen/merge/incident + `comment add` + `report`) | imperative | — | ✅ 11 verbs · 🔨 W52 (smoke extended, gated) | 11 verbs; W52 base; v0.7.2 adds `incident` (mark/unmark) + `report` (PDF/CSV/XLSX/DOC export). |
 | `cases alert <verb>` (close/priority/move/reopen) | imperative | — | 🔨 smoke extended, gated | Per-alert triage (W52); guarded. |
+| `cases task/chat/context/evidence <verb>` | imperative | — | ✅ | Sub-groups with guarded mutations: `task` (4 cmds, 3 guarded — checklist tasks), `chat` (3 cmds, 1 guarded — case-wall chat), `context` (2 cmds, 1 guarded — key-value context), `evidence` (2 cmds, 1 guarded — file attachments). |
+| `cases aging/wall/workload/overview/custom-fields/stats/counts/values/soar-id` | operational read | — | ✅ | Read-only case helpers: aging report, case wall, analyst workload, per-case overview, custom-field values, queue stats, priority counts, valid enum values, SIEM-uuid→SOAR-id resolution. |
 | `cases playbook-errors <id>` | operational read | — | ✅ | Walk all alerts' playbook executions and show faulted steps with full error messages; recurses into nested BLOCK playbooks. |
 | `gemini generate` (AI playbook drafting) | imperative | 🔨 siemplify · v1alpha (guarded) | — | W56 Gemini drafting; creates a draft on the instance; guarded. Write smoke gated. v0.7.2: moved to `gemini` group (hidden alias at `playbooks generate`). |
 | `playbooks` operational helpers | operational read + guarded execution | — | ✅ | Waves 39 + 51 + 55; lifecycle ops, export (JSON + `--zip` platform bundle), import (from ZIP), deploy toggle, batch delete, step insert, run/debug/rerun. |
@@ -5708,10 +5710,10 @@ Installing content (integration packages and the connector/job/action definition
 | `integrations scaffold` / `soar ide package-integration` | offline utility | — | — | Scaffolds Python custom integration dirs; packages to ZIP for IDE import; no API call. |
 | `integrations import` | guarded write | 🔨 siemplify · v1alpha | 🔨 | Import a packaged custom integration ZIP (scaffold → package → import); creates integration + action/job definitions with Python scripts; staging by default. |
 | `commands` / `status surfaces` / `status capabilities` / `status enums` | offline utility + live probe | — | — | Machine-readable registries; W73 rich flag schema + `status capabilities` live probe; `status enums` lists SOAR integer-to-name enum mappings (CasePriority, CloseReason, SLA types, BlockList types, WorkflowsStatus); `--live` fetches instance-specific values (case stages, playbook categories); `--json` for machine output; *(built — offline-tested)*. |
-| `mcp serve` / `mcp install` | offline utility | — | — | W139–140; MCP server over stdio — auto-generates tools from cobra tree + serves docs/tips as resources. Focus-first design: `focus <group>` loads typed tools (validated schemas), `usage <cmd>` auto-loads a single tool, `run` is the unvalidated escape hatch. Tool annotations (`readOnlyHint`/`destructiveHint`) from `commandKind`; `run` nudges toward `focus` when a typed tool exists. Progressive disclosure via `listChanged`. `install` registers in `.mcp.json`. |
+| `mcp serve` / `mcp install` | offline utility | — | — | W139–140; MCP server over stdio — auto-generates tools from cobra tree + serves docs/tips as resources. Focus-first design: `focus <group>` loads typed tools (validated schemas), `usage <cmd>` auto-loads a single tool, `run` is the unvalidated escape hatch. Tool annotations (`readOnlyHint`/`destructiveHint`) from `commandKind`; `run` nudges toward `focus` when a typed tool exists. Progressive disclosure via `listChanged`. Results over 64 KiB spill to a temp file, returned as a JSON pointer with head preview (W144). `install` registers in `.mcp.json`. |
 | `docs generate` (hidden) | offline utility | — | — | W127; generates the per-group command-reference pages (`docs/commands/`) + index from the command tree and syncs the sidebar block; `--check` is the CI freshness gate. |
 | structured `--json` errors + dry-run plan | output contract | — | — | W73 verified; stderr structured error envelope + stdout dry-run change plan. |
-| global `--output table\|json\|csv` | output contract | — | — | W127; `--output json` ≡ `--json` everywhere; table/csv on the format-aware commands (`query udm`, `mitre`, `rules health`), where a local `--format` overrides it. |
+| global `--output table\|json\|csv` | output contract | — | — | W127; `--output json` ≡ `--json` everywhere; table/csv on the format-aware commands (`search udm`, `mitre`, `rules health`), where a local `--format` overrides it. |
 | global `--no-progress` | output contract | — | — | W133; suppresses carriage-return streaming progress on stderr (also suppressed by `--json` or non-TTY stderr). Wired into `pull all`, `search udm --raw`, `rules run-test`. |
 | `integrations list` / `uninstall` / `rename` | imperative | ✅ siemplify · v1alpha | — | Lists installed packs (`--instances` nests configured instances, tags `[renamable]`); uninstalls custom-only; `rename` patches a non-system instance's displayName via v1alpha PATCH + updateMask. |
 | `integrations connector list` / `delete` | imperative | ✅ siemplify · v1alpha | — | Connector definitions inside a pack; delete custom-only; built. |

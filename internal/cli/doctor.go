@@ -20,10 +20,11 @@ func init() {
 	doctorCmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Validate config, auth, and API connectivity (read-only)",
-		Long: "doctor checks that secopsctl is correctly configured and can reach both\n" +
+		Long: "doctor checks that secopsctl is correctly configured and can reach its\n" +
 			"APIs. It validates the config file (existence, permissions, required fields),\n" +
 			"acquires auth credentials, and makes one lightweight read-only call to the\n" +
-			"SIEM and SOAR planes. It never mutates anything. --json emits {ok, version, checks[]}.",
+			"SIEM plane and, when configured, the SOAR plane. It never mutates anything.\n" +
+			"--json emits {ok, version, checks[]}.",
 		Example: "  secopsctl doctor        # human-readable\n" +
 			"  secopsctl doctor --json # machine-readable (CI / monitoring)",
 		Args:         cobra.NoArgs,
@@ -184,6 +185,10 @@ func finalize(checks []doctorCheck) ([]doctorCheck, bool, error) {
 
 func checkConfigFields(inst *config.Instance) doctorCheck {
 	c := doctorCheck{Name: "config_fields", label: "config fields"}
+	if inst.SOARURL == "" && inst.SOARAppKey == "" {
+		c.Skipped, c.Detail = true, "SOAR not configured; SIEM-only"
+		return c
+	}
 	var missing []string
 	if inst.SOARURL == "" {
 		missing = append(missing, "soar_url")
@@ -196,7 +201,7 @@ func checkConfigFields(inst *config.Instance) doctorCheck {
 		c.Hint = "run `secopsctl config` to set them; SOAR commands need both"
 		return c
 	}
-	c.OK, c.Detail = true, "all fields set"
+	c.OK, c.Detail = true, "SIEM and SOAR fields set"
 	return c
 }
 

@@ -21,7 +21,7 @@ Or download a pre-built binary from the
 
 ## Configure credentials
 
-The MCP server reads the same config as the CLI. Run the one-screen wizard:
+The MCP server reads the same config as the CLI. Run the interactive wizard:
 
 ```bash
 secopsctl config

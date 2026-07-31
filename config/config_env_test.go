@@ -153,6 +153,90 @@ func TestFlexStrRejectsNonScalar(t *testing.T) {
 	}
 }
 
+func TestReadForEditStrictRejectsMalformedConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "instance.yaml")
+	if err := os.WriteFile(path, []byte("project_id: [unterminated\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ReadForEditStrict(path); err == nil {
+		t.Fatal("ReadForEditStrict accepted malformed YAML")
+	}
+}
+
+func TestSavePreservesUnknownConfigKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "instance.yaml")
+	body := "project_id: old\n" +
+		"project_number: \"1\"\n" +
+		"region: us\n" +
+		"customer_id: customer\n" +
+		"domain: example.com\n" +
+		"org_id: \"000123\"\n" +
+		"future:\n" +
+		"  enabled: true\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	inst, err := ReadForEditStrict(path)
+	if err != nil {
+		t.Fatalf("ReadForEditStrict: %v", err)
+	}
+	inst.ProjectID = "new"
+	if _, err := Save(inst, path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	out, err := ReadForEditStrict(path)
+	if err != nil {
+		t.Fatalf("read saved config: %v", err)
+	}
+	if out.ProjectID != "new" {
+		t.Errorf("ProjectID = %q, want new", out.ProjectID)
+	}
+	if out.Extra["domain"] != "example.com" {
+		t.Errorf("domain = %#v, want example.com", out.Extra["domain"])
+	}
+	if out.Extra["org_id"] != "000123" {
+		t.Errorf("org_id = %#v, want string 000123", out.Extra["org_id"])
+	}
+	future, ok := out.Extra["future"].(map[string]any)
+	if !ok || future["enabled"] != true {
+		t.Errorf("future = %#v, want nested enabled=true", out.Extra["future"])
+	}
+}
+
+func TestSaveRejectsInvalidExtraWithoutPanicking(t *testing.T) {
+	tests := []struct {
+		name  string
+		extra map[string]any
+	}{
+		{
+			name:  "known key collision",
+			extra: map[string]any{"project_id": "shadow"},
+		},
+		{
+			name:  "unsupported value",
+			extra: map[string]any{"future": func() {}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			inst := &Instance{
+				ProjectID:  "project",
+				Region:     "us",
+				CustomerID: "customer",
+				Extra:      tc.extra,
+			}
+			inst.SetProjectNumber("1")
+			if _, err := Save(inst, filepath.Join(t.TempDir(), "instance.yaml")); err == nil {
+				t.Fatal("Save accepted invalid Extra data")
+			}
+		})
+	}
+}
+
 // TestAsMapRedactsAppKey verifies the AppKey value is never returned by AsMap.
 func TestAsMapRedactsAppKey(t *testing.T) {
 	i := &Instance{ProjectID: "p", Region: "us", CustomerID: "c", SOARAppKey: "super-secret"}
