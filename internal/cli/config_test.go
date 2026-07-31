@@ -481,8 +481,8 @@ func configViewButtonPoint(
 		if !strings.HasPrefix(content, affirmative) {
 			continue
 		}
-		if start := strings.Index(line, chosen); start >= 0 {
-			return ansi.StringWidth(line[:start]), y
+		if before, _, found := strings.Cut(line, chosen); found {
+			return ansi.StringWidth(before), y
 		}
 	}
 	t.Fatalf("buttons %q/%q not found in form view", affirmative, negative)

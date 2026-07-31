@@ -149,7 +149,7 @@ func focusConfigFormField(form *huh.Form, target string) bool {
 	if targetIndex < 0 {
 		return false
 	}
-	for range len(configMouseTargets) {
+	for range configMouseTargets {
 		currentIndex := configMouseTargetIndex(form.GetFocusedField().GetKey())
 		if currentIndex == targetIndex {
 			return true
