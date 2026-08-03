@@ -79,6 +79,10 @@ type Transport struct {
 	settings Settings
 	base     string
 	http     *http.Client
+	// maxAttempts overrides the shared retry policy when positive. It is set
+	// during client construction and then immutable; health probes use 1 so a
+	// two-lane protocol hedge can issue at most one request per lane.
+	maxAttempts int
 	// limiter paces outgoing requests so a bursty multi-call operation can't trip
 	// the API quota. nil means no client-side pacing.
 	limiter *rate.Limiter
@@ -106,6 +110,10 @@ func New(s Settings, creds auth.Credentials, httpClient *http.Client) *Transport
 // SetLimiter sets a request-pacing limiter (nil disables pacing). Off by default.
 func (t *Transport) SetLimiter(l *rate.Limiter) { t.limiter = l }
 
+// SetMaxAttempts overrides the total request attempts, including the first.
+// Values below 1 restore the shared default. Call before the first request.
+func (t *Transport) SetMaxAttempts(n int) { t.maxAttempts = n }
+
 // retryPolicy is the shared default policy with the package knobs overlaid (so a
 // test that zeros baseBackoff gets instant retries). Budget bounds the TOTAL
 // backoff across the loop, not just a single wait.
@@ -113,6 +121,14 @@ func retryPolicy() httpretry.Policy {
 	p := httpretry.DefaultPolicy()
 	p.MaxAttempts = maxRetries + 1
 	p.Base = baseBackoff
+	return p
+}
+
+func (t *Transport) retryPolicy() httpretry.Policy {
+	p := retryPolicy()
+	if t.maxAttempts > 0 {
+		p.MaxAttempts = t.maxAttempts
+	}
 	return p
 }
 
@@ -231,7 +247,7 @@ func (t *Transport) do(ctx context.Context, method, full string, body, out any, 
 		bodyBytes = j
 	}
 
-	policy := retryPolicy()
+	policy := t.retryPolicy()
 	var lastErr error
 	var wait, spent time.Duration
 	// nextWait computes the pre-retry delay and reports whether to retry: false once

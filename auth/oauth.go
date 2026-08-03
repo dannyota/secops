@@ -28,6 +28,10 @@ const CloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
 type oauthCreds struct {
 	scopes    []string
 	forceIPv4 bool
+	// tokenCtx owns ADC discovery and token refreshes for this credential. The
+	// default is background so normal long-lived clients remain reusable; bounded
+	// workflows such as doctor may provide their own lifetime context.
+	tokenCtx context.Context
 
 	once sync.Once
 	src  oauth2.TokenSource
@@ -55,12 +59,27 @@ func WithForceIPv4(force bool) OAuthOption {
 	return func(c *oauthCreds) { c.forceIPv4 = force }
 }
 
+// WithTokenContext bounds ADC discovery and token mint/refresh operations to
+// ctx. The context must remain valid for the entire lifetime of the returned
+// credentials. Most callers should omit this option; it exists for bounded
+// workflows such as doctor that discard the credentials when ctx ends.
+func WithTokenContext(ctx context.Context) OAuthOption {
+	return func(c *oauthCreds) {
+		if ctx != nil {
+			c.tokenCtx = ctx
+		}
+	}
+}
+
 // OAuth returns OAuth2/ADC credentials. The access token is minted in-process by
 // the Google auth library (FindDefaultCredentials) and auto-refreshed — no
 // `gcloud` shell-out and no token persisted to disk. Resolution is deferred to
 // the first request.
 func OAuth(opts ...OAuthOption) Credentials {
-	c := &oauthCreds{scopes: []string{CloudPlatformScope}}
+	c := &oauthCreds{
+		scopes:   []string{CloudPlatformScope},
+		tokenCtx: context.Background(),
+	}
 	for _, o := range opts {
 		o(c)
 	}
@@ -75,8 +94,13 @@ func (c *oauthCreds) resolve() (oauth2.TokenSource, error) {
 		}
 		// Mint/refresh tokens in-process. When IPv4 is forced, hand the oauth2
 		// library an IPv4-pinned HTTP client via the context so the token endpoint
-		// calls honor it too (not just the API transports).
-		ctx := context.Background()
+		// calls honor it too (not just the API transports). tokenCtx is normally
+		// background for reusable clients; bounded workflows can opt into a shorter
+		// lifetime with WithTokenContext.
+		ctx := c.tokenCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
 		if c.forceIPv4 || ForceIPv4Env() {
 			ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{
 				Timeout:   60 * time.Second,

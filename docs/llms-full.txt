@@ -471,10 +471,12 @@ exactly which file/env values won.
 secopsctl doctor
 ```
 
-Live smoke test: loads config, acquires a token, makes one read-only SIEM call
-(list rules) and — if `soar_url` is set — one read-only SOAR call (list
-integrations). It never mutates anything. A clean `doctor` means both planes are
-wired correctly. Then start [the loop](the-loop.md).
+Live smoke test: loads config, acquires a token, fetches the configured SIEM
+instance, and — if `soar_url` is set — fetches the SOAR system version. Both are
+single, non-paginated read-only calls. SOAR starts with normal HTTP/2 negotiation
+and briefly hedges with HTTP/1.1 if the first response stalls. The first success
+cancels its duplicate. It never mutates anything. A clean `doctor` means both
+planes are wired correctly. Then start [the loop](the-loop.md).
 
 ---
 

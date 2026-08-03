@@ -252,8 +252,9 @@ func init() {
 		"disable progress spinners and counters on stderr (implied by --json and non-TTY stderr)")
 	pf.DurationVar(&requestTimeout, "timeout", defaultRequestTimeout,
 		"per-request HTTP timeout for API calls; a slow/blocked endpoint fails fast instead of hanging. "+
-			"Per request, not per command — it never spans a confirm prompt or caps a multi-call command in "+
-			"aggregate (0 disables; raise for a single very large request, e.g. --timeout 5m)")
+			"Per request for normal commands — it never spans a confirm prompt or caps a multi-call command in "+
+			"aggregate; doctor and status capabilities use it as their overall health deadline "+
+			"(0 disables; raise for a single very large request, e.g. --timeout 5m)")
 	rootCmd.MarkFlagsMutuallyExclusive("json", "output")
 }
 

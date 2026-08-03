@@ -87,7 +87,7 @@ func runCapabilities(cmd *cobra.Command, _ []string) error {
 		Aliases:  collectCommandAliases(rootCmd),
 	}
 	if !offline {
-		checks, ok, _ := healthChecks(baseContext())
+		checks, ok, _ := healthChecks(baseContext(), effectiveDoctorTimeout(cmd), nil)
 		caps.Health, caps.HealthOK, caps.Probed = checks, ok, true
 	}
 

@@ -89,6 +89,8 @@ doctor checks that secopsctl is correctly configured and can reach its
 APIs. It validates the config file (existence, permissions, required fields),
 acquires auth credentials, and makes one lightweight read-only call to the
 SIEM plane and, when configured, the SOAR plane. It never mutates anything.
+By default all health probes must finish within 10s; --timeout overrides that
+doctor-wide deadline (0 disables it).
 --json emits {ok, version, checks[]}.
 ```
 

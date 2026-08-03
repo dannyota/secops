@@ -40,7 +40,8 @@ type Client struct {
 }
 
 type clientConfig struct {
-	httpClient *http.Client
+	httpClient     *http.Client
+	withoutRetries bool
 }
 
 // Option customizes a Client.
@@ -51,6 +52,13 @@ func WithHTTPClient(h *http.Client) Option {
 	return func(c *clientConfig) { c.httpClient = h }
 }
 
+// WithoutRetries disables automatic retries for this client. It is intended for
+// small health probes whose caller supplies its own bounded fallback strategy.
+// Normal API clients should retain the default retry policy.
+func WithoutRetries() Option {
+	return func(c *clientConfig) { c.withoutRetries = true }
+}
+
 // NewClient builds a modern SOAR client. creds must be an AppKey credential
 // (auth.SOARAppKey); auth resolves lazily on the first request, so constructing
 // a client never touches the network.
@@ -59,5 +67,9 @@ func NewClient(s Settings, creds auth.Credentials, opts ...Option) (*Client, err
 	for _, o := range opts {
 		o(cfg)
 	}
-	return &Client{t: transport.New(s, creds, cfg.httpClient)}, nil
+	t := transport.New(s, creds, cfg.httpClient)
+	if cfg.withoutRetries {
+		t.SetMaxAttempts(1)
+	}
+	return &Client{t: t}, nil
 }
